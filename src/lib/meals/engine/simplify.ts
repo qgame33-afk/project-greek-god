@@ -665,7 +665,8 @@ function slugOf(s: string) {
   );
 }
 
-function easierName(name: string): string {
+/** "Chicken Alfredo" → "Easier Chicken Alfredo" (at most 60 characters). */
+export function easierName(name: string): string {
   const base = name.replace(/^(easy|easier|quick|simple)\s+/i, "");
   const n = `Easier ${base}`;
   return n.length <= 60 ? n : n.slice(0, 60).replace(/\s+\S*$/, "");
@@ -804,8 +805,8 @@ function shortName(key: string): string {
   return map[key] ?? ingredientName(key).toLowerCase();
 }
 
-/** "Nutrition recalculated: 950 → 905 kcal, 63 → 61 g protein a serving (estimate)". */
-function nutritionChange(a: Recipe, b: Recipe): string {
+/** "Nutrition recalculated: 950 → 905 kcal, 63 → 61 g protein a serving (estimate)", or "about the same". */
+export function nutritionChange(a: Recipe, b: Recipe): string {
   const x = recipeMacros(a, 1);
   const y = recipeMacros(b, 1);
   if (Math.abs(x.kcal - y.kcal) < 10 && Math.abs(x.protein - y.protein) < 2) return `Nutrition about the same: ${y.kcal.toLocaleString("en-US")} kcal, ${Math.round(y.protein)} g protein a serving (estimate)`;
