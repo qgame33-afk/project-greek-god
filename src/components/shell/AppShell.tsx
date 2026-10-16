@@ -185,7 +185,7 @@ function Sidebar({ pathname, onQuickLog }: { pathname: string; onQuickLog: () =>
       <Link href="/" className="mb-8 flex items-center gap-2.5 px-1 md:justify-center lg:justify-start">
         <Mark size={30} />
         <span className="hidden leading-none lg:block">
-          <span className="block font-serif text-[14px] font-semibold tracking-[0.12em] text-gold">PROJECT GREEK GOD</span>
+          <span className="block whitespace-nowrap font-serif text-[12.5px] font-semibold tracking-[0.1em] text-gold">PROJECT GREEK GOD</span>
           <span className="mt-1.5 block text-[10px] font-bold tracking-[0.35em] text-fg-3">THE ASCENT</span>
         </span>
       </Link>
