@@ -367,7 +367,7 @@ export function ScheduleEditor({ value, onChange }: { value: Schedule; onChange:
                 id={`${id}-${d}`}
                 value={v}
                 onChange={(e) => onChange({ ...value, [d]: e.target.value as PlanKey })}
-                className={cn("h-11 border-transparent bg-s3 text-[15px] font-semibold", rest ? "text-fg-2" : "text-fg")}
+                className={cn("h-11 border-transparent bg-s3 text-[16px] font-semibold", rest ? "text-fg-2" : "text-fg")}
                 aria-label={`${WEEKDAY_LABEL[d]} session`}
               >
                 {SCHEDULE_OPTIONS.map((o) => (

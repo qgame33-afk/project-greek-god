@@ -7,6 +7,7 @@ import { ViewTransition, useEffect, useRef, useState, useSyncExternalStore, type
 import { HeartPulse, Plus } from "lucide-react";
 import { Mark } from "@/components/art/Mark";
 import { Meander } from "@/components/art/Motifs";
+import { OfflineBanner } from "@/components/shared/Offline";
 import { QuickLog } from "@/components/shell/QuickLog";
 import { LiveDock } from "@/components/workout/LiveDock";
 import { useProfile } from "@/lib/data/profile";
@@ -57,6 +58,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
 
       <main className="pb-tabbar w-full pt-4 md:pl-[76px] md:pb-16 lg:pl-[248px] lg:pt-8">
         <div className="mx-auto w-full max-w-[1180px] px-4 md:px-6 lg:px-8">
+          <OfflineBanner />
           <ViewTransition key={pathname} enter="page" exit="page" default="none">
             <div>{children}</div>
           </ViewTransition>
@@ -104,13 +106,13 @@ function TopBar({ pathname }: { pathname: string }) {
     >
       <div className="flex h-[52px] items-center justify-between gap-3 px-4">
         {home ? (
-          <Link href="/" className="flex items-center gap-2" aria-label="Project Greek God — home">
+          <Link href="/" className="flex h-11 items-center gap-2" aria-label="Project Greek God — home">
             <Mark size={24} />
             <span className="font-serif text-[13px] font-semibold tracking-[0.14em] text-gold">PROJECT GREEK GOD</span>
           </Link>
         ) : (
           // Other screens: the page's own title takes over once its big heading scrolls away.
-          <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="Project Greek God — home">
+          <Link href="/" className="flex h-11 min-w-0 items-center gap-2.5" aria-label="Project Greek God — home">
             <Mark size={24} className="shrink-0" />
             <span
               aria-hidden

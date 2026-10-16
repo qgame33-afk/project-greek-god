@@ -6,7 +6,8 @@ import { alignReplyKcal, resolveItems, sanitizeChatOutput, totalsOf, type SavedF
 import { CHAT_SYSTEM, chatUserText, type ChatTurn } from "@/lib/ai/food-prompts";
 import { MOCK_MODEL, foodMockEnabled, mockChat } from "@/lib/ai/food-mock";
 import { ChatBody, badRequest, base64ToBytes, notConfigured, readJson, serverLookup, sleep, unauthorized } from "@/lib/ai/food-server";
-import type { Json } from "@/lib/supabase/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database, Json } from "@/lib/supabase/database.types";
 
 export const maxDuration = 60;
 
@@ -38,6 +39,12 @@ export async function POST(request: Request) {
     if (image) imgPart = imagePart(image);
   } catch (e) {
     return aiErrorResponse(e);
+  }
+
+  // 0) a retry of a message whose reply was saved but never reached the phone: hand it back
+  if (clientMessageId) {
+    const prior = await savedTurn(supabase, clientMessageId);
+    if (prior) return prior;
   }
 
   // 1) conversation (verified through RLS, or created)
@@ -73,8 +80,14 @@ export async function POST(request: Request) {
     .single();
   if (ins.error) {
     if (imagePath) await supabase.storage.from("meal-photos").remove([imagePath]);
-    if (/duplicate key/i.test(ins.error.message)) return Response.json({ error: "That message was already sent.", code: "duplicate" }, { status: 409 });
     if (createdConversation) await supabase.from("ai_conversations").delete().eq("id", convId);
+    if (/duplicate key/i.test(ins.error.message)) {
+      // the same send arrived twice at once: the first one answers
+      return (
+        (await savedTurn(supabase, userMsgId)) ??
+        Response.json({ error: "Still working on that message. Try again in a moment.", code: "duplicate" }, { status: 409 })
+      );
+    }
     return Response.json({ error: "Couldn't save your message. Try again.", code: "upstream" }, { status: 500 });
   }
   const userMessage = ins.data;
@@ -197,4 +210,21 @@ export async function POST(request: Request) {
     await rollback();
     return aiErrorResponse(e);
   }
+}
+
+/** The saved reply to a user message (by its client id) as the POST success body, or null. */
+async function savedTurn(supabase: SupabaseClient<Database>, userMessageId: string): Promise<Response | null> {
+  const { data: userMessage } = await supabase.from("ai_messages").select("*").eq("id", userMessageId).eq("role", "user").maybeSingle();
+  if (!userMessage) return null;
+  const { data: assistantMessage } = await supabase
+    .from("ai_messages")
+    .select("*")
+    .eq("conversation_id", userMessage.conversation_id)
+    .eq("role", "assistant")
+    .gt("created_at", userMessage.created_at)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!assistantMessage) return null;
+  return Response.json({ conversationId: userMessage.conversation_id, userMessage, assistantMessage }, { headers: { "cache-control": "no-store" } });
 }

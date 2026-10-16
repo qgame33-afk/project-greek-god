@@ -77,7 +77,8 @@ export function WorkoutCard({ m, starting, onStart, shine, error, onRetry, class
     const secs = s.duration_sec ?? (s.ended_at ? (new Date(s.ended_at).getTime() - new Date(s.started_at).getTime()) / 1000 : null);
     const vol = Number(s.total_volume_lb ?? 0);
     const bits = [
-      secs != null && secs > 0 ? formatMinutes(secs / 60) : null,
+      // at least "1 min", as on the session summary — a short session never reads "0 min"
+      secs != null && secs > 0 ? formatMinutes(Math.max(1, secs / 60)) : null,
       vol > 0 ? `${formatInt(toDisplayWeight(vol, unit))} ${unit}` : null,
       s.sets_completed > 0 ? `${s.sets_completed} sets` : null,
     ].filter(Boolean);

@@ -24,6 +24,10 @@ import {
 import { FiveScale, Metric, Sub } from "./kit";
 import { WeightChart } from "./WeightChart";
 
+/** "1 day" / "2 days" — a review on the 1st of the month must not read "1 days". */
+const days = (n: number) => (n === 1 ? "day" : "days");
+const weeks = (n: number) => (n === 1 ? "week" : "weeks");
+
 const POSE: Record<string, string> = {
   front: "Front",
   side: "Side",
@@ -112,7 +116,7 @@ export function PhysicalCard({
           value={p.weighIns || "—"}
           caption={
             p.weighIns
-              ? `${s.window.days} days in this review`
+              ? `${s.window.days} ${days(s.window.days)} in this review`
               : "None this month"
           }
         />
@@ -331,7 +335,7 @@ export function TrainingCard({
           unit={t.adherencePct != null ? "%" : undefined}
           caption={
             s.recovery.consistency.weeks
-              ? `${s.recovery.consistency.weeksOnPlan} of ${s.recovery.consistency.weeks} weeks on plan`
+              ? `${s.recovery.consistency.weeksOnPlan} of ${s.recovery.consistency.weeks} ${weeks(s.recovery.consistency.weeks)} on plan`
               : undefined
           }
         />
@@ -515,7 +519,7 @@ export function NutritionCard({
           compare={`Target ${formatInt(n.calorieTarget)}`}
           caption={
             n.daysLogged
-              ? `On target ${n.calorieHitDays} of ${n.daysLogged} days`
+              ? `On target ${n.calorieHitDays} of ${n.daysLogged} ${days(n.daysLogged)}`
               : undefined
           }
         />
@@ -526,7 +530,7 @@ export function NutritionCard({
           compare={`Target ${n.proteinTarget} g`}
           caption={
             n.daysLogged
-              ? `Hit ${n.proteinHitDays} of ${n.daysLogged} days`
+              ? `Hit ${n.proteinHitDays} of ${n.daysLogged} ${days(n.daysLogged)}`
               : undefined
           }
         />
@@ -551,7 +555,7 @@ export function NutritionCard({
           compare={`Goal ${formatLiters(n.waterGoalMl)}`}
           caption={
             n.waterDays
-              ? `Reached on ${n.waterGoalDays} of ${n.waterDays} days`
+              ? `Reached on ${n.waterGoalDays} of ${n.waterDays} ${days(n.waterDays)}`
               : undefined
           }
         />
@@ -680,7 +684,7 @@ export function RecoveryCard({
         <Metric
           label="Check-ins"
           value={r.checkIns || "0"}
-          compare={`of ${s.window.days} days`}
+          compare={`of ${s.window.days} ${days(s.window.days)}`}
           caption={r.painDays ? `${r.painDays} with a pain note` : undefined}
         />
         <Metric
@@ -688,7 +692,7 @@ export function RecoveryCard({
           value={r.consistency.avgSessionsPerWeek ?? "—"}
           caption={
             r.consistency.weeks
-              ? `${r.consistency.weeksOnPlan} of ${r.consistency.weeks} weeks at 80%+ of plan`
+              ? `${r.consistency.weeksOnPlan} of ${r.consistency.weeks} ${weeks(r.consistency.weeks)} at 80%+ of plan`
               : undefined
           }
         />

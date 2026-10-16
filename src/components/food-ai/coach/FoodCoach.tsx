@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { toast } from "sonner";
@@ -63,8 +63,29 @@ function useKeyboardSafeBox(): CSSProperties | undefined {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Switch chats in place. ?c= is client state, so the native history API (which Next keeps in sync
+ * with useSearchParams) avoids a server round trip — and a hard reload when the connection drops.
+ */
+function goToChat(id: string | null, mode: "push" | "replace" = "replace") {
+  const url = id ? `/nutrition/coach?c=${id}` : "/nutrition/coach";
+  if (mode === "push") window.history.pushState(null, "", url);
+  else window.history.replaceState(null, "", url);
+}
+
+/** Quota, a missing key or an expired session won't be fixed by sending again. */
+const retryable = (code: string) => code !== "not_configured" && code !== "quota" && code !== "unauthorized";
+
+interface SendError {
+  code: string;
+  message: string;
+  /** Chip or question answer to resend (not in the composer). */
+  retry: string | null;
+  /** The failed send: resending the same text reuses its id, so a reply that was saved but lost comes back instead of a duplicate. */
+  sent: { id: string; text: string };
+}
+
 export function FoodCoach() {
-  const router = useRouter();
   const params = useSearchParams();
   const rawConv = params.get("c");
   // a hand-edited or stale ?c= that isn't a conversation id behaves like a new chat
@@ -81,7 +102,7 @@ export function FoodCoach() {
   const [image, setImage] = useState<PreparedImage | null>(null);
   const [preparing, setPreparing] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
-  const [error, setError] = useState<{ code: string; message: string; retry: string | null } | null>(null);
+  const [error, setError] = useState<SendError | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const sendingRef = useRef(false);
@@ -99,8 +120,8 @@ export function FoodCoach() {
   // ?c= pointing at a malformed id, or at a chat that was deleted (here or on another device)
   const convMissing = !!convId && !!convs.data && !convs.data.some((c) => c.id === convId) && !!msgs.data && msgs.data.length === 0;
   useEffect(() => {
-    if ((rawConv && !convId) || convMissing) router.replace("/nutrition/coach", { scroll: false });
-  }, [rawConv, convId, convMissing, router]);
+    if ((rawConv && !convId) || convMissing) goToChat(null);
+  }, [rawConv, convId, convMissing]);
   const configured = cap.data?.configured ?? true;
   const isMock = !!cap.data?.mock || messages.some((m) => (m.payload as { mock?: boolean } | null)?.mock);
 
@@ -137,13 +158,13 @@ export function FoodCoach() {
     }
   };
 
-  const send = async (raw?: string) => {
+  const send = async (raw?: string, failed?: SendError["sent"]) => {
     const msg = (raw ?? text).trim();
     if (!msg || sendingRef.current || !configured) return;
     sendingRef.current = true;
     const fromComposer = raw === undefined;
     const img = fromComposer ? image : null;
-    const clientMessageId = newId();
+    const clientMessageId = failed && failed.text === msg ? failed.id : newId();
     setPending({ id: clientMessageId, conv: convId, text: msg, image: img?.dataUrl ?? null, startedAt: Date.now() });
     setError(null);
     if (fromComposer) {
@@ -157,7 +178,7 @@ export function FoodCoach() {
         return [...base, res.userMessage, res.assistantMessage];
       });
       // open the new chat only if the user is still looking at the one they sent from
-      if (res.conversationId !== convId && viewingRef.current === convId) router.replace(`/nutrition/coach?c=${res.conversationId}`, { scroll: false });
+      if (res.conversationId !== convId && viewingRef.current === convId) goToChat(res.conversationId);
       qc.invalidateQueries({ queryKey: ["food-convs"] });
     } catch (e) {
       const err = e instanceof FoodAIRequestError ? e : new FoodAIRequestError("upstream", "Couldn't reach Food Coach. Try again.", 0);
@@ -166,8 +187,8 @@ export function FoodCoach() {
         setImage(img);
       }
       // chips and question answers aren't in the composer: remember them for Retry
-      setError({ code: err.code, message: err.message, retry: fromComposer ? null : msg });
-      if (err.code === "not_found") router.replace("/nutrition/coach", { scroll: false });
+      setError({ code: err.code, message: err.message, retry: fromComposer ? null : msg, sent: { id: clientMessageId, text: msg } });
+      if (err.code === "not_found") goToChat(null);
     } finally {
       setPending(null);
       sendingRef.current = false;
@@ -177,19 +198,19 @@ export function FoodCoach() {
   const newChat = () => {
     setListOpen(false);
     setError(null);
-    router.push("/nutrition/coach", { scroll: false });
+    goToChat(null, "push");
     window.setTimeout(() => composerRef.current?.focus(), 60);
   };
   const openConv = (id: string) => {
     setListOpen(false);
     setError(null);
-    router.push(`/nutrition/coach?c=${id}`, { scroll: false });
+    goToChat(id, "push");
   };
   const deleteConv = (id: string) =>
     del.mutate(id, {
       onSuccess: () => {
         toast("Chat deleted");
-        if (id === convId) router.replace("/nutrition/coach", { scroll: false });
+        if (id === convId) goToChat(null);
       },
       onError: (e) => toast.error("Couldn't delete the chat", { description: (e as Error).message }),
     });
@@ -334,12 +355,20 @@ export function FoodCoach() {
               >
                 <span>
                   {error.message}
-                  {error.code !== "not_configured" && error.code !== "quota" && !error.retry ? " Your message is kept." : ""}
+                  {retryable(error.code) && !error.retry ? " Your message is kept." : ""}
                 </span>
-                {error.code !== "not_configured" && error.code !== "quota" && (
-                  <button type="button" onClick={() => void send(error.retry ?? undefined)} className="-my-1 h-11 shrink-0 px-1 font-bold text-gold-300">
+                {retryable(error.code) ? (
+                  <button type="button" onClick={() => void send(error.retry ?? undefined, error.sent)} className="-my-1 h-11 shrink-0 px-1 font-bold text-gold-300">
                     Retry
                   </button>
+                ) : (
+                  // retrying can't help today: point at what still works
+                  <Link
+                    href={error.code === "unauthorized" ? "/sign-in" : "/nutrition?add=1"}
+                    className="-my-1 inline-flex h-11 shrink-0 items-center px-1 font-bold text-gold-300"
+                  >
+                    {error.code === "unauthorized" ? "Sign in" : "Log manually"}
+                  </Link>
                 )}
               </div>
             )}
@@ -347,7 +376,7 @@ export function FoodCoach() {
               ref={composerRef}
               value={text}
               onChange={setText}
-              onSend={() => void send()}
+              onSend={() => void send(undefined, error?.sent)}
               onPickImage={pickImage}
               onRemoveImage={() => setImage(null)}
               image={image?.dataUrl ?? null}

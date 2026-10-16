@@ -816,7 +816,7 @@ function ConfirmBar({
         variant="primary"
         size="lg"
         block
-        className="mt-3 px-3 tracking-[0.06em] max-[359px]:!px-2 max-[359px]:!text-[15px] max-[359px]:!tracking-[0.03em]"
+        className="mt-3 px-3 tracking-[0.06em] max-[380px]:!tracking-[0.03em] max-[359px]:!px-2 max-[359px]:!text-[15px]"
         onClick={onConfirm}
         loading={saving}
         disabled={!count}
@@ -829,7 +829,8 @@ function ConfirmBar({
 
 function ErrorPanel({ error, onRetry, onRetake }: { error: ScanError; onRetry: () => void; onRetake: () => void }) {
   const notConfigured = error.code === "not_configured";
-  const quota = error.code === "quota";
+  // sending the same photo again won't fix these
+  const canRetry = !["not_configured", "quota", "too_large", "unauthorized"].includes(error.code);
   return (
     <div className="mt-5" role="alert">
       <div className="rounded-[16px] border border-danger/30 bg-danger-tint p-4">
@@ -837,7 +838,7 @@ function ErrorPanel({ error, onRetry, onRetake }: { error: ScanError; onRetry: (
         <p className="mt-1 text-[13px] leading-relaxed text-fg-2">{error.message}</p>
       </div>
       <div className="mt-4 grid gap-3">
-        {!notConfigured && !quota && (
+        {canRetry && (
           <Button variant="primary" size="lg" block onClick={onRetry}>
             Retry
           </Button>

@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PageHeader, Skeleton } from "@/components/ui/misc";
+import { ErrorNote, PageHeader, Skeleton } from "@/components/ui/misc";
 import { useToday } from "@/lib/data/core";
 import { useProfile } from "@/lib/data/profile";
 import { useRecoveryDay } from "@/lib/data/recovery";
@@ -49,7 +49,7 @@ export function RecoveryScreen() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const { profile, loading } = useProfile();
+  const { profile, loading, error: profileError, refetch: refetchProfile } = useProfile();
   const enter = useEntrance();
 
   const wantCheckin = params.get("checkin") === "1";
@@ -123,6 +123,16 @@ export function RecoveryScreen() {
     return () => window.clearTimeout(t);
   }, [wantCheckin, settled, goToCheckin, params, pathname, router]);
 
+  // A failed profile read must not leave the skeleton up forever: say so and offer a retry.
+  if (!profile && profileError)
+    return (
+      <div className="pb-4">
+        <PageHeader eyebrow="Recovery" title="Recovery & Habits" className="mb-5" />
+        <ErrorNote onRetry={() => void refetchProfile()}>
+          Couldn&apos;t load your recovery settings. {(profileError as Error).message}
+        </ErrorNote>
+      </div>
+    );
   if (loading || !profile) return <RecoverySkeleton />;
 
   const sleepGoal = Number(profile.sleep_goal_h);

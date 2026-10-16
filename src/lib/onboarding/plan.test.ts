@@ -143,7 +143,7 @@ describe("planSummary", () => {
     expect(p.tooFast).toBe(false);
     expect(p.carbs).toBe(449);
     expect(p.macro.text).toBe("Macros = 3,301 kcal ✓");
-    expect(p.placard).toBe("163 → 183 LB · 42 WEEKS · 6 DAYS · 3,300 KCAL · 185 G");
+    expect(p.placard).toBe("163 → 183 LB · 42 WEEKS · 6 DAYS A WEEK · 3,300 KCAL · 185 G");
   });
   it("uses the display unit on the placard", () => {
     const p = planSummary({ ...owner(), weightUnit: "kg" });
@@ -158,7 +158,7 @@ describe("planSummary", () => {
     const s = { ...owner().schedule, "2": "rest", "3": "rest", "4": "rest", "5": "rest", "6": "rest" } as OnboardingAnswers["schedule"];
     const p = planSummary({ ...owner(), schedule: s, targetDate: "2026-10-20" });
     expect(p.placard).toContain("1 WEEK ·");
-    expect(p.placard).toContain("1 DAY ·");
+    expect(p.placard).toContain("1 DAY A WEEK ·");
   });
 });
 

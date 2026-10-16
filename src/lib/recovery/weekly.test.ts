@@ -257,7 +257,8 @@ describe("weeklyReview", () => {
     expect(r.inProgress).toBe(true);
     expect(r.daysElapsed).toBe(3);
     expect(r.training.plannedSoFar).toBe(3);
-    expect(r.restDays).toBe(2);
+    // Tuesday had nothing; Wednesday is a planned session still to come, not a rest day
+    expect(r.restDays).toBe(1);
     expect(r.recommendations[0].key).toBe("schedule");
     expect(r.recommendations[0].reason).toBe(
       "1 of 3 planned sessions done. Move a session instead of doubling up.",
@@ -272,5 +273,29 @@ describe("weeklyReview", () => {
       }),
     );
     expect(r.daysElapsed).toBe(3);
+  });
+
+  it("doesn't count sessions planned before the start date as missed", () => {
+    // Started Friday, reviewed that same Friday: only Friday and Saturday were ever planned.
+    const start = addDays(WS, 4);
+    const r = weeklyReview(
+      base({
+        today: start,
+        startDate: start,
+        checkins: [ci(start, { sleep_hours: 8.5, soreness: 1, fatigue: 1 })],
+      }),
+    );
+    expect(r.training.planned).toBe(2);
+    expect(r.training.plannedSoFar).toBe(1);
+    expect(r.restDays).toBe(0);
+    expect(r.recommendations.map((x) => x.key)).not.toContain("schedule");
+  });
+
+  it("counts today as a rest day only when nothing is planned", () => {
+    const sunday = addDays(WS, 6);
+    const r = weeklyReview(
+      base({ today: sunday, sessions: plannedSix.map((d) => sess(d)) }),
+    );
+    expect(r.restDays).toBe(1);
   });
 });

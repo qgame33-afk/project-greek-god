@@ -37,6 +37,10 @@ export const Composer = forwardRef<
         e.preventDefault();
         if (canSend) onSend();
       }}
+      // The whole 52px pill focuses the field, not just the 40px text line inside it.
+      onClick={(e) => {
+        if (e.target === e.currentTarget) ta.current?.focus();
+      }}
       className={cn(
         "flex items-end gap-1 rounded-[26px] border bg-s2 py-1.5 pl-4 pr-1.5 shadow-[var(--e2)] transition-colors",
         disabled ? "border-line" : "border-line-strong focus-within:border-gold-600",
@@ -76,7 +80,7 @@ export const Composer = forwardRef<
         disabled={!canSend}
         aria-label={busy ? "Sending" : "Send"}
         className={cn(
-          "press grid size-10 shrink-0 place-items-center rounded-full transition-[background-color,color,opacity] duration-150",
+          "press relative grid size-10 shrink-0 place-items-center rounded-full transition-[background-color,color,opacity] duration-150 before:absolute before:-inset-1.5 before:content-['']",
           canSend ? "bg-[image:var(--grad-leaf)] text-ink shadow-[inset_0_1px_0_rgb(255_255_255/.45),var(--glow-cta)]" : "bg-s4 text-fg-dis",
         )}
       >

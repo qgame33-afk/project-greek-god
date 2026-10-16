@@ -16,10 +16,13 @@ export function RecoveryRow({ m, guidance, className }: { m: TodayModel; guidanc
   if (r?.energy != null) parts.push(`Energy ${r.energy}/5`);
   if (r?.soreness != null) parts.push(`Soreness ${r.soreness}/5`);
   const last = !r && m.lastRec ? m.lastRec : null;
+  // A row with only the volleyball switch has no recovery signal yet: same call as Recovery.
+  const partial = !!r && !!guidance?.partialCheckin;
+  const headline = r ? (parts.length ? parts.join(" · ") : partial ? "Add sleep and soreness" : "Check-in logged") : "Log a recovery check-in";
 
   return (
     <Link
-      href={r ? "/recovery" : "/recovery?checkin=1"}
+      href={r && !partial ? "/recovery" : "/recovery?checkin=1"}
       className={cn("card press-soft group flex min-h-[72px] items-center gap-3.5 p-4 transition-colors hover:border-line-strong sm:px-5", className)}
     >
       <span className="grid size-10 shrink-0 place-items-center rounded-full bg-lapis-tint text-lapis">
@@ -27,7 +30,8 @@ export function RecoveryRow({ m, guidance, className }: { m: TodayModel; guidanc
       </span>
       <span className="min-w-0 flex-1">
         <span className="eyebrow block">Recovery · today</span>
-        <span className="mt-1 block truncate text-[15px] font-semibold text-fg">{r ? (parts.length ? parts.join(" · ") : "Check-in logged") : "Log a recovery check-in"}</span>
+        <span className="mt-1 block truncate text-[15px] font-semibold text-fg">{headline}</span>
+        {partial && r?.volleyball && <span className="mt-0.5 block truncate text-[12.5px] font-medium text-fg-3">Volleyball logged</span>}
         {last && (
           <span className="mt-0.5 block truncate text-[12.5px] font-medium text-fg-3">
             Last: {relativeDay(last.local_date, m.today)}

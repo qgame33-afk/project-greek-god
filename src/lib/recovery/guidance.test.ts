@@ -176,6 +176,38 @@ describe("computeGuidance", () => {
       "Swap jumps for extra rest; legs are carrying volleyball fatigue.",
     );
     expect(g.adjustments.skipJumps).toBe(true);
+    // the reasons name what triggered the call, not the markers that were fine
+    expect(g.reasons).toEqual(["Volleyball yesterday", "Soreness 3/5"]);
+  });
+
+  it("lists the short night too when a legs call also drops a set", () => {
+    const g = computeGuidance(
+      input({
+        plan: legsA,
+        checkins: [ci({ sleep_hours: 6.5, soreness: 3, fatigue: 3, energy: 3 })],
+        volleyballDates: [addDays(D, -1)],
+      }),
+    );
+    expect(g.level).toBe("legs");
+    expect(g.adjustments.dropSets).toBe(1);
+    expect(g.reasons).toEqual([
+      "Volleyball yesterday",
+      "Soreness 3/5",
+      "Slept 6.5 of 8 h",
+    ]);
+  });
+
+  it("never says markers look fine next to a pain note", () => {
+    const g = computeGuidance(
+      input({
+        checkins: [
+          ci({ sleep_hours: 8, soreness: 2, energy: 4, pain_notes: "Left knee" }),
+        ],
+      }),
+    );
+    expect(g.level).toBe("go");
+    expect(g.detail).not.toMatch(/Recovery markers look fine/);
+    expect(g.detail).toMatch(/sore area/);
   });
 
   it("keeps leg work easier without jumps when the leg day has none", () => {
@@ -346,5 +378,24 @@ describe("readinessLine", () => {
   });
   it("stays quiet without a check-in", () => {
     expect(readinessLine(computeGuidance(input()), "Pull B")).toBeNull();
+  });
+  it("carries the pain caveat and a dropped set to every screen", () => {
+    const pain = computeGuidance(
+      input({ checkins: [ci({ sleep_hours: 8, pain_notes: "Left knee" })] }),
+    );
+    expect(readinessLine(pain, "Pull B")).toBe(
+      "Pull B today as planned, around the sore area. Skip anything that hurts.",
+    );
+    const legs = computeGuidance(
+      input({
+        plan: legsA,
+        checkins: [ci({ sleep_hours: 6.5, soreness: 3 })],
+        volleyballDates: [addDays(D, -1)],
+      }),
+    );
+    expect(legs.level).toBe("legs");
+    expect(readinessLine(legs, "Legs A")).toBe(
+      "Legs A today without the jumps and one set fewer per exercise. Legs are carrying volleyball fatigue.",
+    );
   });
 });

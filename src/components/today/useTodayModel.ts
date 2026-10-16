@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { useToday } from "@/lib/data/core";
 import { useMissionDays } from "@/lib/data/daily";
 import { useWeights } from "@/lib/data/body";
-import { useFoodEntries, useWater, useDailyNutrition } from "@/lib/data/nutrition";
+import { useDailyNutrition, useDailyWater, useFoodEntries, useWater } from "@/lib/data/nutrition";
 import { useProfile } from "@/lib/data/profile";
 import { useRecovery } from "@/lib/data/recovery";
 import { planFor, usePREvents, useDayPlans, useSessions, useTemplates, useVolleyball, volleyballLoad, type Session } from "@/lib/data/training";
@@ -17,6 +17,7 @@ import { planFacts, nextSession } from "@/lib/today/plan";
 import { latestRecords } from "@/lib/today/records";
 import { timeline } from "@/lib/today/timeline";
 import { consistencyStreak, weeklyOverview } from "@/lib/today/weekly";
+import { yesterdayRecap } from "@/lib/today/yesterday";
 import { estimateDurationMin } from "@/lib/training/program";
 
 const LOOKBACK = 90; // days of mission history for the streak
@@ -41,6 +42,10 @@ export function useTodayModel() {
   const prs = usePREvents(addDays(today, -365), today);
   const vb = useVolleyball(addDays(week[0], -6), week[6]);
   const mission = useMissionDays(from, today);
+  // Yesterday's recap: same ranges as the mission hook, so both are served from its cache
+  // (the week's plan range can start after yesterday on a Monday).
+  const pastPlans = useDayPlans(from, today);
+  const waterDays = useDailyWater(from, today);
   const workout = useStartWorkout();
   const qc = useQueryClient();
 
@@ -110,6 +115,24 @@ export function useTodayModel() {
     // Next planned session (for rest days and the done state)
     const next = nextSession(today, (d) => resolve(d).template);
 
+    // Yesterday, from what was actually logged
+    const yesterdayDate = addDays(today, -1);
+    const missionYesterday = mission.days.find((d) => d.date === yesterdayDate) ?? null;
+    const yesterday = yesterdayRecap({
+      today,
+      startDate: profile.start_date,
+      plannedName: planFor(yesterdayDate, profile, pastPlans.data ?? plansRows, byKey).template?.name ?? null,
+      sessions: all,
+      prEvents: prs.data ?? [],
+      volleyball: vbRows,
+      food: foodDays.data ?? [],
+      water: waterDays.data ?? [],
+      weights,
+      recovery: recRows,
+      mission: missionYesterday,
+      goals: { calories: profile.calorie_goal, protein: profile.protein_goal, waterMl: profile.water_goal_ml, sleepH: Number(profile.sleep_goal_h) },
+    });
+
     return {
       today,
       /** Start of the mission window (same range as useMissionDays, so caches are shared). */
@@ -138,6 +161,7 @@ export function useTodayModel() {
       missionToday,
       streak,
       next,
+      yesterday,
       records: latestRecords(prs.data ?? [], 3),
       food: food.totals,
       /** Today's food failed to load and nothing is cached: food numbers show "—", not zeros. */
@@ -145,7 +169,7 @@ export function useTodayModel() {
       waterMl: water.totalMl,
       waterLogs: water.logs,
     };
-  }, [profile, plans.data, byKey, today, from, weightsError, sessions.data, workout.active, recovery.data, vb.data, weights, week, foodDays.data, prs.data, mission.days, food.totals, food.error, food.entries.length, water.totalMl, water.logs]);
+  }, [profile, plans.data, pastPlans.data, byKey, today, from, weightsError, sessions.data, workout.active, recovery.data, vb.data, weights, week, foodDays.data, waterDays.data, prs.data, mission.days, food.totals, food.error, food.entries.length, water.totalMl, water.logs]);
 
   return {
     model,
@@ -156,6 +180,7 @@ export function useTodayModel() {
       weights: weightsError,
       food: food.error,
       week: foodDays.error ?? recovery.error ?? prs.error ?? vb.error,
+      yesterday: foodDays.error ?? waterDays.error ?? recovery.error ?? pastPlans.error ?? prs.error ?? vb.error,
     },
     refetch: {
       sessions: sessions.refetch,
@@ -167,11 +192,20 @@ export function useTodayModel() {
         prs.refetch();
         vb.refetch();
       },
+      yesterday: () => {
+        foodDays.refetch();
+        waterDays.refetch();
+        recovery.refetch();
+        pastPlans.refetch();
+        prs.refetch();
+        vb.refetch();
+      },
     },
     pending: {
       mission: mission.loading,
       week: foodDays.isLoading || recovery.isLoading || vb.isLoading || mission.loading,
       records: prs.isLoading,
+      yesterday: foodDays.isLoading || waterDays.isLoading || recovery.isLoading || pastPlans.isLoading || prs.isLoading || vb.isLoading || mission.loading,
     },
     workout,
   };

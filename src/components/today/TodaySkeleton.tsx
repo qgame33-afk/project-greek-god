@@ -29,6 +29,11 @@ export function TodaySkeleton() {
           <Skeleton className="mt-4 h-10 w-full" />
           <Skeleton className="mt-2 h-10 w-full" />
         </div>
+        <div className="card-instrument p-4 @min-[760px]:col-span-12">
+          <Skeleton className="h-3 w-48" />
+          <Skeleton className="mt-3 h-[72px] w-full rounded-[14px]" />
+          <Skeleton className="mt-3 h-[168px] w-full rounded-[14px] @min-[760px]:h-[84px]" />
+        </div>
         <div className="card h-[300px] p-5 @min-[760px]:col-span-7 @min-[1100px]:col-span-5">
           <Skeleton className="h-3 w-32" />
           <Skeleton className="mt-4 h-12 w-40" />

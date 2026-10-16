@@ -40,10 +40,16 @@ export async function POST(req: Request) {
     }
     const parsed = CoachRequest.safeParse(body);
     if (!parsed.success) return fail(400, "bad_request", parsed.error.issues[0]?.message ?? "Invalid request.");
-    const { conversationId, message, localDate, localTime, timeZone } = parsed.data;
+    const { conversationId, clientMessageId, message, localDate, localTime, timeZone } = parsed.data;
 
     const { supabase, user } = await requireUser();
     if (!user) return fail(401, "unauthorized", "Your session expired. Sign in again.");
+
+    // a retry of a question whose answer was saved but never reached the phone: hand it back
+    if (clientMessageId) {
+      const prior = await savedTurn(supabase, clientMessageId);
+      if (prior) return Response.json(prior);
+    }
 
     if (!aiConfigured()) throw new AIError("not_configured", "Coach isn't connected yet. It needs an AI key on the server.", 503);
     const mock = isMock();
@@ -108,6 +114,7 @@ export async function POST(req: Request) {
     // persist only after a good answer, so a failure never leaves a dangling question
     let convId = conversationId ?? null;
     let title: string;
+    const createdConversation = !convId;
     if (!convId) {
       const ins = await supabase.from("ai_conversations").insert({ kind: "coach", title: titleFrom(message) }).select("id,title").single();
       if (ins.error) throw new Error(ins.error.message);
@@ -122,11 +129,18 @@ export async function POST(req: Request) {
     const rows = await supabase
       .from("ai_messages")
       .insert([
-        { conversation_id: convId, role: "user", content: message, created_at: new Date(started).toISOString() },
-        { conversation_id: convId, role: "assistant", content: answer, payload: payload as unknown as Json, created_at: new Date(now).toISOString() },
+        // both rows carry an id: a bulk insert fills a key missing from one row with null
+        { id: clientMessageId ?? crypto.randomUUID(), conversation_id: convId, role: "user", content: message, created_at: new Date(started).toISOString() },
+        { id: crypto.randomUUID(), conversation_id: convId, role: "assistant", content: answer, payload: payload as unknown as Json, created_at: new Date(now).toISOString() },
       ])
       .select("id,conversation_id,role,content,payload,created_at");
-    if (rows.error) throw new Error(rows.error.message);
+    if (rows.error) {
+      if (createdConversation) await supabase.from("ai_conversations").delete().eq("id", convId);
+      // the same question arrived twice at once: the first one's answer stands
+      const prior = clientMessageId && /duplicate key/i.test(rows.error.message) ? await savedTurn(supabase, clientMessageId) : null;
+      if (prior) return Response.json(prior);
+      throw new Error(rows.error.message);
+    }
     const msgs = rows.data as unknown as CoachMessageRow[];
     const res: CoachReplyResponse = {
       conversationId: convId,
@@ -156,4 +170,29 @@ function toContents(history: { role: string; content: string }[], message: strin
   if (last && last.role === "user") last.parts.push({ text: message });
   else out.push({ role: "user", parts: [{ text: message }] });
   return out;
+}
+
+/** The saved answer to a question (by its client id) as the POST success body, or null. */
+async function savedTurn(supabase: Awaited<ReturnType<typeof requireUser>>["supabase"], userMessageId: string): Promise<CoachReplyResponse | null> {
+  const cols = "id,conversation_id,role,content,payload,created_at";
+  const { data: q } = await supabase.from("ai_messages").select(cols).eq("id", userMessageId).eq("role", "user").maybeSingle();
+  if (!q) return null;
+  const { data: conv } = await supabase.from("ai_conversations").select("title,kind").eq("id", q.conversation_id).maybeSingle();
+  if (!conv || conv.kind !== "coach") return null;
+  const { data: a } = await supabase
+    .from("ai_messages")
+    .select(cols)
+    .eq("conversation_id", q.conversation_id)
+    .eq("role", "assistant")
+    .gt("created_at", q.created_at)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!a) return null;
+  return {
+    conversationId: q.conversation_id,
+    title: conv.title ?? "Conversation",
+    userMessage: q as unknown as CoachMessageRow,
+    assistantMessage: a as unknown as CoachMessageRow,
+  };
 }

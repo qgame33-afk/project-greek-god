@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { must, sb, useUser, type Row, type Update } from "./core";
+import { friendlyError, must, sb, useUser, type Row, type Update } from "./core";
 
 export type Profile = Row<"profiles">;
 
@@ -13,13 +13,13 @@ export function useProfile() {
     enabled: !!userId,
     queryFn: async () => {
       const res = await sb().from("profiles").select("*").eq("id", userId!).maybeSingle();
-      if (res.error) throw new Error(res.error.message);
+      if (res.error) throw new Error(friendlyError(res.error.message));
       if (res.data) return res.data;
       // trigger normally creates it; recover if it's missing
       return must(await sb().from("profiles").insert({ id: userId! }).select("*").single());
     },
   });
-  return { profile: q.data, loading: q.isLoading || !userId, error: q.error };
+  return { profile: q.data, loading: q.isLoading || !userId, error: q.error, refetch: q.refetch };
 }
 
 const TRACKED: (keyof Profile)[] = ["calorie_goal", "protein_goal", "carb_goal", "fat_goal", "goal_weight_lb", "water_goal_ml", "sleep_goal_h", "steps_goal"];

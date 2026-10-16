@@ -9,6 +9,7 @@ import { CoachRequestError, askCoach, useCoachStatus, useConversations, useMessa
 import { MAX_MESSAGE_CHARS } from "@/lib/coach/schema";
 import type { CoachErrorCode, SuggestionStatus } from "@/lib/coach/types";
 import { useProfile, useSaveProfile } from "@/lib/data/profile";
+import { newId } from "@/lib/data/core";
 import type { Json } from "@/lib/supabase/database.types";
 import { localDateOf, today } from "@/lib/dates";
 import { cn } from "@/lib/cn";
@@ -59,6 +60,8 @@ interface SendError {
   message: string;
   text: string;
   convId: string | null;
+  /** Id the failed question was sent with: Retry reuses it, so an answer saved but lost in transit isn't asked twice. */
+  id: string;
 }
 
 const noop = () => () => {};
@@ -200,17 +203,19 @@ function CoachScreenInner() {
 
   /* --------------------------------------------------------------- send */
   const send = useCallback(
-    async (raw: string) => {
+    async (raw: string, failed?: SendError | null) => {
       const text = raw.trim().slice(0, MAX_MESSAGE_CHARS);
       if (!text || sending.current) return;
       sending.current = true;
       const from = convId;
+      // resending the question that just failed (Retry, or Send again unchanged) reuses its id
+      const clientMessageId = failed && failed.code !== "not_found" && failed.text === text && failed.convId === from ? failed.id : newId();
       setError(null);
       setPending({ text, convId: from });
       setDraft("");
       try {
         const now = new Date();
-        const r = await askCoach({ conversationId: from, message: text, localDate: today(now), localTime: `${pad(now.getHours())}:${pad(now.getMinutes())}`, timeZone: deviceZone() });
+        const r = await askCoach({ conversationId: from, clientMessageId, message: text, localDate: today(now), localTime: `${pad(now.getHours())}:${pad(now.getMinutes())}`, timeZone: deviceZone() });
         receive(r);
         setPending({ text, convId: r.conversationId, savedId: r.userMessage.id });
         opened.current = r.conversationId;
@@ -220,7 +225,7 @@ function CoachScreenInner() {
       } catch (e) {
         const err = e instanceof CoachRequestError ? e : new CoachRequestError("upstream", "Something went wrong. Your question is kept — try again.");
         setPending(null);
-        setError({ code: err.code, message: err.message, text, convId: err.code === "not_found" ? null : from });
+        setError({ code: err.code, message: err.message, text, convId: err.code === "not_found" ? null : from, id: clientMessageId });
         setDraft((d) => d || text);
         if (err.code === "not_configured") qc.invalidateQueries({ queryKey: ["coach-status"] });
         if (err.code === "not_found") {
@@ -279,7 +284,7 @@ function CoachScreenInner() {
       error.code === "not_configured" ? (
         <NotConnected compact />
       ) : (
-        <CoachError onRetry={error.code === "quota" ? undefined : () => send(error.text)}>{error.message}</CoachError>
+        <CoachError onRetry={error.code === "quota" || error.code === "unauthorized" ? undefined : () => send(error.text, error)}>{error.message}</CoachError>
       )
     ) : null;
 
@@ -391,7 +396,7 @@ function CoachScreenInner() {
               setDraft(v);
               if (error && error.code !== "not_configured") setError(null);
             }}
-            onSend={() => send(draft)}
+            onSend={() => send(draft, error)}
             busy={busy}
             disabled={composerDisabled}
             placeholder={notConnected ? "Coach needs an AI key on the server" : convId ? "Ask a follow-up" : "Ask your coach"}

@@ -61,7 +61,7 @@ export function WeekStrip({ date, today, goals, onPick }: { date: ISODate; today
               onClick={() => onPick(d.date)}
               aria-current={selected ? "date" : undefined}
               aria-label={`${longDate(d.date)}: ${d.logged ? `${formatInt(d.kcal)} kcal, protein ${formatInt(d.protein)} grams${d.proteinHit ? ", protein goal met" : ""}` : "nothing logged"}`}
-              className="press group flex flex-col items-center"
+              className="press group relative flex flex-col items-center before:absolute before:-inset-x-[3px] before:inset-y-0 before:content-[''] sm:before:-inset-x-1"
             >
               <span
                 className={cn(

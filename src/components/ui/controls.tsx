@@ -31,7 +31,8 @@ export function Chip({
       aria-pressed={selected}
       aria-label={ariaLabel}
       className={cn(
-        "press inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-colors disabled:opacity-40",
+        // 36px visible, 44px to the touch (DESIGN §5.5)
+        "press relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-colors before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] disabled:opacity-40",
         selected ? "border-line-gold bg-gold-tint text-gold-300" : "border-line bg-s3 text-fg-2 hover:text-fg",
         className,
       )}
@@ -75,7 +76,9 @@ export function Segmented<T extends string>({
             aria-selected={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "relative flex-1 rounded-[9px] px-2 text-[13px] font-semibold transition-colors",
+              // the hit area reaches through the track's padding so the whole 44px is tappable
+              "relative flex-1 rounded-[9px] px-2 text-[13px] font-semibold transition-colors before:absolute before:inset-x-0 before:content-['']",
+              size === "md" ? "before:-inset-y-[3px]" : "before:-inset-y-[7px]",
               active ? "text-fg" : "text-fg-2 hover:text-fg",
             )}
           >
@@ -116,7 +119,7 @@ export function Switch({
       onCheckedChange={onCheckedChange}
       disabled={disabled}
       aria-label={label}
-      className="relative h-[31px] w-[51px] shrink-0 rounded-full bg-s4 transition-colors data-[state=checked]:bg-gold-500 disabled:opacity-40"
+      className="relative h-[31px] w-[51px] shrink-0 rounded-full bg-s4 transition-colors before:absolute before:-inset-x-1 before:-inset-y-[7px] before:content-[''] data-[state=checked]:bg-gold-500 disabled:opacity-40"
     >
       <RSwitch.Thumb className="block size-[27px] translate-x-[2px] rounded-full bg-fg shadow-[0_2px_6px_rgb(0_0_0/.4)] transition-transform duration-200 ease-out data-[state=checked]:translate-x-[22px]" />
     </RSwitch.Root>

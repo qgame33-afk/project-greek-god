@@ -51,7 +51,7 @@ function Screen() {
   const today = useToday();
   const date = clampDay(params.get("date"), today);
   const { userId, loading: userLoading } = useUser();
-  const { profile, loading: profileLoading } = useProfile();
+  const { profile, loading: profileLoading, error: profileError, refetch: refetchProfile } = useProfile();
   const food = useFoodEntries(date);
   const water = useWater(date);
 
@@ -161,6 +161,9 @@ function Screen() {
                   isToday={date === today}
                   empty={food.entries.length === 0}
                 />
+              ) : !profile && profileError ? (
+                // The targets didn't load; that is not the same as having none set.
+                <ErrorNote onRetry={() => void refetchProfile()}>Couldn&apos;t load your daily targets. {(profileError as Error).message}</ErrorNote>
               ) : (
                 <NoTargets />
               )}

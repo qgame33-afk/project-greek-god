@@ -432,19 +432,40 @@ export function computeGuidance(input: ReadinessInput): Guidance {
       },
     );
 
-  if (legsLoaded)
-    return base(
-      "legs",
-      plan.hasJumps ? "Skip the jumps today" : "Ease off the legs",
-      plan.hasJumps
-        ? `Swap jumps for extra rest; legs are carrying volleyball fatigue.${score >= THRESHOLDS.trim ? " Drop one set per exercise too." : ""}`
-        : `Keep leg work at RIR 2–3; legs are carrying volleyball fatigue.${score >= THRESHOLDS.trim ? " Drop one set per exercise." : ""}`,
-      {
-        skipJumps: plan.hasJumps,
-        rir: "2–3",
-        dropSets: score >= THRESHOLDS.trim ? 1 : 0,
-      },
-    );
+  if (legsLoaded) {
+    // Name what triggered the call (volleyball + tired legs) even when neither scores points,
+    // so the reasons never read as "all fine" next to "skip the jumps".
+    const vbWhen =
+      vbSet.has(date) || today?.volleyball
+        ? "Volleyball today"
+        : "Volleyball yesterday";
+    const legs =
+      (soreness ?? 0) >= (fatigue ?? 0)
+        ? `Soreness ${soreness}/5`
+        : `Fatigue ${fatigue}/5`;
+    const why = [vbWhen, legs];
+    return {
+      ...base(
+        "legs",
+        plan.hasJumps ? "Skip the jumps today" : "Ease off the legs",
+        plan.hasJumps
+          ? `Swap jumps for extra rest; legs are carrying volleyball fatigue.${score >= THRESHOLDS.trim ? " Drop one set per exercise too." : ""}`
+          : `Keep leg work at RIR 2–3; legs are carrying volleyball fatigue.${score >= THRESHOLDS.trim ? " Drop one set per exercise." : ""}`,
+        {
+          skipJumps: plan.hasJumps,
+          rir: "2–3",
+          dropSets: score >= THRESHOLDS.trim ? 1 : 0,
+        },
+      ),
+      reasons: [
+        ...why,
+        ...heavy
+          .filter((f) => f.key !== "volleyball")
+          .map(reasonOf)
+          .filter((r) => !why.includes(r)),
+      ].slice(0, 3),
+    };
+  }
 
   if (score >= THRESHOLDS.trim)
     return base(
@@ -457,7 +478,9 @@ export function computeGuidance(input: ReadinessInput): Guidance {
   return base(
     "go",
     "Train as planned",
-    `Recovery markers look fine. Run ${session} at the planned RIR.`,
+    pain
+      ? `Other markers look fine. Run ${session} at the planned RIR and work around the sore area.`
+      : `Recovery markers look fine. Run ${session} at the planned RIR.`,
   );
 }
 
@@ -482,23 +505,30 @@ export function planLite(
  * there's no check-in to go on, or nothing worth saying.
  */
 export function readinessLine(
-  g: Pick<Guidance, "level" | "score" | "adjustments">,
+  g: Pick<Guidance, "level" | "score" | "adjustments"> & {
+    pain?: string | null;
+  },
   session: string | null,
 ): string | null {
   const n = session ?? "Today's session";
+  // A logged pain note travels with the call on every screen (not only on Recovery).
+  const hurts = g.pain ? " Skip anything that hurts." : "";
+  const drop = g.adjustments.dropSets > 0 ? " and one set fewer per exercise" : "";
   switch (g.level) {
     case "recover":
       return `Recovery day suggested. Move ${n} to tomorrow: walk, mobility, sleep.`;
     case "ease":
-      return `${n} today, lighter: about 10% off the load, one set fewer per exercise, RIR 3.`;
+      return `${n} today, lighter: about 10% off the load, one set fewer per exercise, RIR 3.${hurts}`;
     case "trim":
-      return `${n} today, trimmed: one set fewer per exercise, RIR 2–3.`;
+      return `${n} today, trimmed: one set fewer per exercise, RIR 2–3.${hurts}`;
     case "legs":
       return g.adjustments.skipJumps
-        ? `${n} today without the jumps. Legs are carrying volleyball fatigue.`
-        : `${n} today with leg work at RIR 2–3. Legs are carrying volleyball fatigue.`;
+        ? `${n} today without the jumps${drop}. Legs are carrying volleyball fatigue.${hurts}`
+        : `${n} today with leg work at RIR 2–3${drop}. Legs are carrying volleyball fatigue.${hurts}`;
     case "go":
-      return `${n} today as planned. Recovery markers look fine.`;
+      return g.pain
+        ? `${n} today as planned, around the sore area.${hurts}`
+        : `${n} today as planned. Recovery markers look fine.`;
     case "rest":
       return g.score >= THRESHOLDS.ease
         ? "Rest fully today. An easy walk at most, then sleep."

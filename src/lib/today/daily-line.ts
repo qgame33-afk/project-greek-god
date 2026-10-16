@@ -72,7 +72,8 @@ export function dailyLine(i: DailyLineInput): string {
   if (i.plan.kind === "train") {
     const n = i.plan.name;
     const r = guided ? readinessLine(guided, n) : null;
-    if (r) return guided!.pain && guided!.level !== "recover" ? `${r} Skip anything that hurts.` : r;
+    // readinessLine already carries the pain caveat, so every screen words it the same way.
+    if (r) return r;
     if (pain) return `${n} today. You noted pain, so skip anything that aggravates it.`;
     if (i.volleyballToday && (i.plan.legs || i.plan.explosiveFirst)) return `${n} today. Volleyball too, so the jumps are optional.`;
     if (i.volleyballToday) return `${n} today, volleyball later. Fuel both: ${formatInt(i.calories.goal)} kcal.`;

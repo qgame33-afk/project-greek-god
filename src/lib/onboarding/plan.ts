@@ -262,7 +262,8 @@ export function planSummary(a: OnboardingAnswers): PlanSummary {
   const placard = [
     `${formatPlacardWeight(a.startWeightLb, a.weightUnit)} → ${formatPlacardWeight(a.goalWeightLb, a.weightUnit)} ${u}`,
     `${weeks} ${weeks === 1 ? "WEEK" : "WEEKS"}`,
-    `${td} ${td === 1 ? "DAY" : "DAYS"}`,
+    // "a week", so it never reads as part of the duration ("42 weeks · 6 days")
+    `${td} ${td === 1 ? "DAY" : "DAYS"} A WEEK`,
     `${a.calorieGoal.toLocaleString("en-US")} KCAL`,
     `${a.proteinGoal} G`,
   ].join(" · ");

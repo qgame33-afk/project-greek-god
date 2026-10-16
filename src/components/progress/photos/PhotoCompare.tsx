@@ -79,7 +79,7 @@ export function PhotoCompare({ photos, urls, seedId }: { photos: ProgressPhoto[]
           ]}
           className="min-w-0 flex-1 sm:max-w-[240px]"
         />
-        <Select aria-label="Placard label" value={label} onChange={(e) => setLabel(e.target.value as MeasureKey | "none")} className="h-11 w-[138px] text-[14px] sm:w-[160px]">
+        <Select aria-label="Placard label" value={label} onChange={(e) => setLabel(e.target.value as MeasureKey | "none")} className="h-11 w-[152px] text-[16px] sm:w-[172px]">
           <option value="none">Weight only</option>
           {MEASURE_FIELDS.map((f) => (
             <option key={f.key} value={f.key}>

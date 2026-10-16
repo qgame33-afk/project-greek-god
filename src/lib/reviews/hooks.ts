@@ -21,7 +21,8 @@ export type SavedReview = Row<"monthly_reviews">;
  * `withSets` adds completed working sets (heavier; the reviews list skips it).
  */
 export function useReviewSource(from: ISODate, to: ISODate, { withSets = true }: { withSets?: boolean } = {}) {
-  const { profile, loading: pLoading, error: pError } = useProfile();
+  const qc = useQueryClient();
+  const { profile, loading: pLoading, error: pError, refetch: refetchProfile } = useProfile();
   const weights = useWeights();
   const measurements = useMeasurements();
   const photos = usePhotos();
@@ -37,7 +38,12 @@ export function useReviewSource(from: ISODate, to: ISODate, { withSets = true }:
   const queries = [measurements, photos, sessions, sets, prs, nutrition, water, recovery, plans, volleyball];
   const loading = pLoading || weights.loading || queries.some((q) => q.isLoading);
   const error = (pError as Error | null) ?? (weights.error as Error | null) ?? queries.find((q) => q.error)?.error ?? null;
-  const refetch = () => queries.forEach((q) => q.refetch());
+  // Retry everything that can fail here, the profile and weigh-ins included (they gate the page).
+  const refetch = () => {
+    if (pError) void refetchProfile();
+    if (weights.error) void qc.invalidateQueries({ queryKey: ["weights"] });
+    queries.forEach((q) => q.refetch());
+  };
 
   const rows = useMemo<ReviewRows | null>(() => {
     if (loading) return null;

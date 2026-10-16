@@ -12,7 +12,9 @@ const admin = createClient(URL_, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persis
 const results = [];
 const check = (name, ok, detail = "") => results.push({ ok, name, detail });
 
-const { data: list } = await admin.auth.admin.listUsers();
+// one page large enough for every local account (the default page of 50 misses users once
+// testers have created throwaway qa-* accounts)
+const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
 const demo = list.users.find((u) => u.email === "demo@greekgod.local");
 let intr = list.users.find((u) => u.email === "intruder@greekgod.local");
 if (!intr) intr = (await admin.auth.admin.createUser({ email: "intruder@greekgod.local", password: "intruder-test-123", email_confirm: true })).data.user;
@@ -59,8 +61,9 @@ async function probe(label, sb) {
   check(`${label}: sign a URL for demo's photo`, !su?.signedUrl);
   const { data: ls } = await sb.storage.from("progress-photos").list(demo.id);
   check(`${label}: list demo's photo folder`, (ls ?? []).length === 0, `${ls?.length ?? 0} items`);
-  const { error: upErr } = await sb.storage.from("progress-photos").upload(`${demo.id}/planted.txt`, new Blob(["x"]), { contentType: "image/jpeg" });
-  check(`${label}: upload into demo's folder`, !!upErr, upErr?.message ?? "UPLOADED");
+  // a real image type, so a refusal comes from the access policy and not the bucket's MIME filter
+  const { error: upErr } = await sb.storage.from("progress-photos").upload(`${demo.id}/planted.txt`, new Blob([jpeg], { type: "image/jpeg" }), { contentType: "image/jpeg" });
+  check(`${label}: upload into demo's folder`, !!upErr && !/mime type/i.test(upErr.message), upErr?.message ?? "UPLOADED");
   const { data: pub } = sb.storage.from("progress-photos").getPublicUrl(photo.storage_path);
   const r = await fetch(pub.publicUrl);
   check(`${label}: public URL of demo's photo`, r.status >= 400, `HTTP ${r.status}`);
