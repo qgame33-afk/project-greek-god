@@ -141,10 +141,24 @@ export function ErrorNote({ children, onRetry, className }: { children: ReactNod
     <div className={cn("flex items-center justify-between gap-3 rounded-[12px] border border-danger/30 bg-danger-tint px-3.5 py-3 text-[13px] text-fg", className)} role="alert">
       <span>{children}</span>
       {onRetry && (
-        <button type="button" onClick={onRetry} className="-my-2 inline-flex h-11 shrink-0 items-center rounded-[10px] px-3 font-bold text-gold-300">
+        <button type="button" onClick={onRetry} className="press -my-2 inline-flex h-11 shrink-0 items-center rounded-[10px] px-3 font-bold text-gold-300">
           Retry
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * Disclosure body that opens and closes smoothly to its natural height (CSS grid 0fr → 1fr, no
+ * measuring) with the content fading in on top. Closed content stays mounted but `inert`, so
+ * it is skipped by focus and screen readers. Give the toggle `aria-expanded` and
+ * `aria-controls={id}`.
+ */
+export function Collapse({ open, id, className, children }: { open: boolean; id?: string; className?: string; children: ReactNode }) {
+  return (
+    <div id={id} className="collapse-panel" data-open={open} inert={!open}>
+      <div className={className}>{children}</div>
     </div>
   );
 }

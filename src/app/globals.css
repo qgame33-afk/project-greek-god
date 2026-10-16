@@ -73,18 +73,38 @@
   --glow-cta: 0 10px 30px -12px rgb(213 172 103 / 0.55);
   --scrim: rgb(5 6 8 / 0.72);
 
-  /* Motion */
+  /* Motion — mirrored in src/lib/motion.ts (DURATION / EASE / SPRING). UI feedback stays
+     within 150–250 ms; only transform, opacity and stroke-dashoffset animate. */
+  --dur-press: 90ms;
+  --dur-fast: 160ms;
+  --dur-base: 220ms;
+  --dur-slow: 320ms;
+  --dur-sheet: 400ms;
+  --dur-ring: 900ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-gold: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
   --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Springs as easing curves (sampled damped springs, see below); bezier fallbacks first. */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* Layout */
   --tabbar-h: 56px;
   --dock-h: 52px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Damped springs sampled into linear(): `spring` is critically-near (ζ 0.85, no visible
+   overshoot) for indicators, thumbs and releases; `bounce` (ζ 0.62, ~8% overshoot) for tactile
+   pops like a logged set. */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --ease-spring: linear(0, 0.023 2.8%, 0.062 4.9%, 0.122 7.2%, 0.198 9.8%, 0.287 12.5%, 0.382 15.4%, 0.478 18.4%, 0.57 21.6%, 0.656 24.9%, 0.732 28.3%, 0.798 31.9%, 0.853 35.5%, 0.897 39.2%, 0.932 43.1%, 0.958 47%, 0.976 51%, 0.989 55.1%, 0.998 59.2%, 1.003 63.5%, 1.005 67.8%, 1.006 76.7%, 1.004 90.5%, 1);
+    --ease-bounce: linear(0, 0.035 2.8%, 0.095 4.9%, 0.185 7.2%, 0.301 9.8%, 0.432 12.5%, 0.568 15.4%, 0.699 18.4%, 0.816 21.6%, 0.914 24.9%, 0.989 28.3%, 1.04 31.9%, 1.07 35.5%, 1.083 39.2%, 1.081 43.1%, 1.071 47%, 1.056 51%, 1.04 55.1%, 1.025 59.2%, 1.012 63.5%, 1.003 67.8%, 0.997 72.2%, 0.993 81.2%, 0.997 95.2%, 1);
+  }
 }
 
 @theme inline {
@@ -145,6 +165,8 @@
   --ease-out: var(--ease-out);
   --ease-gold: var(--ease-gold);
   --ease-sheet: var(--ease-sheet);
+  --ease-spring: var(--ease-spring);
+  --ease-bounce: var(--ease-bounce);
 }
 
 /* ---------------------------------------------------------------- base */
@@ -180,6 +202,16 @@
   [role="button"] {
     cursor: pointer;
     touch-action: manipulation;
+  }
+  /* Press feedback for every pressable that doesn't opt into the `press` / `press-soft` scale:
+     an instant iOS-style dim on touch-down that fades back on release. Zero specificity, so any
+     component's own opacity or transition wins. `press-none` opts out entirely. */
+  :where(button, a[href], [role="button"], [role="tab"], [role="radio"], summary):where(:not(.press, .press-soft, .press-none)) {
+    transition: opacity var(--dur-fast) var(--ease-out);
+  }
+  :where(button, a[href], [role="button"], [role="tab"], [role="radio"], summary):where(:not(.press, .press-soft, .press-none, :disabled, [aria-disabled="true"])):active {
+    opacity: 0.72;
+    transition-duration: 0s;
   }
   input,
   textarea,
@@ -414,16 +446,100 @@
     display: none;
   }
 }
+/* Shared press feedback. Presses down in 90 ms and springs back on release. Uses the
+   independent `scale` property, so it composes with translate/transform animations (a dock
+   sliding up, a check popping) instead of being overridden by them, and the `:not(:disabled)`
+   bump lets it win over a plain `transition-colors` on the same element while still fading
+   colours. `press` for buttons, chips and icons; `press-soft` for cards and rows. */
 @utility press {
-  transition: transform 90ms var(--ease-out);
-  &:active {
-    transform: scale(0.97);
+  &:not(:disabled) {
+    transition-property: scale, color, background-color, border-color, opacity, box-shadow;
+    transition-duration: var(--dur-slow), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast);
+    transition-timing-function: var(--ease-bounce), var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out);
+  }
+  &:not(:disabled, [aria-disabled="true"]):active {
+    scale: 0.97;
+    transition-duration: var(--dur-press), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast);
+    transition-timing-function: var(--ease-out);
   }
 }
 @utility press-soft {
-  transition: transform 90ms var(--ease-out);
-  &:active {
-    transform: scale(0.985);
+  &:not(:disabled) {
+    transition-property: scale, color, background-color, border-color, opacity, box-shadow;
+    transition-duration: var(--dur-slow), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast);
+    transition-timing-function: var(--ease-spring), var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out);
+  }
+  &:not(:disabled, [aria-disabled="true"]):active {
+    scale: 0.985;
+    transition-duration: var(--dur-press), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast);
+    transition-timing-function: var(--ease-out);
+  }
+}
+@utility press-none {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth disclosure: the grid row animates 0fr → 1fr, so the panel opens to its natural height
+   without measuring; the content fades in on top. Used by <Collapse>. */
+@utility collapse-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-base) var(--ease-out);
+  & > * {
+    min-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+  }
+  &[data-open="true"] {
+    grid-template-rows: 1fr;
+  }
+  &[data-open="true"] > * {
+    opacity: 1;
+    transition-delay: 40ms;
+  }
+}
+
+/* Horizontal chip rails on phones (every `no-scrollbar` + `overflow-x-auto` row): the edges fade
+   instead of cutting a chip in half, which also says "there's more this way". Where scroll-driven
+   animations exist the leading fade appears once you scroll and the trailing one clears at the
+   end. Paint-only (mask), no layout. */
+@property --rail-l {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --rail-r {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 28px;
+}
+@keyframes rail-edges {
+  0% {
+    --rail-l: 0px;
+    --rail-r: 28px;
+  }
+  8% {
+    --rail-l: 20px;
+  }
+  92% {
+    --rail-r: 28px;
+  }
+  100% {
+    --rail-l: 20px;
+    --rail-r: 0px;
+  }
+}
+@media (max-width: 767px) {
+  .no-scrollbar.overflow-x-auto {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--rail-l), #000 calc(100% - var(--rail-r)), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 var(--rail-l), #000 calc(100% - var(--rail-r)), transparent 100%);
+  }
+  @supports (animation-timeline: scroll()) {
+    .no-scrollbar.overflow-x-auto {
+      animation: rail-edges linear both;
+      animation-timeline: scroll(self inline);
+    }
   }
 }
 
@@ -468,11 +584,18 @@
     transform: translateX(100%);
   }
 }
+@keyframes skeleton-in {
+  from {
+    opacity: 0;
+  }
+}
+/* Placeholders stay invisible for the first 150 ms, so fast loads never flash a skeleton. */
 @utility skeleton {
   position: relative;
   overflow: hidden;
   background: var(--surface-3);
   border-radius: 10px;
+  animation: skeleton-in var(--dur-base) var(--ease-out) 150ms both;
   &::after {
     content: "";
     position: absolute;
@@ -508,18 +631,167 @@
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
+/* ------------------------------------------------------ dialogs (radix) */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.965);
+  }
+}
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+/* Radix waits for the closing animation before unmounting, so both directions animate. */
+@utility anim-overlay {
+  &[data-state="open"] {
+    animation: fade-in var(--dur-base) var(--ease-out) both;
+  }
+  &[data-state="closed"] {
+    animation: fade-out var(--dur-fast) var(--ease-out) both;
+  }
+}
+@utility anim-dialog {
+  &[data-state="open"] {
+    animation: dialog-in var(--dur-slow) var(--ease-spring) both;
+  }
+  &[data-state="closed"] {
+    animation: dialog-out var(--dur-fast) var(--ease-in) both;
+  }
+}
+
+/* In-place content swap (a chart range, a day): keyed elements rise in once. */
+@keyframes swap-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@utility swap-in {
+  animation: swap-in var(--dur-base) var(--ease-out) both;
+}
+/* Keyed panels that slide in from a side: set --swap-dx (e.g. ±14px) on the element. */
+@keyframes swap-in-x {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--swap-dx, 0), var(--swap-dy, 6px), 0);
+  }
+}
+
 /* ------------------------------------------------------ view transitions */
 
+/* Route changes. AppShell sets <html data-nav="push|pop|forward|back|fade"> (from the two
+   paths, see navDirection in src/lib/motion.ts) inside the transition's update, and each page
+   is a <ViewTransition enter="page" exit="page">. Push/pop slide by depth like a navigation
+   stack; forward/back move a shorter distance in tab order; everything else crossfades. The
+   app chrome (top bar, tab bar, sidebar, FAB, live dock, toasts) is its own layer above the
+   pages and never moves, so there is no flash of the bars and the tab indicator slides live. */
+::view-transition {
+  pointer-events: none;
+}
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 200ms;
-  animation-timing-function: var(--ease-out);
+  animation: none;
 }
+
+.vt-topbar {
+  view-transition-name: app-topbar;
+}
+.vt-tabbar {
+  view-transition-name: app-tabbar;
+}
+.vt-sidebar {
+  view-transition-name: app-sidebar;
+}
+.vt-fab {
+  view-transition-name: app-fab;
+}
+[data-live-dock] {
+  view-transition-name: app-dock;
+}
+[data-sonner-toaster] {
+  view-transition-name: app-toasts;
+}
+.vt-topbar,
+.vt-tabbar,
+.vt-sidebar,
+.vt-fab,
+[data-live-dock],
+[data-sonner-toaster] {
+  view-transition-class: shell;
+}
+::view-transition-group(.shell) {
+  animation: none;
+  z-index: 10;
+}
+::view-transition-old(.shell):not(:only-child) {
+  display: none;
+}
+::view-transition-new(.shell) {
+  animation: none;
+}
+/* chrome that leaves (into the full-screen workout) fades; chrome that returns fades in */
+::view-transition-old(.shell):only-child {
+  animation: vt-fade-out var(--dur-fast) var(--ease-out) both;
+}
+::view-transition-new(.shell):only-child {
+  animation: fade-in var(--dur-base) var(--ease-out) both;
+}
+
+/* pages: default crossfade with a small rise */
 ::view-transition-old(.page) {
-  animation: vt-fade-out 140ms var(--ease-out) both;
+  animation: vt-fade-out 100ms var(--ease-out) both;
 }
 ::view-transition-new(.page) {
-  animation: vt-rise-in 280ms var(--ease-out) both;
+  animation: vt-rise-in var(--dur-base) var(--ease-out) 20ms both;
+}
+/* Direction: the outgoing page fades fast while it drifts away; the incoming one fades in a
+   beat later while it travels the longer distance in, so the two never sit on top of each
+   other at full strength and the background never shows through. */
+:root[data-nav="push"]::view-transition-old(.page) {
+  --vt-dx: -32px;
+  animation: vt-fade-out 110ms var(--ease-out) both, vt-move-out 200ms var(--ease-out) both;
+}
+:root[data-nav="push"]::view-transition-new(.page) {
+  --vt-dx: 48px;
+  animation: fade-in 170ms var(--ease-out) 20ms both, vt-move-in 240ms var(--ease-out) both;
+}
+:root[data-nav="pop"]::view-transition-old(.page) {
+  --vt-dx: 48px;
+  animation: vt-fade-out 110ms var(--ease-out) both, vt-move-out 200ms var(--ease-out) both;
+}
+:root[data-nav="pop"]::view-transition-new(.page) {
+  --vt-dx: -32px;
+  animation: fade-in 170ms var(--ease-out) 20ms both, vt-move-in 240ms var(--ease-out) both;
+}
+:root[data-nav="forward"]::view-transition-old(.page) {
+  --vt-dx: -14px;
+  animation: vt-fade-out 100ms var(--ease-out) both, vt-move-out 160ms var(--ease-out) both;
+}
+:root[data-nav="forward"]::view-transition-new(.page) {
+  --vt-dx: 22px;
+  animation: fade-in 160ms var(--ease-out) 20ms both, vt-move-in var(--dur-base) var(--ease-out) both;
+}
+:root[data-nav="back"]::view-transition-old(.page) {
+  --vt-dx: 14px;
+  animation: vt-fade-out 100ms var(--ease-out) both, vt-move-out 160ms var(--ease-out) both;
+}
+:root[data-nav="back"]::view-transition-new(.page) {
+  --vt-dx: -22px;
+  animation: fade-in 160ms var(--ease-out) 20ms both, vt-move-in var(--dur-base) var(--ease-out) both;
 }
 @keyframes vt-fade-out {
   to {
@@ -529,7 +801,17 @@
 @keyframes vt-rise-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
+  }
+}
+@keyframes vt-move-out {
+  to {
+    transform: translateX(var(--vt-dx));
+  }
+}
+@keyframes vt-move-in {
+  from {
+    transform: translateX(var(--vt-dx));
   }
 }
 
@@ -542,10 +824,17 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  /* no movement: pages swap with a short opacity fade only */
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+  ::view-transition-old(.page) {
+    animation: vt-fade-out 100ms linear both !important;
+  }
+  ::view-transition-new(.page) {
+    animation: fade-in 140ms linear both !important;
   }
 }
 
@@ -576,6 +865,22 @@
 
 [data-sonner-toaster] [data-sonner-toast][data-visible="true"] {
   pointer-events: auto;
+}
+
+/* ------------------------------------------------------ bottom sheets (vaul) */
+
+/* vaul's own CSS is injected at runtime (unlayered, same specificity), so these use `html` to
+   win. Sheets present on the iOS sheet curve in 400 ms (vaul's default is a slower 500 ms) and
+   the scrim follows a touch quicker; drag-release keeps vaul's inline physics. */
+html [data-vaul-drawer] {
+  animation-duration: var(--dur-sheet);
+  transition-duration: var(--dur-sheet);
+}
+html [data-vaul-drawer][data-state="closed"] {
+  animation-duration: var(--dur-slow);
+}
+html [data-vaul-overlay] {
+  animation-duration: var(--dur-slow);
 }
 
 /* make room for the Live Session Dock above the tab bar */

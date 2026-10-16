@@ -51,7 +51,7 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
           <Desc className="sr-only">{typeof title === "string" ? title : "Dialog"}</Desc>
         )}
       </div>
-      <Close className="-mr-2 grid size-11 place-items-center rounded-[12px] text-fg-2 hover:text-fg" aria-label="Close">
+      <Close className="press -mr-2 grid size-11 place-items-center rounded-[12px] text-fg-2 hover:bg-white/[.04] hover:text-fg" aria-label="Close">
         <X className="size-5" />
       </Close>
     </div>
@@ -68,7 +68,7 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
     return (
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--scrim)] data-[state=open]:animate-[rise_200ms_var(--ease-out)]" />
+          <Dialog.Overlay className="anim-overlay fixed inset-0 z-50 bg-[var(--scrim)]" />
           <Dialog.Content
             onPointerDownOutside={keepOpenForToasts}
             onInteractOutside={keepOpenForToasts}
@@ -78,7 +78,7 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
             }}
             tabIndex={-1}
             className={cn(
-              "fixed left-1/2 top-1/2 z-[51] flex max-h-[86dvh] w-[calc(100vw-48px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[24px] border border-line bg-s2 shadow-[var(--e3)] outline-none",
+              "anim-dialog fixed left-1/2 top-1/2 z-[51] flex max-h-[86dvh] w-[calc(100vw-48px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[24px] border border-line bg-s2 shadow-[var(--e3)] outline-none",
               wide ? "max-w-[720px]" : "max-w-[560px]",
             )}
           >
@@ -128,8 +128,8 @@ export function Confirm({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[60] bg-[var(--scrim)]" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[61] w-[calc(100vw-40px)] max-w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-[24px] border border-line bg-s2 p-6 shadow-[var(--e3)] outline-none">
+        <Dialog.Overlay className="anim-overlay fixed inset-0 z-[60] bg-[var(--scrim)]" />
+        <Dialog.Content className="anim-dialog fixed left-1/2 top-1/2 z-[61] w-[calc(100vw-40px)] max-w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-[24px] border border-line bg-s2 p-6 shadow-[var(--e3)] outline-none">
           <Dialog.Title className="t-h3">{title}</Dialog.Title>
           <Dialog.Description asChild>
             <div className="mt-2 text-[14px] leading-relaxed text-fg-2">{body}</div>

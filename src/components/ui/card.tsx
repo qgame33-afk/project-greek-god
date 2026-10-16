@@ -38,7 +38,7 @@ export function CardHeader({
 
 /** Text action for card headers: gold, 44px hit area. */
 export function CardAction({ href, onClick, children }: { href?: string; onClick?: () => void; children: ReactNode }) {
-  const cls = "-my-3 -mr-2 inline-flex h-11 items-center px-2 text-[13px] font-bold text-gold-300 hover:text-gold-200";
+  const cls = "press -my-3 -mr-2 inline-flex h-11 items-center rounded-[10px] px-2 text-[13px] font-bold text-gold-300 hover:text-gold-200";
   if (href)
     return (
       <Link href={href} className={cls}>
@@ -56,10 +56,10 @@ export function LinkCard({ href, className, children }: { href: string; classNam
   return (
     <Link
       href={href}
-      className={cn("card press-soft group flex items-center gap-3 p-4 transition-colors hover:border-line-strong", className)}
+      className={cn("card press-soft group flex items-center gap-3 p-4 hover:border-line-strong", className)}
     >
       <div className="min-w-0 flex-1">{children}</div>
-      <ChevronRight className="size-4 shrink-0 text-fg-3 transition-transform group-hover:translate-x-0.5" />
+      <ChevronRight className="size-4 shrink-0 text-fg-3 transition-[translate] duration-(--dur-fast) group-hover:translate-x-0.5" />
     </Link>
   );
 }

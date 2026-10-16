@@ -61,12 +61,18 @@ export function Bar({
             className="pointer-events-none absolute inset-0"
             style={{ background: "repeating-linear-gradient(90deg, transparent 0 7px, rgb(0 0 0 / .2) 7px 8px)" }}
           />
-          {shown > 0.01 && shown < 0.995 && (
-            <div
-              className="absolute inset-y-0 w-1 rounded-full bg-gold-50"
-              style={{ left: `calc(${shown * 100}% - 4px)`, transition: "left 700ms var(--ease-gold)" }}
-            />
-          )}
+          {/* the gold-50 leading edge rides on the same translate as the fill (no `left` animation) */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              transform: `translateX(${(shown - 1) * 100}%)`,
+              transition: "transform 600ms var(--ease-gold), opacity 200ms var(--ease-out)",
+              opacity: shown > 0.01 && shown < 0.995 ? 1 : 0,
+            }}
+          >
+            <div className="absolute inset-y-0 right-0 w-1 rounded-full bg-gold-50" />
+          </div>
         </>
       )}
     </div>

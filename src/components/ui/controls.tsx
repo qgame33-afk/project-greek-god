@@ -5,6 +5,7 @@ import { Switch as RSwitch } from "radix-ui";
 import { useId, useLayoutEffect, useRef, type ReactNode } from "react";
 import { Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { SPRING } from "@/lib/motion";
 
 /* ------------------------------------------------------------------ chips */
 
@@ -75,7 +76,9 @@ export function Segmented<T extends string>({
             aria-selected={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "relative flex-1 rounded-[9px] px-2 text-[13px] font-semibold transition-colors",
+              "relative flex-1 rounded-[9px] px-2 text-[13px] font-semibold transition-colors duration-(--dur-fast) before:absolute before:inset-x-0 before:content-['']",
+              // the hit area covers the track's padding too: 44px (md) and 44px around the 36px sm
+              size === "md" ? "before:-inset-y-[3px]" : "before:-inset-y-[7px]",
               active ? "text-fg" : "text-fg-2 hover:text-fg",
             )}
           >
@@ -83,7 +86,7 @@ export function Segmented<T extends string>({
               <m.span
                 layoutId={`seg-${id}`}
                 className="absolute inset-0 rounded-[9px] bg-[#2A2F37] shadow-[inset_0_1px_0_rgb(255_255_255/.06)]"
-                transition={{ type: "spring", stiffness: 500, damping: 38 }}
+                transition={SPRING.snappy}
               />
             )}
             <span className="relative z-10">{o.label}</span>
@@ -116,9 +119,9 @@ export function Switch({
       onCheckedChange={onCheckedChange}
       disabled={disabled}
       aria-label={label}
-      className="relative h-[31px] w-[51px] shrink-0 rounded-full bg-s4 transition-colors data-[state=checked]:bg-gold-500 disabled:opacity-40"
+      className="group press-none relative h-[31px] w-[51px] shrink-0 rounded-full bg-s4 transition-colors duration-(--dur-base) before:absolute before:-inset-y-[7px] before:inset-x-0 before:content-[''] data-[state=checked]:bg-gold-500 disabled:opacity-40"
     >
-      <RSwitch.Thumb className="block size-[27px] translate-x-[2px] rounded-full bg-fg shadow-[0_2px_6px_rgb(0_0_0/.4)] transition-transform duration-200 ease-out data-[state=checked]:translate-x-[22px]" />
+      <RSwitch.Thumb className="block size-[27px] translate-x-[2px] rounded-full bg-fg shadow-[0_2px_6px_rgb(0_0_0/.4)] transition-[translate,scale] duration-(--dur-slow) ease-spring group-active:scale-x-[1.12] data-[state=checked]:translate-x-[22px]" />
     </RSwitch.Root>
   );
 }
