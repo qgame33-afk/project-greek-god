@@ -57,6 +57,10 @@ don't want a confirmation email for your own account.)
 3. Share button → **Add to Home Screen**. Open it from the Home Screen from now on (full screen,
    and it's required for iPhone reminders).
 4. Optional: **Settings → Reminders → Enable on this device** (only works from the Home Screen app).
+5. **Lock the door.** Now that your account exists, stop anyone else from creating one:
+   Supabase dashboard → **Authentication → Sign In / Providers** → turn off
+   **Allow new users to sign up** → **Save**. (Your data is private either way; this just keeps
+   strangers who find the link from using your free AI allowance.)
 
 ## 5. Last step — turn on the AI (free)
 
