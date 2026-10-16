@@ -11,7 +11,7 @@ import { LiveDock } from "@/components/workout/LiveDock";
 import { useProfile } from "@/lib/data/profile";
 import { useUser } from "@/lib/data/core";
 import { cn } from "@/lib/cn";
-import { navDirection } from "@/lib/motion";
+import { navDirection, prefersReducedMotion } from "@/lib/motion";
 import { PRIMARY_NAV, SECONDARY_NAV, hidesFab, isActive, isFocusRoute } from "./nav";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -212,6 +212,13 @@ function TabBar({ pathname }: { pathname: string }) {
               <Link
                 href={href}
                 aria-current={active ? "page" : undefined}
+                onClick={(e) => {
+                  // iOS convention: tapping the tab you're already on scrolls it back to the top
+                  // (from a detail page inside the tab it still navigates back to the tab's root).
+                  if (pathname !== href || e.metaKey || e.ctrlKey) return;
+                  e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+                }}
                 className={cn(
                   "group flex h-full flex-col items-center justify-center gap-[3px] text-[10.5px] font-semibold transition-colors duration-(--dur-fast)",
                   active ? "text-gold-400" : "text-fg-3 hover:text-fg-2",
