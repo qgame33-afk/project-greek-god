@@ -57,7 +57,7 @@ export function WorkoutCard({ m, starting, onStart, shine, error, onRetry, class
           {otherDay ? "Finish or discard it to start today's session." : "Your session is open. Every logged set is saved."}
         </p>
         <SessionBody sessionId={s.id} mode="active" unit={unit}>
-          <Button variant="primary" size="lg" block className="mt-4" onClick={onStart} loading={starting} aria-label={`Resume ${s.name}`}>
+          <Button variant="primary" size="lg" block className="mt-4" onClick={onStart} loading={starting} aria-label={`Resume ${s.name}`} data-today-resume>
             {otherDay ? (
               "Resume"
             ) : (

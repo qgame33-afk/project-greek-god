@@ -4,8 +4,9 @@
 // another screen. "PUSH A · 32:14 · 9/19 sets", "REST 1:12" while resting. Tap to resume.
 
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Timer } from "lucide-react";
+import { hidesFab } from "@/components/shell/nav";
 import { cn } from "@/lib/cn";
 import { useToday } from "@/lib/data/core";
 import { useProfile } from "@/lib/data/profile";
@@ -22,9 +23,43 @@ export function LiveDock() {
   const pathname = usePathname();
   const active = useActiveSession();
   const s = active.data;
-  const hidden = !s || pathname.startsWith("/workout/") || pathname.startsWith("/onboarding") || pathname.startsWith("/sign-in");
+  const resumeOnScreen = useTodayResumeVisible(pathname === "/" && !!s);
+  // Hidden on focus/chat routes (they own the bottom edge) and while Today's own Resume button is on screen.
+  const hidden = !s || hidesFab(pathname) || pathname.startsWith("/sign-in") || resumeOnScreen;
   if (hidden) return null;
   return <LiveDockBar sessionId={s.id} name={s.name} startedAt={s.started_at} localDate={s.local_date} />;
+}
+
+/** True while Today's workout-card Resume button ([data-today-resume]) is in the viewport. */
+function useTodayResumeVisible(enabled: boolean) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (!enabled) return;
+    let io: IntersectionObserver | null = null;
+    let observed: Element | null = null;
+    const attach = () => {
+      const el = document.querySelector("[data-today-resume]");
+      if (el === observed) return;
+      io?.disconnect();
+      observed = el;
+      if (!el) {
+        setVisible(false);
+        return;
+      }
+      io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { threshold: 0.01 });
+      io.observe(el);
+    };
+    attach();
+    // The card mounts after its queries resolve; re-attach when the button appears or is replaced.
+    const mo = new MutationObserver(attach);
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      mo.disconnect();
+      io?.disconnect();
+      setVisible(false);
+    };
+  }, [enabled]);
+  return enabled && visible;
 }
 
 /** The bar itself, for a shell that decides visibility on its own (e.g. a sidebar card). */
@@ -67,7 +102,7 @@ export function LiveDockBar({ sessionId, name, startedAt, localDate }: { session
               <span className="font-num text-[15px] font-bold uppercase tracking-[0.06em] text-fg">{name}</span>
               <span className="text-fg-3">·</span>
               {stale ? <span className="text-fg-2">{shortDate(localDate)}</span> : <DockElapsed startedAt={startedAt} />}
-              {counts.ready && (
+              {counts.ready && counts.total > 0 && (
                 <>
                   <span className="text-fg-3 lg:hidden">·</span>
                   <span className="text-fg-2 lg:hidden">
