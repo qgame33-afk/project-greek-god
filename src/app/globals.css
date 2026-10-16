@@ -1,26 +1,575 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   PANTHEON — Project Greek God design tokens
+   A dark gallery lit by one warm spotlight. Gold is earned, misses are quiet.
+   ========================================================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  /* Marble neutrals */
+  --bg: #08090c;
+  --bg-deep: #050608;
+  --surface-1: #0f1115;
+  --surface-2: #15181d;
+  --surface-3: #1c2026;
+  --surface-4: #252a31;
+  --surface-5: #2a2f37;
+  --track: rgb(255 255 255 / 0.07);
+  --line-hair: rgb(255 255 255 / 0.06);
+  --line: rgb(255 255 255 / 0.09);
+  --line-strong: rgb(255 255 255 / 0.14);
+  --line-field: #686c73;
+  --line-gold: rgb(213 172 103 / 0.38);
+  --text-1: #f2efe8;
+  --text-2: #a3a9b4;
+  --text-3: #8a919c;
+  --text-disabled: #545b66;
+  --ink: #17120a;
+
+  /* Gold leaf */
+  --gold-50: #fbf4e4;
+  --gold-100: #f3dda8;
+  --gold-200: #eacb8e;
+  --gold-300: #e2c185;
+  --gold-400: #d5ac67;
+  --gold-500: #c49a55;
+  --gold-600: #a97e40;
+  --gold-700: #7d5c2e;
+  --gold-800: #4a3720;
+  --gold-900: #2a2014;
+  --gold-tint: rgb(213 172 103 / 0.1);
+  --grad-leaf: linear-gradient(135deg, #f3dda8 0%, #d5ac67 34%, #a97e40 68%, #e2c185 100%);
+  --grad-progress: linear-gradient(90deg, #a97e40 0%, #d5ac67 55%, #f3dda8 100%);
+  --grad-card: linear-gradient(180deg, #13151a 0%, #0f1115 100%);
+  --grad-spotlight: radial-gradient(90% 60% at 82% -8%, rgb(213 172 103 / 0.16), transparent 62%);
+  --grad-monument-border: linear-gradient(180deg, rgb(213 172 103 / 0.45), rgb(255 255 255 / 0.06) 45%);
+
+  /* Semantic */
+  --success: #6cc08e;
+  --success-tint: rgb(108 192 142 / 0.12);
+  --danger: #e5675c;
+  --danger-tint: rgb(229 103 92 / 0.12);
+  --warning: #e8857a;
+  --warning-tint: rgb(232 133 122 / 0.12);
+  --info: #6fa3ec;
+  --lapis-text: #8fb8f0;
+  --lapis-tint: rgb(111 163 236 / 0.1);
+  --lapis-line: rgb(111 163 236 / 0.35);
+
+  /* Series — classical materials */
+  --s-gold: #d5ac67; /* calories, bodyweight */
+  --s-marble: #e6e1d6; /* protein, raw weigh-ins */
+  --s-terracotta: #cf8c5e; /* carbs */
+  --s-porphyry: #a592c9; /* fat */
+  --s-lapis: #6fa3ec; /* water, sleep */
+  --s-verdigris: #5db5a4; /* volume, athletic */
+
+  /* Elevation */
+  --e1: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 2px rgb(0 0 0 / 0.5);
+  --e2: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 10px 28px -14px rgb(0 0 0 / 0.85);
+  --e3: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 -16px 48px -12px rgb(0 0 0 / 0.9);
+  --glow-cta: 0 10px 30px -12px rgb(213 172 103 / 0.55);
+  --scrim: rgb(5 6 8 / 0.72);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-gold: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Layout */
+  --tabbar-h: 56px;
+  --dock-h: 52px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-bg-deep: var(--bg-deep);
+  --color-s1: var(--surface-1);
+  --color-s2: var(--surface-2);
+  --color-s3: var(--surface-3);
+  --color-s4: var(--surface-4);
+  --color-s5: var(--surface-5);
+  --color-line-hair: var(--line-hair);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-line-field: var(--line-field);
+  --color-line-gold: var(--line-gold);
+  --color-fg: var(--text-1);
+  --color-fg-2: var(--text-2);
+  --color-fg-3: var(--text-3);
+  --color-fg-dis: var(--text-disabled);
+  --color-ink: var(--ink);
+  --color-gold-50: var(--gold-50);
+  --color-gold-100: var(--gold-100);
+  --color-gold-200: var(--gold-200);
+  --color-gold-300: var(--gold-300);
+  --color-gold-400: var(--gold-400);
+  --color-gold-500: var(--gold-500);
+  --color-gold-600: var(--gold-600);
+  --color-gold-700: var(--gold-700);
+  --color-gold-800: var(--gold-800);
+  --color-gold-900: var(--gold-900);
+  --color-gold-tint: var(--gold-tint);
+  --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-warning: var(--warning);
+  --color-warning-tint: var(--warning-tint);
+  --color-lapis-text: var(--lapis-text);
+  --color-lapis-tint: var(--lapis-tint);
+  --color-lapis-line: var(--lapis-line);
+  --color-info: var(--info);
+  --color-marble: var(--s-marble);
+  --color-terracotta: var(--s-terracotta);
+  --color-porphyry: var(--s-porphyry);
+  --color-lapis: var(--s-lapis);
+  --color-verdigris: var(--s-verdigris);
+
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-cinzel), ui-serif, Georgia, serif;
+  --font-num: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --ease-out: var(--ease-out);
+  --ease-gold: var(--ease-gold);
+  --ease-sheet: var(--ease-sheet);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ---------------------------------------------------------------- base */
+
+@layer base {
+  html {
+    background: var(--bg);
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: none;
+  }
+  ::selection {
+    background: rgb(213 172 103 / 0.32);
+    color: var(--text-1);
+  }
+  :focus-visible {
+    outline: 2px solid var(--gold-400);
+    outline-offset: 2px;
+  }
+  button,
+  [role="button"] {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  input,
+  textarea,
+  select {
+    font-size: 16px; /* iOS: never zoom on focus */
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+  img {
+    -webkit-user-drag: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ----------------------------------------------------------- typography */
+
+@utility num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings:
+    "tnum" 1,
+    "lnum" 1;
+}
+@utility num-hero {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-weight: 600;
+  font-size: 96px;
+  line-height: 0.88;
+  letter-spacing: -0.01em;
+}
+@utility num-xl {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-weight: 600;
+  font-size: 56px;
+  line-height: 0.9;
+  @media (width >= 64rem) {
+    font-size: 64px;
+  }
+}
+@utility num-lg {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-weight: 600;
+  font-size: 40px;
+  line-height: 1;
+}
+@utility num-md {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-weight: 600;
+  font-size: 28px;
+  line-height: 1;
+}
+@utility num-sm {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 1;
+}
+@utility num-xs {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 1.2;
+}
+@utility t-hero {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1.08;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  @media (width >= 64rem) {
+    font-size: 40px;
+  }
+}
+@utility t-h1 {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  @media (width >= 64rem) {
+    font-size: 40px;
+  }
+}
+@utility t-h2 {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+@utility t-title {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  @media (width >= 64rem) {
+    font-size: 40px;
+  }
+}
+@utility t-card {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+@utility t-plaque {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.2;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold-300);
+}
+@utility t-h3 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 17px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+@utility t-button {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+@utility text-gold {
+  background: var(--grad-leaf);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@utility unit {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 0.4em;
+  color: var(--text-2);
+  margin-left: 3px;
+  letter-spacing: 0;
+}
+
+/* -------------------------------------------------------------- surfaces */
+
+@utility card {
+  background: var(--grad-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--e1);
+}
+@utility card-instrument {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+@utility card-inset {
+  background: var(--surface-3);
+  border-radius: 14px;
+}
+@utility card-accent {
+  background: var(--grad-card);
+  border: 1px solid var(--line);
+  border-top-color: var(--line-gold);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--e1);
+}
+@utility card-monument {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--radius-xl);
+  border: 1px solid transparent;
+  background:
+    var(--grad-spotlight) padding-box,
+    url("/art/marble-veins.svg") padding-box,
+    linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
+    var(--grad-monument-border) border-box;
+  background-size:
+    auto,
+    400px 400px,
+    auto,
+    auto;
+  box-shadow: var(--e2);
+}
+@utility chrome {
+  background: rgb(8 9 12 / 0.8);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+}
+@utility spotlight {
+  background-image: var(--grad-spotlight);
+}
+@utility pb-tabbar {
+  padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 84px);
+}
+@utility pt-safe {
+  padding-top: var(--safe-top);
+}
+@utility pb-safe {
+  padding-bottom: var(--safe-bottom);
+}
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+@utility press {
+  transition: transform 90ms var(--ease-out);
+  &:active {
+    transform: scale(0.97);
+  }
+}
+@utility press-soft {
+  transition: transform 90ms var(--ease-out);
+  &:active {
+    transform: scale(0.985);
+  }
+}
+
+/* --------------------------------------------------------------- effects */
+
+/* One-shot sheen sweep for key CTAs */
+@utility sheen {
+  position: relative;
+  overflow: hidden;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.38) 50%, transparent 80%);
+    transform: translateX(-120%);
+    animation: sheen 1100ms var(--ease-out) 600ms 1 both;
+    pointer-events: none;
+  }
+}
+@keyframes sheen {
+  to {
+    transform: translateX(220%);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@utility rise {
+  animation: rise 320ms var(--ease-out) both;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+@utility skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-3);
+  border-radius: 10px;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.04), transparent);
+    animation: shimmer 1.4s linear infinite;
+  }
+}
+
+@keyframes flash-gold {
+  0% {
+    background-color: var(--gold-tint);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@utility flash-gold {
+  animation: flash-gold 1200ms var(--ease-out) both;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+@utility pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------ view transitions */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+  animation-timing-function: var(--ease-out);
+}
+::view-transition-old(.page) {
+  animation: vt-fade-out 140ms var(--ease-out) both;
+}
+::view-transition-new(.page) {
+  animation: vt-rise-in 280ms var(--ease-out) both;
+}
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* --------------------------------------------------------- sonner toasts */
+
+[data-sonner-toaster] [data-sonner-toast] {
+  background: var(--surface-3) !important;
+  border: 1px solid var(--line-strong) !important;
+  color: var(--text-1) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--e3) !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+[data-sonner-toaster] [data-sonner-toast] [data-description] {
+  color: var(--text-2) !important;
+  font-weight: 500 !important;
+}
+[data-sonner-toaster] [data-sonner-toast] [data-button] {
+  background: transparent !important;
+  color: var(--gold-300) !important;
+  font-weight: 800 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
 }

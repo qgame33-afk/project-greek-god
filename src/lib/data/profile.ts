@@ -1,0 +1,68 @@
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { must, sb, useUser, type Row, type Update } from "./core";
+
+export type Profile = Row<"profiles">;
+
+export function useProfile() {
+  const { userId } = useUser();
+  const q = useQuery({
+    queryKey: ["profile", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const res = await sb().from("profiles").select("*").eq("id", userId!).maybeSingle();
+      if (res.error) throw new Error(res.error.message);
+      if (res.data) return res.data;
+      // trigger normally creates it; recover if it's missing
+      return must(await sb().from("profiles").insert({ id: userId! }).select("*").single());
+    },
+  });
+  return { profile: q.data, loading: q.isLoading || !userId, error: q.error };
+}
+
+const TRACKED: (keyof Profile)[] = ["calorie_goal", "protein_goal", "carb_goal", "fat_goal", "goal_weight_lb", "water_goal_ml", "sleep_goal_h", "steps_goal"];
+
+/**
+ * Save profile fields optimistically. Goal changes are written to goal_changes so the app
+ * can show when and why a target moved (and so calorie suggestions don't re-fire).
+ */
+export function useSaveProfile() {
+  const qc = useQueryClient();
+  const { userId } = useUser();
+  return useMutation({
+    mutationFn: async ({ values, reason, source = "user" }: { values: Update<"profiles">; reason?: string; source?: "user" | "suggestion" | "onboarding" }) => {
+      const prev = qc.getQueryData<Profile>(["profile", userId]);
+      must(await sb().from("profiles").update(values).eq("id", userId!).select("id").single());
+      if (prev) {
+        const changes = TRACKED.filter((k) => k in values && values[k as keyof typeof values] != null && Number(values[k as keyof typeof values]) !== Number(prev[k]))
+          .map((k) => ({ field: k, old_value: Number(prev[k]), new_value: Number(values[k as keyof typeof values]), reason: reason ?? null, source }));
+        if (changes.length) await sb().from("goal_changes").insert(changes);
+      }
+    },
+    onMutate: async ({ values }) => {
+      await qc.cancelQueries({ queryKey: ["profile", userId] });
+      const prev = qc.getQueryData<Profile>(["profile", userId]);
+      if (prev) qc.setQueryData(["profile", userId], { ...prev, ...values });
+      return { prev };
+    },
+    onError: (e: Error, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["profile", userId], ctx.prev);
+      toast.error("Couldn't save", { description: e.message });
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["profile"] });
+      qc.invalidateQueries({ queryKey: ["goal-changes"] });
+    },
+  });
+}
+
+export function useGoalChanges() {
+  const { userId } = useUser();
+  return useQuery({
+    queryKey: ["goal-changes", userId],
+    enabled: !!userId,
+    queryFn: async () => must(await sb().from("goal_changes").select("*").order("changed_at", { ascending: false }).limit(200)),
+  });
+}
