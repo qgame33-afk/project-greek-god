@@ -1,0 +1,232 @@
+import { describe, expect, it } from "vitest";
+import { macroLine, macrosOverflow } from "./macros";
+import {
+  answersFromProfile,
+  normalizeSchedule,
+  planSummary,
+  profileUpdateFromAnswers,
+  restoreDraft,
+  roadmapSteps,
+  scheduleSummary,
+  shiftRange,
+  validateStep,
+  weeklyRateText,
+  type OnboardingAnswers,
+} from "./plan";
+
+const TODAY = "2026-10-16";
+
+const ownerProfile = {
+  display_name: null,
+  height_cm: 189.2,
+  start_weight_lb: 163,
+  goal_weight_lb: 183,
+  goal_range_min_lb: 180,
+  goal_range_max_lb: 185,
+  start_date: "2026-10-16",
+  target_date: "2027-08-01",
+  experience: "intermediate",
+  weight_unit: "lb",
+  length_unit: "in",
+  calorie_goal: 3300,
+  protein_goal: 185,
+  fat_goal: 85,
+  water_goal_ml: 3000,
+  sleep_goal_h: 8,
+  weekly_schedule: { "0": "rest", "1": "push_a", "2": "pull_a", "3": "legs_a", "4": "push_b", "5": "pull_b", "6": "legs_b" },
+  training_mode: "standard",
+  volleyball_per_week: 2,
+  timezone: "America/Toronto",
+  onboarded: false,
+};
+
+const owner = (): OnboardingAnswers => answersFromProfile(ownerProfile, TODAY, "America/Toronto");
+
+describe("macroLine", () => {
+  it("confirms the owner's targets add up", () => {
+    const l = macroLine({ calories: 3300, protein: 185, carbs: 449, fat: 85 });
+    expect(l.ok).toBe(true);
+    expect(l.total).toBe(3301);
+    expect(l.text).toBe("Macros = 3,301 kcal ✓");
+  });
+  it("calls out targets above the calorie goal", () => {
+    // 185×4 + 504×4 + 85×9 = 3,521 → "3,520"-ish example from DESIGN, here exact
+    const l = macroLine({ calories: 3300, protein: 185, carbs: 504, fat: 85 });
+    expect(l.ok).toBe(false);
+    expect(l.diff).toBe(221);
+    expect(l.text).toBe("Macros total 3,521 kcal, 221 above target");
+  });
+  it("calls out targets below the calorie goal", () => {
+    const l = macroLine({ calories: 3300, protein: 150, carbs: 400, fat: 70 });
+    expect(l.text).toBe("Macros total 2,830 kcal, 470 below target");
+  });
+  it("detects protein + fat overflowing calories", () => {
+    expect(macrosOverflow(1500, 250, 100)).toBe(true);
+    expect(macrosOverflow(3300, 185, 85)).toBe(false);
+  });
+});
+
+describe("answersFromProfile", () => {
+  it("prefills the owner's profile and starts today", () => {
+    const a = owner();
+    expect(a.startWeightLb).toBe(163);
+    expect(a.goalWeightLb).toBe(183);
+    expect(a.heightCm).toBe(189.2);
+    expect(a.startDate).toBe(TODAY);
+    expect(a.targetDate).toBe("2027-08-01");
+    expect(a.experience).toBe("intermediate");
+    expect(a.calorieGoal).toBe(3300);
+    expect(a.proteinGoal).toBe(185);
+    expect(a.todayWeighInLb).toBeNull();
+    expect(a.introVolume).toBe(false);
+  });
+  it("handles numeric strings and a missing profile", () => {
+    const a = answersFromProfile({ start_weight_lb: "170.5", sleep_goal_h: "8.5" }, TODAY, null);
+    expect(a.startWeightLb).toBe(170.5);
+    expect(a.sleepGoalH).toBe(8.5);
+    expect(a.timezone).toBe("UTC");
+    const b = answersFromProfile(null, TODAY, "Europe/London");
+    expect(b.startWeightLb).toBe(163);
+    expect(b.timezone).toBe("Europe/London");
+  });
+  it("keeps an onboarded user's start date and never proposes a past target", () => {
+    const a = answersFromProfile({ ...ownerProfile, onboarded: true, start_date: "2026-09-11", target_date: "2026-01-01" }, TODAY, null);
+    expect(a.startDate).toBe("2026-09-11");
+    expect(a.targetDate).toBe("2027-08-01");
+  });
+});
+
+describe("normalizeSchedule / restoreDraft", () => {
+  it("fills missing or bad days from the default split", () => {
+    const s = normalizeSchedule({ "1": "legs_b", "2": "nonsense" });
+    expect(s["1"]).toBe("legs_b");
+    expect(s["2"]).toBe("pull_a");
+    expect(s["0"]).toBe("rest");
+  });
+  it("restores a stored draft but drops malformed fields", () => {
+    const d = restoreDraft(owner(), { goalWeightLb: 185, weightUnit: "stone", calorieGoal: "lots", todayWeighInLb: 163.4, schedule: { "0": "push_a" } });
+    expect(d.goalWeightLb).toBe(185);
+    expect(d.weightUnit).toBe("lb");
+    expect(d.calorieGoal).toBe(3300);
+    expect(d.todayWeighInLb).toBe(163.4);
+    expect(d.schedule["0"]).toBe("push_a");
+    expect(restoreDraft(owner(), null)).toEqual(owner());
+  });
+});
+
+describe("shiftRange", () => {
+  it("leaves the band alone while the goal is inside it", () => {
+    expect(shiftRange(183, 180, 185)).toEqual({ min: 180, max: 185 });
+  });
+  it("moves the band with the goal, keeping its shape", () => {
+    expect(shiftRange(190, 180, 185)).toEqual({ min: 187, max: 192 });
+    expect(shiftRange(170, 180, 185)).toEqual({ min: 167, max: 172 });
+  });
+});
+
+describe("planSummary", () => {
+  it("builds the owner's placard", () => {
+    const p = planSummary(owner());
+    expect(p.days).toBe(289);
+    expect(p.weeks).toBe(42);
+    expect(p.trainingDays).toBe(6);
+    expect(p.weeklyRateLb).toBe(0.48);
+    expect(p.tooFast).toBe(false);
+    expect(p.carbs).toBe(449);
+    expect(p.macro.text).toBe("Macros = 3,301 kcal ✓");
+    expect(p.placard).toBe("163 → 183 LB · 42 WEEKS · 6 DAYS · 3,300 KCAL · 185 G");
+  });
+  it("uses the display unit on the placard", () => {
+    const p = planSummary({ ...owner(), weightUnit: "kg" });
+    expect(p.placard.startsWith("73.9 → 83 KG")).toBe(true);
+  });
+  it("flags a pace above 1 lb per week", () => {
+    const p = planSummary({ ...owner(), targetDate: "2026-12-31" });
+    expect(p.weeklyRateLb).toBeGreaterThan(1);
+    expect(p.tooFast).toBe(true);
+  });
+  it("counts singular days and weeks", () => {
+    const s = { ...owner().schedule, "2": "rest", "3": "rest", "4": "rest", "5": "rest", "6": "rest" } as OnboardingAnswers["schedule"];
+    const p = planSummary({ ...owner(), schedule: s, targetDate: "2026-10-20" });
+    expect(p.placard).toContain("1 WEEK ·");
+    expect(p.placard).toContain("1 DAY ·");
+  });
+});
+
+describe("roadmapSteps", () => {
+  it("maps October → August onto the eleven SPEC milestones", () => {
+    const r = roadmapSteps("2026-10-16", "2027-08-01", 163, "lb");
+    expect(r).toHaveLength(11);
+    expect(r[0]).toMatchObject({ label: "OCT", year: 2026, title: "The start" });
+    expect(r[0].detail).toContain("Start at 163 lb");
+    expect(r[2].title).toBe("First progress review");
+    expect(r[5].title).toBe("Midpoint");
+    expect(r[10]).toMatchObject({ label: "AUG", year: 2027, title: "Final review" });
+  });
+  it("compresses shorter plans but keeps the first and final months", () => {
+    const r = roadmapSteps("2026-10-16", "2027-02-10", 163, "kg");
+    expect(r.map((x) => x.label)).toEqual(["OCT", "NOV", "DEC", "JAN", "FEB"]);
+    expect(r[0].detail).toContain("73.9 kg");
+    expect(r.at(-1)!.title).toBe("Final review");
+    expect(new Set(r.map((x) => x.title)).size).toBe(r.length);
+  });
+  it("caps very long plans", () => {
+    expect(roadmapSteps("2026-10-16", "2030-10-01", 163, "lb", 24)).toHaveLength(24);
+  });
+});
+
+describe("weeklyRateText", () => {
+  it("formats gain, loss and hold", () => {
+    expect(weeklyRateText(0.48, "lb")).toBe("≈ 0.48 lb per week");
+    expect(weeklyRateText(0.5, "lb")).toBe("≈ 0.5 lb per week");
+    expect(weeklyRateText(1.2, "lb")).toBe("≈ 1.2 lb per week");
+    expect(weeklyRateText(-0.3, "lb")).toBe("≈ 0.3 lb loss per week");
+    expect(weeklyRateText(0, "lb")).toBe("Hold your current weight");
+    expect(weeklyRateText(0.48, "kg")).toBe("≈ 0.22 kg per week");
+    expect(weeklyRateText(null, "lb")).toContain("after your start date");
+  });
+});
+
+describe("validateStep", () => {
+  it("passes the owner's defaults on every step", () => {
+    for (const s of ["welcome", "body", "goal", "training", "nutrition", "units", "finale"] as const) expect(validateStep(s, owner(), TODAY)).toEqual({});
+  });
+  it("rejects a target date that isn't after today", () => {
+    expect(validateStep("goal", { ...owner(), targetDate: TODAY }, TODAY).targetDate).toBe("Pick a date after today.");
+    expect(validateStep("goal", { ...owner(), targetDate: "2026-01-01" }, TODAY).targetDate).toBe("Pick a date after today.");
+    expect(validateStep("goal", { ...owner(), targetDate: "" }, TODAY).targetDate).toBe("Pick a target date.");
+  });
+  it("rejects impossible body values and a bad optional weigh-in", () => {
+    const e = validateStep("body", { ...owner(), startWeightLb: 20, heightCm: 40, todayWeighInLb: 900 }, TODAY);
+    expect(e.startWeightLb).toBeTruthy();
+    expect(e.heightCm).toBeTruthy();
+    expect(e.todayWeighInLb).toBeTruthy();
+  });
+  it("rejects macros that can't add up", () => {
+    expect(validateStep("nutrition", { ...owner(), calorieGoal: 1500, proteinGoal: 300, fatGoal: 120 }, TODAY).macros).toBeTruthy();
+    expect(validateStep("nutrition", { ...owner(), calorieGoal: 900 }, TODAY).calorieGoal).toBeTruthy();
+  });
+});
+
+describe("profileUpdateFromAnswers", () => {
+  it("derives carbs, marks onboarded and widens the range to include the goal", () => {
+    const u = profileUpdateFromAnswers({ ...owner(), displayName: "  Quinton ", goalWeightLb: 186, introVolume: true });
+    expect(u.display_name).toBe("Quinton");
+    expect(u.carb_goal).toBe(449);
+    expect(u.onboarded).toBe(true);
+    expect(u.training_mode).toBe("intro");
+    expect(u.goal_range_max_lb).toBe(186);
+    expect(u.start_date).toBe(TODAY);
+    expect(u.weekly_schedule["0"]).toBe("rest");
+  });
+  it("stores an empty name as null", () => {
+    expect(profileUpdateFromAnswers(owner()).display_name).toBeNull();
+  });
+});
+
+describe("scheduleSummary", () => {
+  it("names the default split", () => {
+    expect(scheduleSummary(owner().schedule)).toBe("6 days · Push/Pull/Legs × 2");
+    expect(scheduleSummary({ ...owner().schedule, "6": "rest" })).toBe("5 days");
+  });
+});

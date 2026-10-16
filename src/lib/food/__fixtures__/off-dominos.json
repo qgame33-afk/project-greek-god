@@ -1,0 +1,146 @@
+{
+ "hits": [
+  {
+   "code": "00042069",
+   "product_name": "Kick'n Chicken",
+   "product_name_en": "Kick'n Chicken",
+   "brands": [
+    "Domino's pizza"
+   ],
+   "countries_tags": [
+    "en:netherlands"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "carbohydrates_100g": 15.93,
+    "energy-kcal_100g": 219,
+    "fat_100g": 9.67,
+    "proteins_100g": 17.03
+   }
+  },
+  {
+   "code": "2000000109882",
+   "product_name": "Sauce Curry",
+   "brands": [
+    "Domino's Pizza",
+    "Domino's"
+   ],
+   "quantity": "30 g",
+   "countries_tags": [
+    "en:france"
+   ],
+   "lang": "fr",
+   "nutriments": {}
+  },
+  {
+   "code": "2000000031517",
+   "product_name": "Sauce sweet & spicy",
+   "brands": [
+    "Domino's Pizza",
+    "Domino's"
+   ],
+   "quantity": "30 g",
+   "countries_tags": [
+    "en:france"
+   ],
+   "lang": "fr",
+   "nutriments": {
+    "proteins_100g": 0.5,
+    "energy-kcal_100g": 219,
+    "carbohydrates_100g": 53,
+    "fat_100g": 0.5,
+    "energy-kj_100g": 928
+   }
+  },
+  {
+   "code": "5400112230015",
+   "product_name": "Fatto in italia",
+   "brands": [
+    "Pizza pepperoni"
+   ],
+   "quantity": "330 g",
+   "countries_tags": [
+    "en:belgium"
+   ],
+   "lang": "fr",
+   "nutriments": {
+    "carbohydrates_100g": 30,
+    "proteins_100g": 10,
+    "fat_100g": 7,
+    "energy-kcal_100g": 226
+   }
+  },
+  {
+   "code": "42069",
+   "product_name": "Kick'n Chicken",
+   "product_name_en": "Kick'n Chicken",
+   "brands": [
+    "Domino's pizza"
+   ],
+   "countries_tags": [
+    "en:netherlands"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "fat_100g": 9.67,
+    "proteins_100g": 17.03,
+    "carbohydrates_100g": 15.93,
+    "energy-kcal_100g": 219
+   }
+  },
+  {
+   "code": "5028197973810",
+   "product_name": "Chicken delight",
+   "product_name_en": "Chicken delight",
+   "brands": [
+    "Domino's Pizza"
+   ],
+   "countries_tags": [
+    "en:united-kingdom"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "fat_100g": 3.8499999999999996,
+    "proteins_100g": 8.23,
+    "carbohydrates_100g": 28.12,
+    "energy-kcal_100g": 185
+   }
+  },
+  {
+   "code": "2000500043149",
+   "product_name": "Original BBQ Bacon",
+   "brands": [
+    "Domino's Pizza"
+   ],
+   "quantity": "930g",
+   "countries_tags": [
+    "en:france"
+   ],
+   "lang": "fr",
+   "nutriments": {
+    "carbohydrates_100g": 29.4,
+    "energy-kcal_100g": 261,
+    "energy-kj_100g": 1096,
+    "fat_100g": 10.56,
+    "proteins_100g": 11.35
+   }
+  },
+  {
+   "code": "04200116",
+   "product_name": "Chicken Apple Pecan Salad",
+   "product_name_en": "Chicken Apple Pecan Salad",
+   "brands": [
+    "Domino's Pizza"
+   ],
+   "quantity": "170 g",
+   "countries_tags": [
+    "en:united-states"
+   ],
+   "lang": "en",
+   "nutriments": {}
+  }
+ ],
+ "page": 1,
+ "page_size": 8,
+ "count": 10000
+}

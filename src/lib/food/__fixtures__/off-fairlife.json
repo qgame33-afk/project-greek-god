@@ -1,0 +1,117 @@
+{
+ "hits": [
+  {
+   "code": "3818970000350",
+   "product_name": "Fairlife protein  shake",
+   "product_name_en": "Fairlife protein  shake",
+   "countries_tags": [
+    "en:ireland"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "fat_100g": 1.5,
+    "proteins_100g": 30,
+    "carbohydrates_100g": 3,
+    "energy-kcal_100g": 150
+   }
+  },
+  {
+   "code": "0049000551365",
+   "product_name": "Fairlife protein shake",
+   "product_name_en": "Fairlife protein shake",
+   "countries_tags": [
+    "en:united-states"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "fat_100g": 0.72463768115942,
+    "proteins_100g": 7.2463768115941996,
+    "carbohydrates_100g": 1.207729468599,
+    "energy-kcal_100g": 38.647342995169
+   }
+  },
+  {
+   "code": "0000980250057",
+   "product_name": "Fairlife Chocolate Protein Shake",
+   "product_name_en": "Fairlife Chocolate Protein Shake",
+   "countries_tags": [
+    "en:united-states"
+   ],
+   "lang": "en",
+   "nutriments": {}
+  },
+  {
+   "code": "38986253",
+   "product_name": "Fairlife vanilla protein shake",
+   "product_name_en": "Fairlife vanilla protein shake",
+   "brands": [
+    "Fairlife"
+   ],
+   "countries_tags": [
+    "en:united-states"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "carbohydrates_100g": 0.88235295,
+    "energy-kcal_100g": 44.11765,
+    "fat_100g": 0.73529416,
+    "proteins_100g": 8.82353
+   }
+  },
+  {
+   "code": "980250057",
+   "product_name": "Fairlife Chocolate Protein Shake",
+   "product_name_en": "Fairlife Chocolate Protein Shake",
+   "countries_tags": [
+    "en:united-states"
+   ],
+   "lang": "en",
+   "nutriments": {}
+  },
+  {
+   "code": "8436581676785",
+   "product_name": "100% Pure Whey Protein X3",
+   "product_name_en": "100% Pure Whey Protein X3",
+   "brands": [
+    "HealthyFusion"
+   ],
+   "quantity": "1kg",
+   "countries_tags": [
+    "en:spain"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "carbohydrates_100g": 2.96,
+    "energy-kcal_100g": 387,
+    "energy-kj_100g": 1620,
+    "fat_100g": 3.57,
+    "proteins_100g": 86.06
+   }
+  },
+  {
+   "code": "5060802522709",
+   "brands": [
+    "Protein Works"
+   ],
+   "lang": "en",
+   "nutriments": {}
+  },
+  {
+   "code": "0087614210551",
+   "product_name": "Real Food Plant Protein, Vanilla",
+   "product_name_en": "Real Food Plant Protein, Vanilla",
+   "brands": [
+    "Swanson"
+   ],
+   "quantity": "1.2 oz (34 g)",
+   "countries_tags": [
+    "en:united-states"
+   ],
+   "lang": "en",
+   "nutriments": {}
+  }
+ ],
+ "page": 1,
+ "page_size": 8,
+ "count": 10000
+}

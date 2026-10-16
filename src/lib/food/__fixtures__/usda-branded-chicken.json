@@ -1,0 +1,134 @@
+{
+ "totalHits": 21661,
+ "foods": [
+  {
+   "fdcId": 2187885,
+   "description": "CHICKEN BREAST",
+   "dataType": "Branded",
+   "brandOwner": "Giant Eagle, Inc.",
+   "brandName": "GIANT EAGLE",
+   "gtinUpc": "030034086411",
+   "foodCategory": "Poultry, Chicken & Turkey",
+   "servingSize": 284.0,
+   "servingSizeUnit": "g",
+   "householdServingFullText": "1 CHICKEN BREAST",
+   "marketCountry": "United States",
+   "foodNutrients": [
+    {
+     "nutrientId": 1003,
+     "nutrientName": "Protein",
+     "nutrientNumber": "203",
+     "unitName": "G",
+     "value": 20.4
+    },
+    {
+     "nutrientId": 1004,
+     "nutrientName": "Total lipid (fat)",
+     "nutrientNumber": "204",
+     "unitName": "G",
+     "value": 8.1
+    },
+    {
+     "nutrientId": 1005,
+     "nutrientName": "Carbohydrate, by difference",
+     "nutrientNumber": "205",
+     "unitName": "G",
+     "value": 1.06
+    },
+    {
+     "nutrientId": 1008,
+     "nutrientName": "Energy",
+     "nutrientNumber": "208",
+     "unitName": "KCAL",
+     "value": 165
+    }
+   ]
+  },
+  {
+   "fdcId": 2092152,
+   "description": "CHICKEN BREAST",
+   "dataType": "Branded",
+   "brandOwner": "Tyson Foods, Inc.",
+   "brandName": "TYSON",
+   "gtinUpc": "023700038326",
+   "foodCategory": "Pepperoni, Salami & Cold Cuts",
+   "servingSize": 28.0,
+   "servingSizeUnit": "g",
+   "householdServingFullText": "1 SLICE",
+   "marketCountry": "United States",
+   "foodNutrients": [
+    {
+     "nutrientId": 1003,
+     "nutrientName": "Protein",
+     "nutrientNumber": "203",
+     "unitName": "G",
+     "value": 14.3
+    },
+    {
+     "nutrientId": 1004,
+     "nutrientName": "Total lipid (fat)",
+     "nutrientNumber": "204",
+     "unitName": "G",
+     "value": 8.93
+    },
+    {
+     "nutrientId": 1005,
+     "nutrientName": "Carbohydrate, by difference",
+     "nutrientNumber": "205",
+     "unitName": "G",
+     "value": 3.57
+    },
+    {
+     "nutrientId": 1008,
+     "nutrientName": "Energy",
+     "nutrientNumber": "208",
+     "unitName": "KCAL",
+     "value": 143
+    }
+   ]
+  },
+  {
+   "fdcId": 2125872,
+   "description": "CHICKEN BREAST",
+   "dataType": "Branded",
+   "brandOwner": "Jennie-O Turkey Store, Inc.",
+   "brandName": "JENNIE-O",
+   "gtinUpc": "042222329484",
+   "foodCategory": "Cooked & Prepared",
+   "servingSize": 56.0,
+   "servingSizeUnit": "g",
+   "householdServingFullText": "2 ONZ",
+   "marketCountry": "United States",
+   "foodNutrients": [
+    {
+     "nutrientId": 1003,
+     "nutrientName": "Protein",
+     "nutrientNumber": "203",
+     "unitName": "G",
+     "value": 19.6
+    },
+    {
+     "nutrientId": 1004,
+     "nutrientName": "Total lipid (fat)",
+     "nutrientNumber": "204",
+     "unitName": "G",
+     "value": 1.79
+    },
+    {
+     "nutrientId": 1005,
+     "nutrientName": "Carbohydrate, by difference",
+     "nutrientNumber": "205",
+     "unitName": "G",
+     "value": 1.79
+    },
+    {
+     "nutrientId": 1008,
+     "nutrientName": "Energy",
+     "nutrientNumber": "208",
+     "unitName": "KCAL",
+     "value": 107
+    }
+   ]
+  }
+ ]
+}

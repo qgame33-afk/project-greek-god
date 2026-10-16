@@ -1,0 +1,151 @@
+{
+ "hits": [
+  {
+   "code": "20720018",
+   "product_name": "Plain Bagels",
+   "product_name_en": "Plain Bagels",
+   "brands": [
+    "Rowan Hill bakery"
+   ],
+   "quantity": "5",
+   "countries_tags": [
+    "en:united-kingdom"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "carbohydrates_100g": 50.9,
+    "energy-kcal_100g": 264,
+    "energy-kj_100g": 1100,
+    "fat_100g": 1.76,
+    "proteins_100g": 9.18
+   }
+  },
+  {
+   "code": "5060360421599",
+   "product_name": "Goodness Grains Gluten Free Plain Bagels",
+   "product_name_en": "Goodness Grains Gluten Free Plain Bagels",
+   "brands": [
+    "Goodness Grains"
+   ],
+   "countries_tags": [
+    "en:ireland",
+    "en:united-kingdom"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "carbohydrates_100g": 50,
+    "energy-kcal_100g": 249,
+    "fat_100g": 2.8,
+    "proteins_100g": 3.9
+   }
+  },
+  {
+   "code": "5020364010113",
+   "product_name": "Bakery Co. 5 The Original Bagels",
+   "product_name_en": "Bakery Co. 5 The Original Bagels",
+   "brands": [
+    "New York Bakery Co"
+   ],
+   "quantity": "5",
+   "countries_tags": [
+    "en:france",
+    "en:united-kingdom"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "carbohydrates_100g": 49.4,
+    "energy-kcal_100g": 269,
+    "fat_100g": 2.47,
+    "proteins_100g": 9.18
+   }
+  },
+  {
+   "code": "29295982",
+   "product_name": "Plain bagels",
+   "product_name_en": "Plain bagels",
+   "brands": [
+    "Marks & Spencer"
+   ],
+   "countries_tags": [
+    "en:united-kingdom"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "carbohydrates_100g": 51.2,
+    "energy-kcal_100g": 263,
+    "fat_100g": 0.8,
+    "proteins_100g": 11
+   }
+  },
+  {
+   "code": "5060255150528",
+   "product_name": "plain bagel",
+   "product_name_en": "plain bagel",
+   "brands": [
+    "Cohen's"
+   ],
+   "countries_tags": [
+    "en:united-kingdom"
+   ],
+   "lang": "en",
+   "nutriments": {}
+  },
+  {
+   "code": "0642434419012",
+   "product_name": "Plain Bagel",
+   "product_name_en": "Plain Bagel",
+   "brands": [
+    "OriginalBagel"
+   ],
+   "countries_tags": [
+    "en:united-states"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "carbohydrates_100g": 54.9,
+    "energy-kcal_100g": 257,
+    "fat_100g": 0.885,
+    "proteins_100g": 8.85
+   }
+  },
+  {
+   "code": "0688267579400",
+   "product_name": "Plain bagel",
+   "product_name_en": "Plain bagel",
+   "brands": [
+    "The Bakery"
+   ],
+   "countries_tags": [
+    "en:united-states"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "carbohydrates_100g": 54.9,
+    "energy-kcal_100g": 257,
+    "fat_100g": 0.885,
+    "proteins_100g": 8.85
+   }
+  },
+  {
+   "code": "6001224356236",
+   "product_name": "Plain Bagels",
+   "product_name_en": "Plain Bagels",
+   "brands": [
+    "La Boulangerie"
+   ],
+   "countries_tags": [
+    "en:south-africa"
+   ],
+   "lang": "en",
+   "nutriments": {
+    "carbohydrates_100g": 57,
+    "energy-kcal_100g": 289.9139578893,
+    "fat_100g": 1.9,
+    "proteins_100g": 9.5
+   }
+  }
+ ],
+ "page": 1,
+ "page_size": 8,
+ "count": 10000
+}
