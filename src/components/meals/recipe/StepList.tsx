@@ -4,6 +4,7 @@ import { Check, Thermometer } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { haptic } from "@/lib/haptics";
 import type { RecipeStep } from "@/lib/meals/types";
+import { kitchenText } from "../cook/cook-model";
 import { TimerChip } from "../cook/TimerChip";
 
 /** "Step 2 · Brown the beef" for timers and announcements. */
@@ -45,7 +46,7 @@ export function StepList({ recipeKey, steps, done, onToggle }: { recipeKey: stri
               {on ? <Check className="size-[18px]" strokeWidth={3} /> : <span className="num text-[19px] font-semibold leading-none">{i + 1}</span>}
             </button>
             <div className="min-w-0 flex-1 pt-[7px]">
-              <p className={cn("text-[17px] font-medium leading-[1.5] transition-colors duration-(--dur-fast)", on ? "text-fg-3" : "text-fg")}>{s.text}</p>
+              <p className={cn("text-[17px] font-medium leading-[1.5] transition-colors duration-(--dur-fast)", on ? "text-fg-3" : "text-fg")}>{kitchenText(s.text)}</p>
               {s.safety && <SafetyNote text={s.safety} className="mt-3" />}
               {s.timerSec ? <TimerChip recipeKey={recipeKey} step={i} totalSec={s.timerSec} label={stepLabel(i, s.text)} className="mt-3" /> : null}
             </div>
@@ -62,7 +63,7 @@ export function SafetyNote({ text, className, large }: { text: string; className
       <Thermometer className={cn("mt-0.5 shrink-0 text-lapis-text", large ? "size-5" : "size-4")} aria-hidden />
       <p className={cn("font-medium leading-snug text-fg", large ? "text-[17px]" : "text-[14px]")}>
         <span className="sr-only">Food safety: </span>
-        {text}
+        {kitchenText(text)}
       </p>
     </div>
   );

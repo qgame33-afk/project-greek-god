@@ -8,7 +8,7 @@
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
-import { must, sb, useUser } from "@/lib/data/core";
+import { must, sb, useToday, useUser } from "@/lib/data/core";
 import { useAddFeedback, useDeleteFeedback, useMealFeedback, usePlan, useUpdatePlannedMeal, weekStart, type WeekPlan } from "@/lib/data/meals";
 import { recipeFeatures } from "@/lib/meals/recipe";
 import type { Recipe } from "@/lib/meals/types";
@@ -36,7 +36,8 @@ export function usePlannedMealById(id: string | null | undefined) {
   const q = useQuery({
     queryKey: ["meal-planned-one", id, userId],
     enabled: !!userId && valid && !cachedWeek,
-    queryFn: async () => must(await sb().from("planned_meals").select("id, local_date").eq("id", id!).maybeSingle()),
+    queryFn: async (): Promise<{ id: string; local_date: string } | null> =>
+      must(await sb().from("planned_meals").select("id, local_date").eq("id", id!).maybeSingle()) as { id: string; local_date: string } | null,
   });
   const ws = cachedWeek ?? (q.data ? weekStart(q.data.local_date) : null);
   const plan = usePlan(ws);
@@ -120,9 +121,9 @@ export function useViewedSignal(recipe: Recipe | undefined) {
   const add = useAddFeedback();
   const mutate = add.mutate;
   const key = recipe?.key;
+  const day = useToday();
   useEffect(() => {
     if (!recipe || !key) return;
-    const day = new Date().toISOString().slice(0, 10);
     const storeKey = `pgg.meals.viewed.${key}`;
     try {
       if (localStorage.getItem(storeKey) === day) return;
@@ -131,9 +132,9 @@ export function useViewedSignal(recipe: Recipe | undefined) {
       return; // can't remember it: better to skip than to record every open
     }
     mutate({ recipe_key: key, event: "viewed", features: recipeFeatures(recipe) });
-    // once per recipe key
+    // once per recipe key and day
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, day]);
 }
 
 /** Whether the server can make an AI easier version (GET /api/meals/ai/simplify). Never claims more than it says. */

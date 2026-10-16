@@ -21,6 +21,14 @@ export interface EasierChoice {
   changes: string[];
 }
 
+/** The engine's reason without repeating the heading: "2 min, 2 ingredients, 2 steps. Nothing left to cut." */
+function honestReason(reason: string): string {
+  const m = /^This is already as simple as it gets:\s*(.+)$/i.exec(reason);
+  if (!m) return reason;
+  const rest = m[1].trim().replace(/\.?$/, ".");
+  return `${rest.charAt(0).toUpperCase()}${rest.slice(1)} Nothing left to cut.`;
+}
+
 type AIState = { s: "idle" } | { s: "loading"; since: number } | { s: "done"; res: AISimplifyResponse } | { s: "error"; message: string };
 
 // the comparison table already shows time, counts and nutrition: don't say them twice
@@ -96,12 +104,12 @@ export function MakeEasierSheet({
       description={recipe.name}
       footer={
         choice ? (
-          <div className="grid grid-cols-[auto_1fr] gap-3">
-            <Button variant="secondary" size="lg" onClick={() => onOpenChange(false)} disabled={pending}>
+          <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3">
+            <Button variant="secondary" size="lg" className="px-3" onClick={() => onOpenChange(false)} disabled={pending}>
               Keep original
             </Button>
-            <Button variant="primary" size="lg" onClick={() => choice && onConfirm(choice)} loading={pending}>
-              Use easier version
+            <Button variant="primary" size="lg" className="px-3" onClick={() => choice && onConfirm(choice)} loading={pending}>
+              Use easier
             </Button>
           </div>
         ) : undefined
@@ -117,7 +125,7 @@ export function MakeEasierSheet({
             </span>
             <div className="min-w-0">
               <p className="text-[15px] font-bold text-fg">{result.ok ? "" : result.reason.startsWith("This is already") ? "Already as simple as it gets" : "No honest shortcut"}</p>
-              <p className="mt-1 text-[14px] leading-relaxed text-fg-2">{!result.ok && result.reason}</p>
+              <p className="mt-1 text-[14px] leading-relaxed text-fg-2">{!result.ok && honestReason(result.reason)}</p>
             </div>
           </div>
 

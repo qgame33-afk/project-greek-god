@@ -80,11 +80,11 @@ export function TasteCard({
         </button>
         <button type="button" aria-pressed={thumbs === "up"} onClick={() => onThumbs("up")} className={cn(pill, thumbs === "up" ? on : off)}>
           <ThumbsUp className="size-[18px]" fill={thumbs === "up" ? "currentColor" : "none"} aria-hidden />
-          Liked
+          {thumbs === "up" ? "Liked" : "Like"}
         </button>
         <button type="button" aria-pressed={thumbs === "down"} onClick={() => onThumbs("down")} className={cn(pill, thumbs === "down" ? "border-line-strong bg-s5 text-fg" : off)}>
           <ThumbsDown className="size-[18px]" fill={thumbs === "down" ? "currentColor" : "none"} aria-hidden />
-          Not for me
+          {thumbs === "down" ? "Disliked" : "Dislike"}
         </button>
       </div>
     </section>
@@ -92,7 +92,7 @@ export function TasteCard({
 }
 
 /** "Logged today · 1,155 kcal" after this meal went into the food diary, with Undo when we can. */
-export function LoggedStrip({ text, onUndo, className }: { text: string; onUndo?: () => void; className?: string }) {
+export function LoggedStrip({ text, onUndo, href = "/nutrition", className }: { text: string; onUndo?: () => void; href?: string; className?: string }) {
   return (
     <div className={cn("flex min-h-[52px] items-center gap-3 rounded-[14px] border border-success/25 bg-success-tint py-1.5 pl-3.5 pr-1.5", className)} role="status">
       <span className="grid size-7 shrink-0 place-items-center rounded-full bg-success text-ink">
@@ -104,7 +104,7 @@ export function LoggedStrip({ text, onUndo, className }: { text: string; onUndo?
           Undo
         </button>
       ) : (
-        <Link href="/nutrition" className="press inline-flex h-11 shrink-0 items-center rounded-[10px] px-3 text-[13.5px] font-bold text-gold-300 hover:text-gold-200">
+        <Link href={href} className="press inline-flex h-11 shrink-0 items-center rounded-[10px] px-3 text-[13.5px] font-bold text-gold-300 hover:text-gold-200">
           View
         </Link>
       )}

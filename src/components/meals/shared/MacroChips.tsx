@@ -55,7 +55,7 @@ export function MacroChips({ macros, size = "md", className }: { macros: Macros;
       <div className={cell} aria-hidden>
         <span className={value}>{kcalText(macros.kcal)}</span>
         <span className={label}>
-          <span className="size-1.5 rounded-full bg-gold-400" />
+          <span className="size-1.5 shrink-0 rounded-full bg-gold-400" />
           kcal
         </span>
       </div>
@@ -66,7 +66,7 @@ export function MacroChips({ macros, size = "md", className }: { macros: Macros;
             <span className="ml-0.5 font-sans text-[11px] font-semibold text-fg-2">g</span>
           </span>
           <span className={label}>
-            <span className={cn("size-1.5 rounded-full", MACRO_DOT[m.key])} />
+            <span className={cn("size-1.5 shrink-0 rounded-full", MACRO_DOT[m.key])} />
             {m.label}
           </span>
         </div>

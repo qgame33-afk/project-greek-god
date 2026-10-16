@@ -15,12 +15,15 @@ export function ServingsStepper({
   className,
   size = "md",
   label = "Servings",
+  showUnit = true,
 }: {
   value: number;
   onChange: (v: number) => void;
   className?: string;
   size?: "md" | "lg";
   label?: string;
+  /** "servings" under the number (off where the label already says it). */
+  showUnit?: boolean;
 }) {
   const v = clampServings(value);
   const btn = cn(
@@ -37,9 +40,9 @@ export function ServingsStepper({
       <button type="button" className={btn} onClick={() => go(-1)} disabled={!canStep(v, -1)} aria-label={`Fewer servings, now ${servingsNumber(v)}`}>
         <Minus className="size-5" aria-hidden />
       </button>
-      <div className="min-w-[72px] text-center" aria-live="polite" aria-atomic>
-        <span className={cn("num block font-semibold leading-none text-fg", size === "lg" ? "text-[34px]" : "text-[28px]")}>{servingsNumber(v)}</span>
-        <span className="mt-1 block text-[11px] font-bold uppercase tracking-[0.14em] text-fg-3">{v > 1 ? "servings" : "serving"}</span>
+      <div className={cn("text-center", showUnit ? "min-w-[72px]" : "min-w-[60px]")} aria-live="polite" aria-atomic>
+        <span className={cn("num block font-semibold leading-none text-fg", size === "lg" ? "text-[34px]" : showUnit ? "text-[28px]" : "text-[32px]")}>{servingsNumber(v)}</span>
+        <span className={cn("mt-1 block text-[11px] font-bold uppercase tracking-[0.14em] text-fg-3", !showUnit && "sr-only")}>{v > 1 ? "servings" : "serving"}</span>
       </div>
       <button type="button" className={btn} onClick={() => go(1)} disabled={!canStep(v, 1)} aria-label={`More servings, now ${servingsNumber(v)}`}>
         <Plus className="size-5" aria-hidden />
