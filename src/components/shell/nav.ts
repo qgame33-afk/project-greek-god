@@ -26,12 +26,19 @@ export function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-/** Routes that take over the full screen (no tab bar / FAB). */
+/** Routes that take over the full screen (no tab bar / FAB). Cooking mode is one: a kitchen screen. */
 export function isFocusRoute(pathname: string) {
-  return pathname.startsWith("/workout/") || pathname.startsWith("/onboarding");
+  return pathname.startsWith("/workout/") || pathname.startsWith("/onboarding") || pathname.startsWith("/nutrition/meals/cook/");
 }
 
-/** Routes where the quick-log FAB would cover a composer or primary action. */
+/** Routes where the quick-log FAB would cover a composer or primary action (the recipe screen's START COOKING dock, the grocery list's row menus). */
 export function hidesFab(pathname: string) {
-  return isFocusRoute(pathname) || pathname.startsWith("/coach") || pathname.startsWith("/nutrition/coach") || pathname.startsWith("/nutrition/scan");
+  return (
+    isFocusRoute(pathname) ||
+    pathname.startsWith("/coach") ||
+    pathname.startsWith("/nutrition/coach") ||
+    pathname.startsWith("/nutrition/scan") ||
+    pathname.startsWith("/nutrition/meals/recipe/") ||
+    pathname.startsWith("/nutrition/meals/grocery")
+  );
 }

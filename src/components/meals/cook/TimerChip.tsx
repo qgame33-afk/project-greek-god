@@ -14,8 +14,8 @@ import { timers$, useTimers } from "./timers";
 export function TimerChip({ recipeKey, step, totalSec, label, className }: { recipeKey: string; step: number; totalSec: number; label: string; className?: string }) {
   const all = useTimers();
   const t = all.find((x) => x.id === timerId(recipeKey, step) && !x.dismissedAt) ?? null;
-  const nowSec = useNowSec();
-  const now = nowSec ? nowSec * 1000 : Date.now();
+  // the shared 1 Hz clock (client-only screens: never the server's 0)
+  const now = useNowSec() * 1000;
 
   if (!t) {
     return (
