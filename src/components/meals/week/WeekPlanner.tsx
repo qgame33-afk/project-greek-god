@@ -196,9 +196,10 @@ export function WeekPlanner() {
   }
 
   // latest values for timers and unmount (written after render, read only in callbacks)
-  const latest = useRef({ closeStrip, strip, meals, lookup, record });
+  const dropGenerateParam = () => writeUrl(offset, picked);
+  const latest = useRef({ closeStrip, strip, meals, lookup, record, dropGenerateParam });
   useEffect(() => {
-    latest.current = { closeStrip, strip, meals, lookup, record };
+    latest.current = { closeStrip, strip, meals, lookup, record, dropGenerateParam };
   });
   useEffect(() => {
     if (strip?.phase !== "noted") return;
@@ -330,6 +331,7 @@ export function WeekPlanner() {
     if (!canAutoGen) return;
     const t = window.setTimeout(() => {
       setAutoGen(null);
+      latest.current.dropGenerateParam();
       if (!latest.current.meals.length) void generateRef.current("first");
     }, 0);
     return () => window.clearTimeout(t);
@@ -537,7 +539,7 @@ export function WeekPlanner() {
               <div ref={dayRef} className="flex flex-col gap-3">
                 <DayHeading date={selected} today={today} />
                 <DayTotals planned={totals[selected]} goals={goals} meals={dayMeals.length} />
-                <div className="grid gap-3 xl:grid-cols-2">
+                <div className="flex flex-col gap-3">
                   {orderedPlaces(dayMeals, missingMainSlots(dayMeals)).map((p, i) =>
                     p.kind === "empty" ? (
                       <EmptySlotCard key={`empty-${p.slot}`} slot={p.slot} busy={!plan?.id || addPlanned.isPending} onFill={() => fillSlot(p.slot)} />

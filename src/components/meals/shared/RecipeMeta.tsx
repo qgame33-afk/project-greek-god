@@ -49,18 +49,20 @@ export function RecipeMeta({
         );
     }
   });
+  // Every item carries its own leading "·"; the row is shifted left by one separator and
+  // clipped, so whichever item starts a line (the first, or one that wrapped) shows no dot.
   return (
-    <p className={cn("flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] font-semibold text-fg-2", className)}>
-      {items.map((el, i) => (
-        <span key={i} className="inline-flex items-center gap-2">
-          {i > 0 && (
-            <span className="text-fg-3/60" aria-hidden>
+    <p className={cn("min-w-0 overflow-hidden text-[12.5px] font-semibold text-fg-2", className)}>
+      <span className="-ml-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+        {items.map((el, i) => (
+          <span key={i} className="inline-flex items-center gap-2">
+            <span className="w-1 text-center text-fg-3/60" aria-hidden>
               ·
             </span>
-          )}
-          {el}
-        </span>
-      ))}
+            {el}
+          </span>
+        ))}
+      </span>
     </p>
   );
 }

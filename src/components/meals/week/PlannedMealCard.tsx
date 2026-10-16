@@ -55,14 +55,14 @@ export function PlannedMealCard({
   const macros = recipe ? recipeMacros(recipe, meal.servings) : undefined;
   return (
     <article
-      className={cn("card-instrument relative overflow-hidden", appear != null && "rise")}
+      className={cn("card-instrument relative overflow-hidden lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center", appear != null && "rise")}
       style={appear != null ? { animationDelay: `${Math.min(appear, 6) * 45}ms` } : undefined}
       aria-busy={busy || undefined}
       data-meal={meal.id}
       data-slot={meal.slot}
     >
       {/* old and new recipe share one grid cell, so a regenerate is a true cross-fade */}
-      <div className="relative grid">
+      <div className="relative grid lg:col-start-1 lg:row-start-1">
         <AnimatePresence initial={false}>
           <m.div
             key={meal.recipe_key}
@@ -73,11 +73,11 @@ export function PlannedMealCard({
             transition={{ duration: 0.26, ease: EASE.out }}
           >
             {recipe ? (
-              <Link href={recipeHref(meal.recipe_key, meal.id)} onClick={onOpen} className="press-soft block p-4 pb-3 hover:bg-white/[.015]" aria-label={`${SLOT_LABEL[meal.slot]}: ${recipe.name}. Open recipe`}>
+              <Link href={recipeHref(meal.recipe_key, meal.id)} onClick={onOpen} className="press-soft block p-4 pb-3 hover:bg-white/[.015] lg:pb-4" aria-label={`${SLOT_LABEL[meal.slot]}: ${recipe.name}. Open recipe`}>
                 <RecipeCardBody recipe={recipe} eyebrow={eyebrow} macros={macros} badges={logged ? <LoggedBadge /> : null} />
               </Link>
             ) : (
-              <div className="p-4 pb-3">
+              <div className="p-4 pb-3 lg:pb-4">
                 <RecipeCardBody recipe={undefined} eyebrow={eyebrow} />
               </div>
             )}
@@ -91,13 +91,13 @@ export function PlannedMealCard({
       </div>
 
       {conflict && (
-        <p className="mx-4 mb-2 flex items-start gap-2 rounded-[10px] bg-warning-tint px-3 py-2 text-[12.5px] font-semibold leading-snug text-warning">
+        <p className="mx-4 mb-2 flex items-start gap-2 rounded-[10px] bg-warning-tint px-3 py-2 text-[12.5px] font-semibold leading-snug text-warning lg:col-span-2 lg:row-start-2 lg:mb-3">
           <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
           {conflict}
         </p>
       )}
 
-      <div className="flex items-center gap-1 px-3 pb-3">
+      <div className="flex items-center gap-1 px-3 pb-3 lg:col-start-2 lg:row-start-1 lg:pr-4 lg:pb-0 lg:pl-2">
         <button
           type="button"
           onClick={onRegenerate}
@@ -109,11 +109,11 @@ export function PlannedMealCard({
           {busy ? "Finding another…" : "Regenerate meal"}
         </button>
         {meal.locked && (
-          <span aria-hidden className="ml-1 hidden text-[12px] font-medium text-fg-3 min-[400px]:inline">
+          <span aria-hidden className="ml-1 hidden text-[12px] font-medium text-fg-3 min-[400px]:inline lg:hidden">
             Locked
           </span>
         )}
-        <span className="flex-1" />
+        <span className="flex-1 lg:hidden" />
         <button
           type="button"
           onClick={onToggleLock}
@@ -133,7 +133,9 @@ export function PlannedMealCard({
         </span>
       )}
 
-      <Collapse open={!!strip}>{strip}</Collapse>
+      <div className="lg:col-span-2 lg:row-start-3">
+        <Collapse open={!!strip}>{strip}</Collapse>
+      </div>
     </article>
   );
 }

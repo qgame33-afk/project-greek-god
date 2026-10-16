@@ -149,7 +149,7 @@ const REASON_WORD: Record<FeedbackReason, string> = {
   too_long: "took too long",
   too_expensive: "too expensive",
   ate_recently: "ate it recently",
-  dislike_ingredient: "an ingredient",
+  dislike_ingredient: "disliked an ingredient",
 };
 
 /** "liked, kept twice" / "swapped out: too complicated": what a person did with one recipe. */
