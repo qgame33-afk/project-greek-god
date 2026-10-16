@@ -38,7 +38,7 @@ describe("engine ↔ data layer contracts", () => {
     if (!res.ok) throw new Error(res.message);
     const patch: PlannedMealPatch = res.patch; // compile-time
     expect(() => plannedMealPatchToRow(patch)).not.toThrow();
-    const fb: NewFeedback = res.feedback!; // compile-time
+    const fb: NewFeedback = res.feedback; // compile-time
     expect(feedbackToRow(fb, "id")).toMatchObject({ event: "regenerated", reason: "too_complicated", recipe_key: asEngine[2].recipe_key });
     const move = moveMeal(asEngine, asEngine[2].id!, { local_date: "2026-10-13" }, lookup);
     if (!move.ok) throw new Error(move.message);

@@ -214,3 +214,42 @@ describe("mergeSteps", () => {
     expect(mergeSteps([{ text: "A.", timerSec: 1 }, { text: "B.", timerSec: 2 }], 1)).toHaveLength(2);
   });
 });
+
+describe("robustness (seeded fuzz)", () => {
+  it("never throws, and every result is valid or an honest 'unchanged'", async () => {
+    const { rngFor } = await import("./rng");
+    const swapLines = [
+      { key: "chicken-breast-raw", qty: 175, unit: "g" as const, words: "the chicken" },
+      { key: "onion", qty: 0.5, unit: "piece" as const, words: "the onion" },
+      { key: "garlic", qty: 2, unit: "piece" as const, words: "the garlic" },
+      { key: "rice-dry", qty: 0.5, unit: "cup" as const, words: "the rice" },
+      { key: "bell-pepper", qty: 0.5, unit: "piece" as const, words: "the pepper" },
+      { key: "broccoli", qty: 1, unit: "cup" as const, words: "the broccoli" },
+    ];
+    const verbs = ["Chop", "Slice", "Cook", "Add", "Stir in", "Microwave", "Brown", "Serve"];
+    let n = 0;
+    for (const base of LIBRARY.filter((r) => r.slots.some((s) => s !== "snack")).slice(0, 60)) {
+      for (let k = 0; k < 4; k++) {
+        const rng = rngFor("fuzz", base.key, k);
+        const extra = swapLines.filter(() => rng() < 0.4).filter((l) => !base.ingredients.some((b) => b.key === l.key));
+        const steps = base.steps.map((s) => ({ ...s }));
+        for (const l of extra) {
+          const i = Math.floor(rng() * steps.length);
+          const v = verbs[Math.floor(rng() * verbs.length)];
+          steps[i] = { ...steps[i], text: `${v} ${l.words}${rng() < 0.5 ? " 4–5 minutes" : ""}. ${steps[i].text}`.slice(0, 240) };
+        }
+        const recipe: Recipe = { ...base, key: `usr:fuzz-${n}`, origin: "custom", easierKey: undefined, ingredients: [...base.ingredients, ...extra.map(({ words: _w, ...l }) => l)], steps };
+        n++;
+        const v = validateRecipe({ ...recipe, nutrition: undefined, allergens: undefined, kinds: undefined });
+        if (!v.ok) continue;
+        let res: ReturnType<typeof simplifyRecipe> | undefined;
+        expect(() => (res = simplifyRecipe(v.recipe, { prefs: DEFAULT_PREFS })), recipe.key).not.toThrow();
+        if (res!.ok) {
+          expectSound(v.recipe, res!.recipe);
+          expect(recipeAllowed(res!.recipe, DEFAULT_PREFS)).toBe(true);
+        } else expect(res!.reason.length).toBeGreaterThan(10);
+      }
+    }
+    expect(n).toBeGreaterThan(100);
+  });
+});

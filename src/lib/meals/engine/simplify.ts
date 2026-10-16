@@ -166,7 +166,7 @@ const PEPPER_ONION = "frozen-peppers-onions";
 const PREP_VERBS = ["finely chop", "roughly chop", "peel and chop", "chop", "dice", "slice", "cut", "mince", "peel", "halve", "quarter", "trim", "shred", "grate", "crush", "rinse", "wash", "pat"];
 const COOK_VERBS = ["stir-fry", "air fry", "air-fry", "cook", "brown", "fry", "sauté", "saute", "sear", "grill", "roast", "bake", "boil", "simmer", "microwave", "broil", "steam"];
 const NEUTRAL_VERBS = [
-  "add", "stir in", "stir", "pour in", "mix in", "fold in", "toss in", "toss", "mix", "combine", "serve", "top", "fill", "spread", "return", "sprinkle", "scatter", "pour", "season", "brush", "layer", "divide", "move", "put", "place", "lay", "rub", "dip", "press", "tip", "transfer", "scoop", "split", "fold", "drizzle", "squeeze", "eat", "pack", "spoon", "push", "rest", "set", "flip", "turn", "shake", "cover", "warm", "heat", "melt", "lower", "bring", "make", "beat", "whisk", "crack", "drain", "thaw", "keep", "let", "remove", "use", "scrape", "wrap", "roll", "slide", "break", "fluff", "save", "dot", "loosen", "smash", "mash", "poke", "scrub", "toast", "assemble", "build", "sit", "cool", "refrigerate", "store", "reheat",
+  "add", "stir in", "stir", "pour in", "crack in", "mix in", "fold in", "toss in", "toss", "mix", "combine", "serve", "top", "fill", "spread", "return", "sprinkle", "scatter", "pour", "season", "brush", "layer", "divide", "move", "put", "place", "lay", "rub", "dip", "press", "tip", "transfer", "scoop", "split", "fold", "drizzle", "squeeze", "eat", "pack", "spoon", "push", "rest", "set", "flip", "turn", "shake", "cover", "warm", "heat", "melt", "lower", "bring", "make", "beat", "whisk", "crack", "drain", "thaw", "keep", "let", "remove", "use", "scrape", "wrap", "roll", "slide", "break", "fluff", "save", "dot", "loosen", "smash", "mash", "poke", "scrub", "toast", "assemble", "build", "sit", "cool", "refrigerate", "store", "reheat",
 ];
 const ALL_VERBS = [...new Set([...PREP_VERBS, ...COOK_VERBS, ...NEUTRAL_VERBS])].sort((a, b) => b.length - a.length);
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -184,6 +184,9 @@ const HEAT_ONLY = /^(?:(?:lower|reduce|raise|turn)\b[^.]*\b(?:heat|low|medium|hi
 const FAT = /\bin (the (?:canola |olive |vegetable |sesame )?(?:oil|butter))\b/i;
 
 type VerbKind = "prep" | "cook" | "neutral";
+
+/** Verbs whose missing object can be restored after a prep clause is removed ("Rub with the oil"). */
+const OBJECT_VERBS = new Set(["rub", "toss", "season", "coat", "brush", "sprinkle", "serve"]);
 
 function verbKind(v: string): VerbKind {
   const l = v.toLowerCase();
@@ -349,7 +352,12 @@ function rewriteSteps(recipe: Recipe, plan: Plan): Rewrite {
 
   const swapKeys = [...plan.swaps.keys()];
   const optKeys = [...plan.dropOptional];
-  const swapIn = (text: string) => swapKeys.filter((k) => plan.swaps.get(k)!.mention.test(text));
+  // "salt and pepper" is black pepper when the recipe has it: a bare "pepper" item is never the bell pepper then
+  const hasBlackPepper = recipe.ingredients.some((l) => l.key === "black-pepper");
+  const swapIn = (text: string) => swapKeys.filter((k) => plan.swaps.get(k)!.mention.test(text) && !(k === "bell-pepper" && hasBlackPepper && /^(?:the\s)?pepper$/i.test(text.trim())));
+  // other ingredients named in an object-less clause ("crack in the eggs") make it about them
+  const others = recipe.ingredients.filter((l) => !plan.swaps.has(l.key)).map((l) => ingredientMention(l.key, soleOil, true)).filter((re): re is RegExp => !!re);
+  const namesOther = (text: string) => others.some((re) => re.test(text));
   const optIn = (text: string) => optKeys.filter((k) => ingredientMention(k, soleOil, true)?.test(text));
 
   // wording that means a swap would change the dish
@@ -357,6 +365,10 @@ function rewriteSteps(recipe: Recipe, plan: Plan): Rewrite {
     const rule = plan.swaps.get(k)!;
     if (rule.block && recipe.steps.some((st) => rule.mention.test(st.text) && rule.block!.test(st.text))) abort.add(k);
   }
+  // with black pepper in the recipe too, a bare "the pepper" could be either: leave the bell pepper alone
+  if (plan.swaps.has("bell-pepper") && hasBlackPepper && recipe.steps.some((st) => /(?<!salt and |black |bell |red |green |cayenne |chili )\bpepper\b(?! flakes)/i.test(st.text))) abort.add("bell-pepper");
+  // peppers and onion share one frozen bag only when the steps always handle them together
+  const bag = plan.swaps.get("onion")?.to === PEPPER_ONION && plan.swaps.has("bell-pepper");
 
   // what the previous clause was about (for "it", "them" and object-less verbs)
   let last: { swaps: Set<string>; other: boolean; kept: boolean; sentence: string } = { swaps: new Set(), other: false, kept: true, sentence: "" };
@@ -487,12 +499,19 @@ function rewriteSteps(recipe: Recipe, plan: Plan): Rewrite {
             continue;
           }
           // neutral verbs: the shortcut is used the same way
-          if (!isExplicit && pendingObject === k && !c.pronoun) object = rule.mode === "replace" ? rule.object : `the ${rule.renameAs ?? rule.rename}`;
+          // "Slice the chicken. Rub with the oil and spices." → "Rub the chicken with …" (seasoning verbs only)
+          if (!isExplicit && pendingObject === k && !c.pronoun && rule.mode === "replace" && OBJECT_VERBS.has(c.verb.trim().toLowerCase()) && (!c.tail.trim() || /^with\b/i.test(c.tail.trim()))) object = rule.object;
           if (rule.mode === "replace") continue;
           items = renameItems(items, rule, plan);
           if (rule.mode === "drop" && isExplicit) placedAsName.add(k);
         }
 
+        if (bag) {
+          const names = new Set([...itemSw.flat(), ...tailSw]);
+          if (names.has("onion") !== names.has("bell-pepper")) abort.add("onion");
+        }
+        // a garnish-only clause with nothing left to add goes ("Top with green onion" → nothing)
+        if (!drop && !items.length && !c.pronoun && !object && !tail.trim() && opts.size && /^(top|garnish|sprinkle|drizzle|scatter|squeeze)$/i.test(c.verb.trim())) drop = true;
         const text = drop ? "" : clauseText(c, items, tail, object);
         if (before || text !== original) changed = true;
         if (drop && c.lead && !pendingLead) pendingLead = c.lead;
@@ -509,6 +528,7 @@ function rewriteSteps(recipe: Recipe, plan: Plan): Rewrite {
 
         // remember what this clause was about
         if (hasObject) last = { swaps: new Set(itemSw.flat()), other: itemSw.some((s) => !s.length), kept: !drop, sentence: sentenceId };
+        else if (!about.size && namesOther(c.tail)) last = { swaps: new Set(), other: true, kept: true, sentence: sentenceId };
         else if (about.size) last = { swaps: about, other: false, kept: !drop, sentence: sentenceId };
         if (!(c.kind === "prep" && drop && about.size)) pendingObject = null;
       }

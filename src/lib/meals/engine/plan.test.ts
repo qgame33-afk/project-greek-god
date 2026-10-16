@@ -235,7 +235,7 @@ describe("regenerateMeal", () => {
     expect(Object.keys(res.patch).sort()).toEqual(["history", "reason", "recipe_key", "servings"]);
     expect(res.meal.history.at(-1)).toEqual({ recipe_key: dinner.recipe_key, servings: dinner.servings, reason: dinner.reason });
     expect(res.feedback).toMatchObject({ recipe_key: dinner.recipe_key, event: "regenerated", reason: null });
-    expect(res.feedback!.features).toEqual(recipeFeatures(lookup(dinner.recipe_key)!));
+    expect(res.feedback.features).toEqual(recipeFeatures(lookup(dinner.recipe_key)!));
     // not a recipe already in the week
     expect(week.filter((m) => m.id !== dinner.id).map((m) => m.recipe_key)).not.toContain(res.recipe.key);
     // the day stays balanced

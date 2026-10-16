@@ -8,6 +8,7 @@
 // pick among unseen recipes in that top 8.
 
 import { daysBetween, type ISODate } from "@/lib/dates";
+import { dislikeCovers } from "../ingredients";
 import { coreIngredients, ingredientCount, recipeCostCad, recipeFeatures, recipeMacros } from "../recipe";
 import type { Difficulty, Macros, MealPrefs, Recipe, Slot } from "../types";
 import type { Favourite } from "./constraints";
@@ -203,7 +204,9 @@ export function scoreRecipe(recipe: Recipe, ctx: ScoreContext): ScoredCandidate 
     if (w) push("taste", `learned:${f}`, w * norm, { feature: f, weight: r3(w) });
   }
   const core = new Set(coreIngredients(recipe).map((l) => l.key));
-  const likedIng = prefs.likedIngredients.filter((k) => core.has(k));
+  // a liked ingredient counts in its other forms too (liking chicken breast covers cooked strips)
+  const likedForms = new Set(prefs.likedIngredients.flatMap((k) => [...dislikeCovers(k)]));
+  const likedIng = [...core].filter((k) => likedForms.has(k));
   if (likedIng.length) push("taste", "liked_ingredient", Math.min(1, 0.4 * likedIng.length), { keys: likedIng });
   const cuisines = tagValues(recipe, "cuisine:");
   const likedC = cuisines.filter((c) => prefs.likedCuisines.includes(c));

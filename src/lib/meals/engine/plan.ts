@@ -135,7 +135,11 @@ interface Prepared {
   places: { slot: Slot; position: number }[];
 }
 
-function prepare(ctx: PlanContext): Prepared {
+function prepare(input: PlanContext): Prepared {
+  // history is for meals outside this week; this week's meals come from `meals`
+  const monday = mondayOf(input.weekStart);
+  const sunday = addDays(monday, 6);
+  const ctx: PlanContext = { ...input, history: (input.history ?? []).filter((h) => h.local_date < monday || h.local_date > sunday) };
   const learned = ctx.learned ?? learnPrefs(ctx.feedback ?? [], ctx.now ?? new Date());
   const byKey = new Map(ctx.pool.map((r) => [r.key, r]));
   const snacks = Math.min(3, Math.max(1, Math.round(ctx.prefs.snacksPerDay) || 2));
@@ -409,8 +413,8 @@ export type RegenerateResult =
       recipe: Recipe;
       reasons: WhyReason[];
       candidate: ScoredCandidate;
-      /** Record this: "regenerated" for the recipe that was replaced. */
-      feedback: FeedbackDraft | null;
+      /** Record this: "regenerated" (+ reason) for the recipe that was replaced. */
+      feedback: FeedbackDraft;
       /** Pass back as `shown` on the next regenerate of the same meal. */
       shown: string[];
     }
@@ -444,11 +448,12 @@ export function regenerateMeal(ctx: PlanContext, meal: EngineMeal, shown: readon
   const others = (ctx.meals ?? []).filter((m) => placeKey(m) !== key && !(m.id && m.id === meal.id));
   const placed: Placed[] = others.map((m) => ({ meal: m, recipe: P.byKey.get(m.recipe_key), fixed: true }));
   const base = slotTarget(meal.slot, ctx.goals, ctx.prefs.snacksPerDay);
-  // aim at what the day still needs once the other meals are counted
-  const day = placed.filter((p) => p.meal.local_date === meal.local_date);
+  // aim at what the day still needs: make up the difference between the other meals' targets
+  // and what they actually provide (within 0.6–1.6× of this slot's own target)
+  const day = placed.filter((p) => p.meal.local_date === meal.local_date && p.recipe);
   const otherKcal = day.reduce((s, p) => s + macrosOf(p.recipe, p.meal.servings).kcal, 0);
-  const expectedOthers = ctx.goals.kcal - base.kcal;
-  const kcal = day.length ? Math.min(1.6 * base.kcal, Math.max(0.6 * base.kcal, base.kcal + (expectedOthers - otherKcal))) : base.kcal;
+  const expectedOthers = day.reduce((s, p) => s + slotTarget(p.meal.slot, ctx.goals, ctx.prefs.snacksPerDay).kcal, 0);
+  const kcal = Math.min(1.6 * base.kcal, Math.max(0.6 * base.kcal, base.kcal + (expectedOthers - otherKcal)));
   const exclude = new Set([meal.recipe_key, ...shown]);
   const res = choose(P, { date: meal.local_date, slot: meal.slot, position: meal.position, placed, target: { kcal, protein: base.protein }, attempt: shown.length + 1, exclude, tag: `regen:${key}` });
   if (!res) return { ok: false, reason: "no_alternative", message: "Nothing else fits this meal with your current settings." };
