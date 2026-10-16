@@ -120,7 +120,8 @@ export function groceryText(rows: readonly GroceryRow[], opts: { title: string; 
     for (const r of left) {
       const amount = rowAmount(r);
       const buy = rowBuy(r);
-      out.push(`- ${r.name}${amount ? `: ${amount}` : ""}${buy ? ` (${buy})` : ""}`);
+      const detail = [amount, buy].filter(Boolean).join(" · ");
+      out.push(`- ${r.name}${detail ? `: ${detail}` : ""}`);
     }
   }
   if (v.staples.length) {

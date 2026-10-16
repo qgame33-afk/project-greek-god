@@ -86,8 +86,9 @@ describe("grocery list view", () => {
     expect(text).toContain("CHECK YOU HAVE");
     expect(text).toMatch(/Estimated total: about \$\d/);
     expect(text).not.toMatch(/undefined|null|NaN/);
-    // every bullet is "- Name" or "- Name: amount (packs)"
-    for (const l of lines.filter((x) => x.startsWith("- "))) expect(l).toMatch(/^- [^:]+(: [^()]+( \(.+\))?)?$/);
+    // every bullet is "- Name" or "- Name: amount · packs" (no nested brackets)
+    for (const l of lines.filter((x) => x.startsWith("- "))) expect(l).toMatch(/^- [^:]+(: [^·]+( · .+)?)?$/);
+    expect(text).toMatch(/\n- 2% milk: \d+ mL · 1 × 2 L carton\n/);
   });
 
   it("says so when there is nothing left to buy", () => {
