@@ -1,6 +1,7 @@
 // SPEC §25 security test (local stack only): a signed-out visitor and a second account must not
 // read or change another user's logs or photos; API routes and pages refuse anonymous calls.
 // Usage: node scripts/dev/security-check.mjs [-v]   (needs the dev server and demo user)
+// Meal planner tables: also run scripts/dev/meals-security-check.mjs (throwaway users only).
 import { createClient } from "@supabase/supabase-js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,7 +18,8 @@ const demo = list.users.find((u) => u.email === "demo@greekgod.local");
 let intr = list.users.find((u) => u.email === "intruder@greekgod.local");
 if (!intr) intr = (await admin.auth.admin.createUser({ email: "intruder@greekgod.local", password: "intruder-test-123", email_confirm: true })).data.user;
 
-const TABLES = ["profiles","goal_changes","custom_exercises","program_templates","day_plans","volleyball_sessions","workout_sessions","exercise_sets","food_entries","saved_foods","saved_meals","water_logs","ai_conversations","ai_messages","ai_usage","weight_entries","body_measurements","progress_photos","athletic_tests","recovery_logs","habit_definitions","habit_logs","monthly_reviews","push_subscriptions","reminder_deliveries","app_secrets","app_migrations"];
+const TABLES = ["profiles","goal_changes","custom_exercises","program_templates","day_plans","volleyball_sessions","workout_sessions","exercise_sets","food_entries","saved_foods","saved_meals","water_logs","ai_conversations","ai_messages","ai_usage","weight_entries","body_measurements","progress_photos","athletic_tests","recovery_logs","habit_definitions","habit_logs","monthly_reviews","push_subscriptions","reminder_deliveries","app_secrets","app_migrations","meal_prefs","recipes","meal_plans","planned_meals","meal_feedback","favourite_recipes","grocery_items"];
+// (scripts/dev/meals-security-check.mjs covers writes, cross-plan links and RPCs for the meal tables)
 const VIEWS = ["daily_nutrition","daily_water","set_history","exercise_bests","exercise_daily","pr_events"];
 
 // demo actually has data to steal
