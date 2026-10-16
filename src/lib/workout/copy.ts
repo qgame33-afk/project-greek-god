@@ -98,6 +98,14 @@ export function suggestionReason(s: Suggestion, tracking: string, unit: "lb" | "
   return localizeLb(s.reason, unit);
 }
 
+/** "+6" lb or "+2.5" kg — an e1RM gain in the user's unit, never "+0". */
+export function formatGain(gainLb: number, unit: "lb" | "kg"): string {
+  if (unit === "lb") return `+${Math.max(1, Math.round(gainLb))}`;
+  const kg = gainLb / 2.2046226218;
+  const v = kg < 10 ? Math.max(0.5, Math.round(kg * 2) / 2) : Math.round(kg);
+  return `+${Number.isInteger(v) ? v : v.toFixed(1)}`;
+}
+
 /** A YouTube search for the movement — an optional demonstration, clearly external. */
 export function demoUrl(name: string) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${name} exercise technique`)}`;

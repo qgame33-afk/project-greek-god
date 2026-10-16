@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkSuggestion } from "./fixtures";
 import { autoAdvances, nextCell, nudgeStep, padNudge, padPress, type PadBuffer, type PadKey } from "./numpad";
 import { platesFor, platesLabel } from "./plates";
-import { demoUrl, localizeLb, repRange, suggestionHeadline, suggestionReason, targetChips } from "./copy";
+import { demoUrl, formatGain, localizeLb, repRange, suggestionHeadline, suggestionReason, targetChips } from "./copy";
 import { parsePrefs } from "./prefs";
 
 const type = (start: PadBuffer, keys: PadKey[], field: "weight" | "work" | "rir") => keys.reduce((b, k) => padPress(b, k, field), start);
@@ -102,5 +102,13 @@ describe("copy", () => {
     expect(suggestionReason(first, "bodyweight_reps", "lb")).toMatch(/^First time: bodyweight only, clean reps up to 10–15\./);
     expect(suggestionReason(first, "weight_reps", "lb")).toBe(first.reason);
     expect(suggestionReason({ ...mkSuggestion("hold", 180), reason: "Stay at 180 lb." }, "weight_reps", "kg")).toBe("Stay at 81.6 kg.");
+  });
+
+  it("formats record gains without ever saying +0", () => {
+    expect(formatGain(6.2, "lb")).toBe("+6");
+    expect(formatGain(1, "lb")).toBe("+1");
+    expect(formatGain(1, "kg")).toBe("+0.5");
+    expect(formatGain(11, "kg")).toBe("+5");
+    expect(formatGain(30, "kg")).toBe("+14");
   });
 });

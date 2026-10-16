@@ -14,6 +14,7 @@ import type { TemplateKey } from "@/lib/training/types";
 import { formatLoad, toDisplayWeight, type WeightUnit } from "@/lib/units";
 import { firstBenchmarks, sessionRecords } from "@/lib/workout/pr";
 import { groupSets, setChip, trackingFor } from "@/lib/workout/session";
+import { formatGain } from "@/lib/workout/copy";
 import { comparisonLine, improvements, sessionTotals, volumeDeltaPct } from "@/lib/workout/summary";
 import { usePriorBests, usePriorHistory, useNextWorkout, usePreviousSession, type LiveData } from "./data";
 
@@ -89,7 +90,7 @@ export function SessionSummary({ data, onEdit }: { data: LiveData; onEdit: () =>
                       {fmt(p.weightLb)} × {p.reps} · e1RM {Math.round(toDisplayWeight(p.e1rm, unit))} {unit}
                     </p>
                   </div>
-                  <span className="num shrink-0 text-[22px] font-semibold text-gold-200">+{Math.max(1, Math.round(toDisplayWeight(p.gain, unit)))}</span>
+                  <span className="num shrink-0 text-[22px] font-semibold text-gold-200">{formatGain(p.gain, unit)}</span>
                 </li>
               ))}
             </ul>

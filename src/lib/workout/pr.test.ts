@@ -71,4 +71,14 @@ describe("PR detection", () => {
     expect(plaques).toEqual([{ slug: "barbell-bench-press", name: "Barbell Bench Press", weightLb: 210, reps: 5, e1rm: 245, gain: 12 }]);
     expect(firstBenchmarks(groups, priors)).toEqual([{ slug: "hack-squat", name: "Hack Squat" }]);
   });
+
+  it("needs a real margin: formula noise is not a record", () => {
+    // 185×7 → 228.2 vs a prior 180×8 → 228.0
+    const s = mkSet({ id: "x", weight_lb: 185, reps: 7 });
+    const [g] = groupSets([s]);
+    expect(classifyLog(s, g, prior(228)).kind).toBeNull();
+    expect(prSetIds(groupSets([{ ...s, completed: true }])[0], prior(228)).size).toBe(0);
+    expect(sessionRecords(groupSets([{ ...s, completed: true }]), { "barbell-bench-press": prior(228) })).toEqual([]);
+    expect(classifyLog(mkSet({ id: "y", weight_lb: 190, reps: 7 }), g, prior(228)).kind).toBe("pr"); // 234.3
+  });
 });

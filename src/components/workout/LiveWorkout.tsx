@@ -20,7 +20,7 @@ import { getExercise } from "@/lib/training/library";
 import { groupSessions, modeRir, plannedSetCount, suggest, type Mode, type PastSet } from "@/lib/training/progression";
 import type { LibraryExercise, TemplateExercise, TemplateKey } from "@/lib/training/types";
 import { formatInt, formatLoad, toDisplayWeight, type WeightUnit } from "@/lib/units";
-import { modeLabel, repRange, targetChips } from "@/lib/workout/copy";
+import { formatGain, modeLabel, repRange, targetChips } from "@/lib/workout/copy";
 import { autoAdvances, nextCell, nudgeStep, padNudge, padPress, type PadKey } from "@/lib/workout/numpad";
 import { platesLabel } from "@/lib/workout/plates";
 import { classifyLog, prSetIds, sessionRecords, type PriorBest } from "@/lib/workout/pr";
@@ -468,7 +468,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
         blink(setSheenId, set.id, 900);
         if (prefs.haptics) haptic([12, 50, 18]);
         toast(`New record · ${g.name} · ${loadText}`, {
-          description: `e1RM ${Math.round(toDisplayWeight(c.e1rm!, unit))} ${unit}${c.gain ? ` · +${Math.round(toDisplayWeight(c.gain, unit))} over your best` : ""}`,
+          description: `e1RM ${Math.round(toDisplayWeight(c.e1rm!, unit))} ${unit}${c.gain ? ` · ${formatGain(c.gain, unit)} over your best` : ""}`,
           icon: <LaurelBullet size={16} />,
           duration: 5000,
         });

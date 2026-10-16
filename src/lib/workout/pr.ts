@@ -19,6 +19,14 @@ export interface PriorBest {
 
 export type PRKind = "pr" | "first" | null;
 
+/**
+ * A record has to beat the old best e1RM by a real margin. 185×7 (e1RM 228.2) over 180×8
+ * (228.0) is formula noise, not a record — and it would read "+0 over your best".
+ */
+export const PR_MIN_GAIN_LB = 1;
+
+const beats = (v: number, best: number) => v >= best + PR_MIN_GAIN_LB;
+
 export function setE1rm(s: Pick<WSet, "kind" | "completed" | "weight_lb" | "reps">): number | null {
   if (s.kind !== "working" || !s.completed) return null;
   return e1rm(s.weight_lb == null ? null : Number(s.weight_lb), s.reps);
@@ -37,10 +45,8 @@ export function prSetIds(g: ExerciseGroup, prior: PriorBest | undefined): Set<st
   let best = prior.e1rm;
   for (const s of g.working.filter((x) => x.completed).sort(byCompleted)) {
     const v = setE1rm(s);
-    if (v != null && v > best) {
-      out.add(s.id);
-      best = v;
-    }
+    if (v != null && beats(v, best)) out.add(s.id);
+    if (v != null && v > best) best = v;
   }
   return out;
 }
@@ -64,7 +70,7 @@ export function classifyLog(
     const x = setE1rm(s);
     if (x != null && x > best) best = x;
   }
-  if (v > best) return { kind: "pr", e1rm: v, gain: round(v - prior.e1rm, 1) };
+  if (beats(v, best)) return { kind: "pr", e1rm: v, gain: round(v - prior.e1rm, 1) };
   return { kind: null, e1rm: v, gain: null };
 }
 
@@ -94,7 +100,7 @@ export function sessionRecords(groups: ExerciseGroup[], priors: Record<string, P
         bestV = v;
       }
     }
-    if (best && bestV > prior.e1rm) {
+    if (best && beats(bestV, prior.e1rm)) {
       seen.add(g.slug);
       out.push({ slug: g.slug, name: g.name, weightLb: Number(best.weight_lb), reps: best.reps ?? 0, e1rm: bestV, gain: round(bestV - prior.e1rm, 1) });
     }
