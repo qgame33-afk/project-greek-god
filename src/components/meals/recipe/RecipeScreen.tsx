@@ -92,7 +92,19 @@ export function RecipeScreen({ recipeKey }: { recipeKey: string }) {
     );
   }
   if (waitingForMeal) return <RecipeSkeleton />;
-  return <RecipeView key={`${recipe.key}:${meal?.id ?? ""}`} recipe={recipe} meal={meal} weekStart={planned.weekStart} mealMissing={!!mealId && planned.missing} initialServings={servingsParam(params.get("servings"))} />;
+  // an old link: that planned meal has another recipe now
+  const swappedTo = planned.meal && planned.meal.recipe_key !== recipeKey ? planned.meal : null;
+  return (
+    <RecipeView
+      key={`${recipe.key}:${meal?.id ?? ""}`}
+      recipe={recipe}
+      meal={meal}
+      weekStart={planned.weekStart}
+      mealMissing={!!mealId && planned.missing}
+      swappedTo={swappedTo ? { href: recipeHref(swappedTo.recipe_key, swappedTo.id), name: pool.lookup(swappedTo.recipe_key)?.name ?? "another recipe" } : null}
+      initialServings={servingsParam(params.get("servings"))}
+    />
+  );
 }
 
 function RecipeView({
@@ -100,12 +112,14 @@ function RecipeView({
   meal,
   weekStart,
   mealMissing,
+  swappedTo,
   initialServings,
 }: {
   recipe: Recipe;
   meal: PlanMeal | null;
   weekStart: string | null;
   mealMissing: boolean;
+  swappedTo: { href: string; name: string } | null;
   initialServings: number | null;
 }) {
   const router = useRouter();
@@ -341,6 +355,15 @@ function RecipeView({
             </p>
           </header>
 
+          {swappedTo && (
+            <p className="mt-4 rounded-[12px] border border-line px-3.5 py-2.5 text-[13px] font-medium text-fg-2">
+              Your plan has{" "}
+              <Link href={swappedTo.href} className="font-bold text-gold-300 underline-offset-2 hover:underline">
+                {swappedTo.name}
+              </Link>{" "}
+              for this meal now. Changes here stay on this screen.
+            </p>
+          )}
           {mealMissing && (
             <p className="mt-4 rounded-[12px] border border-line px-3.5 py-2.5 text-[13px] font-medium text-fg-2">This meal is no longer in your plan, so changes here stay on this screen.</p>
           )}

@@ -43,7 +43,7 @@ export function WhyThisMeal({ reasons, className }: { reasons: WhyReason[]; clas
           );
         })}
       </ul>
-      <p className="mt-4 text-[12.5px] leading-relaxed text-fg-3">From your feedback and plan. Rate meals to teach the planner.</p>
+      <p className="mt-4 text-[12.5px] leading-relaxed text-fg-3">Why the planner picked it for this slot. Rate meals to teach it.</p>
     </section>
   );
 }

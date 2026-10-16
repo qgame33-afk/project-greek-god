@@ -45,6 +45,9 @@ describe("step text", () => {
     expect(kitchenText("cut it into 2 cm cubes")).toBe("cut it into 2\u00A0cm cubes");
     expect(kitchenText("Cook to 74 °C (165 °F) inside, about 6 minutes.")).toBe("Cook to 74\u00A0°C (165\u00A0°F) inside, about 6\u00A0minutes.");
     expect(kitchenText("Add 2 eggs and 1 tbsp butter")).toBe("Add 2 eggs and 1\u00A0tbsp butter");
+    expect(kitchenText("Fry 6–8 minutes")).toBe("Fry 6–\u20608\u00A0minutes");
+    expect(kitchenText("boil 9-11 minutes")).toBe("boil 9–\u206011\u00A0minutes");
+    expect(kitchenText("over medium-high heat")).toBe("over medium\u2011high heat");
     // words that merely start like a unit stay as they are
     expect(kitchenText("Use 2 games")).toBe("Use 2 games");
   });

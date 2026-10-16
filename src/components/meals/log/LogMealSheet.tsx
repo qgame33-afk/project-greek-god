@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { MealChips, SubLabel } from "@/components/nutrition/bits";
+import { focusFirstInvalid, MealChips, SubLabel } from "@/components/nutrition/bits";
 import { useFocusIntoSheet } from "@/components/nutrition/hooks";
 import { EstimateBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,6 +94,7 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
     const r = draftMacros(draft);
     if (!r.ok) {
       setErrors(r.errors);
+      focusFirstInvalid(ref.current);
       return;
     }
     setErrors({});
@@ -119,7 +120,7 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
           <p className="eyebrow">Servings</p>
           <p className="mt-1 text-[13px] font-medium text-fg-2">How much you ate</p>
         </div>
-        <ServingsStepper value={draft.servings} onChange={(s) => setDraft((d) => withServings(d, s, per))} />
+        <ServingsStepper value={draft.servings} onChange={(s) => setDraft((d) => withServings(d, s, per))} showUnit={false} />
       </div>
 
       <div>

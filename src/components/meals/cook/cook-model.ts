@@ -45,5 +45,9 @@ const UNIT_AFTER_NUMBER = /(\d)[ \u00A0](?=(?:cm|mm|g|kg|ml|mL|L|min|minutes?|se
 
 /** "2 cm cubes" never breaks between the number and its unit ("2" at a line end, "cm" on the next). */
 export function kitchenText(text: string): string {
-  return text.replace(UNIT_AFTER_NUMBER, "$1\u00A0");
+  // "6–8 minutes" stays whole too: a word joiner after the dash between two numbers
+  return text
+    .replace(UNIT_AFTER_NUMBER, "$1\u00A0")
+    .replace(/(\d)[–-](?=\d)/g, "$1–\u2060")
+    .replace(/\b(medium|low)-(high|low)\b/gi, "$1\u2011$2");
 }

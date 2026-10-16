@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, ChevronLeft, ChevronRight, ListChecks, Plus, RotateCcw, Sun, Volume2, VolumeX, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ListChecks, Plus, RotateCcw, Sun, Timer, Volume2, VolumeX, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { MacroLine, recipeHref, servingsLabel, useRecipePool } from "@/components/meals/shared";
 import { EstimateBadge } from "@/components/ui/badge";
@@ -363,6 +363,7 @@ function TimerRail({ recipeKey, current, onJump }: { recipeKey: string; current:
             )}
             aria-label={`Step ${t.step + 1} timer, ${ring ? "done" : `${clockText(timeLeft(t, now))} left`}. Go to step`}
           >
+            <Timer className={cn("size-4", ring ? "text-gold-200" : "text-gold-300")} aria-hidden />
             <span>Step {t.step + 1}</span>
             <span className={cn("num text-[16px] tabular-nums", ring ? "text-gold-200" : t.endAt ? "text-fg" : "text-fg-3")}>{ring ? "Done" : clockText(timeLeft(t, now))}</span>
           </button>
