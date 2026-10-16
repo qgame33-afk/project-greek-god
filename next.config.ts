@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  cacheComponents: true,
-  partialPrefetching: true,
+  // The app's screens are private, per-user and render on the client (dates must follow the
+  // user's timezone), so server-side Cache Components / partial prefetching add nothing here.
+  cacheComponents: false,
+  partialPrefetching: false,
   devIndicators: false,
   poweredByHeader: false,
   turbopack: {
