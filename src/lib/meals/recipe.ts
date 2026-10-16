@@ -97,6 +97,7 @@ const perServingCache = new WeakMap<RecipeIngredient[], Macros>();
  */
 export function recipeMacros(recipe: Recipe, servings = 1, opts: { includeOptional?: boolean } = {}): Macros {
   const s = Number.isFinite(servings) && servings > 0 ? servings : 0;
+  if (!Array.isArray(recipe?.ingredients)) return { ...ZERO };
   let base: Macros;
   if (opts.includeOptional) base = sumLines(recipe.ingredients, true);
   else {
@@ -325,17 +326,17 @@ export function applyShortcut(line: RecipeIngredient): RecipeIngredient | null {
   const sc = shortcutFor(line.key);
   const g = lineGrams(line);
   if (!sc || g == null) return null;
-  const target = getIngredient(sc.key)!;
   const grams = g * sc.factor;
-  const note = `instead of ${ingredientInline(line.key)}`;
-  for (const u of ["pouch", "can", "tsp"] as const) {
-    const each = target.unitGrams?.[u];
-    if (each) {
-      const r = friendlyQty(grams / each, u, sc.key);
-      return { key: sc.key, qty: r.qty, unit: r.unit, ...(line.optional ? { optional: true } : {}), note };
-    }
+  const extra = { ...(line.optional ? { optional: true } : {}), note: `instead of ${ingredientInline(line.key)}` };
+  // Prefer how the swap is sold (1 pouch, 1 can), then the line's own unit, then spoons, cups, grams.
+  const order: Unit[] = ["pouch", "can", line.unit, "tsp", "cup", "g"];
+  for (const u of order) {
+    const each = gramsFor(sc.key, 1, u);
+    if (!each) continue;
+    const r = friendlyQty(grams / each, u, sc.key);
+    return { key: sc.key, qty: r.qty, unit: r.unit, ...extra };
   }
-  return { key: sc.key, qty: friendlyQty(grams, "g").qty, unit: "g", ...(line.optional ? { optional: true } : {}), note };
+  return null;
 }
 
 /* ------------------------------------------------------------------ hard constraints */
@@ -371,9 +372,10 @@ export type ConstraintPrefs = Pick<MealPrefs, "allergies" | "diets" | "dislikedI
  */
 export function recipeConflicts(recipe: Pick<Recipe, "ingredients" | "equipment">, prefs: ConstraintPrefs): Conflict[] {
   const out: Conflict[] = [];
-  const allergies = new Set(prefs.allergies);
+  const allergies = new Set(prefs.allergies ?? []);
+  const diets = prefs.diets ?? [];
   const disliked = new Set<string>();
-  for (const d of prefs.dislikedIngredients) dislikeCovers(d).forEach((k) => disliked.add(k));
+  for (const d of prefs.dislikedIngredients ?? []) dislikeCovers(d).forEach((k) => disliked.add(k));
   for (const l of recipe.ingredients) {
     const e = getIngredient(l.key);
     if (!e) {
@@ -381,7 +383,7 @@ export function recipeConflicts(recipe: Pick<Recipe, "ingredients" | "equipment"
       continue;
     }
     for (const a of e.allergens) if (allergies.has(a)) out.push({ kind: "allergy", value: a, ingredient: l.key });
-    for (const d of prefs.diets) {
+    for (const d of diets) {
       const rule = DIET_RULES[d];
       if (!rule) continue;
       const kindHit = rule.kinds?.some((k) => e.kinds.includes(k));
@@ -390,7 +392,7 @@ export function recipeConflicts(recipe: Pick<Recipe, "ingredients" | "equipment"
     }
     if (disliked.has(l.key)) out.push({ kind: "disliked", value: l.key, ingredient: l.key });
   }
-  const have = new Set(prefs.equipment);
+  const have = new Set(prefs.equipment ?? []);
   for (const eq of recipe.equipment) if (!have.has(eq)) out.push({ kind: "equipment", value: eq });
   return out;
 }
@@ -505,6 +507,10 @@ export const RecipeSchema = z
       ctx.addIssue({ code: "custom", path: ["ingredients"], message: `${Math.round(kcal)} kcal per serving is outside ${RECIPE_LIMITS.minKcal}–${RECIPE_LIMITS.maxKcal}` });
     }
     if (r.easierKey && r.easierKey === r.key) ctx.addIssue({ code: "custom", path: ["easierKey"], message: "A recipe can't be its own easier version" });
+    // Only the built-in library uses lib: keys; AI, simplified and custom recipes are usr: rows.
+    if (r.key.startsWith("lib:") !== (r.origin === "library")) {
+      ctx.addIssue({ code: "custom", path: ["origin"], message: `A ${r.origin} recipe can't use the key ${r.key}` });
+    }
   });
 
 export type RecipeValidation = { ok: true; recipe: Recipe } | { ok: false; errors: string[] };

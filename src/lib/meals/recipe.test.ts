@@ -246,6 +246,10 @@ describe("Make this easier swaps", () => {
     expect(applyShortcut({ key: "garlic", qty: 2, unit: "piece" })).toMatchObject({ key: "garlic-powder", qty: 0.25, unit: "tsp" });
     expect(applyShortcut({ key: "potatoes", qty: 1, unit: "piece", optional: true })).toMatchObject({ key: "fries-frozen", optional: true });
     expect(applyShortcut({ key: "eggs", qty: 2, unit: "piece" })).toBeNull();
+    expect(applyShortcut({ key: "broccoli", qty: 1.5, unit: "cup" })).toMatchObject({ key: "frozen-broccoli", qty: 1.5, unit: "cup" });
+    expect(applyShortcut({ key: "cream", qty: 0.25, unit: "cup" })).toMatchObject({ key: "alfredo-sauce-jarred", qty: 0.333, unit: "cup" });
+    expect(applyShortcut({ key: "bell-pepper", qty: 1, unit: "piece" })).toMatchObject({ key: "frozen-peppers-onions", qty: 1, unit: "cup" });
+    expect(applyShortcut({ key: "chicken-thigh-raw", qty: 2, unit: "piece" })).toMatchObject({ key: "rotisserie-chicken", qty: 160, unit: "g" });
   });
 });
 
@@ -288,6 +292,8 @@ describe("validateRecipe", () => {
     ["bad slot", { slots: ["brunch"] }, /slots/],
     ["no ingredients", { ingredients: [] }, /ingredients/],
     ["bad timer", { steps: [{ text: "Wait.", timerSec: -5 }] }, /timerSec/],
+    ["AI recipe posing as the library", { key: "lib:spaghetti-bolognese" }, /can't use the key/],
+    ["library origin on a user key", { origin: "library" }, /can't use the key/],
   ];
   for (const [label, over, msg] of bad) {
     it(`rejects: ${label}`, () => {
@@ -368,6 +374,12 @@ describe("hard constraints", () => {
     expect(recipeAllowed(lib("lib:spaghetti-bolognese"), noAirFryer)).toBe(true);
     expect(recipeConflicts(lib("lib:berry-protein-smoothie"), prefs({ equipment: [] }))).toEqual([{ kind: "equipment", value: "blender" }]);
     expect(recipeAllowed(lib("lib:greek-yogurt-granola-banana"), prefs({ equipment: [] }))).toBe(true); // no equipment needed
+  });
+
+  it("tolerates prefs rows with missing lists", () => {
+    const partial = { allergies: undefined, diets: undefined, dislikedIngredients: undefined, equipment: undefined } as unknown as MealPrefs;
+    expect(recipeConflicts(lib("lib:pb-toast"), partial)).toEqual([{ kind: "equipment", value: "toaster" }]);
+    expect(recipeMacros({ ...lib("lib:pb-toast"), ingredients: null } as unknown as Recipe)).toEqual({ kcal: 0, protein: 0, carbs: 0, fat: 0 });
   });
 
   it("an unknown ingredient can't be checked, so it is never allowed", () => {
