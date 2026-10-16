@@ -4,6 +4,10 @@
 // Refuses to run against anything but localhost so sample data can never reach production.
 //
 //   node scripts/dev/setup-users.mjs [--reset]
+//
+// Throwaway accounts for parallel testers (always recreated, so each run starts clean):
+//   node scripts/dev/setup-users.mjs --qa <name> [--kind demo|onboarded|fresh]
+//   → qa-<name>@greekgod.local; demo = sample logs, onboarded = owner's goals but no logs
 
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
@@ -154,8 +158,39 @@ async function seedDemo(uid) {
   console.log(`demo seeded: ${weights.length} weigh-ins, ${entries.length} foods, ${sessions.length} sessions, ${sets.length} sets`);
 }
 
-const fresh = await ensureUser("fresh@greekgod.local");
-await admin.from("profiles").update({ onboarded: false }).eq("id", fresh);
-const demo = await ensureUser("demo@greekgod.local");
-await seedDemo(demo);
-console.log("users ready:", { fresh, demo, password: PASSWORD });
+const qaIdx = process.argv.indexOf("--qa");
+if (qaIdx !== -1) {
+  const name = (process.argv[qaIdx + 1] ?? "").toLowerCase();
+  if (!/^[a-z0-9-]{1,30}$/.test(name)) throw new Error("--qa needs a short name (a-z, 0-9, -)");
+  const kIdx = process.argv.indexOf("--kind");
+  const kind = kIdx !== -1 ? process.argv[kIdx + 1] : "onboarded";
+  if (!["demo", "onboarded", "fresh"].includes(kind)) throw new Error("--kind must be demo, onboarded or fresh");
+  const email = `qa-${name}@greekgod.local`;
+  const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const old = list.users.find((u) => u.email === email);
+  if (old) {
+    for (const b of ["progress-photos", "meal-photos"]) {
+      const { data: files } = await admin.storage.from(b).list(old.id, { limit: 1000 });
+      if (files?.length) await admin.storage.from(b).remove(files.map((f) => `${old.id}/${f.name}`));
+    }
+    await admin.auth.admin.deleteUser(old.id);
+  }
+  const { data, error } = await admin.auth.admin.createUser({ email, password: PASSWORD, email_confirm: true });
+  if (error) throw error;
+  const uid = data.user.id;
+  if (kind === "demo") await seedDemo(uid);
+  else if (kind === "onboarded") {
+    const today = new Date().toISOString().slice(0, 10);
+    await admin
+      .from("profiles")
+      .update({ onboarded: true, display_name: "Quinton", start_date: today, start_weight_lb: 163, goal_weight_lb: 183, target_date: "2027-08-01", volleyball_per_week: 2 })
+      .eq("id", uid);
+  }
+  console.log(JSON.stringify({ email, password: PASSWORD, id: uid, kind }));
+} else {
+  const fresh = await ensureUser("fresh@greekgod.local");
+  await admin.from("profiles").update({ onboarded: false }).eq("id", fresh);
+  const demo = await ensureUser("demo@greekgod.local");
+  await seedDemo(demo);
+  console.log("users ready:", { fresh, demo, password: PASSWORD });
+}
