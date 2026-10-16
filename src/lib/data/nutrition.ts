@@ -57,13 +57,45 @@ export function useRecentFoods(limit = 30) {
   });
 }
 
-function invalidateFood(qc: QueryClient) {
+/** Refetch every food-log view (day lists, day totals, recents; ["food", …] also covers meal-plan links). */
+export function invalidateFood(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ["food"] });
   qc.invalidateQueries({ queryKey: ["food-days"] });
   qc.invalidateQueries({ queryKey: ["food-recent"] });
 }
 
-type NewFood = Omit<Insert<"food_entries">, "user_id" | "id"> & { id?: string };
+export type NewFood = Omit<Insert<"food_entries">, "user_id" | "id"> & { id?: string };
+
+/** A not-yet-saved entry shaped like a stored row, for the optimistic ["food", date, userId] cache. */
+export function optimisticFoodEntry(i: NewFood & { id: string }, userId: string, now: string): FoodEntry {
+  return {
+    user_id: userId,
+    created_at: now,
+    updated_at: now,
+    eaten_at: i.eaten_at ?? now,
+    brand: null,
+    grams: null,
+    source_name: null,
+    source_url: null,
+    meal_group_id: null,
+    saved_food_id: null,
+    photo_path: null,
+    planned_meal_id: null,
+    source: "manual",
+    confidence: "logged",
+    amount: 1,
+    unit: "serving",
+    base_amount: 1,
+    base_calories: 0,
+    base_protein_g: 0,
+    base_carbs_g: 0,
+    base_fat_g: 0,
+    protein_g: 0,
+    carbs_g: 0,
+    fat_g: 0,
+    ...i,
+  } as FoodEntry;
+}
 
 /** Add one or more entries (a meal group) optimistically. Returns the inserted rows. */
 export function useAddFood() {
@@ -81,36 +113,7 @@ export function useAddFood() {
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<FoodEntry[]>(key);
       const now = new Date().toISOString();
-      const optimistic = items.map(
-        (i) =>
-          ({
-            id: i.id ?? newId(),
-            user_id: userId!,
-            created_at: now,
-            updated_at: now,
-            eaten_at: i.eaten_at ?? now,
-            brand: null,
-            grams: null,
-            source_name: null,
-            source_url: null,
-            meal_group_id: null,
-            saved_food_id: null,
-            photo_path: null,
-            source: "manual",
-            confidence: "logged",
-            amount: 1,
-            unit: "serving",
-            base_amount: 1,
-            base_calories: 0,
-            base_protein_g: 0,
-            base_carbs_g: 0,
-            base_fat_g: 0,
-            protein_g: 0,
-            carbs_g: 0,
-            fat_g: 0,
-            ...i,
-          }) as FoodEntry,
-      );
+      const optimistic = items.map((i) => optimisticFoodEntry({ ...i, id: i.id ?? newId() }, userId!, now));
       qc.setQueryData<FoodEntry[]>(key, [...(prev ?? []), ...optimistic]);
       return { key, prev };
     },
