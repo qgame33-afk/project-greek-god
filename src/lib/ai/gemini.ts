@@ -53,7 +53,17 @@ export async function generateJSON<T>(opts: GenerateJSONOptions): Promise<{ data
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new AIError("not_configured", "AI isn't connected yet. Add a GEMINI_API_KEY to the server settings.", 503);
 
+  // Free-tier quotas and capacity are per model, so a quota hit or an overloaded model moves on
+  // to the next one; the most useful error (quota > busy > unavailable) is reported if all fail.
   let lastErr: AIError | null = null;
+  let lastRank = -1;
+  const RANK = { unavailable: 0, busy: 1, rate_limited: 2, quota: 3 } as const;
+  const keep = (e: AIError, kind: keyof typeof RANK) => {
+    if (RANK[kind] >= lastRank) {
+      lastErr = e;
+      lastRank = RANK[kind];
+    }
+  };
   for (const model of models()) {
     for (const withThinking of model.startsWith("gemini-3") ? [true, false] : [false]) {
       const body = {
@@ -88,13 +98,21 @@ export async function generateJSON<T>(opts: GenerateJSONOptions): Promise<{ data
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         if (res.status === 404 || (res.status === 400 && /model/i.test(text) && /not found|unsupported|invalid/i.test(text))) {
-          lastErr = new AIError("upstream", `Model ${model} unavailable`, 502);
+          keep(new AIError("upstream", "No AI model is available right now. Try again later.", 502), "unavailable");
           break; // try next model
         }
         if (res.status === 400 && withThinking && /thinking/i.test(text)) continue; // retry without thinking config
         if (res.status === 429) {
           const daily = /per.?day|daily|PerDay/i.test(text);
-          throw new AIError(daily ? "quota" : "rate_limited", daily ? "Today's free AI allowance is used up. It resets tomorrow — manual logging still works." : "The free AI tier is busy. Wait a moment and try again.", 429);
+          keep(
+            new AIError(daily ? "quota" : "rate_limited", daily ? "Today's free AI allowance is used up. It resets tomorrow — manual logging still works." : "The free AI tier is busy. Wait a moment and try again.", 429),
+            daily ? "quota" : "rate_limited",
+          );
+          break; // each model has its own free quota
+        }
+        if (res.status === 500 || res.status === 503) {
+          keep(new AIError("upstream", "The AI service is overloaded right now. Try again in a minute.", 503), "busy");
+          break;
         }
         if (res.status === 401 || res.status === 403) throw new AIError("not_configured", "The AI key was rejected. Check GEMINI_API_KEY in the server settings.", 503);
         throw new AIError("upstream", `The AI service returned an error (${res.status}). Try again.`, 502);

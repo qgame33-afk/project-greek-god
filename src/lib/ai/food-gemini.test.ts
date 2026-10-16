@@ -217,3 +217,41 @@ describe("response schemas", () => {
     }
   });
 });
+
+describe("model fallback", () => {
+  const ok = { not_food: true, items: [], notes: null };
+  function stubModels(statuses: Record<string, number>, bodies: Record<string, string> = {}) {
+    const seen: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const model = decodeURIComponent(url.split("/models/")[1].split(":")[0]);
+        seen.push(model);
+        const st = statuses[model] ?? 200;
+        if (st === 200) return geminiReply(ok);
+        return new Response(bodies[model] ?? "{}", { status: st, headers: { "content-type": "application/json" } });
+      }),
+    );
+    return seen;
+  }
+  const call = () => generateJSON({ system: "s", contents: [{ role: "user", parts: [{ text: "x" }] }], schema: { type: "object" } });
+
+  it("moves to the next model when one is out of free quota or overloaded", async () => {
+    const seen = stubModels({ "gemini-3.6-flash": 429, "gemini-flash-latest": 503 });
+    const r = await call();
+    expect(r.model).toBe("gemini-2.5-flash");
+    expect(new Set(seen)).toEqual(new Set(["gemini-3.6-flash", "gemini-flash-latest", "gemini-2.5-flash"]));
+  });
+
+  it("reports the daily quota when every model is used up", async () => {
+    const quota = '{"error":{"message":"Quota exceeded for metric generate_content_free_tier_requests, limit: 20 PerDay"}}';
+    stubModels({ "gemini-3.6-flash": 404, "gemini-flash-latest": 429, "gemini-2.5-flash": 503 }, { "gemini-flash-latest": quota });
+    await expect(call()).rejects.toMatchObject({ code: "quota", status: 429 });
+  });
+
+  it("stops at once on a rejected key", async () => {
+    const seen = stubModels({ "gemini-3.6-flash": 403 });
+    await expect(call()).rejects.toMatchObject({ code: "not_configured" });
+    expect(seen).toEqual(["gemini-3.6-flash"]);
+  });
+});
