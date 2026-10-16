@@ -172,7 +172,7 @@ Everything here is CSS or WAAPI, so no animation library is required. If you do 
 | Press | `active:scale-[.97]` over 90ms (cards and rows `.985`); `touch-action:manipulation` |
 | Set check | `scale(.9→1)` over 240ms with `--ease-pop` |
 | Route mount | Opacity plus an 8px rise, 320ms, 40ms stagger (max 6). **Only on the first visit to each tab per session** (`sessionStorage`) |
-| Tabs / push routes | View Transition crossfade, 180ms. Workout, scanner and coach slide 24px over 280ms |
+| Tabs / push routes | View Transition slide by direction (automatic, `navDirection` in `src/lib/motion.ts`): deeper / into the workout = push (new in from +48px, 240ms), back out = pop, across sections = 14–22px in tab order (220ms), anything else a 220ms crossfade. Chrome (bars, FAB, dock, toasts) never moves |
 | Rings | Render at 0, set the value on the next rAF, then animate 900ms `--ease-gold` with an 80ms stagger. Data changes animate from old to new |
 | Meters | `translateX`, 600ms |
 | Count-up | Monuments only. A 700ms rAF loop writes `ref.textContent`, never React state |

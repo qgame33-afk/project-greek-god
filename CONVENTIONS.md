@@ -56,6 +56,14 @@ Read this, `DESIGN.md` (the authoritative visual/interaction spec) and the relev
 - Mobile first at 390×844; must also look great at 1440×900. No horizontal overflow.
 - No `window.confirm/alert` — use `<Confirm>` / `<Sheet>`.
 - Copy: short, declarative, numbers first, no emojis, no exclamation marks, no guilt.
+- Motion: tokens live in `src/lib/motion.ts` (`DURATION`, `EASE`/`EASE_CSS`, `SPRING` for
+  motion/react) and as CSS vars (`--dur-press|fast|base|slow|sheet|ring`, `--ease-out|gold|sheet|
+  spring|bounce`; Tailwind `duration-(--dur-base) ease-spring`). Pressables: `press` (buttons,
+  chips, icons) or `press-soft` (cards, rows); anything else dims on touch automatically
+  (`press-none` opts out). Disclosures: `<Collapse open>` from `ui/misc`. In-place swaps (a
+  day, a range, a tab): `useSwapIn(key)`. Route slides are automatic (push/pop by depth,
+  forward/back by tab order) — don't animate whole pages in yourself. Transform/opacity
+  only; reduced motion is handled globally.
 
 ## Routes
 `/` Today · `/training` (+ `/training/exercise/[slug]`, `/training/program/[key]`) ·
