@@ -152,8 +152,8 @@ export function MonthlyReview({ monthParam }: { monthParam: string }) {
       />
       <Monument stats={stats} unit={unit} />
 
-      {/* one column on phones (Physical, Training, Nutrition, Recovery); two balanced
-          columns on desktop so no card is stretched to match its neighbour */}
+      {/* one column on phones in reading order; two balanced columns on desktop so no card
+          is stretched to match its neighbour */}
       <div className="review-sections mt-3 grid grid-cols-[minmax(0,1fr)] gap-3 lg:mt-4 lg:grid-cols-2 lg:items-start lg:gap-4">
         <div className="contents lg:flex lg:flex-col lg:gap-4">
           <PhysicalCard
@@ -161,13 +161,12 @@ export function MonthlyReview({ monthParam }: { monthParam: string }) {
             unit={unit}
             lengthUnit={lengthUnit}
             series={series}
-            className="order-1"
           />
-          <NutritionCard s={stats} className="order-3" />
+          <NutritionCard s={stats} />
         </div>
         <div className="contents lg:flex lg:flex-col lg:gap-4">
-          <TrainingCard s={stats} unit={unit} className="order-2" />
-          <RecoveryCard s={stats} className="order-4" />
+          <TrainingCard s={stats} unit={unit} />
+          <RecoveryCard s={stats} />
         </div>
       </div>
 
