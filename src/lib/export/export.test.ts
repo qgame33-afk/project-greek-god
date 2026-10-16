@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { strFromU8, unzipSync, zipSync } from "fflate";
-import { assembleExport, exportFilename, photoArchiveName, readme } from "./assemble";
+import { assembleExport, exportFilename, mealPhotoArchiveName, photoArchiveName, readme } from "./assemble";
 import { csvCell, csvColumns, formatBytes, toCSV } from "./csv";
-import { listAllFiles, removeFiles, type Lister, type StorageEntry } from "./storage";
-import { EXPORT_TABLES, WIPE_TABLES, countLabel, wipeSummary, wipeTotal } from "./tables";
+import { isThumbnail, listAllFiles, removeFiles, splitThumbnails, type Lister, type StorageEntry } from "./storage";
+import { EXPORT_TABLES, WIPE_TABLES, countLabel, fileLines, wipeSummary, wipeTotal } from "./tables";
 
 describe("csvCell", () => {
   it("leaves plain values alone", () => {
@@ -93,6 +93,24 @@ describe("assembleExport", () => {
   it("notes skipped photos in the README", () => {
     expect(readme(meta, {}, 2, 1)).toContain("could not be downloaded: 1");
   });
+  it("keeps meal photos in their date folders and says so in the README", () => {
+    expect(mealPhotoArchiveName("u1/2026-10-16/abc.jpg", "u1")).toBe("photos/meals/2026-10-16/abc.jpg");
+    expect(mealPhotoArchiveName("other/x.jpg", "u1")).toBe("photos/meals/other/x.jpg");
+    const r = readme(meta, {}, 1, 0, 3);
+    expect(r).toContain("photos/meals");
+    expect(r).toContain("Photo files included: 4");
+    expect(readme(meta, {}, 0, 0)).toContain("not included");
+  });
+  it("counts meal photos apart in the archive README", () => {
+    const { files } = assembleExport(meta, {}, [
+      { name: "photos/progress/a.jpg", bytes: new Uint8Array([1]) },
+      { name: "photos/meals/2026-10-16/b.jpg", bytes: new Uint8Array([2]) },
+    ]);
+    const text = new TextDecoder().decode(files["README.txt"] as Uint8Array);
+    expect(text).toContain("photos/progress");
+    expect(text).toContain("photos/meals");
+    expect(text).toContain("Photo files included: 2");
+  });
 });
 
 describe("listAllFiles", () => {
@@ -143,5 +161,24 @@ describe("wipe plan", () => {
     expect(wipeSummary(r)).toEqual(["120 sets", "9 workouts", "1 weigh-in", "2 progress photo files"]);
     expect(wipeTotal(r)).toBe(132);
     expect(countLabel("food_entries", 1)).toBe("1 food entry");
+  });
+  it("counts thumbnails apart from photos", () => {
+    const r = { rows: { progress_photos: 1 }, files: { "progress-photos": 1, "meal-photos": 1 }, thumbs: { "progress-photos": 1 }, failed: [] };
+    expect(wipeSummary(r)).toEqual(["1 progress photo entry", "1 progress photo file + 1 thumbnail", "1 meal photo file"]);
+    expect(wipeTotal(r)).toBe(4);
+    expect(fileLines({ "progress-photos": 3 }, { "progress-photos": 3 })).toEqual(["3 progress photo files + 3 thumbnails"]);
+    expect(fileLines({}, {})).toEqual([]);
+  });
+});
+
+describe("thumbnails", () => {
+  it("recognises the .thumb.jpg previews stored next to photos", () => {
+    expect(isThumbnail("u1/2026-10-16-front-x.thumb.jpg")).toBe(true);
+    expect(isThumbnail("u1/a.png.thumb.jpg")).toBe(true);
+    expect(isThumbnail("u1/2026-10-16-front-x.jpg")).toBe(false);
+    expect(isThumbnail("u1/thumbnail-front.jpg")).toBe(false);
+    const { main, thumbs } = splitThumbnails([{ path: "u1/a.jpg" }, { path: "u1/a.thumb.jpg" }, { path: "u1/b.webp" }]);
+    expect(main.map((f) => f.path)).toEqual(["u1/a.jpg", "u1/b.webp"]);
+    expect(thumbs.map((f) => f.path)).toEqual(["u1/a.thumb.jpg"]);
   });
 });

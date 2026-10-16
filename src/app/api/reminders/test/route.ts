@@ -37,6 +37,11 @@ export async function POST(req: Request) {
       console.warn("[reminders/test] send failed", res.status, res.error);
     }
   }
-  if (!sent) return Response.json({ ok: false, sent, removed, failed, error: removed ? "This device's subscription had expired. Turn reminders on again." : "The push service didn't accept the message. Try again." }, { status: 502 });
+  if (!sent) {
+    // every device was refused; "expired" means the push service forgot them (now removed here too)
+    return removed && !failed
+      ? Response.json({ ok: false, sent, removed, failed, code: "expired", error: "This device's registration had expired. Turn reminders on again." }, { status: 410 })
+      : Response.json({ ok: false, sent, removed, failed, code: "push_failed", error: "The push service didn't accept the message. Try again in a minute." }, { status: 502 });
+  }
   return Response.json({ ok: true, sent, removed, failed });
 }

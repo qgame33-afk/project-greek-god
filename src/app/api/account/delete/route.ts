@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ code: "forbidden", message: "Cross-site request refused." }, { status: 403 });
   }
 
-  const { user } = await requireUser();
+  const { supabase, user } = await requireUser();
   if (!user) return NextResponse.json({ code: "unauthorized", message: "Your session expired. Sign in again." }, { status: 401 });
 
   let body: { confirm?: unknown } | null = null;
@@ -68,6 +68,10 @@ export async function POST(request: NextRequest) {
       { status: 502 },
     );
   }
+
+  // End the session here, so the response clears the auth cookies. The browser then signs out
+  // locally without calling the auth server for a user that no longer exists.
+  await supabase.auth.signOut({ scope: "local" }).catch(() => {});
 
   return NextResponse.json({ ok: true, files });
 }

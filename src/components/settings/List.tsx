@@ -82,9 +82,9 @@ export function NavRow({
 /** Static row with any control on the right (segmented, mini stepper...). */
 export function ControlRow({ label, detail, children, stack }: { label: ReactNode; detail?: ReactNode; children: ReactNode; stack?: boolean }) {
   return (
-    <div className={cn(rowBase, stack && "flex-col items-stretch gap-2.5 py-3")}>
+    <div className={cn(rowBase, stack && "flex-col items-stretch gap-2.5 py-3 lg:flex-row lg:items-center lg:gap-6")}>
       <Labels label={label} detail={detail} />
-      <div className={cn("shrink-0", stack && "w-full")}>{children}</div>
+      <div className={cn("shrink-0", stack && "w-full lg:w-[340px]")}>{children}</div>
     </div>
   );
 }

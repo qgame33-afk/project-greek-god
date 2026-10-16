@@ -43,7 +43,7 @@ const Request_ = z.object({
   digest: z.record(z.string(), z.unknown()),
 });
 
-const Reply = z.object({ summary: z.string().min(200).max(1600) });
+const Reply = z.object({ summary: z.string().min(200).max(2000) });
 
 const SCHEMA = {
   type: "object",
@@ -64,6 +64,15 @@ function systemPrompt(unit: string) {
 }
 
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
+const MIN_WORDS = 110;
+const MAX_WORDS = 190;
+/** Plain text only: no markdown, no exclamation marks (copy voice). */
+const clean = (s: string) =>
+  s
+    .replace(/[*_#`>]/g, "")
+    .replace(/!/g, ".")
+    .replace(/\s+\n/g, "\n")
+    .trim();
 
 function mockSummary(d: Record<string, unknown>) {
   // local UI testing only (NODE_ENV=development + AI_MOCK=1); built from the digest alone
@@ -117,24 +126,30 @@ export async function POST(req: Request) {
 
     await chargeUsage(supabase, "review", parsed.data.localDate);
     const unit = (digest.unit as Leaf) === "kg" ? "kilograms (kg)" : "pounds (lb)";
-    const r = await generateJSON<unknown>({
-      system: systemPrompt(unit),
-      contents: [{ role: "user", parts: [{ text: `Monthly review numbers (JSON):\n${json}` }] }],
-      schema: SCHEMA,
-      temperature: 0.4,
-      maxOutputTokens: 1024,
-      timeoutMs: 40_000,
-    });
-    const out = Reply.safeParse(r.data);
-    if (!out.success) throw new AIError("bad_output", "The AI's summary couldn't be used. Try again.", 502);
-    const summary = out.data.summary
-      .replace(/[*_#`>]/g, "")
-      .replace(/!/g, ".")
-      .replace(/\s+\n/g, "\n")
-      .trim();
-    const n = words(summary);
-    if (n < 90 || n > 240) throw new AIError("bad_output", "The AI's summary came back the wrong length. Try again.", 502);
-    return Response.json({ summary, model: r.model, words: n });
+    // The brief asks for 120–180 words; allow a small margin, and ask once more with a
+    // length reminder before giving up (one charge covers both attempts).
+    let summary = "";
+    let n = 0;
+    let model = "";
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const reminder = attempt ? `\n\nYour previous answer was ${n} words. Rewrite it in 130 to 170 words.` : "";
+      const r = await generateJSON<unknown>({
+        system: systemPrompt(unit),
+        contents: [{ role: "user", parts: [{ text: `Monthly review numbers (JSON):\n${json}${reminder}` }] }],
+        schema: SCHEMA,
+        temperature: 0.4,
+        maxOutputTokens: 1024,
+        timeoutMs: 25_000, // two attempts must fit in maxDuration
+      });
+      const out = Reply.safeParse(r.data);
+      if (!out.success) throw new AIError("bad_output", "The AI's summary couldn't be used. Try again.", 502);
+      summary = clean(out.data.summary);
+      n = words(summary);
+      model = r.model;
+      if (n >= MIN_WORDS && n <= MAX_WORDS) break;
+    }
+    if (n < MIN_WORDS || n > MAX_WORDS) throw new AIError("bad_output", "The AI's summary came back the wrong length. Try again.", 502);
+    return Response.json({ summary, model, words: n });
   } catch (e) {
     return aiErrorResponse(e);
   }

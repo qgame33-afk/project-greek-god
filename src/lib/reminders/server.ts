@@ -54,20 +54,30 @@ export async function getVapidKeys(admin: Admin): Promise<{ publicKey: string; p
   return keys;
 }
 
-/** The shared secret the database scheduler sends in x-cron-secret. */
-export async function getCronSecret(admin: Admin | null): Promise<string | null> {
-  if (process.env.CRON_SECRET) return process.env.CRON_SECRET;
-  if (!admin) return null;
-  const { data } = await admin.from("app_secrets").select("value").eq("key", "cron_secret").maybeSingle();
-  return data?.value ?? null;
+/**
+ * Every secret the dispatcher accepts in x-cron-secret: the one stored in
+ * app_secrets.cron_secret (what the pg_cron job sends) and, when set, the CRON_SECRET env
+ * var (for an external scheduler). Accepting both means setting CRON_SECRET can never lock
+ * out the database scheduler; scripts/migrate.mjs also copies CRON_SECRET into app_secrets.
+ */
+export async function getCronSecrets(admin: Admin | null): Promise<string[]> {
+  const out: string[] = [];
+  if (process.env.CRON_SECRET) out.push(process.env.CRON_SECRET);
+  if (admin) {
+    const { data } = await admin.from("app_secrets").select("value").eq("key", "cron_secret").maybeSingle();
+    if (data?.value) out.push(data.value);
+  }
+  return [...new Set(out)];
 }
 
-/** Constant-time comparison (hashing first equalises lengths). */
-export function secretMatches(given: string | null, expected: string | null) {
-  if (!given || !expected) return false;
+/** Constant-time comparison (hashing first equalises lengths); true if `given` matches any. */
+export function secretMatches(given: string | null, expected: string | null | readonly string[]) {
+  const list = (Array.isArray(expected) ? expected : [expected]).filter((x): x is string => !!x);
+  if (!given || !list.length) return false;
   const a = createHash("sha256").update(given).digest();
-  const b = createHash("sha256").update(expected).digest();
-  return timingSafeEqual(a, b);
+  let ok = false;
+  for (const e of list) ok = timingSafeEqual(a, createHash("sha256").update(e).digest()) || ok;
+  return ok;
 }
 
 /** VAPID "sub" claim: an https URL for the deployed app (push services reject localhost). */

@@ -81,7 +81,7 @@ export function NutritionSheet({ open, onOpenChange, profile }: SheetProps) {
       onSave={() =>
         commit(
           { calorie_goal: kcal, protein_goal: protein, fat_goal: fat, carb_goal: c },
-          { reason, message: `Targets ${formatInt(kcal)} kcal · ${protein} P · ${c} C · ${fat} F`, onDone: () => onOpenChange(false) },
+          { reason, message: `${formatInt(kcal)} kcal · ${protein} g protein`, onDone: () => onOpenChange(false) },
         )
       }
     >
@@ -163,13 +163,13 @@ export function DailyGoalSheet({ kind, open, onOpenChange, profile }: SheetProps
     kind === "water"
       ? { step: 0.25, min: 0.5, max: 10, decimals: 2, unit: "L", ok: v >= 0.5 && v <= 10, msg: "Between 0.5 and 10 L." }
       : kind === "sleep"
-        ? { step: 0.5, min: 4, max: 12, decimals: 1, unit: "hours", ok: v >= 4 && v <= 12, msg: "Between 4 and 12 hours." }
+        ? { step: 0.25, min: 4, max: 12, decimals: 2, unit: "hours", ok: v >= 4 && v <= 12, msg: "Between 4 and 12 hours." }
         : { step: 500, min: 0, max: 100000, decimals: 0, unit: "steps", ok: v >= 0 && v <= 100000 && Number.isInteger(v), msg: "Between 0 and 100,000 steps." };
   const values =
-    kind === "water" ? { water_goal_ml: Math.round(v * 1000) } : kind === "sleep" ? { sleep_goal_h: round(v, 1) } : { steps_goal: Math.round(v) };
+    kind === "water" ? { water_goal_ml: Math.round(v * 1000) } : kind === "sleep" ? { sleep_goal_h: round(v, 2) } : { steps_goal: Math.round(v) };
   const current = kind === "water" ? profile.water_goal_ml : kind === "sleep" ? Number(profile.sleep_goal_h) : profile.steps_goal;
   const next = Object.values(values)[0] as number;
-  const label = kind === "water" ? formatLiters(next, 2).replace(/0 L$/, " L").replace(/\.0 L$/, " L") : kind === "sleep" ? `${round(next, 1)} h` : `${formatInt(next)} steps`;
+  const label = kind === "water" ? formatLiters(next, 2).replace(/0 L$/, " L").replace(/\.0 L$/, " L") : kind === "sleep" ? `${round(next, 2)} h` : `${formatInt(next)} steps`;
   return (
     <EditSheet
       open={open}
@@ -182,7 +182,7 @@ export function DailyGoalSheet({ kind, open, onOpenChange, profile }: SheetProps
       onSave={() => commit(values, { message: `${DAILY[kind].title} ${label}`, onDone: () => onOpenChange(false) })}
     >
       <div className="pb-3 pt-2">
-        <StepperInput label={DAILY[kind].title} value={v} onChange={setV} step={cfg.step} min={cfg.min} max={cfg.max} decimals={cfg.decimals} minDecimals={kind === "water" ? 1 : undefined} unit={cfg.unit} size="lg" thousands={kind === "steps"} invalid={!cfg.ok} />
+        <StepperInput label={DAILY[kind].title} value={v} onChange={setV} step={cfg.step} min={cfg.min} max={cfg.max} decimals={cfg.decimals} minDecimals={kind === "water" ? 1 : kind === "sleep" ? 0 : undefined} unit={cfg.unit} size="lg" thousands={kind === "steps"} invalid={!cfg.ok} />
         {!cfg.ok && <p className="mt-2 text-center text-[13px] text-danger">{cfg.msg}</p>}
       </div>
     </EditSheet>
@@ -228,7 +228,7 @@ export function GoalHistorySheet({ open, onOpenChange, today, weightUnit = "lb" 
               const isWeight = r.field === "goal_weight_lb";
               const unit = isWeight ? weightUnit : baseUnit;
               const fmt = (v: number | null) =>
-                v == null ? "—" : isWeight ? round(toDisplayWeight(Number(v), weightUnit), 1).toFixed(1) : r.field === "sleep_goal_h" ? String(round(Number(v), 1)) : formatInt(Number(v));
+                v == null ? "—" : isWeight ? round(toDisplayWeight(Number(v), weightUnit), 1).toFixed(1) : r.field === "sleep_goal_h" ? String(round(Number(v), 2)) : formatInt(Number(v));
               return (
                 <li key={r.id} className={cn("px-4 py-3", i > 0 && "border-t border-line-hair")}>
                   <div className="flex items-baseline justify-between gap-3">

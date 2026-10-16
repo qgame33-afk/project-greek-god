@@ -115,8 +115,26 @@ export function countLabel(table: UserTable, n: number) {
 
 export interface WipeReport {
   rows: Partial<Record<UserTable, number>>;
+  /** Photo files per bucket, not counting thumbnails. */
   files: Partial<Record<PhotoBucket, number>>;
+  /** Thumbnail previews per bucket (stored next to progress photos). */
+  thumbs?: Partial<Record<PhotoBucket, number>>;
   failed: { what: string; message: string }[];
+}
+
+const BUCKET_LABEL: Record<PhotoBucket, string> = { "progress-photos": "progress photo", "meal-photos": "meal photo" };
+
+/** "2 progress photo files + 2 thumbnails" — one line per bucket that has anything. */
+export function fileLines(files: Partial<Record<PhotoBucket, number>>, thumbs: Partial<Record<PhotoBucket, number>> = {}): string[] {
+  const out: string[] = [];
+  for (const b of PHOTO_BUCKETS) {
+    const n = files[b] ?? 0;
+    const t = thumbs[b] ?? 0;
+    if (!n && !t) continue;
+    const main = `${n.toLocaleString("en-US")} ${BUCKET_LABEL[b]} ${n === 1 ? "file" : "files"}`;
+    out.push(t ? `${main} + ${t.toLocaleString("en-US")} ${t === 1 ? "thumbnail" : "thumbnails"}` : main);
+  }
+  return out;
 }
 
 /** Human summary lines for a wipe, largest first, zeros dropped. */
@@ -125,13 +143,11 @@ export function wipeSummary(r: WipeReport): string[] {
     .filter(([, n]) => n > 0)
     .sort((a, b) => b[1] - a[1])
     .map(([t, n]) => countLabel(t, n));
-  const prog = r.files["progress-photos"] ?? 0;
-  const meal = r.files["meal-photos"] ?? 0;
-  if (prog) lines.push(`${prog.toLocaleString("en-US")} progress photo ${prog === 1 ? "file" : "files"}`);
-  if (meal) lines.push(`${meal.toLocaleString("en-US")} meal photo ${meal === 1 ? "file" : "files"}`);
-  return lines;
+  return [...lines, ...fileLines(r.files, r.thumbs)];
 }
 
+/** Everything a wipe touches: rows, photo files and their thumbnails. */
 export function wipeTotal(r: WipeReport) {
-  return Object.values(r.rows).reduce((a, b) => a + (b ?? 0), 0) + Object.values(r.files).reduce((a, b) => a + (b ?? 0), 0);
+  const sum = (o: Partial<Record<string, number>> = {}) => Object.values(o).reduce<number>((a, b) => a + (b ?? 0), 0);
+  return sum(r.rows) + sum(r.files) + sum(r.thumbs);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_REMINDERS, anyOn, buildNotice, dueByTime, evaluateReminders, localParts, normalizeSettings, type ReminderFacts, type ReminderSettings } from "./schedule";
+import { DEFAULT_REMINDERS, anyOn, buildNotice, dueByTime, evaluateReminders, localParts, normalizeSettings, overflowKinds, scheduledOn, type ReminderFacts, type ReminderSettings } from "./schedule";
 
 const facts = (over: Partial<ReminderFacts> = {}): ReminderFacts => ({
   plannedWorkout: { name: "Pull B", exercises: 6, minutes: 70 },
@@ -152,5 +152,43 @@ describe("evaluateReminders", () => {
     expect(evaluateReminders({ settings: all, timeZone: "America/Toronto", now: at("2026-11-01T14:00:00Z"), facts: facts(), sentToday: [] })).toEqual([]);
     const tokyo = evaluateReminders({ settings: { workout: { on: true, time: "08:00" } }, timeZone: "Asia/Tokyo", now: at("2026-10-15T23:05:00Z"), facts: facts(), sentToday: [] });
     expect(tokyo.map((n) => n.dueKey)).toEqual(["2026-10-16"]);
+  });
+});
+
+describe("daily budget by importance", () => {
+  // the state from Settings that used to drop Sleep silently: hydration 15:00, workout 17:00,
+  // food 20:00, sleep 22:00 — four on a training day. Toronto, Friday Oct 16 (EDT, UTC−4).
+  const day = {
+    hydration: { on: true, time: "15:00" },
+    workout: { on: true, time: "17:00" },
+    food: { on: true, time: "20:00" },
+    sleep: { on: true, time: "22:00" },
+  };
+  const run = (iso: string, sentToday: string[], f = facts()) => evaluateReminders({ settings: day, timeZone: "America/Toronto", now: at(iso), facts: f, sentToday }).map((n) => n.kind);
+
+  it("an early minor reminder still goes out when the later important ones fit", () => {
+    expect(run("2026-10-16T19:02:00Z", [])).toEqual(["hydration"]); // 15:02
+    expect(run("2026-10-16T21:02:00Z", ["hydration"])).toEqual(["workout"]); // 17:02
+    expect(run("2026-10-16T00:02:00Z".replace("10-16", "10-17"), ["hydration", "workout"])).toEqual(["food"]); // 20:02
+    expect(run("2026-10-17T02:02:00Z", ["hydration", "workout", "food"])).toEqual([]); // 22:02, cap reached
+  });
+
+  it("a minor reminder yields when more important ones later today need the slots", () => {
+    // weigh-in day too (Friday): workout, food and weigh-in outrank hydration
+    const s = { ...day, weighin: { on: true, day: 5, time: "18:00" } };
+    const out = evaluateReminders({ settings: s, timeZone: "America/Toronto", now: at("2026-10-16T19:02:00Z"), facts: facts(), sentToday: [] });
+    expect(out).toEqual([]);
+    // …but goes out once the later ones are already done or not needed today
+    const done = evaluateReminders({ settings: s, timeZone: "America/Toronto", now: at("2026-10-16T19:02:00Z"), facts: facts({ workoutDone: true }), sentToday: [] });
+    expect(done.map((n) => n.kind)).toEqual(["hydration"]);
+    const rest = evaluateReminders({ settings: s, timeZone: "America/Toronto", now: at("2026-10-16T19:02:00Z"), facts: facts({ plannedWorkout: null }), sentToday: [] });
+    expect(rest.map((n) => n.kind)).toEqual(["hydration"]);
+  });
+
+  it("lists which reminders lose out on a busy day", () => {
+    expect(overflowKinds(day)).toEqual(["sleep"]);
+    expect(overflowKinds({ workout: { on: true }, sleep: { on: true } })).toEqual([]);
+    expect(overflowKinds({ ...day, review: { on: true }, photos: { on: true } })).toEqual(["review", "photos", "sleep"]);
+    expect(scheduledOn(normalizeSettings({ ...day, weighin: { on: true, day: 0 } }), { weekday: 5, day: 16 })).toEqual(["workout", "food", "hydration", "sleep"]);
   });
 });

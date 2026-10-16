@@ -36,11 +36,17 @@ function extFor(path: string, mimetype?: string | null) {
   return "jpg";
 }
 
+/** A meal photo keeps its storage folders inside photos/meals/ (the user-id folder is dropped). */
+export function mealPhotoArchiveName(storagePath: string, userId: string) {
+  const rel = storagePath.startsWith(`${userId}/`) ? storagePath.slice(userId.length + 1) : storagePath;
+  return `photos/meals/${rel.replace(/^\/+/, "")}`;
+}
+
 export function exportFilename(date: string) {
   return `greek-god-export-${date}.zip`;
 }
 
-export function readme(meta: ExportMeta, counts: Record<string, number>, photoCount: number, photosSkipped: number) {
+export function readme(meta: ExportMeta, counts: Record<string, number>, photoCount: number, photosSkipped: number, mealPhotoCount = 0) {
   const lines = [
     "PROJECT GREEK GOD · THE ASCENT — data export",
     "",
@@ -52,11 +58,12 @@ export function readme(meta: ExportMeta, counts: Record<string, number>, photoCo
     "  data.json        Every table, exactly as stored (weights in lb, lengths in inches, water in mL).",
     "  csv/<table>.csv  The same rows as spreadsheets, one file per table. Empty tables are empty files.",
     photoCount ? "  photos/progress  Your progress photos, named date_pose_id." : "  Progress photos are listed in progress_photos (metadata only).",
+    mealPhotoCount ? "  photos/meals     Your meal photos, in their date folders." : "  Meal photos are referenced by food_entries.photo_path (not included).",
     "",
     "Rows per table",
     ...EXPORT_TABLES.map((t) => `  ${t.padEnd(22)} ${counts[t] ?? 0}`),
-    photoCount || photosSkipped ? "" : null,
-    photoCount ? `Photo files included: ${photoCount}` : null,
+    photoCount || mealPhotoCount || photosSkipped ? "" : null,
+    photoCount || mealPhotoCount ? `Photo files included: ${photoCount + mealPhotoCount}` : null,
     photosSkipped ? `Photo files that could not be downloaded: ${photosSkipped}` : null,
     "",
     "Private by default. Keep this file somewhere safe — it contains your health and body data.",
@@ -78,7 +85,15 @@ export function assembleExport(meta: ExportMeta, tables: ExportTables, photos: E
     tables: Object.fromEntries(EXPORT_TABLES.map((t) => [t, tables[t] ?? []])),
   };
   const files: Record<string, Uint8Array | [Uint8Array, { level: 0 }]> = {
-    "README.txt": enc.encode(readme(meta, counts, photos.length, photosSkipped)),
+    "README.txt": enc.encode(
+      readme(
+        meta,
+        counts,
+        photos.filter((p) => !p.name.startsWith("photos/meals/")).length,
+        photosSkipped,
+        photos.filter((p) => p.name.startsWith("photos/meals/")).length,
+      ),
+    ),
     "data.json": enc.encode(JSON.stringify(data, null, 2)),
   };
   for (const t of EXPORT_TABLES) files[`csv/${t}.csv`] = enc.encode(toCSV(tables[t] ?? []));

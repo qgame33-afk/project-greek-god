@@ -9,11 +9,12 @@ import { Switch } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
 import { useProfile, useSaveProfile } from "@/lib/data/profile";
 import type { Json } from "@/lib/supabase/database.types";
-import { REMINDER_META, normalizeSettings, type ReminderKind, type ReminderSettings as Settings } from "@/lib/reminders/schedule";
-import { currentSubscription, detectPush, disablePush, enablePush, saveSubscription, sendTest, type PushSupport } from "./push";
+import { REMINDER_META, normalizeSettings, overflowKinds, type ReminderKind, type ReminderSettings as Settings } from "@/lib/reminders/schedule";
+import { currentSubscription, detectPush, disablePush, enablePush, isIOS, saveSubscription, sendTest, type PushSupport } from "./push";
 
 const ORDER: ReminderKind[] = ["workout", "food", "hydration", "sleep", "weighin", "photos", "review"];
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const listOf = (xs: string[]) => (xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
 const ordinal = (n: number) => `${n}${n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th"}`;
 
 const rowBase =
@@ -26,6 +27,77 @@ interface Status {
   scheduler: { state: "active" | "not_scheduled" | "unavailable" | "unknown"; url: string | null; lastRunAt: string | null };
 }
 
+type SaveProfile = ReturnType<typeof useSaveProfile>["mutate"];
+
+/**
+ * The reminder settings as the user sees them, plus `update`. Every reminder lives in one
+ * jsonb (profile.reminders), so quick taps must not race: changes are applied to a local
+ * draft at once, coalesced for 350 ms, and written one at a time, each write carrying
+ * every change made so far. The draft wins over the cached profile until its last write
+ * settles, so a refetch that lands mid-way can't flip a switch back.
+ */
+function useReminderDraft(stored: unknown, mutate: SaveProfile) {
+  const [draft, setDraft] = useState<Settings | null>(null);
+  const draftRef = useRef<Settings | null>(null);
+  const timer = useRef<number | null>(null);
+  const inFlight = useRef(false);
+  const again = useRef(false);
+  const flushRef = useRef<() => void>(() => {});
+
+  const flush = useCallback(() => {
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = null;
+    const next = draftRef.current;
+    if (!next) return;
+    if (inFlight.current) {
+      again.current = true; // write again once the current one settles
+      return;
+    }
+    inFlight.current = true;
+    mutate(
+      { values: { reminders: next as unknown as NonNullable<Json> } },
+      {
+        onError: () => {
+          // useSaveProfile rolled the cache back and said so; drop the draft with it
+          draftRef.current = null;
+          again.current = false;
+          setDraft(null);
+        },
+        onSettled: () => {
+          inFlight.current = false;
+          if (again.current) {
+            again.current = false;
+            flushRef.current();
+          } else if (draftRef.current === next) {
+            draftRef.current = null;
+            setDraft(null);
+          }
+        },
+      },
+    );
+  }, [mutate]);
+
+  useEffect(() => {
+    flushRef.current = flush;
+  }, [flush]);
+  // leaving the page doesn't drop a change still waiting to be written
+  useEffect(() => () => flush(), [flush]);
+
+  const value = draft ?? normalizeSettings(stored);
+  const update = useCallback(
+    (kind: ReminderKind, patch: Partial<Settings[ReminderKind]>) => {
+      const base = draftRef.current ?? normalizeSettings(stored);
+      const next = { ...base, [kind]: { ...base[kind], ...patch } } as Settings;
+      draftRef.current = next;
+      setDraft(next);
+      if (timer.current) window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(flush, 350);
+    },
+    [stored, flush],
+  );
+  return { value, update };
+}
+
 /**
  * Settings → Reminders (SPEC §20). Per-reminder switches and times stored in
  * profile.reminders, this device's push opt-in, a test send, and an honest line about
@@ -35,7 +107,7 @@ interface Status {
 export function ReminderSettings({ embedded = false }: { embedded?: boolean } = {}) {
   const { profile, loading } = useProfile();
   const save = useSaveProfile();
-  const settings = normalizeSettings(profile?.reminders);
+  const settings = useReminderDraft(profile?.reminders, save.mutate);
   const status = useQuery({
     queryKey: ["reminders-status"],
     staleTime: 60_000,
@@ -45,29 +117,33 @@ export function ReminderSettings({ embedded = false }: { embedded?: boolean } = 
       return (await r.json()) as Status;
     },
   });
-
-  const update = useCallback(
-    (kind: ReminderKind, patch: Partial<Settings[ReminderKind]>) => {
-      const base = normalizeSettings(profile?.reminders);
-      const next = { ...base, [kind]: { ...base[kind], ...patch } };
-      save.mutate({ values: { reminders: next as unknown as NonNullable<Json> } });
-    },
-    [profile?.reminders, save],
-  );
+  const update = settings.update;
 
   const deviceTz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : null;
+  // the iPhone note shows everywhere except on an iPhone, where the device row above
+  // already gives the exact state (Home Screen steps, iOS version, or working)
+  const [onIPhone] = useState(() => typeof window !== "undefined" && isIOS());
   const tzMismatch = !!profile && !!deviceTz && profile.timezone !== deviceTz;
-  const anyEnabled = ORDER.some((k) => settings[k].on);
+  const anyEnabled = ORDER.some((k) => settings.value[k].on);
 
   const device = <DeviceRows status={status.data} onDevicesChange={() => status.refetch()} anyEnabled={anyEnabled} />;
   const rows = loading ? (
     <SkeletonRows />
   ) : (
-    ORDER.map((k) => <ReminderRow key={k} kind={k} settings={settings} onChange={(patch) => update(k, patch)} />)
+    ORDER.map((k) => <ReminderRow key={k} kind={k} settings={settings.value} onChange={(patch) => update(k, patch)} />)
   );
+  const overflow = overflowKinds(settings.value);
   const footnote = (
     <div className="space-y-1.5 text-[12px] leading-relaxed font-medium text-fg-3">
-      <p>At most 3 a day, and each one is skipped when the task is already done.</p>
+      <p>
+        At most 3 a day, and each one is skipped when the task is already done.
+        {overflow.length > 0 && (
+          <span className="text-fg-2">
+            {" "}
+            On days with more than 3, the least important {overflow.length === 1 ? "is" : "are"} skipped: {listOf(overflow.map((k) => REMINDER_META[k].label))}.
+          </span>
+        )}
+      </p>
       {profile && (
         <p>
           Times are in {profile.timezone.replace(/_/g, " ")}.
@@ -77,7 +153,7 @@ export function ReminderSettings({ embedded = false }: { embedded?: boolean } = 
               This device is on {deviceTz!.replace(/_/g, " ")}.{" "}
               <button
                 type="button"
-                className="inline-flex min-h-11 items-center font-bold text-gold-300 hover:text-gold-200 sm:min-h-0"
+                className="-my-3 inline-flex min-h-11 items-center font-bold text-gold-300 hover:text-gold-200 sm:my-0 sm:min-h-0"
                 onClick={() => save.mutate({ values: { timezone: deviceTz! } }, { onSuccess: () => toast("Time zone updated", { description: deviceTz! }) })}
                 disabled={save.isPending}
               >
@@ -87,6 +163,7 @@ export function ReminderSettings({ embedded = false }: { embedded?: boolean } = 
           )}
         </p>
       )}
+      {!onIPhone && <p>On iPhone, reminders need iOS 16.4 or later and the app opened from the Home Screen: in Safari, tap Share, then Add to Home Screen.</p>}
       <SchedulerLine status={status.data} loading={status.isLoading} />
     </div>
   );
@@ -173,15 +250,15 @@ function DeviceRows({ status, onDevicesChange, anyEnabled }: { status: Status | 
         await sendTest();
         toast("Test sent", { description: "It should arrive within a few seconds." });
       }
-      qc.invalidateQueries({ queryKey: ["reminders-status"] });
     } catch (e) {
       const code = (e as { code?: string }).code;
       if (code === "denied") setState({ kind: "denied" });
-      else if (code === "no_device") setState({ kind: "off" });
+      else if (code === "no_device" || code === "expired") setState({ kind: "off" });
       setError((e as Error).message);
     } finally {
       busyRef.current = false;
       setBusy(null);
+      qc.invalidateQueries({ queryKey: ["reminders-status"] });
     }
   };
 

@@ -178,6 +178,43 @@ export function useSaveReview() {
   return { save, remove, restoring: restore.isPending };
 }
 
+/**
+ * Changes only the saved snapshot's summary (keep or remove), never its numbers.
+ * Optimistic with rollback; Undo puts the previous summary back.
+ */
+export function useSaveSummary() {
+  const qc = useQueryClient();
+  const { userId } = useUser();
+  const key = ["monthly-reviews", userId];
+
+  const write = async (id: string, summary: string | null) => must(await sb().from("monthly_reviews").update({ summary }).eq("id", id).select("id,summary").single());
+
+  const restore = useMutation({
+    mutationFn: async (v: { id: string; summary: string | null }) => write(v.id, v.summary),
+    onError: (e: Error) => toast.error("Couldn't undo", { description: e.message }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["monthly-reviews"] }),
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (v: { row: SavedReview; summary: string | null; toast: string }) => write(v.row.id, v.summary),
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: key });
+      const list = qc.getQueryData<SavedReview[]>(key);
+      if (list) qc.setQueryData<SavedReview[]>(key, list.map((r) => (r.id === v.row.id ? { ...r, summary: v.summary } : r)));
+      return { list };
+    },
+    onError: (e: Error, v, ctx) => {
+      if (ctx?.list) qc.setQueryData(key, ctx.list);
+      toast.error(v.summary ? "Couldn't keep the summary" : "Couldn't remove the summary", { description: `${e.message} Nothing was changed.` });
+    },
+    onSuccess: (_r, v) => {
+      toast(v.toast, { duration: 6000, action: { label: "Undo", onClick: () => restore.mutate({ id: v.row.id, summary: v.row.summary }) } });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["monthly-reviews"] }),
+  });
+  return mutation;
+}
+
 /* --------------------------------------------------------- AI summary */
 
 export type AISummaryError = { code: string; message: string };

@@ -248,20 +248,50 @@ export interface EvaluateInput {
   windowMin?: number;
 }
 
-/** The full decision: which notifications to send now (≤ 3 per local day, none twice). */
-export function evaluateReminders({ settings, timeZone, now, facts, sentToday, windowMin }: EvaluateInput): Notice[] {
+/** Reminder kinds switched on for this local day (time of day ignored), most important first. */
+export function scheduledOn(s: ReminderSettings, p: Pick<LocalParts, "weekday" | "day">): ReminderKind[] {
+  return REMINDER_ORDER.filter((k) => {
+    if (!s[k].on) return false;
+    if (k === "weighin") return p.weekday === s.weighin.day;
+    if (k === "photos") return p.day === s.photos.day;
+    if (k === "review") return p.day === 1;
+    return true;
+  });
+}
+
+/**
+ * The reminders that lose out when more than 3 fall on one day: everything after the 3
+ * most important switched-on kinds. Settings shows this so nothing is dropped silently.
+ */
+export function overflowKinds(settings: unknown): ReminderKind[] {
+  const s = normalizeSettings(settings);
+  return REMINDER_ORDER.filter((k) => s[k].on).slice(MAX_PER_DAY);
+}
+
+/**
+ * The full decision: which notifications to send now (≤ 3 per local day, none twice).
+ *
+ * The daily budget is shared by importance, not by the clock: a reminder that is due now
+ * only goes out if, after it, there are still slots left for every more important
+ * reminder scheduled later today whose task isn't done yet. So an early, minor reminder
+ * never uses up the slot of a later workout or food reminder.
+ */
+export function evaluateReminders({ settings, timeZone, now, facts, sentToday, windowMin = WINDOW_MIN }: EvaluateInput): Notice[] {
   const s = normalizeSettings(settings);
   const p = localParts(now, timeZone);
   const sent = new Set(sentToday);
-  let budget = MAX_PER_DAY - sent.size;
+  const rank = (k: ReminderKind) => REMINDER_ORDER.indexOf(k);
+  const dueNow = dueByTime(s, p, windowMin);
+  // still to come today (after this run's window) and still worth sending on today's facts
+  const later = scheduledOn(s, p).filter((k) => !sent.has(k) && !dueNow.includes(k) && toMinutes(s[k].time) > p.minutes && buildNotice(k, p.date, facts) != null);
   const out: Notice[] = [];
-  for (const kind of dueByTime(s, p, windowMin)) {
-    if (budget <= 0) break;
+  for (const kind of dueNow) {
     if (sent.has(kind)) continue;
     const n = buildNotice(kind, p.date, facts);
     if (!n) continue;
+    const reservedAhead = later.filter((k) => rank(k) < rank(kind)).length;
+    if (sent.size + out.length + reservedAhead >= MAX_PER_DAY) continue;
     out.push(n);
-    budget--;
   }
   return out;
 }

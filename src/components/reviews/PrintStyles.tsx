@@ -30,11 +30,21 @@ const CSS = `
     font-size: 12px;
   }
   #pgg-review .review-grid { display: block !important; }
-  #pgg-review .review-card, #pgg-review .card-monument, #pgg-review article { break-inside: avoid; page-break-inside: avoid; margin-bottom: 10px; box-shadow: none !important; }
+  /* section cards in reading order (Physical, Training, Nutrition, Recovery), one column */
+  #pgg-review .review-sections { display: flex !important; flex-direction: column; gap: 10px; margin-top: 10px !important; }
+  #pgg-review .review-sections > div { display: contents !important; }
+  #pgg-review .review-card, #pgg-review .card-monument, #pgg-review article { box-shadow: none !important; }
+  #pgg-review .review-grid > * { margin-bottom: 10px; }
+  /* tall cards may continue on the next page, but only between whole blocks */
+  #pgg-review .review-card { break-inside: auto; }
+  #pgg-review .card-monument, #pgg-review article, #pgg-review .review-sub, #pgg-review .review-metrics, #pgg-review figure { break-inside: avoid; page-break-inside: avoid; }
+  #pgg-review .review-card > div:first-child, #pgg-review .review-subhead { break-after: avoid; page-break-after: avoid; }
   #pgg-review .card-monument { background: #fff !important; border: 1px solid #b89a62 !important; }
-  #pgg-review .review-priorities { display: block !important; }
-  #pgg-review .review-priorities > * { margin-bottom: 8px; }
+  #pgg-review .review-priorities { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
+  #pgg-review .review-priorities article { padding: 12px !important; }
+  #pgg-review section[aria-labelledby="priorities-title"] { margin-top: 16px !important; break-inside: avoid; }
   #pgg-review img { break-inside: avoid; }
+  #pgg-review .review-chart-grid { stroke: #e6dfd0 !important; }
 }
 `;
 

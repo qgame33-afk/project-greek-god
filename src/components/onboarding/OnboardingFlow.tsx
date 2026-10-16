@@ -123,6 +123,16 @@ export function OnboardingFlow() {
 
   const set = useCallback((patch: Partial<OnboardingAnswers>) => setA((prev) => (prev ? { ...prev, ...patch } : prev)), []);
   const touch = useCallback((k: string) => setTouched((prev) => (prev.has(k) ? prev : new Set(prev).add(k))), []);
+  const untouch = useCallback(
+    (keys: string[]) =>
+      setTouched((prev) => {
+        if (!keys.some((k) => prev.has(k))) return prev;
+        const n = new Set(prev);
+        for (const k of keys) n.delete(k);
+        return n;
+      }),
+    [],
+  );
 
   const id = STEPS[step];
   const errors: StepErrors = useMemo(() => (a ? validateStep(id, a, today) : {}), [a, id, today]);
@@ -244,7 +254,7 @@ export function OnboardingFlow() {
   const isWelcome = id === "welcome";
   const isFinale = id === "finale";
   const copy = COPY[id];
-  const stepProps = { a, set, errors: shownErrors, today, touched, touch };
+  const stepProps = { a, set, errors: shownErrors, today, touched, touch, untouch };
 
   return (
     <Frame step={step} a={a} leaving={leaving}>
@@ -265,7 +275,7 @@ export function OnboardingFlow() {
           </div>
         </header>
 
-        <main ref={contentRef} className="mx-auto w-full max-w-[560px] flex-1 px-5 pb-[calc(var(--safe-bottom)+132px)] lg:px-8 lg:pb-10">
+        <main ref={contentRef} className="mx-auto w-full max-w-[560px] flex-1 px-5 pb-[calc(var(--safe-bottom)+132px)] lg:px-8 lg:pb-10 lg:pt-[3vh]">
           {isWelcome && <WelcomeArt />}
           <AnimatePresence mode="wait" initial={false} custom={dir}>
             <m.div
@@ -294,17 +304,18 @@ export function OnboardingFlow() {
                 {id === "units" && <UnitsStep {...stepProps} />}
                 {id === "finale" && <Finale a={a} plan={plan} onEdit={edit} />}
               </div>
-              {finishError && isFinale && (
-                <ErrorNote className="mt-5" onRetry={() => void finish()}>
-                  {finishError}
-                </ErrorNote>
-              )}
             </m.div>
           </AnimatePresence>
         </main>
 
         {/* sticky actions — bottom of the thumb zone on phones, inline on desktop */}
         <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-line-hair bg-[rgb(8_9_12/.88)] pb-[calc(var(--safe-bottom)+14px)] pt-3 backdrop-blur-xl lg:sticky lg:border-t-0 lg:bg-[linear-gradient(to_top,var(--bg)_72%,transparent)] lg:pb-10 lg:pt-10 lg:backdrop-blur-none">
+          {/* a failed finish is explained right above the button that was tapped */}
+          {finishError && isFinale && (
+            <div className="mx-auto w-full max-w-[560px] px-5 pb-3 lg:px-8">
+              <ErrorNote onRetry={() => void finish()}>{finishError}</ErrorNote>
+            </div>
+          )}
           <div className="mx-auto flex w-full max-w-[560px] items-center gap-3 px-5 lg:px-8">
             {step > 0 && (
               <Button type="button" variant="secondary" size="lg" className="w-[30%] shrink-0" onClick={back} disabled={finishing}>

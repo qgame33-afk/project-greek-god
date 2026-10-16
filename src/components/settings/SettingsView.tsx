@@ -211,7 +211,7 @@ export function SettingsView() {
 
           <Group id="daily" title="Daily goals">
             <NavRow label="Water" value={`${(profile.water_goal_ml / 1000).toFixed(profile.water_goal_ml % 100 === 0 ? 1 : 2)} L`} onClick={() => open("water")} />
-            <NavRow label="Sleep" value={`${round(Number(profile.sleep_goal_h), 1)} h`} onClick={() => open("sleep")} />
+            <NavRow label="Sleep" value={`${round(Number(profile.sleep_goal_h), 2)} h`} onClick={() => open("sleep")} />
             <NavRow label="Steps" value={formatInt(profile.steps_goal)} onClick={() => open("steps")} />
           </Group>
 

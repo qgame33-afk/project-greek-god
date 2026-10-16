@@ -122,6 +122,15 @@ describe("shiftRange", () => {
     expect(shiftRange(190, 180, 185)).toEqual({ min: 187, max: 192 });
     expect(shiftRange(170, 180, 185)).toEqual({ min: 167, max: 172 });
   });
+  it("shifted from a fixed anchor, typing a goal keystroke by keystroke never drags the band", () => {
+    // the goal field passes through 1 → 18 → 184 while the user types "184"
+    let band = { min: 180, max: 185 };
+    for (const v of [1, 18, 184]) band = shiftRange(v, 180, 185);
+    expect(band).toEqual({ min: 180, max: 185 });
+    // and leaving the band then coming back restores it exactly
+    expect(shiftRange(200, 180, 185)).toEqual({ min: 197, max: 202 });
+    expect(shiftRange(183, 180, 185)).toEqual({ min: 180, max: 185 });
+  });
 });
 
 describe("planSummary", () => {
@@ -221,6 +230,10 @@ describe("profileUpdateFromAnswers", () => {
   });
   it("stores an empty name as null", () => {
     expect(profileUpdateFromAnswers(owner()).display_name).toBeNull();
+  });
+  it("keeps a quarter-hour sleep goal", () => {
+    expect(profileUpdateFromAnswers({ ...owner(), sleepGoalH: 8.25 }).sleep_goal_h).toBe(8.25);
+    expect(profileUpdateFromAnswers({ ...owner(), sleepGoalH: 7.75 }).sleep_goal_h).toBe(7.75);
   });
 });
 

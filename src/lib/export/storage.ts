@@ -20,6 +20,22 @@ export interface StoredFile {
   mimetype: string | null;
 }
 
+/**
+ * Progress photos are stored with a small preview next to them ("<name>.thumb.jpg"). Previews
+ * are counted and deleted, but they aren't photos: they're never exported or counted as one.
+ */
+export function isThumbnail(path: string) {
+  return /\.thumb\.[a-z0-9]{2,5}$/i.test(path);
+}
+
+/** Split a listing into photos and their thumbnails. */
+export function splitThumbnails<T extends { path: string }>(files: T[]): { main: T[]; thumbs: T[] } {
+  const main: T[] = [];
+  const thumbs: T[] = [];
+  for (const f of files) (isThumbnail(f.path) ? thumbs : main).push(f);
+  return { main, thumbs };
+}
+
 /** Every file under `prefix` (e.g. the user's id), depth-first, with sizes when known. */
 export async function listAllFiles(bucket: Lister, prefix: string, maxFiles = 50_000): Promise<StoredFile[]> {
   const out: StoredFile[] = [];

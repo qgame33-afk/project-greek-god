@@ -15,6 +15,7 @@ import { formatBytes } from "@/lib/export/csv";
 import {
   buildExport,
   canShareFile,
+  mealPhotoFiles,
   previewWipe,
   progressPhotoFiles,
   saveBlob,
@@ -24,7 +25,7 @@ import {
   type ExportResult,
   type WipePreview,
 } from "@/lib/export/client";
-import { countLabel, KEPT_ON_WIPE, WIPE_TABLES, wipeSummary, wipeTotal, type WipeReport } from "@/lib/export/tables";
+import { countLabel, fileLines, KEPT_ON_WIPE, WIPE_TABLES, wipeSummary, wipeTotal, type WipeReport } from "@/lib/export/tables";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { clearLocalCaches } from "./session";
 import { SwitchRow } from "./List";
@@ -47,6 +48,17 @@ function Progress({ p }: { p: ExportProgress }) {
   );
 }
 
+/** "12 weigh-ins" with the count set in tabular numerals and the words in the body face. */
+function CountLine({ text }: { text: string }) {
+  const m = /^([\d,]+)\s(.*)$/.exec(text);
+  if (!m) return <>{text}</>;
+  return (
+    <>
+      <span className="num text-[15px] font-semibold text-fg">{m[1]}</span> <span className="text-fg-2">{m[2]}</span>
+    </>
+  );
+}
+
 /* ------------------------------------------------------------------ export */
 
 export function ExportSheet({
@@ -65,6 +77,7 @@ export function ExportSheet({
   version?: string;
 }) {
   const [withPhotos, setWithPhotos] = useState(false);
+  const [withMeals, setWithMeals] = useState(false);
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +94,17 @@ export function ExportSheet({
     },
   });
   const photos = photoQ.isError ? "error" : (photoQ.data ?? null);
+  const mealQ = useQuery({
+    queryKey: ["export-meal-files", userId],
+    enabled: open,
+    staleTime: 0,
+    retry: 0,
+    queryFn: async () => {
+      const f = await mealPhotoFiles(userId);
+      return { count: f.length, bytes: f.reduce((a, b) => a + b.size, 0) };
+    },
+  });
+  const meals = mealQ.isError ? "error" : (mealQ.data ?? null);
 
   useResetOnOpen(open, () => {
     setResult(null);
@@ -95,7 +119,16 @@ export function ExportSheet({
     abort.current = new AbortController();
     setProgress({ label: "Starting", done: 0, total: 1 });
     try {
-      const r = await buildExport({ userId, email, today, includePhotos: withPhotos, appVersion: version, onProgress: setProgress, signal: abort.current.signal });
+      const r = await buildExport({
+        userId,
+        email,
+        today,
+        includePhotos: withPhotos && !!photoInfo?.count,
+        includeMealPhotos: withMeals && !!mealInfo?.count,
+        appVersion: version,
+        onProgress: setProgress,
+        signal: abort.current.signal,
+      });
       setResult(r);
       saveBlob(r.blob, r.filename);
     } catch (e) {
@@ -107,6 +140,10 @@ export function ExportSheet({
 
   const rows = result ? Object.values(result.counts).reduce((a, b) => a + b, 0) : 0;
   const photoInfo = photos && photos !== "error" ? photos : null;
+  const mealInfo = meals && meals !== "error" ? meals : null;
+  const extraBytes = (withPhotos ? (photoInfo?.bytes ?? 0) : 0) + (withMeals ? (mealInfo?.bytes ?? 0) : 0);
+  const fileDetail = (f: typeof photos, none: string) =>
+    f === null ? <Skeleton className="mt-1 h-3 w-28" /> : f === "error" ? "Couldn't check photo storage." : f.count === 0 ? none : `${f.count} ${f.count === 1 ? "photo" : "photos"} · ${formatBytes(f.bytes)}`;
 
   return (
     <Sheet
@@ -158,7 +195,7 @@ export function ExportSheet({
               <p className="truncate text-[15px] font-bold text-fg">{result.filename}</p>
               <p className="mt-0.5 text-[13px] text-fg-2">
                 <span className="num text-[14px]">{formatBytes(result.bytes)}</span> · {rows.toLocaleString("en-US")} rows
-                {result.photos ? ` · ${result.photos} ${result.photos === 1 ? "photo" : "photos"}` : ""}
+                {result.photos + result.mealPhotos ? ` · ${result.photos + result.mealPhotos} ${result.photos + result.mealPhotos === 1 ? "photo" : "photos"}` : ""}
               </p>
               {result.photosSkipped > 0 && <p className="mt-1 text-[12.5px] text-warning">{result.photosSkipped} photos couldn&apos;t be downloaded and are listed in the README.</p>}
             </div>
@@ -178,28 +215,25 @@ export function ExportSheet({
             <div className="overflow-hidden rounded-[16px] border border-line bg-s1">
               <SwitchRow
                 label="Include progress photos"
-                detail={
-                  photos === null ? (
-                    <Skeleton className="mt-1 h-3 w-28" />
-                  ) : photos === "error" ? (
-                    "Couldn't check photo storage."
-                  ) : photos.count === 0 ? (
-                    "No progress photos yet."
-                  ) : (
-                    `${photos.count} ${photos.count === 1 ? "photo" : "photos"} · ${formatBytes(photos.bytes)}`
-                  )
-                }
-                checked={withPhotos}
+                detail={fileDetail(photos, "No progress photos yet.")}
+                checked={withPhotos && !!photoInfo?.count}
                 disabled={!photoInfo || photoInfo.count === 0}
                 onChange={setWithPhotos}
               />
+              <SwitchRow
+                label="Include meal photos"
+                detail={fileDetail(meals, "No meal photos yet.")}
+                checked={withMeals && !!mealInfo?.count}
+                disabled={!mealInfo || mealInfo.count === 0}
+                onChange={setWithMeals}
+              />
             </div>
-            {withPhotos && photoInfo && photoInfo.bytes > BIG_EXPORT && (
+            {extraBytes > BIG_EXPORT && (
               <p className="rounded-[12px] border border-warning/30 bg-warning-tint px-3.5 py-3 text-[13px] text-fg">
-                That&apos;s a large download ({formatBytes(photoInfo.bytes)}). Use Wi-Fi and keep this screen open until it finishes.
+                That&apos;s a large download ({formatBytes(extraBytes)} of photos). Use Wi-Fi and keep this screen open until it finishes.
               </p>
             )}
-            <p className="text-[12.5px] leading-relaxed text-fg-3">Meal photos are listed in the data but not included. The file contains health data, so store it somewhere private.</p>
+            <p className="text-[12.5px] leading-relaxed text-fg-3">The file contains health and body data, so store it somewhere private.</p>
           </>
         )}
         {error && <ErrorNote onRetry={run}>{error}</ErrorNote>}
@@ -239,6 +273,7 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
   const [typed, setTyped] = useState("");
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [report, setReport] = useState<WipeReport | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
   const busy = useRef(false);
 
   const previewQ = useQuery({
@@ -255,6 +290,7 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
     setTyped("");
     setReport(null);
     setProgress(null);
+    setRunError(null);
   });
 
   const total = preview && preview !== "error" ? wipeTotal({ ...preview, failed: [] }) : 0;
@@ -262,6 +298,7 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
   const run = async () => {
     if (busy.current || typed !== "DELETE") return;
     busy.current = true;
+    setRunError(null);
     setProgress({ label: "Syncing pending changes", done: 0, total: 1 });
     try {
       await drained(4000); // don't let a queued set edit land after the wipe
@@ -275,19 +312,20 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
       await qc.invalidateQueries();
       if (r.failed.length) toast.error("Some data couldn't be deleted", { description: r.failed.map((f) => f.what).join(", ") });
       else toast.success(`Deleted ${wipeTotal(r).toLocaleString("en-US")} items`);
+    } catch (e) {
+      // the report path never throws; this is a lost connection before anything ran
+      setRunError(`Couldn't start the delete. Nothing was removed. ${e instanceof Error ? e.message : ""}`);
+      void previewQ.refetch();
     } finally {
       busy.current = false;
       setProgress(null);
     }
   };
 
-  const lines = preview && preview !== "error" ? WIPE_TABLES.filter((t) => (preview.rows[t] ?? 0) > 0).map((t) => countLabel(t, preview.rows[t]!)) : [];
-  if (preview && preview !== "error") {
-    const pf = preview.files["progress-photos"] ?? 0;
-    const mf = preview.files["meal-photos"] ?? 0;
-    if (pf) lines.push(`${pf} progress photo ${pf === 1 ? "file" : "files"}`);
-    if (mf) lines.push(`${mf} meal photo ${mf === 1 ? "file" : "files"}`);
-  }
+  const lines =
+    preview && preview !== "error"
+      ? [...WIPE_TABLES.filter((t) => (preview.rows[t] ?? 0) > 0).map((t) => countLabel(t, preview.rows[t]!)), ...fileLines(preview.files, preview.thumbs)]
+      : [];
 
   return (
     <Sheet
@@ -325,7 +363,10 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
                 <ul className="grid grid-cols-1 gap-1 text-[14px] text-fg">
                   {wipeSummary(report).map((l) => (
                     <li key={l} className="flex items-center gap-2">
-                      <Check className="size-4 text-success" aria-hidden /> {l}
+                      <Check className="size-4 shrink-0 text-success" aria-hidden />
+                      <span>
+                        <CountLine text={l} />
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -356,10 +397,10 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
               ) : lines.length === 0 ? (
                 <p className="text-[14px] text-fg-2">There&apos;s no logged data to delete.</p>
               ) : (
-                <ul className="grid grid-cols-1 gap-x-4 gap-y-1 text-[14px] text-fg sm:grid-cols-2">
+                <ul className="grid grid-cols-1 gap-x-4 gap-y-1.5 text-[14px] sm:grid-cols-2">
                   {lines.map((l) => (
-                    <li key={l} className="num-xs text-[15px]">
-                      {l}
+                    <li key={l}>
+                      <CountLine text={l} />
                     </li>
                   ))}
                 </ul>
@@ -371,11 +412,12 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
             </div>
             <p className="text-[13px] leading-relaxed text-fg-2">
               This can&apos;t be undone.{" "}
-              <button type="button" className="font-bold text-gold-300" onClick={onExport}>
+              <button type="button" className="-my-3 inline-flex min-h-11 items-center font-bold text-gold-300" onClick={onExport}>
                 Export a copy first
               </button>
             </p>
             <TypeDelete value={typed} onChange={setTyped} disabled={total === 0} />
+            {runError && <ErrorNote onRetry={() => void run()}>{runError}</ErrorNote>}
           </>
         )}
       </div>
@@ -438,7 +480,7 @@ export function DeleteAccountSheet({ open, onOpenChange, email, onExport }: { op
           <li>Your profile, goals and sign-in. This can&apos;t be undone.</li>
         </ul>
         <p className="text-[13px] text-fg-2">
-          <button type="button" className="font-bold text-gold-300" onClick={onExport}>
+          <button type="button" className="-my-3 inline-flex min-h-11 items-center font-bold text-gold-300" onClick={onExport}>
             Export a copy first
           </button>
         </p>

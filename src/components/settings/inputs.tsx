@@ -79,8 +79,17 @@ export function StepperInput({
         aria-describedby={describedBy}
         onFocus={(e) => {
           focused.current = true;
-          setText(value.toFixed(decimals));
-          requestAnimationFrame(() => e.target.select());
+          // Swap "3,300" for "3300" on the element itself before selecting, so the re-render
+          // that follows finds the same text and leaves the selection alone (otherwise typing
+          // can land after the old digits: "8,000" + "15000" → "800015000").
+          const el = e.currentTarget;
+          const plain = value.toFixed(decimals);
+          if (el.value !== plain) el.value = plain;
+          setText(plain);
+          el.select();
+          requestAnimationFrame(() => {
+            if (document.activeElement === el) el.select();
+          });
         }}
         onBlur={() => {
           focused.current = false;
@@ -280,6 +289,16 @@ export function HeightInput({ cm, onChange, unit, invalid }: { cm: number; onCha
           onChange={(e) => {
             setInch(e.target.value);
             push(ft, e.target.value);
+          }}
+          onBlur={() => {
+            // 6 ft 14 in reads back as 7 ft 2 in
+            const i = parseNumber(inch);
+            if (i == null || i < 12) return;
+            const t = last.current / CM_PER_IN;
+            const f = Math.floor(t / 12);
+            const r = round(t - f * 12, 1);
+            setFt(String(r >= 12 ? f + 1 : f));
+            setInch(String(r >= 12 ? 0 : r));
           }}
         />
         <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-[13px] font-semibold text-fg-3">in</span>

@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import type { Profile } from "@/lib/data/profile";
-import { addDays, daysBetween, longDate, shortDate, type ISODate } from "@/lib/dates";
+import { addDays, daysBetween, shortDate, type ISODate } from "@/lib/dates";
 import { requiredWeeklyGain } from "@/lib/bodyweight";
-import { shiftRange, weeklyRateText } from "@/lib/onboarding/plan";
+import { formatPlacardWeight, shiftRange, weeklyRateText } from "@/lib/onboarding/plan";
 import { formatBodyweight, formatHeight, fromDisplayWeight, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
 import { EditSheet } from "./EditSheet";
 import { GoalScale } from "./GoalScale";
@@ -74,11 +74,18 @@ export function GoalWeightSheet({ open, onOpenChange, profile, today }: SheetPro
   const [goal, setGoal] = useState(0);
   const [min, setMin] = useState(0);
   const [max, setMax] = useState(0);
+  // The band the goal moves relative to: the saved range, or whatever the user last set by hand.
+  // Shifting from this anchor (not from the previous keystroke's band) means typing "184" never
+  // drags 180–185 along through "1" and "18", and stepping back inside restores it exactly.
+  const [anchor, setAnchor] = useState({ min: 0, max: 0 });
   const [reason, setReason] = useState("");
   useResetOnOpen(open, () => {
+    const lo = toDisp(Number(profile.goal_range_min_lb ?? 180), u);
+    const hi = toDisp(Number(profile.goal_range_max_lb ?? 185), u);
     setGoal(toDisp(Number(profile.goal_weight_lb ?? 183), u));
-    setMin(toDisp(Number(profile.goal_range_min_lb ?? 180), u));
-    setMax(toDisp(Number(profile.goal_range_max_lb ?? 185), u));
+    setMin(lo);
+    setMax(hi);
+    setAnchor({ min: lo, max: hi });
     setReason("");
     clearError();
   });
@@ -110,7 +117,7 @@ export function GoalWeightSheet({ open, onOpenChange, profile, today }: SheetPro
       onSave={() =>
         commit(
           { goal_weight_lb: goalLb, goal_range_min_lb: minLb, goal_range_max_lb: maxLb },
-          { reason, message: `Goal ${formatBodyweight(goalLb, u)} · range ${round(min, 1)}–${round(max, 1)} ${u}`, onDone: () => onOpenChange(false) },
+          { reason, message: `Goal ${formatBodyweight(goalLb, u)} · range ${formatPlacardWeight(minLb, u)}–${formatPlacardWeight(maxLb, u)} ${u}`, onDone: () => onOpenChange(false) },
         )
       }
     >
@@ -120,7 +127,7 @@ export function GoalWeightSheet({ open, onOpenChange, profile, today }: SheetPro
           value={goal}
           onChange={(v) => {
             setGoal(v);
-            const r = shiftRange(v, min, max);
+            const r = shiftRange(v, anchor.min, anchor.max);
             setMin(r.min);
             setMax(r.max);
           }}
@@ -128,6 +135,7 @@ export function GoalWeightSheet({ open, onOpenChange, profile, today }: SheetPro
           min={u === "kg" ? 27 : 60}
           max={u === "kg" ? 272 : 600}
           decimals={1}
+          minDecimals={0}
           unit={u}
           size="lg"
           invalid={!!err}
@@ -136,11 +144,37 @@ export function GoalWeightSheet({ open, onOpenChange, profile, today }: SheetPro
         <div className="grid grid-cols-2 gap-3">
           <div className="card-inset p-3">
             <p className="mb-2 text-center text-[12px] font-semibold text-fg-3">Range low</p>
-            <StepperInput layout="stacked" label="Range low" value={min} onChange={setMin} step={step} min={u === "kg" ? 27 : 60} max={u === "kg" ? 272 : 600} decimals={1} />
+            <StepperInput
+              layout="stacked"
+              label="Range low"
+              value={min}
+              onChange={(v) => {
+                setMin(v);
+                setAnchor({ min: v, max });
+              }}
+              step={step}
+              min={u === "kg" ? 27 : 60}
+              max={u === "kg" ? 272 : 600}
+              decimals={1}
+              minDecimals={0}
+            />
           </div>
           <div className="card-inset p-3">
             <p className="mb-2 text-center text-[12px] font-semibold text-fg-3">Range high</p>
-            <StepperInput layout="stacked" label="Range high" value={max} onChange={setMax} step={step} min={u === "kg" ? 27 : 60} max={u === "kg" ? 272 : 600} decimals={1} />
+            <StepperInput
+              layout="stacked"
+              label="Range high"
+              value={max}
+              onChange={(v) => {
+                setMax(v);
+                setAnchor({ min, max: v });
+              }}
+              step={step}
+              min={u === "kg" ? 27 : 60}
+              max={u === "kg" ? 272 : 600}
+              decimals={1}
+              minDecimals={0}
+            />
           </div>
         </div>
         {err ? (
@@ -185,7 +219,7 @@ export function TargetDateSheet({ open, onOpenChange, profile, today }: SheetPro
       canSave={!err && date !== profile.target_date}
       pending={pending}
       error={error}
-      onSave={() => commit({ target_date: date }, { message: `Target date ${longDate(date)}`, onDone: () => onOpenChange(false) })}
+      onSave={() => commit({ target_date: date }, { message: `Target date ${shortDate(date, "0000-01-01")}`, onDone: () => onOpenChange(false) })}
     >
       <div className="grid grid-cols-1 gap-4 pb-2">
         <Field label="Target date" error={err}>

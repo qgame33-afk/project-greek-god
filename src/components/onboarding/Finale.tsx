@@ -24,7 +24,7 @@ export function Finale({ a, plan, onEdit }: { a: OnboardingAnswers; plan: PlanSu
       value: `${scheduleSummary(a.schedule)}${a.volleyballPerWeek ? ` · volleyball ${a.volleyballPerWeek}×` : ""}${a.introVolume ? " · intro volume" : ""}`,
     },
     { step: "nutrition", label: "Fuel", value: `${formatInt(a.calorieGoal)} kcal · ${a.proteinGoal} P · ${plan.carbs} C · ${a.fatGoal} F` },
-    { step: "nutrition", label: "Recovery", value: `${round(a.sleepGoalH, 1)} h sleep · ${(a.waterGoalMl / 1000).toFixed(a.waterGoalMl % 100 === 0 ? 1 : 2)} L water` },
+    { step: "nutrition", label: "Recovery", value: `${round(a.sleepGoalH, 2)} h sleep · ${(a.waterGoalMl / 1000).toFixed(a.waterGoalMl % 100 === 0 ? 1 : 2)} L water` },
     { step: "units", label: "Units", value: `${u} · ${a.lengthUnit === "in" ? "ft/in" : "cm"} · ${a.timezone.split("/").pop()?.replace(/_/g, " ")}` },
   ];
   return (

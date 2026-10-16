@@ -668,11 +668,14 @@ export function candidatePriorities(s: ReviewStats, unit: WeightUnit = "lb"): Pr
         score: 8,
       });
     } else {
+      const ahead = p.ratePerWeek > plan * 1.6;
       out.push({
         id: "hold-course",
         area: "physical",
         title: "Hold the course",
-        detail: `Your trend (${rate(p.ratePerWeek, unit)}) is in line with the plan (${rate(plan, unit)}). Keep intake where it is and re-check after two more weeks of weigh-ins.`,
+        detail: ahead
+          ? `Your trend (${rate(p.ratePerWeek, unit)}) is a little ahead of the plan (${rate(plan, unit)}). Keep intake where it is. If it stays above ${rate(plan * 2, unit)} for two more weeks, trim about 100 kcal a day.`
+          : `Your trend (${rate(p.ratePerWeek, unit)}) is in line with the plan (${rate(plan, unit)}). Keep intake where it is and re-check after two more weeks of weigh-ins.`,
         evidence: ev,
         score: 1,
       });
@@ -704,7 +707,18 @@ export function candidatePriorities(s: ReviewStats, unit: WeightUnit = "lb"): Pr
   }
 
   // ---- adherence
-  if (t.adherencePct != null && t.planned >= 4 && t.adherencePct < 80) {
+  if (t.planned >= 4 && t.sessions === 0) {
+    // nothing logged at all: a schedule tweak would be guesswork, so start with one session
+    out.push({
+      id: "first-session",
+      area: "training",
+      title: "Log one session this week",
+      detail: `No sessions were logged against ${t.planned} planned training days. Start the next planned session from Today, even cut to its first three exercises. Logged sessions are what this review, your records and your progress are built from.`,
+      evidence: [`0/${t.planned} planned days`],
+      action: { label: "Open training", href: "/training" },
+      score: 9,
+    });
+  } else if (t.adherencePct != null && t.planned >= 4 && t.adherencePct < 80) {
     const max = Math.max(...t.missedByWeekday);
     const day = max >= 2 && t.missedByWeekday.filter((x) => x === max).length === 1 ? t.missedByWeekday.indexOf(max) : -1;
     const done = `You trained on ${t.plannedDone} of ${t.planned} planned days (${t.adherencePct}%)`;
@@ -797,6 +811,49 @@ export function candidatePriorities(s: ReviewStats, unit: WeightUnit = "lb"): Pr
   }
 
   return out.sort((a, b) => b.score - a.score).map((x) => ({ ...x, score: round(x.score, 2) }));
+}
+
+/* ------------------------------------------------------------ weight chart */
+
+export interface MonthWeightSeries {
+  from: ISODate;
+  to: ISODate;
+  /** weigh-ins inside the window */
+  points: { date: ISODate; weight: number }[];
+  /** rolling 7-day average on each weigh-in date in the window (earlier weigh-ins count) */
+  avg: { date: ISODate; weight: number }[];
+  /** the programme's straight-line plan across the window, when start and goal are set */
+  plan: { from: number; to: number } | null;
+}
+
+/** Everything the review's bodyweight chart draws, from logged weigh-ins only. */
+export function monthWeightSeries(
+  weights: ReviewRows["weights"],
+  window: Pick<ReviewStats["window"], "from" | "to" | "outOfRange">,
+  profile: Pick<ReviewProfile, "start_date" | "target_date" | "start_weight_lb" | "goal_weight_lb">,
+): MonthWeightSeries {
+  const { from, to } = window;
+  const all = weights
+    .map((w) => ({ local_date: w.local_date, weight_lb: num(w.weight_lb) }))
+    .filter((w): w is WeighIn => w.weight_lb != null && w.local_date <= to)
+    .sort((a, b) => a.local_date.localeCompare(b.local_date));
+  if (window.outOfRange) return { from, to, points: [], avg: [], plan: null };
+  const inWindow = all.filter((w) => w.local_date >= from);
+  const avg = inWindow.map((w) => {
+    const lo = addDays(w.local_date, -6);
+    return { date: w.local_date, weight: round(mean(all.filter((x) => x.local_date >= lo && x.local_date <= w.local_date).map((x) => x.weight_lb))!, 2) };
+  });
+  const s = num(profile.start_weight_lb);
+  const g = num(profile.goal_weight_lb);
+  const total = daysBetween(profile.start_date, profile.target_date);
+  const at = (d: ISODate) => s! + (g! - s!) * Math.min(1, Math.max(0, daysBetween(profile.start_date, d) / total));
+  return {
+    from,
+    to,
+    points: inWindow.map((w) => ({ date: w.local_date, weight: w.weight_lb })),
+    avg,
+    plan: s != null && g != null && total > 0 ? { from: round(at(from), 2), to: round(at(to), 2) } : null,
+  };
 }
 
 /* ------------------------------------------------------------ headline */

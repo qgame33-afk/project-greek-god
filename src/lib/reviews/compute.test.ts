@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, dateRange, weekday, type ISODate } from "@/lib/dates";
-import { aiDigest, candidatePriorities, computePriorities, computeReview, headline, milestoneFor, parseMonthParam, reviewMonths, type ReviewProfile, type ReviewRows } from "./compute";
+import { aiDigest, candidatePriorities, computePriorities, computeReview, headline, milestoneFor, monthWeightSeries, parseMonthParam, reviewMonths, type ReviewProfile, type ReviewRows } from "./compute";
 import { plannedKey, scheduleFrom } from "./plan";
 
 const profile: ReviewProfile = {
@@ -519,5 +519,45 @@ describe("headline & AI digest", () => {
 
   it("is consistent with addDays boundaries", () => {
     expect(addDays("2026-09-30", 1)).toBe("2026-10-01");
+  });
+});
+
+describe("monthWeightSeries", () => {
+  it("plots the month's weigh-ins, a 7-day average that uses earlier weigh-ins, and the plan line", () => {
+    const weights = [
+      { local_date: "2026-09-28", weight_lb: 164 },
+      { local_date: "2026-09-30", weight_lb: "166" },
+      { local_date: "2026-10-02", weight_lb: 165 },
+      { local_date: "2026-10-05", weight_lb: 167 },
+      { local_date: "2026-10-20", weight_lb: 170 }, // after the window
+      { local_date: "2026-10-03", weight_lb: null },
+    ];
+    const s = monthWeightSeries(weights, { from: "2026-10-01", to: "2026-10-16", outOfRange: null }, profile);
+    expect(s.points).toEqual([
+      { date: "2026-10-02", weight: 165 },
+      { date: "2026-10-05", weight: 167 },
+    ]);
+    expect(s.avg).toEqual([
+      { date: "2026-10-02", weight: 165 }, // Sep 28, Sep 30, Oct 2
+      { date: "2026-10-05", weight: 166 }, // Sep 30, Oct 2, Oct 5
+    ]);
+    // 163 → 183 over Sep 1 2026 – Aug 1 2027 (334 days): Oct 1 is day 30, Oct 16 day 45
+    expect(s.plan!.from).toBeCloseTo(163 + (20 * 30) / 334, 2);
+    expect(s.plan!.to).toBeCloseTo(163 + (20 * 45) / 334, 2);
+  });
+
+  it("draws nothing for months outside the programme and no plan without a goal", () => {
+    expect(monthWeightSeries([{ local_date: "2026-08-10", weight_lb: 160 }], { from: "2026-08-01", to: "2026-08-31", outOfRange: "before" }, profile).points).toEqual([]);
+    expect(monthWeightSeries([], { from: "2026-10-01", to: "2026-10-16", outOfRange: null }, { ...profile, goal_weight_lb: null }).plan).toBeNull();
+  });
+});
+
+describe("priorities with nothing logged", () => {
+  it("asks for a first session instead of a schedule change", () => {
+    const s = computeReview({ month: "2026-09-01", today: TODAY, profile, rows: empty() });
+    const ps = computePriorities(s);
+    expect(ps[0].id).toBe("first-session");
+    expect(ps.some((p) => p.id === "adherence")).toBe(false);
+    expect(ps[0].evidence).toEqual([`0/${s.training.planned} planned days`]);
   });
 });

@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { runDispatch } from "@/lib/reminders/dispatch";
-import { adminDispatchDeps, adminOrNull, getCronSecret, getVapidKeys, secretMatches, stampLastRun, vapidSubject } from "@/lib/reminders/server";
+import { adminDispatchDeps, adminOrNull, getCronSecrets, getVapidKeys, secretMatches, stampLastRun, vapidSubject } from "@/lib/reminders/server";
 
 export const maxDuration = 60;
 
@@ -20,8 +20,8 @@ const Body = z
 
 export async function POST(req: Request) {
   const admin = adminOrNull();
-  const expected = await getCronSecret(admin).catch(() => null);
-  if (!expected) return Response.json({ error: "Reminder delivery isn't configured on this server.", code: "not_configured" }, { status: 503 });
+  const expected = await getCronSecrets(admin).catch(() => [] as string[]);
+  if (!expected.length) return Response.json({ error: "Reminder delivery isn't configured on this server.", code: "not_configured" }, { status: 503 });
   if (!secretMatches(req.headers.get("x-cron-secret"), expected)) return Response.json({ error: "Forbidden", code: "forbidden" }, { status: 401 });
   if (!admin) return Response.json({ error: "SUPABASE_SERVICE_ROLE_KEY is missing.", code: "not_configured" }, { status: 503 });
 

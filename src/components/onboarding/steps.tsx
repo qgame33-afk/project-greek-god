@@ -22,6 +22,8 @@ export interface StepProps {
   today: ISODate;
   touched: Set<string>;
   touch: (k: string) => void;
+  /** Forget edits so the SUGGESTED badges come back (Reset to suggested). */
+  untouch?: (keys: string[]) => void;
 }
 
 /* ------------------------------------------------------------- pieces */
@@ -177,6 +179,9 @@ export function BodyStep({ a, set, errors }: StepProps) {
 export function GoalStep({ a, set, errors, today }: StepProps) {
   const u = a.weightUnit;
   const plan = planSummary(a);
+  // The band as it was when this step opened. The goal shifts it from here, so typing "184"
+  // keystroke by keystroke never drags 180–185 along, and coming back inside restores it.
+  const [anchor] = useState(() => ({ min: a.goalRangeMinLb, max: a.goalRangeMaxLb }));
   const validDate = !errors.targetDate && a.targetDate > today && a.targetDate > a.startDate;
   return (
     <div className="grid grid-cols-1 gap-7">
@@ -186,13 +191,14 @@ export function GoalStep({ a, set, errors, today }: StepProps) {
           value={disp(a.goalWeightLb, u)}
           onChange={(v) => {
             const lb = toLb(v, u);
-            const r = shiftRange(lb, a.goalRangeMinLb, a.goalRangeMaxLb);
+            const r = shiftRange(lb, anchor.min, anchor.max);
             set({ goalWeightLb: lb, goalRangeMinLb: r.min, goalRangeMaxLb: r.max });
           }}
           step={u === "kg" ? 0.5 : 1}
           min={u === "kg" ? 27 : 60}
           max={u === "kg" ? 272 : 600}
-          decimals={u === "kg" ? 1 : 0}
+          decimals={1}
+          minDecimals={0}
           unit={u}
           size="lg"
           invalid={!!errors.goalWeightLb}
@@ -284,7 +290,7 @@ export function TrainingStep({ a, set, errors }: StepProps) {
 
 /* ---------------------------------------------------------- 5 nutrition */
 
-export function NutritionStep({ a, set, errors, touched, touch }: StepProps) {
+export function NutritionStep({ a, set, errors, touched, touch, untouch }: StepProps) {
   const carbs = balancedCarbs(a.calorieGoal, a.proteinGoal, a.fatGoal);
   const badge = (k: string) => (touched.has(k) ? null : <SuggestedBadge />);
   const D = OWNER_DEFAULTS;
@@ -342,7 +348,7 @@ export function NutritionStep({ a, set, errors, touched, touch }: StepProps) {
             <p className="eyebrow">Sleep</p>
             {badge("sleepGoalH")}
           </div>
-          <StepperInput layout="stacked" label="Sleep goal" value={a.sleepGoalH} onChange={(v) => set({ sleepGoalH: v })} onEdit={() => touch("sleepGoalH")} step={0.5} min={4} max={12} decimals={1} unit="h / night" invalid={!!errors.sleepGoalH} />
+          <StepperInput layout="stacked" label="Sleep goal" value={a.sleepGoalH} onChange={(v) => set({ sleepGoalH: v })} onEdit={() => touch("sleepGoalH")} step={0.25} min={4} max={12} decimals={2} minDecimals={0} unit="h / night" invalid={!!errors.sleepGoalH} />
         </div>
       </div>
       <Err>{errors.waterGoalMl ?? errors.sleepGoalH}</Err>
@@ -354,7 +360,10 @@ export function NutritionStep({ a, set, errors, touched, touch }: StepProps) {
             <button
               type="button"
               className="inline-flex h-8 items-center font-bold text-gold-300"
-              onClick={() => set({ calorieGoal: D.calorieGoal, proteinGoal: D.proteinGoal, fatGoal: D.fatGoal, waterGoalMl: D.waterGoalMl, sleepGoalH: D.sleepGoalH })}
+              onClick={() => {
+                set({ calorieGoal: D.calorieGoal, proteinGoal: D.proteinGoal, fatGoal: D.fatGoal, waterGoalMl: D.waterGoalMl, sleepGoalH: D.sleepGoalH });
+                untouch?.(["calorieGoal", "proteinGoal", "fatGoal", "waterGoalMl", "sleepGoalH"]);
+              }}
             >
               Reset to suggested
             </button>

@@ -73,7 +73,7 @@ async function api(path: string, init: RequestInit) {
     throw new Error("You're offline. Reconnect and try again.");
   }
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok) throw Object.assign(new Error(String(json.error ?? "Something went wrong. Try again.")), { code: json.code });
+  if (!res.ok) throw Object.assign(new Error(String(json.error ?? `The reminders service didn't respond (${res.status}). Try again.`)), { code: json.code });
   return json;
 }
 
@@ -116,5 +116,12 @@ export async function disablePush(): Promise<{ devices: number }> {
 }
 
 export async function sendTest() {
-  return api("/api/reminders/test", { method: "POST", body: "{}" }) as Promise<{ sent: number; removed: number }>;
+  try {
+    return (await api("/api/reminders/test", { method: "POST", body: "{}" })) as { sent: number; removed: number };
+  } catch (e) {
+    // the server dropped this device: drop the browser's dead subscription too, so
+    // "Enable on this device" can register a fresh one
+    if ((e as { code?: string }).code === "expired") await (await currentSubscription().catch(() => null))?.unsubscribe().catch(() => {});
+    throw e;
+  }
 }

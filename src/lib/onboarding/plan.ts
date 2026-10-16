@@ -347,7 +347,7 @@ export function profileUpdateFromAnswers(a: OnboardingAnswers) {
     fat_goal: Math.round(a.fatGoal),
     carb_goal: balancedCarbs(a.calorieGoal, a.proteinGoal, a.fatGoal),
     water_goal_ml: Math.round(a.waterGoalMl),
-    sleep_goal_h: round(a.sleepGoalH, 1),
+    sleep_goal_h: round(a.sleepGoalH, 2),
     weekly_schedule: normalizeSchedule(a.schedule),
     training_mode: a.introVolume ? "intro" : "standard",
     volleyball_per_week: Math.round(a.volleyballPerWeek),

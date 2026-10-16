@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Skeleton } from "@/components/ui/misc";
+import { useUser } from "@/lib/data/core";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 
@@ -16,8 +17,12 @@ export interface AppStatus {
 }
 
 export function useAppStatus() {
+  // Only while signed in: after sign-out the cache is cleared and an unauthenticated refetch
+  // would just 401 on the way to /sign-in.
+  const { userId } = useUser();
   return useQuery({
-    queryKey: ["app-status"],
+    queryKey: ["app-status", userId],
+    enabled: !!userId,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<AppStatus> => {
       const r = await fetch("/api/account/status", { cache: "no-store" });
