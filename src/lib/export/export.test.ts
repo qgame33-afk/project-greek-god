@@ -3,7 +3,7 @@ import { strFromU8, unzipSync, zipSync } from "fflate";
 import { assembleExport, exportFilename, mealPhotoArchiveName, photoArchiveName, readme } from "./assemble";
 import { csvCell, csvColumns, formatBytes, toCSV } from "./csv";
 import { isThumbnail, listAllFiles, removeFiles, splitThumbnails, type Lister, type StorageEntry } from "./storage";
-import { EXPORT_TABLES, WIPE_TABLES, countLabel, fileLines, wipeSummary, wipeTotal } from "./tables";
+import { EXPORT_ORDER, EXPORT_TABLES, KEPT_ON_WIPE, WIPE_TABLES, countLabel, fileLines, wipeSummary, wipeTotal } from "./tables";
 
 describe("csvCell", () => {
   it("leaves plain values alone", () => {
@@ -155,6 +155,22 @@ describe("wipe plan", () => {
     expect(WIPE_TABLES.indexOf("exercise_sets")).toBeLessThan(WIPE_TABLES.indexOf("workout_sessions"));
     expect(WIPE_TABLES.indexOf("ai_messages")).toBeLessThan(WIPE_TABLES.indexOf("ai_conversations"));
     for (const t of WIPE_TABLES) expect(EXPORT_TABLES).toContain(t);
+  });
+  it("exports every meal planner table and wipes all but the preferences, plan children first", () => {
+    const meal = ["meal_prefs", "meal_plans", "planned_meals", "grocery_items", "recipes", "favourite_recipes", "meal_feedback"] as const;
+    for (const t of meal) expect(EXPORT_TABLES).toContain(t);
+    expect(new Set(EXPORT_TABLES).size).toBe(EXPORT_TABLES.length);
+    expect(new Set(WIPE_TABLES).size).toBe(WIPE_TABLES.length);
+    expect(WIPE_TABLES).not.toContain("meal_prefs");
+    for (const t of meal.filter((x) => x !== "meal_prefs")) expect(WIPE_TABLES).toContain(t);
+    expect(WIPE_TABLES.indexOf("planned_meals")).toBeLessThan(WIPE_TABLES.indexOf("meal_plans"));
+    expect(WIPE_TABLES.indexOf("grocery_items")).toBeLessThan(WIPE_TABLES.indexOf("meal_plans"));
+    expect(KEPT_ON_WIPE.some((k) => /meal preferences/i.test(k))).toBe(true);
+    // tables keyed without an id column page by another column
+    expect(EXPORT_ORDER.meal_prefs).toBe("user_id");
+    expect(EXPORT_ORDER.favourite_recipes).toBe("recipe_key");
+    expect(countLabel("planned_meals", 2)).toBe("2 planned meals");
+    expect(countLabel("favourite_recipes", 1)).toBe("1 favourite recipe");
   });
   it("summarises exactly what was removed", () => {
     const r = { rows: { exercise_sets: 120, workout_sessions: 9, weight_entries: 1, food_entries: 0 }, files: { "progress-photos": 2, "meal-photos": 0 }, failed: [] };

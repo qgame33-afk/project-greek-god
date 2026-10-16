@@ -23,7 +23,14 @@ export type UserTable =
   | "recovery_logs"
   | "habit_definitions"
   | "habit_logs"
-  | "monthly_reviews";
+  | "monthly_reviews"
+  | "meal_prefs"
+  | "meal_plans"
+  | "planned_meals"
+  | "grocery_items"
+  | "recipes"
+  | "favourite_recipes"
+  | "meal_feedback";
 
 /** Every table in the export, in a reading-friendly order. */
 export const EXPORT_TABLES: UserTable[] = [
@@ -49,11 +56,25 @@ export const EXPORT_TABLES: UserTable[] = [
   "habit_definitions",
   "habit_logs",
   "monthly_reviews",
+  "meal_prefs",
+  "meal_plans",
+  "planned_meals",
+  "grocery_items",
+  "recipes",
+  "favourite_recipes",
+  "meal_feedback",
 ];
+
+/** Column the export pages by. Every table has `id` except these. */
+export const EXPORT_ORDER: Partial<Record<UserTable, string>> = {
+  meal_prefs: "user_id",
+  favourite_recipes: "recipe_key",
+};
 
 /**
  * "Delete all logged data": children before parents so every count is exact (cascades would
- * hide rows). The account, profile and goals, program templates and habit list stay.
+ * hide rows). The account, profile and goals, program templates, habit list and meal planner
+ * preferences stay.
  */
 export const WIPE_TABLES: UserTable[] = [
   "exercise_sets",
@@ -75,9 +96,15 @@ export const WIPE_TABLES: UserTable[] = [
   "monthly_reviews",
   "goal_changes",
   "custom_exercises",
+  "grocery_items",
+  "planned_meals",
+  "meal_plans",
+  "meal_feedback",
+  "favourite_recipes",
+  "recipes",
 ];
 
-export const KEPT_ON_WIPE = ["Your account and sign-in", "Profile, goals and targets", "Program templates", "Habit list", "Reminder settings"];
+export const KEPT_ON_WIPE = ["Your account and sign-in", "Profile, goals and targets", "Program templates", "Habit list", "Reminder settings", "Meal preferences, allergies and diets"];
 
 export const TABLE_LABEL: Record<UserTable, [singular: string, plural: string]> = {
   profiles: ["profile", "profile"],
@@ -102,6 +129,13 @@ export const TABLE_LABEL: Record<UserTable, [singular: string, plural: string]> 
   habit_definitions: ["habit", "habits"],
   habit_logs: ["habit check-off", "habit check-offs"],
   monthly_reviews: ["monthly review", "monthly reviews"],
+  meal_prefs: ["meal preference profile", "meal preference profiles"],
+  meal_plans: ["meal plan week", "meal plan weeks"],
+  planned_meals: ["planned meal", "planned meals"],
+  grocery_items: ["grocery item", "grocery items"],
+  recipes: ["recipe of your own", "recipes of your own"],
+  favourite_recipes: ["favourite recipe", "favourite recipes"],
+  meal_feedback: ["meal planner feedback note", "meal planner feedback notes"],
 };
 
 export const PHOTO_BUCKETS = ["progress-photos", "meal-photos"] as const;

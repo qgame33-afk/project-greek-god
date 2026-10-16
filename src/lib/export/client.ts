@@ -7,7 +7,7 @@ import { zip, zipSync } from "fflate";
 import { fetchAll, sb } from "@/lib/data/core";
 import { assembleExport, exportFilename, mealPhotoArchiveName, photoArchiveName, type ExportPhoto, type ExportTables } from "./assemble";
 import { listAllFiles, removeFiles, splitThumbnails, type StoredFile } from "./storage";
-import { EXPORT_TABLES, PHOTO_BUCKETS, WIPE_TABLES, type PhotoBucket, type UserTable, type WipeReport } from "./tables";
+import { EXPORT_ORDER, EXPORT_TABLES, PHOTO_BUCKETS, WIPE_TABLES, type PhotoBucket, type UserTable, type WipeReport } from "./tables";
 
 type Res<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null; count?: number | null }>;
 interface LooseQuery {
@@ -106,7 +106,7 @@ export async function buildExport(opts: {
   for (const t of EXPORT_TABLES) {
     if (signal?.aborted) throw new DOMException("Export cancelled", "AbortError");
     onProgress?.({ label: `Reading ${t.replace(/_/g, " ")}`, done, total });
-    tables[t] = await fetchAll((a, b) => table(t).select("*").order("id").range(a, b));
+    tables[t] = await fetchAll((a, b) => table(t).select("*").order(EXPORT_ORDER[t] ?? "id").range(a, b));
     done++;
   }
 
