@@ -219,7 +219,7 @@ export function WeekPlanner() {
   /* ------------------------------------------------------ regenerate */
 
   function regenerate(meal: PlanMeal) {
-    if (busy[meal.id] || meal.locked) return;
+    if (busy[meal.id] || meal.locked || loggedSet.has(meal.id)) return;
     const same = strip?.mealId === meal.id ? strip : null;
     if (strip && !same) closeStrip("kept");
     if (same) setStrip(null);

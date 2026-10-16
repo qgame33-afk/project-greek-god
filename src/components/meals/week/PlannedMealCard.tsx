@@ -101,11 +101,11 @@ export function PlannedMealCard({
         <button
           type="button"
           onClick={onRegenerate}
-          disabled={busy || meal.locked}
-          aria-describedby={meal.locked ? lockHint : undefined}
+          disabled={busy || meal.locked || logged}
+          aria-describedby={meal.locked || logged ? lockHint : undefined}
           className="press inline-flex h-11 items-center gap-2 rounded-[12px] border border-line-strong bg-s3 pr-3.5 pl-3 text-[14px] font-bold text-fg hover:bg-s4 disabled:border-line disabled:bg-transparent disabled:text-fg-3"
         >
-          <RefreshCw className={cn("size-4", busy ? "animate-spin text-fg-2" : meal.locked ? "text-fg-3" : "text-gold-300")} aria-hidden />
+          <RefreshCw className={cn("size-4", busy ? "animate-spin text-fg-2" : meal.locked || logged ? "text-fg-3" : "text-gold-300")} aria-hidden />
           {busy ? "Finding another…" : "Regenerate meal"}
         </button>
         {meal.locked && (
@@ -127,9 +127,9 @@ export function PlannedMealCard({
           <Ellipsis className="size-5" />
         </button>
       </div>
-      {meal.locked && (
+      {(meal.locked || logged) && (
         <span id={lockHint} className="sr-only">
-          Locked. Unlock it to regenerate.
+          {logged ? "Already in your food log, so it stays." : "Locked. Unlock it to regenerate."}
         </span>
       )}
 
