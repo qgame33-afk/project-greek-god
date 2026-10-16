@@ -139,7 +139,9 @@ export function TimerAlarm({ sound = true }: { sound?: boolean }) {
       if (ms - last < 4000) continue;
       lastRing.current.set(t.id, ms);
       if (sound) chime();
-      haptic([180, 90, 180]);
+      // browsers refuse vibration before the first tap on the page (and log an error for trying)
+      const activated = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation?.hasBeenActive ?? true;
+      if (activated) haptic([180, 90, 180]);
       if (!t.rangAt) {
         update(t.id, (x) => ({ ...x, rangAt: ms }));
         if (announce.current) announce.current.textContent = `Timer done: ${t.label}`;

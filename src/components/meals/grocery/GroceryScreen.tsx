@@ -260,15 +260,18 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-8">
       <div className="min-w-0 space-y-4">
         {changed && diff && (
-          <div className="flex flex-wrap items-center gap-3 rounded-[16px] border border-lapis-line bg-lapis-tint px-4 py-3" role="status">
-            <RefreshCw className="size-5 shrink-0 text-lapis-text" aria-hidden />
-            <div className="min-w-0 flex-1">
-              <p className="text-[14.5px] font-bold text-fg">Your plan changed</p>
-              <p className="text-[12.5px] font-medium leading-snug text-fg-2">
-                {[diff.added.length && `${diff.added.length} new`, diff.changed.length && `${diff.changed.length} amounts changed`, diff.dropped.length && `${diff.dropped.length} no longer needed`].filter(Boolean).join(" · ")}
-              </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-3 rounded-[16px] border border-lapis-line bg-lapis-tint px-4 py-3" role="status">
+            <div className="flex min-w-[min(100%,250px)] flex-1 items-start gap-3">
+              <RefreshCw className="mt-0.5 size-5 shrink-0 text-lapis-text" aria-hidden />
+              <div className="min-w-0">
+                <p className="text-[14.5px] font-bold text-fg">Your plan changed</p>
+                <p className="text-[12.5px] font-medium leading-snug text-fg-2">
+                  {[diff.added.length && `${diff.added.length} new`, diff.changed.length && `${diff.changed.length} amounts changed`, diff.dropped.length && `${diff.dropped.length} no longer needed`].filter(Boolean).join(" · ")}
+                  . Your ticks and own items stay.
+                </p>
+              </div>
             </div>
-            <Button variant="secondary" size="md" className="h-11 shrink-0" onClick={regenerate} loading={sync.isPending}>
+            <Button variant="secondary" size="md" className="h-11 w-full shrink-0 sm:w-auto" onClick={regenerate} loading={sync.isPending}>
               Update list
             </Button>
           </div>
