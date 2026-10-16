@@ -197,7 +197,10 @@ export function weeklyReview(input: WeeklyInput): WeeklyReview {
   const prevComparable = inProgress
     ? Math.round(sumVol(pw.filter((x) => x.local_date <= sameDaysEnd)))
     : prevVolumeLb;
-  const planned = input.plannedDates.filter(inWeek);
+  // Days before the programme started were never planned, so they can't count as missed.
+  const planned = input.plannedDates.filter(
+    (d) => inWeek(d) && (!input.startDate || d >= input.startDate),
+  );
   const training = {
     done: new Set(wk.map((s) => s.local_date)).size,
     planned: planned.length,
@@ -236,10 +239,15 @@ export function weeklyReview(input: WeeklyInput): WeeklyReview {
     prevSessions: prevVb.size,
   };
 
-  /* rest days: elapsed days with neither a finished session nor volleyball */
+  /* rest days: elapsed days with neither a finished session nor volleyball. Today only
+     counts once it can't still hold training: a planned rest day, not a session to come. */
   const trainedDates = new Set(wk.map((s) => s.local_date));
+  const plannedSet = new Set(planned);
   const restDays = elapsed.filter(
-    (d) => !trainedDates.has(d) && !vbDates.has(d),
+    (d) =>
+      !trainedDates.has(d) &&
+      !vbDates.has(d) &&
+      (d < today || !plannedSet.has(d)),
   ).length;
 
   const soreness = rating(cur, prev, "soreness");

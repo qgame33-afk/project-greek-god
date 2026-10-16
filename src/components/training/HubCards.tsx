@@ -27,7 +27,9 @@ export function WeekCard({ week, onDay, onVolleyball, className }: { week: Week;
   const train = week.days.filter((d) => d.kind === "train");
   const done = train.filter((d) => d.done).length;
   const vbSessions = week.volleyball.filter((v) => v.local_date >= (week.days[0]?.date ?? week.today) && v.local_date <= (week.days[6]?.date ?? week.today)).length;
-  const complete = weekComplete(week.days);
+  // The week failed to load: don't present "0 done" or "no volleyball" as fact.
+  const unknown = !!week.error;
+  const complete = !unknown && weekComplete(week.days);
   const wide = useMediaQuery("(min-width: 1024px)");
   const height = wide ? 152 : 112;
   return (
@@ -39,16 +41,16 @@ export function WeekCard({ week, onDay, onVolleyball, className }: { week: Week;
         </div>
         <p className="num text-[28px] font-semibold leading-none">
           <span aria-hidden>
-            {done}
+            {unknown ? "—" : done}
             <span className="text-fg-3"> / {train.length}</span>
           </span>
-          <span className="sr-only">
-            {done} of {train.length} sessions done
-          </span>
+          <span className="sr-only">{unknown ? "Sessions done this week not loaded" : `${done} of ${train.length} sessions done`}</span>
         </p>
       </div>
       <div className="flex flex-1 flex-col justify-center lg:py-1">
-        {week.loading ? (
+        {unknown ? (
+          <p className="py-8 text-center text-[13px] text-fg-3">The week will show here once it loads.</p>
+        ) : week.loading ? (
           <Skeleton className="mx-auto aspect-[320/96] w-full max-w-[373px] lg:max-w-[507px]" />
         ) : (
           <div className="mx-auto w-full" style={{ maxWidth: (height * 320) / 96 }}>
@@ -78,7 +80,11 @@ export function WeekCard({ week, onDay, onVolleyball, className }: { week: Week;
       <div className="mt-4 flex items-center gap-3 border-t border-line-hair pt-3">
         <span className="size-2 shrink-0 rounded-full bg-lapis" aria-hidden />
         <p className="min-w-0 flex-1 text-[13px] text-fg-2">
-          {vbSessions ? (
+          {unknown ? (
+            <>
+              Volleyball · <span className="num text-[15px] text-fg">—</span> this week
+            </>
+          ) : vbSessions ? (
             <>
               Volleyball · <span className="num text-[15px] text-fg">{vbSessions}</span> this week
             </>

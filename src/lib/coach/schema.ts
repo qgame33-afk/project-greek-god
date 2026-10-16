@@ -6,6 +6,8 @@ export const MAX_MESSAGE_CHARS = 2000;
 /** POST /api/ai/coach body. */
 export const CoachRequest = z.object({
   conversationId: z.uuid().nullish(),
+  /** Id for the question's row: a retry with the same id gets the saved answer back instead of a duplicate. */
+  clientMessageId: z.uuid().nullish(),
   message: z.string().trim().min(1, "Type a question first.").max(MAX_MESSAGE_CHARS, `Keep it under ${MAX_MESSAGE_CHARS} characters.`),
   localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "localDate must be YYYY-MM-DD"),
   localTime: z

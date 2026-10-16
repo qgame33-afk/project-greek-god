@@ -17,11 +17,13 @@ import { TransformationCard } from "./TransformationCard";
 import { useTodayModel, type TodayModel } from "./useTodayModel";
 import { WeekCard } from "./WeekCard";
 import { WorkoutCard } from "./WorkoutCard";
+import { YesterdayCard } from "./YesterdayCard";
 
 /**
- * Today — the daily command center. Card order follows DESIGN §7.1; on wide containers the
- * cards sit on a 12-column grid (Hero 7 · Workout 5 / Transformation · Fuel · Mission / Week ·
- * Records + Recovery). Every number comes from the shared data hooks.
+ * Today — the daily command center. Card order follows DESIGN §7.1 plus the Yesterday recap
+ * (SPEC §27) right after today's workout; on wide containers the cards sit on a 12-column grid
+ * (Hero 7 · Workout 5 / Yesterday 12 / Transformation · Fuel · Mission / Week · Records +
+ * Recovery). Every number comes from the shared data hooks.
  */
 export function TodayView() {
   const t = useTodayModel();
@@ -38,7 +40,10 @@ export function TodayView() {
     if (t.profileError) {
       return (
         <div className="py-6">
-          <ErrorNote onRetry={() => qc.invalidateQueries({ queryKey: ["profile"] })}>Couldn&apos;t load your profile. Check the connection and retry.</ErrorNote>
+          {/* Retry everything that failed with it, so the cards don't each come up with their own error. */}
+          <ErrorNote onRetry={() => void qc.refetchQueries({ predicate: (q) => q.state.status === "error" || q.queryKey[0] === "profile" })}>
+            Couldn&apos;t load your profile. Check the connection and retry.
+          </ErrorNote>
         </div>
       );
     }
@@ -89,23 +94,27 @@ function TodayContent({ t, m }: { t: ReturnType<typeof useTodayModel>; m: TodayM
           />
         </Reveal>
 
-        <Reveal index={1} className="@min-[760px]:col-span-7 @min-[1100px]:col-span-5">
+        <Reveal index={1} className="@min-[760px]:col-span-12">
+          <YesterdayCard m={m} loading={t.pending.yesterday} error={t.errors.yesterday} onRetry={t.refetch.yesterday} />
+        </Reveal>
+
+        <Reveal index={2} className="@min-[760px]:col-span-7 @min-[1100px]:col-span-5">
           <TransformationCard m={m} onLogWeight={() => setWeightOpen(true)} error={t.errors.weights} onRetry={t.refetch.weights} />
         </Reveal>
 
-        <Reveal index={2} className="@min-[760px]:col-span-5 @min-[1100px]:col-span-4">
+        <Reveal index={3} className="@min-[760px]:col-span-5 @min-[1100px]:col-span-4">
           <FuelCard m={m} error={t.errors.food} onRetry={() => t.refetch.food()} />
         </Reveal>
 
-        <Reveal index={3} className="@min-[760px]:col-span-5 @min-[1100px]:col-span-3">
+        <Reveal index={4} className="@min-[760px]:col-span-5 @min-[1100px]:col-span-3">
           <MissionCard m={m} loading={t.pending.mission} onLogWeight={() => setWeightOpen(true)} />
         </Reveal>
 
-        <Reveal index={4} className="@min-[760px]:col-span-7 @min-[1100px]:col-span-8">
+        <Reveal index={5} className="@min-[760px]:col-span-7 @min-[1100px]:col-span-8">
           <WeekCard m={m} loading={t.pending.week} error={t.errors.week} onRetry={t.refetch.week} />
         </Reveal>
 
-        <Reveal index={5} className="grid grid-cols-1 content-start gap-3 @min-[760px]:col-span-12 @min-[760px]:gap-4 @min-[1100px]:col-span-4">
+        <Reveal index={6} className="grid grid-cols-1 content-start gap-3 @min-[760px]:col-span-12 @min-[760px]:gap-4 @min-[1100px]:col-span-4">
           <RecordsCard m={m} loading={t.pending.records} />
           <RecoveryRow m={m} guidance={guidance} />
         </Reveal>

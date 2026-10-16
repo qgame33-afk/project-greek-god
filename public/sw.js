@@ -16,7 +16,7 @@ const OFFLINE_HTML = `<!doctype html>
   .eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#E2C185;margin:0 0 10px}
   h1{font:700 28px/1 "Barlow Condensed","Arial Narrow",sans-serif;letter-spacing:.02em;text-transform:uppercase;margin:0}
   p{color:#A3A9B4;max-width:32ch;margin:12px auto 0}
-  button{margin-top:24px;height:48px;padding:0 24px;border-radius:14px;border:1px solid rgba(213,172,103,.38);background:#1C2026;color:#E2C185;font:700 15px/1 inherit;cursor:pointer}
+  button{margin-top:24px;height:48px;padding:0 24px;border-radius:14px;border:1px solid rgba(213,172,103,.38);background:#1C2026;color:#E2C185;font:inherit;font-weight:700;line-height:1;cursor:pointer}
 </style></head>
 <body><main>
   <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="#D5AC67" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 9 12 3l10 6M3 11h18M2 21h20M6 13v6M12 13v6M18 13v6"/></svg>

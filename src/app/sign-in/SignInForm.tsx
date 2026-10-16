@@ -100,7 +100,7 @@ export function SignInForm() {
             label="Password"
             hint={
               mode === "signin" ? (
-                <button type="button" className="font-semibold text-gold-300" onClick={() => (setMode("reset"), setError(null))}>
+                <button type="button" className="relative font-semibold text-gold-300 before:absolute before:-inset-x-2 before:-bottom-[7px] before:-top-[19px] before:content-['']" onClick={() => (setMode("reset"), setError(null))}>
                   Forgot?
                 </button>
               ) : (
@@ -143,14 +143,14 @@ export function SignInForm() {
         {mode === "signin" ? (
           <>
             New here?{" "}
-            <button type="button" onClick={() => (setMode("signup"), setError(null))} className="font-bold text-gold-300 hover:text-gold-200">
+            <button type="button" onClick={() => (setMode("signup"), setError(null))} className="relative font-bold text-gold-300 before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] hover:text-gold-200">
               Create an account
             </button>
           </>
         ) : (
           <>
             Have an account?{" "}
-            <button type="button" onClick={() => (setMode("signin"), setError(null))} className="font-bold text-gold-300 hover:text-gold-200">
+            <button type="button" onClick={() => (setMode("signin"), setError(null))} className="relative font-bold text-gold-300 before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] hover:text-gold-200">
               Sign in
             </button>
           </>

@@ -45,25 +45,44 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
   const [date, setDate] = useState<ISODate>(today);
   const [texts, setTexts] = useState<Texts>(EMPTY);
   const [notes, setNotes] = useState("");
+  // The row the fields were filled from and the text each showed, so untouched fields keep
+  // their stored inches exactly (38.7 cm on screen must not turn 15.25 in into 15.24).
+  const [seed, setSeed] = useState<{ row: Measurement | null; texts: Texts; notes: string }>({ row: null, texts: EMPTY, notes: "" });
   const [submitted, setSubmitted] = useState(false);
   const busy = useRef(false);
   const inputs = useRef<Partial<Record<Key, HTMLInputElement | null>>>({});
+
+  const seedFrom = (row: Measurement | null) => ({ row, texts: textsFrom(row, unit), notes: row?.notes ?? "" });
 
   // (Re)initialise every time the sheet opens.
   useEffect(() => {
     if (!open) return;
     const t = window.setTimeout(() => {
       const d = entry?.local_date ?? today;
-      const base = entry ?? rows.find((r) => r.local_date === d) ?? null;
+      const s = seedFrom(entry ?? rows.find((r) => r.local_date === d) ?? null);
       setDate(d);
-      setTexts(textsFrom(base, unit));
-      setNotes(base?.notes ?? "");
+      setSeed(s);
+      setTexts(s.texts);
+      setNotes(s.notes);
       setSubmitted(false);
       busy.current = false;
     }, 0);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // A new entry follows the date: show that day's values (or blanks) in every field not yet
+  // edited here, so one day's tape numbers and notes are never copied onto another day.
+  // Editing an existing entry keeps its values — changing the date moves it.
+  const changeDate = (d: ISODate) => {
+    setDate(d);
+    if (entry) return;
+    const s = seedFrom(rows.find((r) => r.local_date === d) ?? null);
+    setTexts((t) => Object.fromEntries((Object.keys(t) as Key[]).map((k) => [k, t[k] === seed.texts[k] ? s.texts[k] : t[k]])) as Texts);
+    if (notes === seed.notes) setNotes(s.notes);
+    setSeed(s);
+  };
+  const untouched = (k: Key) => seed.row != null && seed.row[k] != null && texts[k] === seed.texts[k];
 
   const editing = entry ?? null;
   const sameDay = useMemo(() => rows.find((r) => r.local_date === date && r.id !== editing?.id) ?? null, [rows, date, editing]);
@@ -81,6 +100,7 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
     const raw = texts[f.key];
     const n = parseNumber(raw);
     if (raw.trim() === "") values[f.key] = null;
+    else if (untouched(f.key)) values[f.key] = Number(seed.row![f.key]);
     else if (n == null) errors[f.key] = "Enter a number.";
     else {
       const inches = round(fromDisplayLength(n, unit), 2);
@@ -165,7 +185,7 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
       }
     >
       <div className="grid grid-cols-1 gap-4 py-2">
-        <Field label="Date">{(id) => <Input id={id} type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)} />}</Field>
+        <Field label="Date">{(id) => <Input id={id} type="date" value={date} max={today} onChange={(e) => changeDate(e.target.value || today)} />}</Field>
 
         <div className="card-inset divide-y divide-line-hair px-3.5">
           {MEASURE_FIELDS.map((f) => {

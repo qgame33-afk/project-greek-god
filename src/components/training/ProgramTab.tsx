@@ -65,7 +65,7 @@ export function ProgramTab({ week }: { week: Week }) {
                 <div className="flex min-w-0 flex-1 flex-col">
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="eyebrow">{weekdaysLabel(days)}</p>
-                    <p className="shrink-0 text-[12px] text-fg-3">{all.isLoading ? "" : last ? `Last ${shortDate(last)}` : "Not done yet"}</p>
+                    <p className="shrink-0 text-[12px] text-fg-3">{all.isLoading || (all.isError && !all.data) ? "" : last ? `Last ${shortDate(last)}` : "Not done yet"}</p>
                   </div>
                   <p className="t-h2 mt-1.5 text-[24px] leading-none">{t.name}</p>
                   <p className="mt-1 truncate text-[13px] text-fg-2">{t.subtitle || t.focus}</p>

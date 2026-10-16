@@ -349,7 +349,12 @@ export function MealDraftCard({
                 {i.handoff && !superseded && (
                   <>
                     {" "}
-                    <button type="button" onClick={() => setHandoff([i])} className="font-bold text-lapis-text hover:underline">
+                    <button
+                      type="button"
+                      onClick={() => setHandoff([i])}
+                      // inline in the note, so the 44px hit area comes from an invisible overlay
+                      className="relative font-bold text-lapis-text after:absolute after:-inset-x-2 after:-inset-y-3.5 after:content-[''] hover:underline"
+                    >
                       Research it
                     </button>
                   </>

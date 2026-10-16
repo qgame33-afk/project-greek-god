@@ -84,7 +84,8 @@ export function ScanItemCard({
                 </select>
               </span>
             )}
-            {item.portion && <span className="truncate text-[12px] font-medium text-fg-3">{item.portion}</span>}
+            {/* the AI's words describe the portion it saw; once rescaled, the stepper row is the truth */}
+            {item.portion && item.mult === 1 && <span className="truncate text-[12px] font-medium text-fg-3">{item.portion}</span>}
           </div>
         </div>
         <button

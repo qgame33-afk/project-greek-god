@@ -67,7 +67,7 @@ export async function fetchAll<T>(
   const out: T[] = [];
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await build(from, from + pageSize - 1);
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(friendlyError(error.message));
     const rows = data ?? [];
     out.push(...rows);
     if (rows.length < pageSize) break;

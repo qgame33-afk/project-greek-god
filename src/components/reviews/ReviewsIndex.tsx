@@ -29,10 +29,10 @@ import { formatDelta, type WeightUnit } from "@/lib/units";
 import { useDelayed } from "./kit";
 
 export function ReviewsIndex() {
-  const { profile, error } = useProfile();
-  if (error)
+  const { profile, error, refetch } = useProfile();
+  if (error && !profile)
     return (
-      <ErrorNote>
+      <ErrorNote onRetry={() => void refetch()}>
         Couldn&apos;t load your profile. {(error as Error).message}
       </ErrorNote>
     );
@@ -104,7 +104,7 @@ function IndexBody({ profile }: { profile: Profile }) {
                 Next full review: {longDate(next).split(", ")[1]}.{" "}
                 <Link
                   href="/settings#reminders"
-                  className="font-bold text-gold-300 hover:text-gold-200"
+                  className="relative font-bold text-gold-300 before:absolute before:-inset-x-2 before:-inset-y-[13px] before:content-[''] hover:text-gold-200"
                 >
                   Remind me
                 </Link>

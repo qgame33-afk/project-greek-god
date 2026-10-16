@@ -32,7 +32,8 @@ export function Chip({
       aria-pressed={selected}
       aria-label={ariaLabel}
       className={cn(
-        "press inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-colors disabled:opacity-40",
+        // 36px visible, 44px to the touch (DESIGN §5.5)
+        "press relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-colors before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] disabled:opacity-40",
         selected ? "border-line-gold bg-gold-tint text-gold-300" : "border-line bg-s3 text-fg-2 hover:text-fg",
         className,
       )}
@@ -119,7 +120,7 @@ export function Switch({
       onCheckedChange={onCheckedChange}
       disabled={disabled}
       aria-label={label}
-      className="group press-none relative h-[31px] w-[51px] shrink-0 rounded-full bg-s4 transition-colors duration-(--dur-base) before:absolute before:-inset-y-[7px] before:inset-x-0 before:content-[''] data-[state=checked]:bg-gold-500 disabled:opacity-40"
+      className="group press-none relative h-[31px] w-[51px] shrink-0 rounded-full bg-s4 transition-colors duration-(--dur-base) before:absolute before:-inset-x-1 before:-inset-y-[7px] before:content-[''] data-[state=checked]:bg-gold-500 disabled:opacity-40"
     >
       <RSwitch.Thumb className="block size-[27px] translate-x-[2px] rounded-full bg-fg shadow-[0_2px_6px_rgb(0_0_0/.4)] transition-[translate,scale] duration-(--dur-slow) ease-spring group-active:scale-x-[1.12] data-[state=checked]:translate-x-[22px]" />
     </RSwitch.Root>

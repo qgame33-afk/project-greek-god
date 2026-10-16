@@ -350,7 +350,7 @@ function Editor({ stored }: { stored: StoredTemplate }) {
                     aria-label={`Warm-up step ${i + 1} detail`}
                     rows={Math.max(2, Math.ceil(w.detail.length / 36))}
                     maxLength={300}
-                    className="mt-2 min-h-16 min-w-0 bg-s2 text-[15px] [field-sizing:content]"
+                    className="mt-2 min-h-16 min-w-0 bg-s2 text-[16px] [field-sizing:content]"
                   />
                   {showErrors && errors.warmup[i] && <p className="mt-1.5 text-[13px] font-medium text-danger">{errors.warmup[i]}</p>}
                 </li>

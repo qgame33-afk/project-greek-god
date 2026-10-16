@@ -32,6 +32,13 @@ export default function WeightChart({ rows, domainX, domainY, ticksX, showPlan, 
     return () => window.clearTimeout(t);
   }, []);
   const [active, setActive] = useState(false);
+  // Recharts keeps its own hover index after touch taps (and from a resting cursor on load);
+  // its active dots follow that index, so they're only drawn while the desktop tooltip is live.
+  // Touch scrubbing draws its own markers (TouchScrubber).
+  const hover = tooltip && active;
+  // Recharts draws a dot for a one-point series even with dot={false}; on the plan's first day
+  // that lone plan point would read as a weigh-in, so the plan needs two points to show.
+  const planLine = showPlan && rows.filter((r) => r.plan != null).length >= 2;
   const picker = useRef<Picker | null>(null);
   // Last row the tooltip reported; cleared on leave so re-hovering the same point scrubs again.
   const sinkLast = useRef<string | null>(null);
@@ -99,7 +106,7 @@ export default function WeightChart({ rows, domainX, domainY, ticksX, showPlan, 
             content={<ScrubSink onScrub={onScrub} tooltip={tooltip} unit={unit} lastRef={sinkLast} />}
           />
           <Area dataKey="avg" type="monotone" stroke="none" fill="url(#pgg-avg-fill)" connectNulls isAnimationActive={animate} animationDuration={700} activeDot={false} />
-          {showPlan && (
+          {planLine && (
             <Line dataKey="plan" type="linear" stroke="var(--gold-700)" strokeWidth={1.5} strokeDasharray="4 6" dot={false} activeDot={false} connectNulls isAnimationActive={false} />
           )}
           <Line
@@ -111,14 +118,14 @@ export default function WeightChart({ rows, domainX, domainY, ticksX, showPlan, 
             connectNulls
             isAnimationActive={animate}
             animationDuration={700}
-            activeDot={{ r: 4, fill: "#F3DDA8", stroke: "#08090C", strokeWidth: 2 }}
+            activeDot={hover ? { r: 4, fill: "#F3DDA8", stroke: "#08090C", strokeWidth: 2 } : false}
           />
           <Line
             dataKey="weight"
             stroke="none"
             isAnimationActive={false}
             dot={{ r: 2.75, fill: "rgb(230 225 214 / .55)", stroke: "none" }}
-            activeDot={{ r: 4.5, fill: "#E6E1D6", stroke: "#08090C", strokeWidth: 2 }}
+            activeDot={hover ? { r: 4.5, fill: "#E6E1D6", stroke: "#08090C", strokeWidth: 2 } : false}
           />
           <TouchScrubber rows={rows} onScrub={onScrub} registerRef={picker} />
         </ComposedChart>

@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { fetchAll, must, sb, useUser, type Update } from "@/lib/data/core";
 import type { Json } from "@/lib/supabase/database.types";
+import { DeadlineError, TIMEOUT_FAILURE, failureFor, fetchJson, isChatReply } from "@/lib/ai/client-guards";
 import type { CoachErrorCode, CoachMessageRow, CoachPayload, CoachReplyResponse, SuggestionStatus } from "./types";
 
 export interface Conversation {
@@ -65,25 +66,35 @@ export class CoachRequestError extends Error {
   }
 }
 
-/** POST a question. Throws CoachRequestError with a user-readable message. */
-export async function askCoach(body: { conversationId: string | null; message: string; localDate: string; localTime: string; timeZone?: string | null }): Promise<CoachReplyResponse> {
+/**
+ * POST a question. Throws CoachRequestError with a user-readable message — including when the
+ * connection stalls (deadline) or the body isn't a reply the screen can show.
+ */
+export async function askCoach(body: {
+  conversationId: string | null;
+  /** Reused on Retry so an answer that was saved but lost in transit comes back once. */
+  clientMessageId: string;
+  message: string;
+  localDate: string;
+  localTime: string;
+  timeZone?: string | null;
+}): Promise<CoachReplyResponse> {
   let res: Response;
+  let raw: unknown;
   try {
-    res = await fetch("/api/ai/coach", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  } catch {
+    ({ res, body: raw } = await fetchJson("/api/ai/coach", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), cache: "no-store" }));
+  } catch (e) {
+    if (e instanceof DeadlineError) throw new CoachRequestError("timeout", `${TIMEOUT_FAILURE.message} Your question is kept.`);
     throw new CoachRequestError("offline", "You're offline or the connection dropped. Your question is kept — try again.");
   }
-  let json: { error?: string; code?: CoachErrorCode } & Partial<CoachReplyResponse> = {};
-  try {
-    json = await res.json();
-  } catch {
-    // non-JSON (proxy error page)
+  const json = (raw ?? {}) as { error?: string; code?: CoachErrorCode };
+  if (!res.ok && typeof json.error === "string") throw new CoachRequestError(json.code ?? "upstream", json.error);
+  if (!res.ok || !isChatReply(raw)) {
+    const f = failureFor(res.status, res.ok);
+    const code: CoachErrorCode = f.code === "too_large" ? "bad_request" : f.code;
+    throw new CoachRequestError(code, code === "unauthorized" ? f.message : `${f.message.replace(/ Try again\.$/, "")} Your question is kept — try again.`);
   }
-  if (!res.ok || !json.assistantMessage) {
-    const code = json.code ?? (res.status === 401 ? "unauthorized" : "upstream");
-    throw new CoachRequestError(code, json.error ?? `The coach couldn't answer (${res.status}). Your question is kept — try again.`);
-  }
-  return json as CoachReplyResponse;
+  return raw as unknown as CoachReplyResponse;
 }
 
 /** Put a fresh reply into the caches (messages + top of the conversation list). */

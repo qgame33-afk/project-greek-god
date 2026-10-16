@@ -6,6 +6,7 @@ import { ViewTransition, useEffect, useLayoutEffect, useRef, useState, useSyncEx
 import { HeartPulse, Plus } from "lucide-react";
 import { Mark } from "@/components/art/Mark";
 import { Meander } from "@/components/art/Motifs";
+import { OfflineBanner } from "@/components/shared/Offline";
 import { QuickLog } from "@/components/shell/QuickLog";
 import { LiveDock } from "@/components/workout/LiveDock";
 import { useProfile } from "@/lib/data/profile";
@@ -66,7 +67,10 @@ function AppShellInner({ children }: { children: ReactNode }) {
       <TopBar pathname={pathname} />
 
       <main className="pb-tabbar w-full pt-4 md:pl-[76px] md:pb-16 lg:pl-[248px] lg:pt-8">
-        <div className="mx-auto w-full max-w-[1180px] px-4 md:px-6 lg:px-8">{page}</div>
+        <div className="mx-auto w-full max-w-[1180px] px-4 md:px-6 lg:px-8">
+          <OfflineBanner />
+          {page}
+        </div>
       </main>
 
       <TabBar pathname={pathname} />

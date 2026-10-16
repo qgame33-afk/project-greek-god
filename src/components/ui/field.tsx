@@ -86,6 +86,10 @@ export function Field({
     const had = el.getAttribute("aria-invalid");
     el.setAttribute("aria-invalid", "true");
     return () => {
+      // If the control's own aria-invalid prop changed in the same commit (React already
+      // removed or rewrote it), leave it: restoring `had` would pin a stale "true" — a red
+      // border on a field that is now valid.
+      if (el.getAttribute("aria-invalid") !== "true") return;
       if (had == null) el.removeAttribute("aria-invalid");
       else el.setAttribute("aria-invalid", had);
     };
