@@ -73,6 +73,28 @@ don't want a confirmation email for your own account.)
 
 ---
 
+### If something doesn't look right
+- **Sign-in page says it can't connect / the build log has no `[migrate] applied …` lines.**
+  The database settings weren't there when it built. Check step 2, then **Redeploy** the
+  *Production* deployment. (Preview deployments deliberately skip database changes — the log
+  says `VERCEL_ENV=preview: skipping migrations`.)
+- **Reminders never arrive.** Settings → Reminders shows whether the scheduler is running.
+  - If it says *unavailable*, open Supabase → **Database → Extensions** and turn on **pg_cron**
+    and **pg_net**, then **Redeploy**.
+  - If you turned on Vercel **Deployment Protection** for production, the scheduler can't reach
+    the app, so turn it off for production.
+- **Settings → About says the AI isn't set up** after step 5. The key must be named exactly
+  `GEMINI_API_KEY`, and you need to **Redeploy** after adding it.
+- **"Today's free AI allowance is used up."** Google's free tier has a daily limit. Manual logging
+  and food search keep working, and the allowance resets the next day. The app tries several
+  Gemini models before giving up.
+
+Optional settings nobody needs to touch:
+- `CRON_SECRET`: a fixed reminder secret. One is generated automatically.
+- `DB_CA_CERT`: the database certificate from Supabase → Database → SSL, to verify the
+  connection strictly.
+- `GEMINI_MODEL`: the preferred Gemini model.
+
 ### What each piece does
 - **Vercel** hosts the app (free Hobby plan).
 - **Supabase** stores your data with per-account privacy rules, keeps progress photos in private
