@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Colonnade } from "@/components/signature/Colonnade";
 import { CardAction } from "@/components/ui/card";
 import { ErrorNote, Skeleton } from "@/components/ui/misc";
@@ -13,6 +14,7 @@ import type { TodayModel } from "./useTodayModel";
 
 /** This week: the Colonnade plus eight honest stat tiles. */
 export function WeekCard({ m, loading, error, onRetry, className }: { m: TodayModel; loading: boolean; error?: Error | null; onRetry?: () => void; className?: string }) {
+  const router = useRouter();
   const o = m.overview;
   const unit = (m.profile.weight_unit ?? "lb") as WeightUnit;
   const a = m.ascent;
@@ -92,7 +94,7 @@ export function WeekCard({ m, loading, error, onRetry, className }: { m: TodayMo
         </ErrorNote>
       )}
       <div className="px-1 py-1">
-        <Colonnade days={o.colonnade} height={desktop ? 112 : 88} />
+        <Colonnade days={o.colonnade} height={desktop ? 112 : 88} interactive onDayClick={(d) => router.push(`/training?day=${d}`)} />
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-3 @[560px]:grid-cols-4">
         {tiles.map((t) =>
