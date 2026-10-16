@@ -405,7 +405,7 @@ export const LUNCH = [
   lib({
     key: "lib:greek-chicken-pitas",
     name: "Greek Chicken Pitas",
-    slots: ["lunch"],
+    slots: ["lunch", "dinner"],
     minutes: 10,
     difficulty: "super_easy",
     ingredients: [
@@ -457,7 +457,7 @@ export const LUNCH = [
     key: "lib:egg-salad-sandwiches",
     name: "Egg Salad Sandwiches",
     slots: ["lunch"],
-    minutes: 20,
+    minutes: 25,
     difficulty: "everyday",
     ingredients: [
       i("eggs", 4, "piece"),
@@ -545,7 +545,7 @@ export const LUNCH = [
   lib({
     key: "lib:pepperoni-pizza-bagels",
     name: "Pepperoni Pizza Bagels",
-    slots: ["lunch"],
+    slots: ["lunch", "dinner"],
     minutes: 12,
     difficulty: "super_easy",
     ingredients: [
@@ -556,12 +556,11 @@ export const LUNCH = [
       i("italian-seasoning", 0.25, "tsp"),
     ],
     steps: [
-      s("Heat the oven to 200°C (400°F)."),
       s("Split the bagels and spread each half with sauce."),
       s("Top with mozzarella, pepperoni and Italian seasoning."),
-      s("Bake on a tray 6–8 minutes until the cheese bubbles.", { timer: min(7) }),
+      s("Air fry at 190°C (375°F) for 5–6 minutes until the cheese bubbles. Cook in batches if they don't fit.", { timer: min(5.5) }),
     ],
-    equipment: ["oven"],
+    equipment: ["air_fryer"],
     tags: ["cuisine:italian", "protein:pork", "protein:dairy", "base:bread", "style:pizza", "dish:pizza"],
     blurb: "Four mini pizzas on bagel halves.",
   }),
@@ -832,8 +831,8 @@ export const LUNCH = [
     key: "lib:margherita-pita-pizzas",
     name: "Margherita Pita Pizzas",
     slots: ["lunch", "dinner"],
-    minutes: 15,
-    difficulty: "super_easy",
+    minutes: 20,
+    difficulty: "everyday",
     ingredients: [
       i("pita", 2, "piece"),
       i("pasta-sauce-jarred", 0.33, "cup"),
@@ -843,7 +842,7 @@ export const LUNCH = [
       i("italian-seasoning", 0.5, "tsp"),
     ],
     steps: [
-      s("Heat the oven to 220°C (425°F)."),
+      s("Heat the oven to 220°C (425°F). It takes about 10 minutes."),
       s("Spread the sauce on the pitas and top with the mozzarella and sliced tomato."),
       s("Bake on a tray 8–10 minutes until the cheese bubbles.", { timer: min(9) }),
       s("Drizzle with the oil and sprinkle with Italian seasoning."),

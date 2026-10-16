@@ -103,7 +103,7 @@ export const SNACKS = [
     key: "lib:hard-boiled-eggs-orange",
     name: "Hard-Boiled Eggs and an Orange",
     slots: ["snack"],
-    minutes: 18,
+    minutes: 22,
     difficulty: "everyday",
     ingredients: [i("eggs", 2, "piece"), i("orange", 1, "piece"), i("salt", 0.125, "tsp")],
     steps: [

@@ -161,7 +161,7 @@ describe("variety", () => {
       "lib:chicken-caesar-wraps", "lib:ham-cheese-sandwiches", "lib:turkey-bacon-club", "lib:chicken-rice-broccoli",
       "lib:double-cheeseburger", "lib:chicken-quesadillas", "lib:tuna-melts", "lib:meat-sauce-pasta-lunch", "lib:easy-chicken-sandwich",
       // dinner
-      "lib:spaghetti-bolognese", "lib:chicken-potatoes-sheet-pan", "lib:chicken-alfredo", "lib:cheeseburger-oven-fries",
+      "lib:spaghetti-bolognese", "lib:chicken-breast-potatoes", "lib:chicken-alfredo", "lib:cheeseburger-oven-fries",
       "lib:beef-tacos", "lib:teriyaki-chicken-rice-bowl", "lib:tortilla-pizzas", "lib:steak-potatoes",
       "lib:one-pot-cheesy-beef-pasta", "lib:air-fryer-chicken-fries",
       // snacks

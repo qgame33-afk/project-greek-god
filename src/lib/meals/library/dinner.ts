@@ -61,7 +61,7 @@ export const DINNER = [
     blurb: "A from-scratch sauce for when you have time to cook.",
   }),
   lib({
-    key: "lib:chicken-potatoes-sheet-pan",
+    key: "lib:chicken-breast-potatoes",
     name: "Chicken Breast and Potatoes",
     slots: ["dinner"],
     minutes: 30,
@@ -77,15 +77,15 @@ export const DINNER = [
       i("black-pepper", 0.125, "tsp"),
     ],
     steps: [
-      s("Heat the oven to 220°C (425°F). Cut the potatoes into quarters."),
-      s("On a lined baking sheet, toss the potatoes with half the oil and a pinch of salt."),
-      s("Rub the chicken with the rest of the oil, the paprika, garlic powder, salt and pepper. Add it to the pan."),
-      s("Roast 15 minutes. Add the broccoli and roast 8–10 minutes more, until the chicken reaches 74°C (165°F).", { timer: min(15), safety: SAFE.chicken }),
-      s("Rest the chicken 5 minutes, then slice.", { timer: min(5) }),
+      s("Halve the potatoes and microwave them in a covered bowl 6–8 minutes until just tender.", { timer: min(7) }),
+      s("Slice the chicken breast in half through the side to make two thin pieces. Rub with half the oil, the paprika, garlic powder, salt and pepper."),
+      s("Heat the rest of the oil in a large pan over medium-high. Cook the chicken 5–6 minutes per side.", { timer: min(5.5), safety: SAFE.chicken }),
+      s("Move the chicken to a plate to rest. Fry the potatoes in the same pan 5 minutes until golden.", { timer: min(5) }),
+      s("Microwave the broccoli with 2 tbsp water, covered, 3–4 minutes. Slice the chicken and serve.", { timer: min(3.5) }),
     ],
-    equipment: ["oven"],
-    tags: ["cuisine:american", "protein:chicken", "base:potato", "style:sheet-pan", "dish:chicken-potatoes"],
-    blurb: "One pan, crispy potatoes, juicy chicken.",
+    equipment: ["stovetop", "microwave"],
+    tags: ["cuisine:american", "protein:chicken", "base:potato", "style:plate", "dish:chicken-potatoes"],
+    blurb: "Golden potatoes and juicy chicken, one pan and the microwave.",
   }),
   lib({
     key: "lib:chicken-alfredo",
@@ -146,7 +146,7 @@ export const DINNER = [
     key: "lib:cheeseburger-oven-fries",
     name: "Cheeseburger and Oven Fries",
     slots: ["dinner"],
-    minutes: 25,
+    minutes: 30,
     difficulty: "everyday",
     easierKey: "lib:double-cheeseburger",
     ingredients: [
@@ -227,8 +227,9 @@ export const DINNER = [
     key: "lib:tortilla-pizzas",
     name: "Pepperoni Tortilla Pizzas",
     slots: ["dinner"],
-    minutes: 15,
-    difficulty: "super_easy",
+    minutes: 20,
+    difficulty: "everyday",
+    easierKey: "lib:pepperoni-pizza-bagels",
     ingredients: [
       i("tortilla-large", 2, "piece"),
       i("pasta-sauce-jarred", 0.33, "cup"),
@@ -237,7 +238,7 @@ export const DINNER = [
       i("italian-seasoning", 0.5, "tsp"),
     ],
     steps: [
-      s("Heat the oven to 220°C (425°F)."),
+      s("Heat the oven to 220°C (425°F). It takes about 10 minutes."),
       s("Put the tortillas on a baking sheet. Spread each with sauce, leaving a small border."),
       s("Top with mozzarella, pepperoni and Italian seasoning."),
       s("Bake 7–9 minutes until the edges are crisp and the cheese bubbles.", { timer: min(8) }),
@@ -245,7 +246,7 @@ export const DINNER = [
     ],
     equipment: ["oven"],
     tags: ["cuisine:italian", "protein:pork", "protein:dairy", "base:tortilla", "style:pizza", "dish:pizza"],
-    blurb: "Thin, crispy pizzas in 15 minutes.",
+    blurb: "Thin, crispy pizzas with 45 g of protein.",
   }),
   lib({
     key: "lib:steak-potatoes",
@@ -546,6 +547,7 @@ export const DINNER = [
     slots: ["dinner"],
     minutes: 20,
     difficulty: "everyday",
+    easierKey: "lib:korean-beef-bowl",
     ingredients: [
       i("steak-sirloin-raw", 200, "g"),
       i("broccoli", 2, "cup", "small florets"),
@@ -598,6 +600,7 @@ export const DINNER = [
     slots: ["dinner"],
     minutes: 20,
     difficulty: "everyday",
+    easierKey: "lib:garlic-butter-shrimp-rice",
     ingredients: [
       i("pasta-dry", 120, "g", "spaghetti or linguine"),
       i("shrimp-cooked", 170, "g"),
@@ -649,6 +652,7 @@ export const DINNER = [
     slots: ["lunch", "dinner"],
     minutes: 25,
     difficulty: "everyday",
+    easierKey: "lib:greek-chicken-pitas",
     ingredients: [
       i("chicken-thigh-raw", 200, "g"),
       i("rice-cooked-microwave", 1, "pouch"),
@@ -679,6 +683,7 @@ export const DINNER = [
     slots: ["dinner"],
     minutes: 20,
     difficulty: "everyday",
+    easierKey: "lib:meatball-sub",
     ingredients: [
       i("pasta-dry", 110, "g", "spaghetti"),
       i("frozen-meatballs", 7, "piece"),
@@ -757,6 +762,7 @@ export const DINNER = [
     slots: ["dinner"],
     minutes: 25,
     difficulty: "everyday",
+    easierKey: "lib:greek-chicken-pitas",
     ingredients: [
       i("pork-tenderloin-raw", 200, "g"),
       i("pita", 2, "piece"),
@@ -784,8 +790,9 @@ export const DINNER = [
     key: "lib:loaded-beef-nachos",
     name: "Loaded Beef Nachos",
     slots: ["dinner"],
-    minutes: 15,
-    difficulty: "super_easy",
+    minutes: 20,
+    difficulty: "everyday",
+    easierKey: "lib:beef-tacos",
     ingredients: [
       i("tortilla-chips", 70, "g"),
       i("ground-beef-lean", 150, "g"),
@@ -940,7 +947,7 @@ export const DINNER = [
     key: "lib:baked-ziti",
     name: "Cheesy Baked Ziti",
     slots: ["dinner"],
-    minutes: 30,
+    minutes: 25,
     difficulty: "everyday",
     ingredients: [
       i("pasta-dry", 120, "g", "ziti or penne"),
@@ -952,10 +959,11 @@ export const DINNER = [
       i("salt", 0.5, "tsp", "for the pasta water"),
     ],
     steps: [
-      s("Heat the oven to 200°C (400°F). Cook the pasta in salted boiling water 8 minutes, a little firm, and drain.", { timer: min(8) }),
-      s("Mix the pasta with the sauce, cottage cheese and Italian seasoning."),
-      s("Pour into a baking dish and top with the mozzarella and parmesan."),
-      s("Bake 15 minutes until bubbling and golden.", { timer: min(15) }),
+      s("Cook the pasta in salted boiling water 9–11 minutes and drain.", { timer: min(10) }),
+      s("Turn the oven broiler to high."),
+      s("Stir the sauce, cottage cheese and Italian seasoning into the pasta in the pot and warm it 2 minutes."),
+      s("Tip it into an oven-safe dish and top with the mozzarella and parmesan."),
+      s("Broil 3–4 minutes until the cheese bubbles and browns. Watch it closely.", { timer: min(3.5) }),
     ],
     equipment: ["stovetop", "oven"],
     tags: ["cuisine:italian", "protein:dairy", "base:pasta", "style:baked", "dish:baked-pasta"],

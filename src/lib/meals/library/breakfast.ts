@@ -342,6 +342,7 @@ export const BREAKFAST = [
     slots: ["breakfast"],
     minutes: 20,
     difficulty: "everyday",
+    easierKey: "lib:bacon-eggs-hash-browns",
     ingredients: [
       i("hash-browns-frozen", 2, "piece"),
       i("breakfast-sausage", 3, "piece"),
@@ -628,6 +629,7 @@ export const BREAKFAST = [
     slots: ["breakfast"],
     minutes: 20,
     difficulty: "everyday",
+    easierKey: "lib:ham-cheese-omelette",
     ingredients: [
       i("baby-potatoes", 250, "g"),
       i("bell-pepper", 0.5, "piece"),
