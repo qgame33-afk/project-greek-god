@@ -1,0 +1,90 @@
+import { Clock, Sparkles, WandSparkles } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { ingredientCount } from "@/lib/meals/recipe";
+import type { Recipe, RecipeOrigin } from "@/lib/meals/types";
+import { DifficultyPips } from "./DifficultyPips";
+import { costLabel, originLabel } from "./format";
+
+/**
+ * "10 min · ▂▄▆ Super Easy · 5 ingredients · $" — the facts a beginner checks before cooking.
+ * `parts` picks which facts to show (cards drop cost; the recipe header shows all).
+ */
+export function RecipeMeta({
+  recipe,
+  parts = ["time", "difficulty", "ingredients"],
+  className,
+}: {
+  recipe: Pick<Recipe, "minutes" | "difficulty" | "ingredients" | "cost">;
+  parts?: ("time" | "difficulty" | "ingredients" | "cost")[];
+  className?: string;
+}) {
+  const n = ingredientCount(recipe);
+  const items = parts.map((p) => {
+    switch (p) {
+      case "time":
+        return (
+          <span key={p} className="inline-flex items-center gap-1 whitespace-nowrap">
+            <Clock className="size-3.5 text-fg-3" aria-hidden />
+            <span>
+              <span className="num text-[13.5px] font-semibold text-fg">{recipe.minutes}</span> min
+            </span>
+          </span>
+        );
+      case "difficulty":
+        return <DifficultyPips key={p} difficulty={recipe.difficulty} />;
+      case "ingredients":
+        return (
+          <span key={p} className="whitespace-nowrap">
+            {n} {n === 1 ? "ingredient" : "ingredients"}
+          </span>
+        );
+      case "cost":
+        return (
+          <span key={p} className="whitespace-nowrap" aria-label={`Cost ${recipe.cost} of 3`}>
+            <span className="text-fg">{costLabel(recipe.cost)}</span>
+            <span className="text-fg-3/50" aria-hidden>
+              {"$".repeat(3 - recipe.cost)}
+            </span>
+          </span>
+        );
+    }
+  });
+  return (
+    <p className={cn("flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] font-semibold text-fg-2", className)}>
+      {items.map((el, i) => (
+        <span key={i} className="inline-flex items-center gap-2">
+          {i > 0 && (
+            <span className="text-fg-3/60" aria-hidden>
+              ·
+            </span>
+          )}
+          {el}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+const BADGE = "inline-flex h-5 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-[10.5px] font-bold uppercase leading-none tracking-[0.06em]";
+
+/**
+ * Where a recipe came from. AI recipes are always labelled (lapis, like every suggestion);
+ * simplified and custom ones are quiet; library recipes show nothing.
+ */
+export function OriginBadge({ origin, className }: { origin: RecipeOrigin; className?: string }) {
+  const label = originLabel(origin);
+  if (!label) return null;
+  if (origin === "ai")
+    return (
+      <span className={cn(BADGE, "border border-lapis/35 bg-lapis/10 text-lapis-text", className)}>
+        <Sparkles className="size-3" aria-hidden />
+        {label}
+      </span>
+    );
+  return (
+    <span className={cn(BADGE, "border border-line text-fg-2", className)}>
+      {origin === "simplified" && <WandSparkles className="size-3" aria-hidden />}
+      {label}
+    </span>
+  );
+}
