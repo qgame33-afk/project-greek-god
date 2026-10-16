@@ -99,9 +99,12 @@ function guarded<TData, TVars, TCtx>(
   return { ...m, mutate, mutateAsync };
 }
 
-/** Refetch only once the last queued change of this kind has settled (no flicker mid-burst). */
-function settleWhenIdle(qc: QueryClient, mutationKey: readonly string[], invalidate: () => void) {
-  if (qc.isMutating({ mutationKey: [...mutationKey] }) <= 1) invalidate();
+/**
+ * Refetch only once the last queued change of this kind has settled (no flicker mid-burst).
+ * `others` = how many of them may still be running: 1 from their own onSettled (itself), 0 elsewhere.
+ */
+function settleWhenIdle(qc: QueryClient, mutationKey: readonly string[], invalidate: () => void, others = 1) {
+  if (qc.isMutating({ mutationKey: [...mutationKey] }) <= others) invalidate();
 }
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -262,6 +265,8 @@ export function useSavePlan() {
   const qc = useQueryClient();
   const { userId } = useUser();
   const m = useMutation({
+    // same queue as meal edits: an edit made the moment a new week appears waits for it to be stored
+    scope: { id: "planned-meals" },
     mutationFn: async (v: SavePlanInput) => ({ planId: await replaceWeek(v) }),
     onMutate: async (v) => {
       const ws = weekStart(v.weekStart);
@@ -284,7 +289,12 @@ export function useSavePlan() {
       }
       return { key, prev, removed };
     },
-    onSuccess: (_d, v, ctx) => {
+    onSuccess: ({ planId }, v, ctx) => {
+      // a brand-new week: put the real plan id in the cache now (meals already have theirs)
+      const cur = ctx ? qc.getQueryData<WeekPlan>(ctx.key) : undefined;
+      if (ctx && cur?.plan && cur.plan.id !== planId) {
+        qc.setQueryData<WeekPlan>(ctx.key, { plan: { ...cur.plan, id: planId }, meals: cur.meals.map((x) => ({ ...x, plan_id: planId })) });
+      }
       if (v.undoLabel === false || !ctx?.removed.length) return;
       const previous = ctx.removed.map(toNewPlannedMeal);
       const settings = ctx.prev?.plan?.settings as Record<string, unknown> | undefined;
@@ -304,9 +314,14 @@ export function useSavePlan() {
       if (ctx) qc.setQueryData(ctx.key, ctx.prev);
       toast.error("Couldn't save the week", { description: e.message });
     },
-    onSettled: () => invalidatePlans(qc),
+    onSettled: () => settleWhenIdle(qc, ["planned-meal-update"], () => invalidatePlans(qc), 0),
   });
-  return guarded(m, (v) => `plan:${userId}:${weekStart(v.weekStart)}`);
+  return guarded(
+    m,
+    (v) => `plan:${userId}:${weekStart(v.weekStart)}`,
+    // ids made here are the ids stored, so a meal can be edited the moment it appears
+    (v) => ({ ...v, meals: v.meals.map((x) => (x.id ? x : { ...x, id: newId() })) }),
+  );
 }
 
 export interface UpdatePlannedMealInput {
@@ -351,6 +366,7 @@ export function useDeletePlannedMeal() {
   const qc = useQueryClient();
   const { userId } = useUser();
   const m = useMutation({
+    scope: { id: "planned-meals" },
     mutationFn: async ({ meal }: { meal: PlanMeal; label?: string }) => {
       const links = must(await sb().from("food_entries").select("id").eq("planned_meal_id", meal.id));
       must(await sb().from("planned_meals").delete().eq("id", meal.id));
@@ -690,6 +706,7 @@ export function useSyncGroceryList() {
   const qc = useQueryClient();
   const { userId } = useUser();
   const m = useMutation({
+    scope: { id: "grocery-items" }, // line edits made right after a sync wait for it
     mutationFn: async ({ planId, items }: { planId: string; items: GroceryItemInput[] }) =>
       must(await sb().rpc("sync_grocery_items", { p_plan_id: planId, p_items: cleanGroceryInput(items) as unknown as Json })),
     onMutate: async ({ planId, items }) => {
@@ -704,7 +721,7 @@ export function useSyncGroceryList() {
       toast.error("Couldn't update the grocery list", { description: e.message });
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["meal-grocery"] });
+      settleWhenIdle(qc, ["grocery-update"], () => qc.invalidateQueries({ queryKey: ["meal-grocery"] }), 0);
       qc.invalidateQueries({ queryKey: ["meal-plan"] }); // grocery_generated_at
     },
   });
@@ -713,21 +730,39 @@ export function useSyncGroceryList() {
 
 export type GroceryItemPatch = Partial<Pick<GroceryItem, "checked" | "have" | "removed" | "name" | "qty" | "unit" | "label" | "category" | "position" | "est_cost_cad">>;
 
-/** Check off / "I have this" / remove (with Undo) / edit a grocery line. Changes apply in order. */
+export interface UpdateGroceryItemInput {
+  planId: string;
+  /** The line's stable key (ingredient key or "custom:<id>"); ids of just-generated lines are only final after a refetch. */
+  key: string;
+  values: GroceryItemPatch;
+  /** Removing shows "Removed … · Undo" unless false. */
+  undo?: boolean;
+}
+
+/**
+ * Check off / "I have this" / remove (with Undo) / edit a grocery line, addressed by
+ * (planId, key). Changes apply in order.
+ */
 export function useUpdateGroceryItem() {
   const qc = useQueryClient();
   const { userId } = useUser();
-  const m = useMutation({
+  const write = async (planId: string, key: string, values: GroceryItemPatch) =>
+    must(await sb().from("grocery_items").update(values).eq("plan_id", planId).eq("key", key).select("*").single())!;
+  const patchCache = (planId: string, key: string, values: GroceryItemPatch) => {
+    const k = mealKeys.grocery(planId, userId);
+    const prev = qc.getQueryData<GroceryItem[]>(k);
+    if (prev) qc.setQueryData<GroceryItem[]>(k, sortGroceryItems(prev.map((i) => (i.key === key ? { ...i, ...values } : i))));
+    return prev;
+  };
+  return useMutation({
     mutationKey: ["grocery-update"],
     scope: { id: "grocery-items" },
-    mutationFn: async ({ id, values }: { id: string; planId: string; values: GroceryItemPatch; undo?: boolean }) =>
-      must(await sb().from("grocery_items").update(values).eq("id", id).select("*").single())!,
-    onMutate: async ({ id, planId, values }) => {
-      const key = mealKeys.grocery(planId, userId);
-      await qc.cancelQueries({ queryKey: key });
-      const prev = qc.getQueryData<GroceryItem[]>(key);
-      if (prev) qc.setQueryData<GroceryItem[]>(key, sortGroceryItems(prev.map((i) => (i.id === id ? { ...i, ...values } : i))));
-      return { key, prev, before: prev?.find((i) => i.id === id) };
+    mutationFn: async ({ planId, key, values }: UpdateGroceryItemInput) => write(planId, key, values),
+    onMutate: async ({ planId, key, values }) => {
+      const k = mealKeys.grocery(planId, userId);
+      await qc.cancelQueries({ queryKey: k });
+      const prev = patchCache(planId, key, values);
+      return { k, prev, before: prev?.find((i) => i.key === key) };
     },
     onSuccess: (row: GroceryItem, v, ctx) => {
       if (v.values.removed !== true || v.undo === false || ctx?.before?.removed) return;
@@ -736,23 +771,23 @@ export function useUpdateGroceryItem() {
         action: {
           label: "Undo",
           onClick: async () => {
-            const key = mealKeys.grocery(v.planId, userId);
-            const cur = qc.getQueryData<GroceryItem[]>(key);
-            if (cur) qc.setQueryData<GroceryItem[]>(key, cur.map((i) => (i.id === v.id ? { ...i, removed: false } : i)));
-            const { error } = await sb().from("grocery_items").update({ removed: false }).eq("id", v.id);
-            if (error) toast.error("Couldn't undo", { description: error.message });
+            patchCache(v.planId, v.key, { removed: false });
+            try {
+              await write(v.planId, v.key, { removed: false });
+            } catch (e) {
+              toast.error("Couldn't undo", { description: errText(e) });
+            }
             qc.invalidateQueries({ queryKey: ["meal-grocery"] });
           },
         },
       });
     },
     onError: (e: Error, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(ctx.key, ctx.prev);
+      if (ctx?.prev) qc.setQueryData(ctx.k, ctx.prev);
       toast.error("Couldn't update the list", { description: e.message });
     },
     onSettled: () => settleWhenIdle(qc, ["grocery-update"], () => qc.invalidateQueries({ queryKey: ["meal-grocery"] })),
   });
-  return m;
 }
 
 export interface CustomGroceryInput {
@@ -771,6 +806,7 @@ export function useAddCustomGroceryItem() {
   const qc = useQueryClient();
   const { userId } = useUser();
   const m = useMutation({
+    scope: { id: "grocery-items" },
     mutationFn: async (v: CustomGroceryInput) => {
       const name = v.name.trim();
       if (!name || name.length > 120) throw new Error("Give the item a name (up to 120 characters).");
@@ -837,12 +873,13 @@ export function useDeleteGroceryItem() {
   const qc = useQueryClient();
   const { userId } = useUser();
   const m = useMutation({
-    mutationFn: async ({ item }: { item: GroceryItem }) => must(await sb().from("grocery_items").delete().eq("id", item.id)),
+    scope: { id: "grocery-items" },
+    mutationFn: async ({ item }: { item: GroceryItem }) => must(await sb().from("grocery_items").delete().eq("plan_id", item.plan_id).eq("key", item.key)),
     onMutate: async ({ item }) => {
       const key = mealKeys.grocery(item.plan_id, userId);
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<GroceryItem[]>(key);
-      if (prev) qc.setQueryData<GroceryItem[]>(key, prev.filter((i) => i.id !== item.id));
+      if (prev) qc.setQueryData<GroceryItem[]>(key, prev.filter((i) => i.key !== item.key));
       return { key, prev };
     },
     onSuccess: (_d, { item }) => {
@@ -852,7 +889,7 @@ export function useDeleteGroceryItem() {
           label: "Undo",
           onClick: async () => {
             const { user_id: _u, created_at: _c, updated_at: _up, ...row } = item;
-            const { error } = await sb().from("grocery_items").upsert(row, { onConflict: "id", ignoreDuplicates: true });
+            const { error } = await sb().from("grocery_items").upsert(row, { onConflict: "plan_id,key", ignoreDuplicates: true });
             if (error) toast.error("Couldn't undo", { description: error.message });
             qc.invalidateQueries({ queryKey: ["meal-grocery"] });
           },
@@ -865,7 +902,7 @@ export function useDeleteGroceryItem() {
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["meal-grocery"] }),
   });
-  return guarded(m, (v) => `grocery-delete:${v.item.id}`);
+  return guarded(m, (v) => `grocery-delete:${v.item.plan_id}:${v.item.key}`);
 }
 
 /* --------------------------------------------------------------- food log */
