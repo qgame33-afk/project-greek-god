@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { aiConfigured, isMock } from "@/lib/ai/gemini";
-import { requireUser } from "@/lib/supabase/server";
+import { requireUser, serviceRoleKey } from "@/lib/supabase/server";
 import pkg from "../../../../../package.json";
 
 /**
@@ -14,7 +14,7 @@ export async function GET() {
     {
       version: pkg.version,
       ai: { configured: aiConfigured(), mock: isMock(), provider: "Google Gemini" },
-      accountDeletion: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      accountDeletion: !!serviceRoleKey(),
     },
     { headers: { "Cache-Control": "no-store" } },
   );

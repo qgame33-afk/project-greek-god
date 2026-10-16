@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { listAllFiles, removeFiles } from "@/lib/export/storage";
 import { PHOTO_BUCKETS, type PhotoBucket } from "@/lib/export/tables";
-import { requireUser, supabaseAdmin } from "@/lib/supabase/server";
+import { requireUser, serviceRoleKey, supabaseAdmin } from "@/lib/supabase/server";
 
 /**
  * Permanently delete the signed-in user's account.
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ code: "confirm_required", message: 'Type "DELETE" to confirm.' }, { status: 400 });
   }
 
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!serviceRoleKey()) {
     return NextResponse.json(
       {
         code: "not_configured",

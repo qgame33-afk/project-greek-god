@@ -27,9 +27,17 @@ export async function supabaseServer() {
   );
 }
 
+/**
+ * The server-only admin key. Supabase/Vercel integrations name it SUPABASE_SERVICE_ROLE_KEY
+ * (legacy JWT key) or SUPABASE_SECRET_KEY (new "sb_secret_…" key); either works.
+ */
+export function serviceRoleKey(): string | null {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || null;
+}
+
 /** Service-role client. Bypasses RLS — only for server jobs (reminders, account deletion). */
 export function supabaseAdmin() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = serviceRoleKey();
   if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
   return createClient<Database>(SUPABASE_URL, key, {
     auth: { persistSession: false, autoRefreshToken: false },

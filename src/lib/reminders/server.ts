@@ -218,9 +218,8 @@ export interface SchedulerStatus {
 
 /** Reads the pg_cron job (via a service-role-only RPC) and the dispatcher's last-run stamp. */
 export async function schedulerStatus(admin: Admin): Promise<SchedulerStatus> {
-  const untyped = admin as unknown as SupabaseClient;
   const [rpc, last] = await Promise.all([
-    untyped.rpc("pgg_reminders_status"),
+    admin.rpc("pgg_reminders_status"),
     admin.from("app_secrets").select("value").eq("key", "reminders_last_run").maybeSingle(),
   ]);
   const lastRunAt = last.data?.value ?? null;
