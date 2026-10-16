@@ -25,6 +25,7 @@ import {
   validateCell,
   retarget,
   defaultTargets,
+  zeroLoadOk,
 } from "./session";
 
 const past = (i: number, w: number | null, reps: number | null, dur: number | null = null): PastSet => ({
@@ -177,6 +178,12 @@ describe("logging", () => {
     expect(resolveLog(s, { ...ghost, work: null }, "weight_reps", true, now)).toEqual({ ok: false, field: "work" });
   });
 
+  it("won't log a 0 load on a lift that can't be 0 — the keypad opens on weight", () => {
+    const zero = mkSet({ weight_lb: 0, reps: 8 });
+    expect(resolveLog(zero, ghost, "weight_reps", true, now, false)).toEqual({ ok: false, field: "weight" });
+    expect(resolveLog(zero, ghost, "weight_reps", true, now, true)).toMatchObject({ ok: true, values: { weight_lb: 0, reps: 8 } });
+  });
+
   it("lets bodyweight lifts log without load and carries log seconds", () => {
     const bw = resolveLog(mkSet({ reps: 8 }), { weight: null, work: null, weightSource: null, workSource: null }, "bodyweight_reps", true, now);
     expect(bw).toMatchObject({ ok: true, values: { weight_lb: null, reps: 8 } });
@@ -194,6 +201,26 @@ describe("validation", () => {
     expect(validateCell("work", "6.5", "lb", "weight_reps").ok).toBe(false);
     expect(validateCell("rir", "11", "lb", "weight_reps").ok).toBe(false);
     expect(validateCell("work", "1000", "lb", "weight_time").ok).toBe(false);
+  });
+
+  it("rejects a 0 load where 0 isn't a real load, and 0 reps or seconds", () => {
+    expect(validateCell("weight", "0", "lb", "weight_reps", false)).toEqual({ ok: false, error: "Weight must be above 0 lb." });
+    expect(validateCell("weight", "0.0", "kg", "weight_reps", false)).toEqual({ ok: false, error: "Weight must be above 0 kg." });
+    expect(validateCell("weight", "0", "lb", "bodyweight_reps", true)).toEqual({ ok: true, stored: 0 });
+    expect(validateCell("weight", "0", "lb", "weight_reps")).toEqual({ ok: true, stored: 0 });
+    expect(validateCell("work", "0", "lb", "weight_reps")).toEqual({ ok: false, error: "At least 1 rep." });
+    expect(validateCell("work", "0", "lb", "weight_time")).toEqual({ ok: false, error: "At least 1 second." });
+    expect(validateCell("rir", "0", "lb", "weight_reps")).toEqual({ ok: true, stored: 0 });
+  });
+
+  it("knows where a 0 load is real", () => {
+    expect(zeroLoadOk({ equipment: "barbell" }, "weight_reps")).toBe(false);
+    expect(zeroLoadOk({ equipment: "cable" }, "weight_reps")).toBe(false);
+    expect(zeroLoadOk({ equipment: "machine" }, "weight_reps")).toBe(false);
+    expect(zeroLoadOk({ equipment: "dumbbell" }, "weight_reps")).toBe(true); // bodyweight split squats
+    expect(zeroLoadOk({ equipment: "dumbbell" }, "weight_time")).toBe(false); // a carry needs a load
+    expect(zeroLoadOk({ equipment: "bodyweight" }, "bodyweight_reps")).toBe(true);
+    expect(zeroLoadOk(undefined, "weight_reps")).toBe(true);
   });
 
   it("converts kg to stored pounds and accepts blanks", () => {

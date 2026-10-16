@@ -22,41 +22,66 @@ export const searchResultSchema = z.object({
 
 export type SearchResult = z.infer<typeof searchResultSchema>;
 
-export type UsdaStatus = "ok" | "demo_key" | "error" | "unconfigured";
-export type OffStatus = "ok" | "error";
+/** Health of one database for a search, as /api/food/search reports it in `sources`. */
+export type SourceState = "ok" | "demo_key" | "rate_limited" | "timeout" | "error" | "skipped" | "unconfigured";
+/** The route's overall string status: "unavailable" = every database failed and nothing came back. */
+export type OverallStatus = "ok" | "demo_key" | "partial" | "unavailable";
 
 export interface SearchResponse {
   results: SearchResult[];
-  status: { usda: UsdaStatus | null; off: OffStatus | null };
+  status: { usda: SourceState | null; off: SourceState | null; overall: OverallStatus | null };
 }
 
+const SOURCE_STATES: readonly SourceState[] = ["ok", "demo_key", "rate_limited", "timeout", "error", "skipped", "unconfigured"];
+const OVERALL: readonly OverallStatus[] = ["ok", "demo_key", "partial", "unavailable"];
+const pick = <T extends string>(list: readonly T[], v: unknown): T | null => list.find((s) => s === v) ?? null;
+const down = (s: SourceState | null) => s === "rate_limited" || s === "timeout" || s === "error";
+
+/**
+ * The route answers `{ results, status: "ok" | "demo_key" | "partial" | "unavailable", sources: { usda, off } }`.
+ * An older shape put the per-database states in `status` itself; both are read.
+ */
 export function parseSearchResponse(json: unknown): SearchResponse {
-  const obj = (json && typeof json === "object" ? json : {}) as { results?: unknown; status?: { usda?: unknown; off?: unknown } };
+  const obj = (json && typeof json === "object" ? json : {}) as { results?: unknown; status?: unknown; sources?: { usda?: unknown; off?: unknown } };
   const raw = Array.isArray(obj.results) ? obj.results : [];
   const results: SearchResult[] = [];
   for (const r of raw) {
     const p = searchResultSchema.safeParse(r);
     if (p.success) results.push(p.data);
   }
-  const usda = (["ok", "demo_key", "error", "unconfigured"] as const).find((s) => s === obj.status?.usda) ?? null;
-  const off = (["ok", "error"] as const).find((s) => s === obj.status?.off) ?? null;
-  return { results, status: { usda, off } };
+  const legacy = obj.status && typeof obj.status === "object" ? (obj.status as { usda?: unknown; off?: unknown }) : null;
+  const per = obj.sources && typeof obj.sources === "object" ? obj.sources : legacy;
+  const usda = pick(SOURCE_STATES, per?.usda);
+  const off = pick(SOURCE_STATES, per?.off);
+  let overall = pick(OVERALL, obj.status);
+  // never read a total outage as "no matches": nothing back and no database answered = unavailable
+  if (!overall && results.length === 0 && (down(usda) || down(off)) && !(usda === "ok" || usda === "demo_key" || off === "ok")) overall = "unavailable";
+  return { results, status: { usda, off, overall } };
 }
 
-/** Honest one-line notes about which databases answered. */
+/** True when no database answered, so an empty list means "couldn't search", not "no matches". */
+export function searchUnavailable(r: SearchResponse): boolean {
+  return r.results.length === 0 && r.status.overall === "unavailable";
+}
+
+/** Honest one-line notes about which databases answered (and why one didn't). */
 export function statusNotes(status: SearchResponse["status"]): string[] {
   const notes: string[] = [];
+  const offUp = status.off === "ok";
+  const usdaUp = status.usda === "ok" || status.usda === "demo_key";
   if (status.usda === "unconfigured") notes.push("USDA isn't connected (no API key on the server).");
+  else if (status.usda === "rate_limited") notes.push(`USDA is rate-limited right now.${offUp ? " Showing Open Food Facts only." : ""}`);
+  else if (status.usda === "timeout" || status.usda === "error") notes.push(`USDA didn't respond.${offUp ? " Showing Open Food Facts only." : ""}`);
   else if (status.usda === "demo_key") notes.push("USDA is on the shared demo key, so it may be rate-limited.");
-  else if (status.usda === "error") notes.push("USDA didn't respond.");
-  if (status.off === "error") notes.push("Open Food Facts didn't respond.");
+  if (status.off === "rate_limited") notes.push(`Open Food Facts is rate-limited right now.${usdaUp ? " Showing USDA only." : ""}`);
+  else if (down(status.off)) notes.push(`Open Food Facts didn't respond.${usdaUp ? " Showing USDA only." : ""}`);
   return notes;
 }
 
 export class SearchUnavailableError extends Error {
   constructor(
     message: string,
-    public kind: "unavailable" | "auth" | "offline" | "failed",
+    public kind: "unavailable" | "auth" | "offline" | "failed" | "down",
   ) {
     super(message);
   }

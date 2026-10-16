@@ -22,5 +22,7 @@ export async function GET(request: NextRequest) {
   if (q.length > 100) return Response.json({ error: "Search is limited to 100 characters.", code: "bad_request" }, { status: 400 });
 
   const res = await searchFoods(q, { kind, usdaKey: process.env.USDA_API_KEY, timeoutMs: 6500, signal: request.signal });
-  return Response.json(res, { headers: { "cache-control": "private, max-age=300" } });
+  // only a full answer may be reused; a rate-limited or timed-out lookup must hit the databases again on Retry
+  const complete = res.status === "ok" || res.status === "demo_key";
+  return Response.json(res, { headers: { "cache-control": complete ? "private, max-age=300" : "no-store" } });
 }

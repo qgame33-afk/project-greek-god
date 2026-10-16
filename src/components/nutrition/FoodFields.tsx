@@ -4,7 +4,7 @@ import { Field, Input, NumberInput, Select } from "@/components/ui/field";
 import { UNITS } from "@/lib/nutrition";
 import { formatAmount } from "@/lib/nutrition-ui/format";
 import { normalizeUnit } from "@/lib/nutrition-ui/portion";
-import { consistencyNote, previewMacros, weightNote, type FoodErrors, type FoodForm } from "@/lib/nutrition-ui/validate";
+import { consistencyNote, LIMITS, previewMacros, sizeNote, weightNote, type FoodErrors, type FoodForm } from "@/lib/nutrition-ui/validate";
 import { formatInt } from "@/lib/units";
 import { parseFoodNumber } from "@/lib/nutrition-ui/number";
 import { SoftNote, SubLabel } from "./bits";
@@ -33,6 +33,8 @@ export function FoodFields({
   const unit = normalizeUnit(form.unit) ?? form.unit;
   const note = preview.caloriesBlank ? null : consistencyNote(preview.macros);
   const wNote = weightNote(amount, unit, preview.macros);
+  // only for numbers that pass validation; past the hard limit the field error says it
+  const bigNote = !errors.calories && preview.macros.calories <= LIMITS.calories ? sizeNote(preview.macros) : null;
   const units: string[] = UNITS.includes(unit as (typeof UNITS)[number]) ? [...UNITS] : [unit, ...UNITS];
   const per = amount != null && amount > 0 ? formatAmount(amount, unit) : null;
 
@@ -108,7 +110,7 @@ export function FoodFields({
         </div>
       </div>
 
-      {(note || wNote || (preview.caloriesBlank && preview.derived > 0)) && (
+      {(note || wNote || bigNote || (preview.caloriesBlank && preview.derived > 0)) && (
         <div className="grid gap-2" aria-live="polite">
           {preview.caloriesBlank && preview.derived > 0 && <SoftNote>Calories will be {formatInt(preview.derived)} kcal, from your macros.</SoftNote>}
           {note && (
@@ -120,6 +122,7 @@ export function FoodFields({
             </SoftNote>
           )}
           {wNote && <SoftNote>{wNote}</SoftNote>}
+          {bigNote && <SoftNote>{bigNote}</SoftNote>}
         </div>
       )}
     </div>

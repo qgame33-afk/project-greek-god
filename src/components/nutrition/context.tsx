@@ -98,7 +98,8 @@ export function FuelProvider({
       const kcal = rows.reduce((a, r) => a + Number(r.calories ?? 0), 0);
       const where = d === date ? "" : ` · ${dayLabel(d, today)}`;
       toast(`Added to ${mealLabel(o.meal)}${where}`, {
-        description: o.what ?? (rows.length > 1 ? `${rows.length} items · ${formatInt(kcal)} kcal` : `${rows[0].name} · ${formatInt(kcal)} kcal`),
+        // a 120-character food name stays a two-line toast, not a five-line one
+        description: <span className="line-clamp-2 break-words">{o.what ?? (rows.length > 1 ? `${rows.length} items · ${formatInt(kcal)} kcal` : `${rows[0].name} · ${formatInt(kcal)} kcal`)}</span>,
         icon: <ToastMark />,
         duration: 6000,
         action: { label: "Undo", onClick: () => quiet.mutate({ ids, date: d }) },

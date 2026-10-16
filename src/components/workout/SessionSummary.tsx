@@ -85,7 +85,7 @@ export function SessionSummary({ data, onEdit }: { data: LiveData; onEdit: () =>
                 <li key={p.slug} className="flex items-center gap-3 rounded-[16px] border border-line-gold/70 bg-gold-tint px-4 py-3.5">
                   <LaurelBullet size={18} className="shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="t-plaque truncate">{p.name}</p>
+                    <p className="t-plaque line-clamp-2">{p.name}</p>
                     <p className="num mt-1 text-[16px] font-medium text-fg-2">
                       {fmt(p.weightLb)} × {p.reps} · e1RM {Math.round(toDisplayWeight(p.e1rm, unit))} {unit}
                     </p>

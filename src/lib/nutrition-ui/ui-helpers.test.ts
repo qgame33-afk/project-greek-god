@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { clampDay, composeEatenAt, dayLabel, formatAmount, formatClock, isTime, leftLabel, macroLine, monthGrid, timeValue } from "./format";
 import { asMeal, groupMates, mealItems, mealSections, type EntryLike } from "./group";
 import { groupLabel, provenanceOf } from "./provenance";
-import { parseSearchResponse, searchErrorFor, statusNotes } from "./search";
+import { parseSearchResponse, searchErrorFor, searchUnavailable, statusNotes } from "./search";
 import { consistencyNote, previewMacros, validateFoodForm, weightNote, emptyForm } from "./validate";
 import { buildWeek } from "./week";
 import { entriesFromSavedMeal, parseSavedMealItems, savedMealItemFromEntry, savedMealTotals } from "./savedMeal";
@@ -125,9 +125,26 @@ describe("search contract", () => {
     });
     expect(r.results).toHaveLength(1);
     expect(r.results[0]).toMatchObject({ id: "1", brand: null, servingGrams: 50 });
-    expect(statusNotes(r.status)).toEqual(["USDA is on the shared demo key, so it may be rate-limited.", "Open Food Facts didn't respond."]);
-    expect(parseSearchResponse(null)).toEqual({ results: [], status: { usda: null, off: null } });
+    expect(statusNotes(r.status)).toEqual(["USDA is on the shared demo key, so it may be rate-limited.", "Open Food Facts didn't respond. Showing USDA only."]);
+    expect(parseSearchResponse(null)).toEqual({ results: [], status: { usda: null, off: null, overall: null } });
     expect(searchErrorFor(404).message).toBe("Food search is unavailable.");
+  });
+  it("reads the route's real shape: string status + per-database sources", () => {
+    const egg = { id: "off:1", name: "Banana", brand: null, source: "off", sourceName: "Open Food Facts", sourceUrl: "https://world.openfoodfacts.org/product/1", servingAmount: 100, servingUnit: "g", servingGrams: 100, per100g: null, perServing: { calories: 89, protein: 1.1, carbs: 23, fat: 0.3 } };
+    // USDA's DEMO_KEY is rate-limited; Open Food Facts answered
+    const partial = parseSearchResponse({ results: [egg], status: "partial", sources: { usda: "rate_limited", off: "ok" } });
+    expect(partial.status).toEqual({ usda: "rate_limited", off: "ok", overall: "partial" });
+    expect(statusNotes(partial.status)).toEqual(["USDA is rate-limited right now. Showing Open Food Facts only."]);
+    expect(searchUnavailable(partial)).toBe(false);
+    // nothing answered: never shown as "no matches"
+    const down = parseSearchResponse({ results: [], status: "unavailable", sources: { usda: "rate_limited", off: "timeout" } });
+    expect(searchUnavailable(down)).toBe(true);
+    expect(statusNotes(down.status)).toEqual(["USDA is rate-limited right now.", "Open Food Facts didn't respond."]);
+    // a genuine empty answer is a real "no matches"
+    expect(searchUnavailable(parseSearchResponse({ results: [], status: "ok", sources: { usda: "ok", off: "ok" } }))).toBe(false);
+    expect(statusNotes(parseSearchResponse({ results: [egg], status: "ok", sources: { usda: "ok", off: "ok" } }).status)).toEqual([]);
+    // without an overall status, an empty answer from failed databases still reads as unavailable
+    expect(searchUnavailable(parseSearchResponse({ results: [], sources: { usda: "error", off: "skipped" } }))).toBe(true);
     expect(searchErrorFor("network").kind).toBe("offline");
   });
 });

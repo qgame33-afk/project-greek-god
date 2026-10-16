@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Segmented, Stepper } from "@/components/ui/controls";
-import { ErrorNote } from "@/components/ui/misc";
 import { newId, useUser } from "@/lib/data/core";
 import { useSavedFoodMutations, type SavedFood } from "@/lib/data/nutrition";
 import { composeEatenAt, formatAmount, unitLabel } from "@/lib/nutrition-ui/format";
@@ -12,7 +11,7 @@ import { amountBounds, buildEntry, portion, savedFoodFromPortion, stepFor, type 
 import { fieldText } from "@/lib/nutrition-ui/validate";
 import { formatInt, round } from "@/lib/units";
 import { parseFoodNumber } from "@/lib/nutrition-ui/number";
-import { MacroGrid, ProvenanceBadge, StarButton, StickyFooter } from "./bits";
+import { MacroGrid, ProvenanceBadge, SheetError, StarButton, StickyFooter } from "./bits";
 import { mealLabel, useFuel } from "./context";
 import { BackButton, SaveToFoods, WhenFields, type When } from "./log-shared";
 
@@ -162,9 +161,9 @@ export function PortionPanel({
       {c.source !== "saved_food" && <SaveToFoods className="mt-5" save={saveFood} setSave={setSaveFood} fav={fav} setFav={setFav} />}
 
       {err && (
-        <ErrorNote className="mt-4" onRetry={submit}>
+        <SheetError className="mt-4" onRetry={submit}>
           {err}
-        </ErrorNote>
+        </SheetError>
       )}
 
       <StickyFooter>

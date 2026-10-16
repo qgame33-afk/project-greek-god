@@ -69,7 +69,8 @@ export function useFoodSearch(q: string) {
   return useQuery<SearchResponse, Error>({
     queryKey: ["food-search", term.toLowerCase()],
     enabled: term.length >= 2,
-    staleTime: 10 * 60_000,
+    // a lookup where a database was down is worth retrying soon; full answers keep for 10 min
+    staleTime: (query) => (query.state.data && query.state.data.status.overall !== "ok" && query.state.data.status.overall !== "demo_key" ? 0 : 10 * 60_000),
     gcTime: 30 * 60_000,
     placeholderData: keepPreviousData,
     retry: (n, err) => !(err instanceof SearchUnavailableError && (err.kind === "unavailable" || err.kind === "auth")) && n < 1,

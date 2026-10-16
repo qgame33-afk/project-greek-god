@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/misc";
 import { cn } from "@/lib/cn";
 import { normalizeUnit } from "@/lib/nutrition-ui/portion";
-import { SearchUnavailableError, statusNotes, type SearchResult } from "@/lib/nutrition-ui/search";
+import { searchUnavailable, SearchUnavailableError, statusNotes, type SearchResult } from "@/lib/nutrition-ui/search";
 import { formatInt, round } from "@/lib/units";
 import { useDebounced, useDelayedFlag, useFoodSearch } from "./hooks";
 
@@ -23,6 +23,8 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
   const err = search.error;
   const data = search.data;
   const notes = data ? statusNotes(data.status) : [];
+  // no database answered: an empty list would read as "no matches", which it isn't
+  const down = !!data && searchUnavailable(data);
 
   return (
     <div>
@@ -62,7 +64,11 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
         </div>
       ) : err && !data ? (
         <SearchError err={err} onRetry={() => search.refetch()} onManual={() => onManual(q.trim())} />
-      ) : showSkeleton ? (
+      ) : down && !typing && !search.isPlaceholderData ? (
+        <div className={cn("transition-opacity", waiting && "opacity-60")}>
+          <SearchError err={new SearchUnavailableError("No food database answered.", "down")} notes={notes} onRetry={() => search.refetch()} onManual={() => onManual(q.trim())} />
+        </div>
+      ) : showSkeleton || down ? (
         <ul className="mt-3" aria-busy="true" aria-label="Searching">
           {[0, 1, 2, 3, 4].map((i) => (
             <li key={i} className="flex items-center gap-3 border-b border-line-hair py-3">
@@ -142,9 +148,18 @@ function ResultRow({ r, onPick }: { r: SearchResult; onPick: () => void }) {
   );
 }
 
-function SearchError({ err, onRetry, onManual }: { err: Error; onRetry: () => void; onManual: () => void }) {
+function SearchError({ err, notes, onRetry, onManual }: { err: Error; notes?: string[]; onRetry: () => void; onManual: () => void }) {
   const kind = err instanceof SearchUnavailableError ? err.kind : "failed";
-  const title = kind === "unavailable" ? "Food search is unavailable" : kind === "offline" ? "You're offline" : kind === "auth" ? "Your session expired" : "Food search didn't respond";
+  const title =
+    kind === "unavailable"
+      ? "Food search is unavailable"
+      : kind === "offline"
+        ? "You're offline"
+        : kind === "auth"
+          ? "Your session expired"
+          : kind === "down"
+            ? "The food databases didn't answer"
+            : "Food search didn't respond";
   const body =
     kind === "unavailable"
       ? "The food database isn't connected on this server yet. Log it by hand, or pick from Saved and Recent."
@@ -152,7 +167,9 @@ function SearchError({ err, onRetry, onManual }: { err: Error; onRetry: () => vo
         ? "Search needs a connection. Your saved and recent foods still work."
         : kind === "auth"
           ? "Sign in again to search."
-          : "Try again in a moment, or enter it by hand.";
+          : kind === "down"
+            ? `${notes?.length ? notes.join(" ") : "Neither USDA nor Open Food Facts answered."} Retry in a minute, or enter it by hand.`
+            : "Try again in a moment, or enter it by hand.";
   return (
     <div className="card-inset mt-4 flex flex-col items-center px-5 py-7 text-center" role="status">
       {kind === "offline" ? <WifiOff className="size-7 text-gold-600" strokeWidth={1.5} aria-hidden /> : <SearchX className="size-7 text-gold-600" strokeWidth={1.5} aria-hidden />}

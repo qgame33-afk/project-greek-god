@@ -137,6 +137,21 @@ export const hasRir = (t: Tracking) => t === "weight_reps" || t === "bodyweight_
 /** A load is required to log (bodyweight lifts may leave it blank). */
 export const needsWeight = (t: Tracking) => t === "weight_reps" || t === "weight_time";
 
+/** Equipment where a bodyweight-only set is real (split squats, lunges, step-ups). */
+const ZERO_LOAD_EQUIPMENT = new Set<LibraryExercise["equipment"]>(["dumbbell", "bodyweight", "box", "other"]);
+
+/**
+ * Whether 0 is a real load. A bar, a stack or a sled always weighs something and a carry
+ * needs something in the hands, so "0 lb × 8" there is a typo — and it would poison the next
+ * suggestion ("you hit 8 at 0 lb"). Added load on bodyweight lifts and dumbbell moves that
+ * have a bodyweight version may be 0.
+ */
+export function zeroLoadOk(lib: Pick<LibraryExercise, "equipment"> | undefined, t: Tracking): boolean {
+  if (!needsWeight(t)) return true;
+  if (isTimed(t)) return false;
+  return !lib || ZERO_LOAD_EQUIPMENT.has(lib.equipment);
+}
+
 export function workOf(s: Pick<WSet, "reps" | "duration_sec">, t: Tracking): number | null {
   return isTimed(t) ? s.duration_sec : s.reps;
 }
@@ -236,7 +251,7 @@ export type LogValues = Pick<WSet, "weight_lb" | "reps" | "duration_sec" | "comp
 /**
  * What a ✓ tap writes. Typed values win; ghosts fill the gaps only when the
  * "Tap ✓ logs shown values" preference is on. Returns the field to open the keypad on
- * when something required is still missing.
+ * when something required is still missing (or a load of 0 where 0 isn't a real load).
  */
 export function resolveLog(
   set: WSet,
@@ -244,11 +259,12 @@ export function resolveLog(
   t: Tracking,
   useGhosts: boolean,
   nowIso: string,
+  zeroOk = true,
 ): { ok: true; values: LogValues } | { ok: false; field: CellField } {
   const typedWork = workOf(set, t);
   const work = typedWork ?? (useGhosts ? ghost.work : null);
   const weight = set.weight_lb != null ? Number(set.weight_lb) : useGhosts ? ghost.weight : null;
-  if (needsWeight(t) && weight == null) return { ok: false, field: "weight" };
+  if (needsWeight(t) && (weight == null || (!zeroOk && weight <= 0))) return { ok: false, field: "weight" };
   if (work == null || work <= 0) return { ok: false, field: "work" };
   return {
     ok: true,
@@ -275,9 +291,10 @@ export type Check = { ok: true; stored: number | null } | { ok: false; error: st
 
 /**
  * Validate one typed cell (in display units) and convert to the stored value.
- * Blank clears the cell. Rejects negatives, junk and absurd numbers with a short reason.
+ * Blank clears the cell. Rejects negatives, junk, absurd numbers, 0 reps/seconds and a 0
+ * load where 0 isn't a real load (`zeroOk`, see zeroLoadOk) with a short reason.
  */
-export function validateCell(field: CellField, raw: string, unit: WeightUnit, t: Tracking): Check {
+export function validateCell(field: CellField, raw: string, unit: WeightUnit, t: Tracking, zeroOk = true): Check {
   const s = raw.trim().replace(",", ".");
   if (s === "" || s === ".") return { ok: true, stored: null };
   if (s.startsWith("-") || s.startsWith("−")) return { ok: false, error: field === "weight" ? "Weight can't be negative." : "Can't be negative." };
@@ -286,8 +303,9 @@ export function validateCell(field: CellField, raw: string, unit: WeightUnit, t:
   if (field === "weight") {
     const max = unit === "kg" ? Math.round(LIMITS.weightLb / 2.2046226218) : LIMITS.weightLb;
     if (n > max) return { ok: false, error: `Over ${max} ${unit}. Check the number.` };
-    const lb = unit === "kg" ? n * 2.2046226218 : n;
-    return { ok: true, stored: round(lb, 1) };
+    const lb = round(unit === "kg" ? n * 2.2046226218 : n, 1);
+    if (lb <= 0 && !zeroOk) return { ok: false, error: `Weight must be above 0 ${unit}.` };
+    return { ok: true, stored: lb };
   }
   if (field === "rir") {
     if (!Number.isInteger(n)) return { ok: false, error: "RIR is a whole number." };
@@ -295,6 +313,8 @@ export function validateCell(field: CellField, raw: string, unit: WeightUnit, t:
     return { ok: true, stored: n };
   }
   if (!Number.isInteger(n)) return { ok: false, error: isTimed(t) ? "Whole seconds only." : "Whole reps only." };
+  // A set needs at least one rep (a 0 could never be logged, so say so instead of reopening).
+  if (n === 0) return { ok: false, error: isTimed(t) ? "At least 1 second." : "At least 1 rep." };
   if (isTimed(t)) {
     if (n > LIMITS.seconds) return { ok: false, error: `Over ${LIMITS.seconds} s. Check the number.` };
     return { ok: true, stored: n };

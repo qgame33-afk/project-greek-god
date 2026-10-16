@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ErrorNote } from "@/components/ui/misc";
@@ -12,7 +12,7 @@ import { normalizeUnit } from "@/lib/nutrition-ui/portion";
 import { entriesFromSavedMeal, parseSavedMealItems, savedMealTotals } from "@/lib/nutrition-ui/savedMeal";
 import { fieldText, validateFoodForm, type FoodForm } from "@/lib/nutrition-ui/validate";
 import { formatInt } from "@/lib/units";
-import { MacroGrid, StarButton, StickyFooter } from "./bits";
+import { focusFirstInvalid, MacroGrid, SheetError, StarButton, StickyFooter } from "./bits";
 import { mealLabel, useFuel } from "./context";
 import { FoodFields } from "./FoodFields";
 import { BackButton, WhenFields, type When } from "./log-shared";
@@ -70,9 +70,9 @@ export function SavedMealPanel({ meal, when, setWhen, onBack, onDone }: { meal: 
       <MacroGrid className="mt-4" macros={totals} />
       <WhenFields className="mt-6" when={when} setWhen={setWhen} today={today} />
       {err && (
-        <ErrorNote className="mt-4" onRetry={submit}>
+        <SheetError className="mt-4" onRetry={submit}>
           {err}
-        </ErrorNote>
+        </SheetError>
       )}
       <StickyFooter>
         <Button variant="primary" size="lg" block onClick={submit} loading={busy} disabled={!items.length}>
@@ -100,11 +100,13 @@ export function SavedFoodEditor({ food, onBack }: { food: SavedFood; onBack: () 
   }));
   const [fav, setFav] = useState(food.is_favorite);
   const [touched, setTouched] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
   const result = validateFoodForm(form);
   const errors = touched && !result.ok ? result.errors : {};
 
   const save = () => {
     setTouched(true);
+    if (!result.ok) focusFirstInvalid(root.current);
     if (!result.ok || m.update.isPending) return;
     const v = result.value;
     const macrosChanged =
@@ -139,7 +141,7 @@ export function SavedFoodEditor({ food, onBack }: { food: SavedFood; onBack: () 
   };
 
   return (
-    <div className="pt-1">
+    <div className="pt-1" ref={root}>
       <div className="flex items-center justify-between">
         <BackButton onClick={onBack} />
         <StarButton on={fav} onToggle={() => setFav(!fav)} label={fav ? "Remove from favourites" : "Mark as favourite"} className="-mr-2" />

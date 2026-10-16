@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ErrorNote } from "@/components/ui/misc";
 import { newId } from "@/lib/data/core";
 import { useSavedFoodMutations } from "@/lib/data/nutrition";
 import { composeEatenAt, formatAmount, macroLine } from "@/lib/nutrition-ui/format";
@@ -10,7 +9,7 @@ import { formatInt } from "@/lib/units";
 import { manualEntry } from "@/lib/nutrition-ui/portion";
 import { parseFoodNumber } from "@/lib/nutrition-ui/number";
 import { emptyForm, previewMacros, validateFoodForm, type FoodForm } from "@/lib/nutrition-ui/validate";
-import { StickyFooter } from "./bits";
+import { focusFirstInvalid, SheetError, StickyFooter } from "./bits";
 import { mealLabel, useFuel } from "./context";
 import { FoodFields } from "./FoodFields";
 import { SaveToFoods, WhenFields, type When } from "./log-shared";
@@ -26,6 +25,7 @@ export function ManualPanel({ seed, when, setWhen, onDone }: { seed: { name: str
   const [fav, setFav] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   // "Add manually" from Search carries the typed name over
   if (seed.nonce !== seenSeed) {
@@ -42,6 +42,7 @@ export function ManualPanel({ seed, when, setWhen, onDone }: { seed: { name: str
 
   const submit = async () => {
     setTouched(true);
+    if (!result.ok) focusFirstInvalid(formRef.current);
     if (busy || !result.ok) return;
     const v = result.value;
     setBusy(true);
@@ -79,6 +80,7 @@ export function ManualPanel({ seed, when, setWhen, onDone }: { seed: { name: str
 
   return (
     <form
+      ref={formRef}
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
@@ -90,9 +92,9 @@ export function ManualPanel({ seed, when, setWhen, onDone }: { seed: { name: str
       <SaveToFoods className="mt-5" save={saveFood} setSave={setSaveFood} fav={fav} setFav={setFav} />
       {touched && !result.ok && <p className="mt-4 text-[13px] font-medium text-danger">Check the highlighted fields.</p>}
       {err && (
-        <ErrorNote className="mt-4" onRetry={submit}>
+        <SheetError className="mt-4" onRetry={submit}>
           {err}
-        </ErrorNote>
+        </SheetError>
       )}
       <StickyFooter>
         {hasNumbers && (

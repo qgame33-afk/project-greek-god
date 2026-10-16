@@ -25,11 +25,16 @@ describe("NumberPad input", () => {
     expect(type({ text: "", fresh: true }, ["1", "2", "3", "4"], "work").text).toBe("123");
   });
 
-  it("RIR is a single digit that advances on its own", () => {
+  it("RIR is a single digit that advances on its own on a logged row", () => {
     expect(type({ text: "2", fresh: false }, ["3"], "rir").text).toBe("3");
-    expect(autoAdvances("rir", "3")).toBe(true);
-    expect(autoAdvances("rir", "back")).toBe(false);
-    expect(autoAdvances("weight", "3")).toBe(false);
+    expect(autoAdvances("rir", "3", true)).toBe(true);
+    expect(autoAdvances("rir", "back", true)).toBe(false);
+    expect(autoAdvances("weight", "3", true)).toBe(false);
+  });
+
+  it("never auto-advances off an unlogged row, so Log set logs the set just typed", () => {
+    expect(autoAdvances("rir", "2", false)).toBe(false);
+    expect(autoAdvances("rir", "0", false)).toBe(false);
   });
 
   it("backspace clears a fresh value and deletes otherwise", () => {

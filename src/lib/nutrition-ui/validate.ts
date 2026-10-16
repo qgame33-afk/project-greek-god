@@ -128,6 +128,13 @@ export function consistencyNote(m: Macros): string | null {
   return `Macros add to ${formatInt(derived)} kcal; you entered ${formatInt(m.calories)}.`;
 }
 
+/** Soft check for a likely extra digit: one entry bigger than most people's whole day. */
+export const BIG_ENTRY_KCAL = 4000;
+export function sizeNote(m: Macros): string | null {
+  if (!(m.calories > BIG_ENTRY_KCAL)) return null;
+  return `${formatInt(m.calories)} kcal in one entry. Check for an extra digit.`;
+}
+
 /** Macros that physically can't fit in the stated weight (only checkable for grams). */
 export function weightNote(amount: number | null, unit: string, m: Macros): string | null {
   if (amount == null || !(amount > 0) || unit !== "g") return null;

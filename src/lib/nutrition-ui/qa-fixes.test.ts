@@ -3,7 +3,7 @@ import { clampDay } from "./format";
 import { distinctRecent } from "./group";
 import { parseFoodNumber } from "./number";
 import { directEdit, type FoodRow } from "./portion";
-import { emptyForm, previewMacros, validateFoodForm } from "./validate";
+import { emptyForm, previewMacros, sizeNote, validateFoodForm } from "./validate";
 
 describe("parseFoodNumber", () => {
   it("reads thousands separators as grouping, never as a decimal point", () => {
@@ -123,5 +123,16 @@ describe("directEdit keeps a pure rescale as a rescale", () => {
   it("new numbers still become the user's own", () => {
     const u = directEdit(usda, { amount: 300, unit: "g", macros: { calories: 520, protein: 93, carbs: 0, fat: 10.8 } });
     expect(u).toMatchObject({ base_amount: 300, base_calories: 520, source: "manual", source_url: null });
+  });
+});
+
+describe("sizeNote", () => {
+  it("flags one entry bigger than a whole day as a likely extra digit (soft, not an error)", () => {
+    expect(sizeNote({ calories: 4500, protein: 0, carbs: 0, fat: 0 })).toBe("4,500 kcal in one entry. Check for an extra digit.");
+    expect(sizeNote({ calories: 4000, protein: 0, carbs: 0, fat: 0 })).toBeNull();
+    expect(sizeNote({ calories: 1200, protein: 60, carbs: 140, fat: 45 })).toBeNull();
+    // still a valid entry: the hard limit is 20,000 kcal
+    expect(validateFoodForm(emptyForm({ name: "Feast", calories: "4,500" })).ok).toBe(true);
+    expect(validateFoodForm(emptyForm({ name: "Typo", calories: "50,000" })).ok).toBe(false);
   });
 });

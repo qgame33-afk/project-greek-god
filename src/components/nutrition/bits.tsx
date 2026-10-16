@@ -1,8 +1,9 @@
 "use client";
 
 import { BadgeCheck, Star } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { DatabaseBadge, EstimateBadge, SourceBadge } from "@/components/ui/badge";
+import { ErrorNote } from "@/components/ui/misc";
 import { cn } from "@/lib/cn";
 import { MEALS, type Macros, type Meal } from "@/lib/nutrition";
 import { formatInt } from "@/lib/units";
@@ -122,6 +123,27 @@ export function MacroGrid({ macros, className, dim }: { macros: Macros; classNam
       ))}
     </div>
   );
+}
+
+/**
+ * A save error inside a sheet. It scrolls itself into view, so its Retry never sits hidden
+ * under the sticky footer of a long form.
+ */
+export function SheetError({ children, onRetry, className }: { children: ReactNode; onRetry?: () => void; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [children]);
+  return (
+    <div ref={ref} className={className}>
+      <ErrorNote onRetry={onRetry}>{children}</ErrorNote>
+    </div>
+  );
+}
+
+/** Move focus (and the scroll) to the first invalid field after a rejected submit. */
+export function focusFirstInvalid(root: HTMLElement | null) {
+  window.requestAnimationFrame(() => root?.querySelector<HTMLElement>("[aria-invalid=true]")?.focus({ preventScroll: false }));
 }
 
 /** Sticky action footer that lives inside a Sheet's scrolling body. */

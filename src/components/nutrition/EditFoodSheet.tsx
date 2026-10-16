@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Segmented, Stepper } from "@/components/ui/controls";
 import { Field, Input } from "@/components/ui/field";
-import { ErrorNote } from "@/components/ui/misc";
 import { Sheet } from "@/components/ui/sheet";
 import { newId } from "@/lib/data/core";
 import { useDeleteFood, useSavedFoodMutations, useSavedFoods, useUpdateFood, type FoodEntry } from "@/lib/data/nutrition";
@@ -17,7 +16,7 @@ import { groupLabel } from "@/lib/nutrition-ui/provenance";
 import { fieldText, validateFoodForm, type FoodForm } from "@/lib/nutrition-ui/validate";
 import { formatInt } from "@/lib/units";
 import { parseFoodNumber } from "@/lib/nutrition-ui/number";
-import { MacroGrid, ProvenanceBadge, StickyFooter } from "./bits";
+import { MacroGrid, ProvenanceBadge, SheetError, StickyFooter } from "./bits";
 import { ToastMark, useFuel } from "./context";
 import { FoodFields } from "./FoodFields";
 import { useFocusIntoSheet } from "./hooks";
@@ -91,7 +90,10 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
 
   const mates = useMemo(() => groupMates(entries, entry), [entries, entry]);
   const { baseAmount, base } = entryBase(entry);
-  const { min, max } = amountBounds(entry.unit);
+  const bounds = amountBounds(entry.unit);
+  const min = bounds.min;
+  // an entry logged above the stepper's range (typed by hand) can still be moved or renamed
+  const max = Math.max(bounds.max, Number(entry.amount) || 0);
   const parsedAmount = parseFoodNumber(amountText);
   const amountInvalid = parsedAmount == null || parsedAmount <= 0 || parsedAmount > max;
   const formResult = validateFoodForm({ ...form, name: name || "x" });
@@ -172,7 +174,7 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
       return;
     }
     const moved = values.local_date != null && values.local_date !== entry.local_date;
-    toast(moved ? `Moved to ${dayLabel(when.date, today)}` : `Saved ${nameTrim}`, {
+    toast(moved ? `Moved to ${dayLabel(when.date, today)}` : <span className="line-clamp-2 break-words">Saved {nameTrim}</span>, {
       description: `${formatAmount(Number(values.amount ?? entry.amount), String(values.unit ?? entry.unit))} · ${formatInt(Number(values.calories ?? entry.calories))} kcal`,
       icon: <ToastMark />,
       duration: 6000,
@@ -277,7 +279,8 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
         </div>
       ) : (
         <div className="mt-5">
-          <FoodFields form={form} set={(p) => setForm((f) => ({ ...f, ...p }))} errors={touched && !formResult.ok ? formResult.errors : {}} showName={false} />
+          {/* errors show as soon as a number goes bad, so a disabled Save always has a visible reason */}
+          <FoodFields form={form} set={(p) => setForm((f) => ({ ...f, ...p }))} errors={formResult.ok ? {} : formResult.errors} showName={false} />
           <p className="mt-3 text-[12.5px] leading-snug text-fg-3">These numbers become the new base, so later amount changes scale from them.</p>
         </div>
       )}
@@ -299,14 +302,14 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
       </div>
 
       {err && (
-        <ErrorNote className="mt-4" onRetry={save}>
+        <SheetError className="mt-4" onRetry={save}>
           {err}
-        </ErrorNote>
+        </SheetError>
       )}
 
       <StickyFooter>
         <Button variant="primary" size="lg" block onClick={save} loading={update.isPending} disabled={!values || nameInvalid}>
-          {dirty ? "Save changes" : "Done"}
+          {dirty || !values ? "Save changes" : "Done"}
         </Button>
       </StickyFooter>
     </div>

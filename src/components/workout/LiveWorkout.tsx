@@ -52,6 +52,7 @@ import {
   trackingFor,
   upNextSet,
   validateCell,
+  zeroLoadOk,
   type ExerciseGroup,
   type Ghost,
 } from "@/lib/workout/session";
@@ -272,7 +273,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const [sheenId, setSheenId] = useState<string | null>(null);
   const [pulseId, setPulseId] = useState<string | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, { field: CellField; message: string }>>({});
   // Focus mode belongs to one rest period (keyed by its start), so it never reopens by itself.
   const [focusFor, setFocusFor] = useState<number | null>(null);
   const setFocus = (on: boolean) => setFocusFor(on ? (getRest(id)?.startSec ?? null) : null);
@@ -300,10 +301,11 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   /** Validate and write one cell. Returns the reason when the value is rejected. */
   const writeCellError = (set: WSet, field: CellField, raw: string): string | null => {
     const g = groupOf.get(set.id);
-    const t = g ? info.get(g.key)!.tracking : "weight_reps";
-    const r = validateCell(field, raw, unit, t);
+    const gi = g ? info.get(g.key) : undefined;
+    const t = gi?.tracking ?? "weight_reps";
+    const r = validateCell(field, raw, unit, t, zeroLoadOk(gi?.lib, t));
     if (!r.ok) {
-      setErrors((e) => ({ ...e, [set.id]: r.error }));
+      setErrors((e) => ({ ...e, [set.id]: { field, message: r.error } }));
       return r.error;
     }
     setErrors((e) => {
@@ -388,7 +390,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     if (!pad) return;
     const next = padPress({ text: pad.text, fresh: pad.fresh }, k, pad.field);
     const np = { ...pad, ...next, error: null };
-    if (autoAdvances(pad.field, k)) advance(np);
+    if (autoAdvances(pad.field, k, !!freshSet(pad.setId)?.completed)) advance(np);
     else setPad(np);
   };
 
@@ -437,7 +439,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     const g = groupOf.get(set.id);
     if (!g) return;
     const inf = info.get(g.key)!;
-    const res = resolveLog(set, ghosts.get(set.id) ?? NO_GHOST, inf.tracking, prefs.tapLogsGhost, new Date().toISOString());
+    const res = resolveLog(set, ghosts.get(set.id) ?? NO_GHOST, inf.tracking, prefs.tapLogsGhost, new Date().toISOString(), zeroLoadOk(inf.lib, inf.tracking));
     if (!res.ok) {
       openCell(set, res.field);
       return;
@@ -831,6 +833,9 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       const updated = must(await q.select("*").maybeSingle());
       const finalSession: WSession = updated ?? (must(await sb().from("workout_sessions").select("*").eq("id", id).single()) as WSession);
       clearSessionStores(id);
+      // Undo on a "Set 3 logged" toast still on screen would now unlog a set of a saved
+      // session behind its totals: per-set undos end when the session is saved.
+      toast.dismiss();
       ops.setData({ session: finalSession, sets: fresh });
       invalidateTraining(qc);
       setFinishOpen(false);
@@ -860,6 +865,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       await drained(5000);
       must(await sb().from("workout_sessions").update({ status: "discarded", ended_at: new Date().toISOString() }).eq("id", id).select("id").single());
       clearSessionStores(id);
+      toast.dismiss(); // per-set undos belong to the session that was just discarded
       ops.setData({ ...data, session: { ...session, status: "discarded" } });
       invalidateTraining(qc);
       setDiscardOpen(false);
@@ -1016,7 +1022,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
         sheen: sheenId === s.id,
         pulse: pulseId === s.id,
         flash: flashId === s.id,
-        error: errors[s.id] ?? null,
+        error: errors[s.id]?.message ?? null,
+        errorField: errors[s.id]?.field ?? null,
         showNote: s.id !== carrier?.id,
       };
     });

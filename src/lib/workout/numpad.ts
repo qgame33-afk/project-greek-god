@@ -39,9 +39,14 @@ export function padPress(b: PadBuffer, key: PadKey, field: CellField): PadBuffer
   return { text: nextInt, fresh: false };
 }
 
-/** RIR is one digit, so it advances on its own after a key press. */
-export function autoAdvances(field: CellField, key: PadKey) {
-  return field === "rir" && key !== "back" && key !== ".";
+/**
+ * RIR is one digit, so it advances on its own after a key press — but only on a set that is
+ * already logged (an edit). RIR is the last cell of a row: advancing off an unlogged row would
+ * leave "Log set" pointing at the NEXT set, which would then be logged from its ghost values
+ * while the set just typed stayed unlogged. On an unlogged row the keypad stays put.
+ */
+export function autoAdvances(field: CellField, key: PadKey, rowLogged: boolean) {
+  return rowLogged && field === "rir" && key !== "back" && key !== ".";
 }
 
 /** −/+ chips. Never goes below zero; weight keeps one decimal, everything else whole. */

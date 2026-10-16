@@ -23,6 +23,8 @@ export interface RowView {
   pulse: boolean;
   flash: boolean;
   error: string | null;
+  /** The cell the error belongs to (only that cell is outlined). */
+  errorField?: CellField | null;
   showNote: boolean;
 }
 
@@ -129,7 +131,7 @@ interface RowProps {
 const FIELD_WORD: Record<CellField, string> = { weight: "weight", work: "reps", rir: "reps in reserve" };
 
 const SetRowView = memo(function SetRowView(p: RowProps) {
-  const { set, label, ghost, upNext, pr, sheen, pulse, flash, error } = p.row;
+  const { set, label, ghost, upNext, pr, sheen, pulse, flash, error, errorField } = p.row;
   const logged = set.completed;
   const warm = set.kind === "warmup";
   const name = warm ? "Warm-up set" : `Set ${label}`;
@@ -194,7 +196,7 @@ const SetRowView = memo(function SetRowView(p: RowProps) {
               unit={p.unit}
               ghost={ghostText(f)}
               label={`${name} ${FIELD_WORD[f]}`}
-              invalid={!!error}
+              invalid={!!error && (errorField == null || errorField === f)}
               onCommit={p.onCommit}
               onEnter={p.onEnter}
             />
@@ -288,7 +290,7 @@ function PadCell({
       type="button"
       data-cell={`${set.id}:${field}`}
       onClick={() => onCell(set, field)}
-      aria-label={`${name} ${FIELD_WORD[field]}, ${value || ghost || "empty"} ${value || ghost ? UNIT_WORD(field, tracking, unit) : ""}, ${state}`.replace(/\s+,/g, ",")}
+      aria-label={value || ghost ? `${name} ${FIELD_WORD[field]}, ${value || ghost} ${UNIT_WORD(field, tracking, unit)}, ${state}`.replace(/\s+,/g, ",") : `${name} ${FIELD_WORD[field]}, empty`}
       className={cn(
         "relative flex h-[52px] min-w-0 items-center justify-center rounded-[10px] bg-s3 px-1 transition-shadow duration-100",
         target && "shadow-[inset_0_0_0_2px_var(--gold-400)]",
