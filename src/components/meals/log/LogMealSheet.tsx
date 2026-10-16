@@ -1,0 +1,213 @@
+"use client";
+
+import { useMemo, useRef, useState } from "react";
+import { MealChips, SubLabel } from "@/components/nutrition/bits";
+import { useFocusIntoSheet } from "@/components/nutrition/hooks";
+import { EstimateBadge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/controls";
+import { Field, Input, NumberInput } from "@/components/ui/field";
+import { Collapse } from "@/components/ui/misc";
+import { Sheet } from "@/components/ui/sheet";
+import { cn } from "@/lib/cn";
+import { newId, useToday } from "@/lib/data/core";
+import { slotToMeal, useLogPlannedMeal, type LogPlannedMealResult } from "@/lib/data/meals";
+import { addDays, dayName, shortDate, type ISODate } from "@/lib/dates";
+import { recipeFeatures, recipeMacros } from "@/lib/meals/recipe";
+import type { Recipe, Slot } from "@/lib/meals/types";
+import { mealForTime, MEALS, type Meal } from "@/lib/nutrition";
+import { clampDay } from "@/lib/nutrition-ui/format";
+import { ServingsStepper } from "../recipe/ServingsStepper";
+import { draftMacros, editField, macroMismatch, newDraft, resetDraft, withServings, type LogDraft, type MacroField } from "./draft";
+
+export interface LogMealTarget {
+  recipe: Recipe;
+  servings: number;
+  /** The planned meal this is eaten from (links the entry; presets the meal category). */
+  plannedMeal?: { id: string; slot: Slot; local_date: ISODate } | null;
+}
+
+/**
+ * "Add to today's food log": the ONE place the planner writes to the food diary, and only on
+ * this confirm. Servings, date, meal and the estimated kcal / P / C / F are editable. The entry
+ * id is fixed when the sheet opens, so a double tap (or a retry after an error) logs once.
+ */
+export function LogMealSheet({
+  open,
+  onOpenChange,
+  target,
+  onLogged,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  target: LogMealTarget | null;
+  onLogged?: (res: LogPlannedMealResult, servings: number) => void;
+}) {
+  // a fresh form (and a fresh entry id) every time the sheet opens
+  const [nonce, setNonce] = useState(0);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setNonce((n) => n + 1);
+  }
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} title="Add to food log" description={target ? target.recipe.name : undefined}>
+      {target && <LogForm key={nonce} target={target} onDone={(res, s) => (onLogged?.(res, s), onOpenChange(false))} />}
+    </Sheet>
+  );
+}
+
+const FIELDS: { k: MacroField; label: string; suffix: string; dot?: string }[] = [
+  { k: "kcal", label: "Calories", suffix: "kcal" },
+  { k: "protein", label: "Protein", suffix: "g", dot: "bg-marble" },
+  { k: "carbs", label: "Carbs", suffix: "g", dot: "bg-terracotta" },
+  { k: "fat", label: "Fat", suffix: "g", dot: "bg-porphyry" },
+];
+
+function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogPlannedMealResult, servings: number) => void }) {
+  const today = useToday();
+  const ref = useRef<HTMLDivElement>(null);
+  useFocusIntoSheet(ref);
+  const { recipe, plannedMeal } = target;
+  const per = useMemo(() => recipeMacros(recipe, 1), [recipe]);
+  const [id] = useState(() => newId());
+  const [draft, setDraft] = useState<LogDraft>(() => newDraft(per, target.servings));
+  const [meal, setMeal] = useState<Meal>(() => (plannedMeal ? slotToMeal(plannedMeal.slot) : mealForTime()));
+  const plannedDay = plannedMeal && plannedMeal.local_date < today ? plannedMeal.local_date : null;
+  const [date, setDate] = useState<ISODate>(today);
+  const [showOther, setShowOther] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<MacroField, string>>>({});
+  const log = useLogPlannedMeal();
+
+  const label = MEALS.find((m) => m.key === meal)?.label ?? "Snacks";
+  const parsed = draftMacros(draft);
+  const mismatch = draft.edited && parsed.ok ? macroMismatch(parsed.macros) : null;
+  const yesterday = addDays(today, -1);
+  const quick: { date: ISODate; text: string }[] = [
+    { date: today, text: "Today" },
+    { date: yesterday, text: "Yesterday" },
+    ...(plannedDay && plannedDay !== yesterday ? [{ date: plannedDay, text: `${dayName(plannedDay, true)} · planned` }] : []),
+  ];
+  const isQuick = quick.some((q) => q.date === date);
+
+  const submit = () => {
+    const r = draftMacros(draft);
+    if (!r.ok) {
+      setErrors(r.errors);
+      return;
+    }
+    setErrors({});
+    log.mutate(
+      {
+        id,
+        plannedMealId: plannedMeal?.id ?? null,
+        recipe: { key: recipe.key, name: recipe.name, ingredients: recipe.ingredients },
+        servings: draft.servings,
+        date,
+        meal,
+        macros: r.macros,
+        features: recipeFeatures(recipe),
+      },
+      { onSuccess: (res) => onDone(res, draft.servings) },
+    );
+  };
+
+  return (
+    <div ref={ref} className="space-y-6 pt-1">
+      <div className="flex items-center justify-between gap-4 rounded-[16px] bg-s3/60 px-4 py-3">
+        <div className="min-w-0">
+          <p className="eyebrow">Servings</p>
+          <p className="mt-1 text-[13px] font-medium text-fg-2">How much you ate</p>
+        </div>
+        <ServingsStepper value={draft.servings} onChange={(s) => setDraft((d) => withServings(d, s, per))} />
+      </div>
+
+      <div>
+        <SubLabel>Meal</SubLabel>
+        <MealChips value={meal} onChange={setMeal} />
+      </div>
+
+      <div>
+        <SubLabel>Date</SubLabel>
+        <div className="flex flex-wrap gap-2">
+          {quick.map((q) => (
+            <Chip
+              key={q.date}
+              selected={date === q.date && !showOther}
+              onClick={() => {
+                setDate(q.date);
+                setShowOther(false);
+              }}
+              className="h-11"
+            >
+              {q.text}
+            </Chip>
+          ))}
+          <Chip selected={showOther || !isQuick} onClick={() => setShowOther(true)} className="h-11" ariaLabel="Another day">
+            {!isQuick ? shortDate(date) : "Earlier…"}
+          </Chip>
+        </div>
+        <Collapse open={showOther}>
+          <Field label="Day eaten" className="pt-3">
+            {(fid) => (
+              <Input id={fid} type="date" value={date} max={today} onChange={(e) => setDate(clampDay(e.target.value, today))} className="[color-scheme:dark]" />
+            )}
+          </Field>
+        </Collapse>
+      </div>
+
+      <div>
+        <SubLabel
+          action={
+            draft.edited ? (
+              <button type="button" onClick={() => (setDraft((d) => resetDraft(d, per)), setErrors({}))} className="press -my-3 -mr-2 inline-flex h-11 items-center rounded-[10px] px-2 text-[13px] font-bold text-gold-300">
+                Use the estimate
+              </button>
+            ) : (
+              <EstimateBadge />
+            )
+          }
+        >
+          Nutrition
+        </SubLabel>
+        <div className="grid grid-cols-2 gap-3">
+          {FIELDS.map((f) => (
+            <Field
+              key={f.k}
+              error={errors[f.k] ?? null}
+              label={
+                <span className="inline-flex items-center gap-1.5">
+                  {f.dot ? <span className={cn("size-1.5 rounded-full", f.dot)} aria-hidden /> : <span className="size-1.5 rounded-full bg-gold-400" aria-hidden />}
+                  {f.label}
+                </span>
+              }
+            >
+              {(fid) => (
+                <NumberInput
+                  id={fid}
+                  value={draft.fields[f.k]}
+                  onChange={(e) => setDraft((d) => editField(d, f.k, e.target.value))}
+                  suffix={f.suffix}
+                  decimal={f.k !== "kcal"}
+                  enterKeyHint="done"
+                />
+              )}
+            </Field>
+          ))}
+        </div>
+        <p className={cn("mt-2.5 text-[12.5px] font-medium leading-snug", mismatch ? "text-fg-2" : "text-fg-3")}>
+          {mismatch ?? (draft.edited ? "Your numbers will be logged as an estimate." : "Estimated from the ingredients (USDA values). Adjust if your portion was different.")}
+        </p>
+      </div>
+
+      <div className="sticky -bottom-4 z-10 -mx-5 -mb-4 border-t border-line-hair bg-s2 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5">
+        <Button variant="primary" size="lg" block onClick={submit} loading={log.isPending} disabled={log.isPending}>
+          Add to {label}
+        </Button>
+        <p className="mt-2 text-center text-[12px] font-medium text-fg-3">
+          {date === today ? "Today" : shortDate(date)} · {parsed.ok ? `${parsed.macros.kcal.toLocaleString("en-US")} kcal · ${Math.round(parsed.macros.protein)} g protein` : "Check the numbers"}
+        </p>
+      </div>
+    </div>
+  );
+}
