@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 export type RingSize = "xl" | "lg" | "md" | "sm" | "xs";
@@ -53,12 +53,14 @@ export function Ring({ value, size = "md", diameter, tone = "gold", label, delay
 
   // Animate from empty on first paint, then old → new on change (CSS transitions).
   const [shown, setShown] = useState(0);
+  const filled = useRef(false);
   const [shownOver, setShownOver] = useState(0);
   useEffect(() => {
     const t = window.setTimeout(() => {
       setShown(main);
       setShownOver(over);
-    }, delay + 30);
+    }, (filled.current ? 0 : delay) + 30);
+    filled.current = true;
     return () => window.clearTimeout(t);
   }, [main, over, delay]);
 

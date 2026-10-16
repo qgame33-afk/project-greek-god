@@ -141,12 +141,14 @@ function RestCaption({ rest, className }: { rest: RestState; className?: string 
   const now = useClockSec();
   const rem = remainingSec(rest, now);
   const ago = endedAgoSec(rest, now);
-  const next = rest.next ? `${rest.next.exercise === rest.exercise ? "" : `${rest.next.exercise} · `}${rest.next.set}${rest.next.load ? ` · ${rest.next.load}` : ""}` : "Last set done";
+  const switching = !!rest.next && rest.next.exercise !== rest.exercise;
+  const next = rest.next ? `${switching ? `${rest.next.exercise} · ` : ""}${rest.next.set}${rest.next.load ? ` · ${rest.next.load}` : ""}` : "Last set done";
   let text: ReactNode;
   if (rem === 0 && rest.doneShown && ago > 3) text = `Rest ended ${formatClock(ago)} ago · ${next}`;
   else if (rem === 0) text = `Up next · ${next}`;
   else if (rest.pausedRemaining != null) text = `Paused · then ${next}`;
-  else text = `Rest · then ${next}`;
+  // A new exercise needs the room for its name; "Rest" is obvious from the clock.
+  else text = switching ? `Next · ${next}` : `Rest · then ${next}`;
   return <span className={className}>{text}</span>;
 }
 

@@ -94,7 +94,9 @@ export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, h
       reason:
         unit === "sec"
           ? `First time: pick a load you can carry for ${t.repHigh} s with good posture.`
-          : `First time: choose a weight you can lift for ${t.repHigh} reps with ${t.rir === "Fresh" ? "full control" : `${t.rir} reps in reserve`}. This sets your baseline.`,
+          : lib?.tracking === "bodyweight_reps"
+            ? `First time: bodyweight only, clean reps up to ${t.repHigh}. Stop a rep or two short of failure.`
+            : `First time: choose a weight you can lift for ${t.repHigh} reps with ${t.rir === "Fresh" ? "full control" : `${t.rir} reps in reserve`}. This sets your baseline.`,
       last,
     };
   }

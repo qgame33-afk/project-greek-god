@@ -20,6 +20,8 @@ export interface DayFacts {
   date: ISODate;
   isTrainingDay: boolean;
   plannedName: string | null;
+  /** today's finished (or active) session name when it differs from the plan */
+  sessionName?: string | null;
   workoutDone: boolean;
   calories: number;
   protein: number;
@@ -66,7 +68,7 @@ export function evaluate(defs: HabitDefLite[], f: DayFacts, g: Goals): HabitStat
           return f.isTrainingDay
             ? {
                 key: d.key,
-                label: f.plannedName ? `Train · ${f.plannedName}` : "Complete today's training",
+                label: f.sessionName ?? f.plannedName ? `Train · ${f.sessionName ?? f.plannedName}` : "Complete today's training",
                 kind: "auto",
                 auto: true,
                 done: f.workoutDone,

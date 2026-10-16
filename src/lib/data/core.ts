@@ -20,10 +20,18 @@ export function useUser() {
   const q = useQuery({
     queryKey: ["auth-user"],
     queryFn: async () => {
-      const { data } = await sb().auth.getUser();
+      const { data, error } = await sb().auth.getUser();
+      if (error) {
+        // Offline: fall back to the locally stored session instead of "signed out".
+        const local = (await sb().auth.getSession()).data.session?.user ?? null;
+        if (local) return local;
+        if (/fetch|network/i.test(error.message)) throw error; // let React Query retry
+        return null;
+      }
       return data.user;
     },
     staleTime: Infinity,
+    retry: 3,
   });
   return { user: q.data ?? null, userId: q.data?.id ?? null, loading: q.isLoading };
 }

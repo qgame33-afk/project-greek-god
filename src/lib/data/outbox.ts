@@ -87,8 +87,9 @@ export async function flush(): Promise<void> {
       }
       const transient = /fetch|network|timeout|Failed|503|502|504|JWT/i.test(error.message);
       e.tries += 1;
-      if (!transient || e.tries > 20) {
-        // a permanent rejection (bad value / row gone): drop it but surface the reason
+      if (!transient) {
+        // a permanent rejection (bad value / row gone): drop it but surface the reason.
+        // Network failures are NEVER dropped — they wait for the connection to return.
         queue.shift();
         lastError = error.message;
         persist();
@@ -127,9 +128,13 @@ export function useOutbox() {
 export async function drained(timeoutMs = 8000) {
   const start = Date.now();
   await flush();
+  let lastFlush = Date.now();
   while (queue.length && Date.now() - start < timeoutMs) {
-    await new Promise((r) => setTimeout(r, 300));
-    await flush();
+    await new Promise((r) => setTimeout(r, 1000));
+    if (Date.now() - lastFlush >= 3000) {
+      lastFlush = Date.now();
+      await flush();
+    }
   }
   return queue.length === 0;
 }

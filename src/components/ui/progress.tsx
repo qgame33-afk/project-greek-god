@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 
 const TONE: Record<string, string> = {
@@ -31,6 +31,7 @@ export function Bar({
 }) {
   const v = Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
   const [shown, setShown] = useState(0);
+  const filled = useRef(false);
   useEffect(() => {
     const t = window.setTimeout(() => setShown(v), delay + 30);
     return () => window.clearTimeout(t);

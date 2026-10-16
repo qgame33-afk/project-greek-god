@@ -49,6 +49,8 @@ export function useMissionDays(from: ISODate, to: ISODate) {
     };
     const defList: (HabitDefLite & { created_at: string })[] = (defs.data ?? []).map((d) => ({ key: d.key, label: d.label, kind: d.kind as HabitDefLite["kind"], target: d.target == null ? null : Number(d.target), unit: d.unit, active: d.active, sort: d.sort, created_at: d.created_at }));
     const doneByDate = new Set((sessions.data ?? []).filter((s) => s.status === "done").map((s) => s.local_date));
+    const sessionNameBy = new Map<string, string>();
+    for (const s of sessions.data ?? []) if (!sessionNameBy.has(s.local_date) || s.status === "done") sessionNameBy.set(s.local_date, s.name);
     const foodBy = new Map((food.data ?? []).map((r) => [r.local_date!, r]));
     const waterBy = new Map((water.data ?? []).map((r) => [r.local_date!, r.total_ml ?? 0]));
     const weighed = new Set(weights.map((w) => w.local_date));
@@ -67,6 +69,7 @@ export function useMissionDays(from: ISODate, to: ISODate) {
         date,
         isTrainingDay: plan.key !== "rest",
         plannedName: plan.template?.name ?? null,
+        sessionName: sessionNameBy.get(date) ?? null,
         workoutDone: doneByDate.has(date),
         calories: Number(f?.calories ?? 0),
         protein: Number(f?.protein_g ?? 0),

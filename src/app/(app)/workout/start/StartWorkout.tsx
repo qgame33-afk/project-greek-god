@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ErrorNote } from "@/components/ui/misc";
@@ -16,6 +16,7 @@ import type { TemplateKey } from "@/lib/training/types";
 
 export function StartWorkout() {
   const params = useSearchParams();
+  const router = useRouter();
   const key = params.get("t") as TemplateKey | null;
   const today = useToday();
   const { profile, loading: profileLoading } = useProfile();
@@ -28,20 +29,29 @@ export function StartWorkout() {
 
   const ready = !profileLoading && !templatesLoading && !plans.isLoading && !active.isLoading;
   const template = key ? byKey[key] : undefined;
+  // Nobody trains before onboarding: without a finished profile there is no plan to start,
+  // and an orphan "active" session would follow the user into the app afterwards.
+  const onboarded = !!profile?.onboarded;
 
   useEffect(() => {
     if (!ready || fired.current) return;
     fired.current = true;
-    const run = template && !active.data ? start({ template, date: today, mode: (profile?.training_mode ?? "standard") as Mode }) : startToday();
+    if (!profile) return; // couldn't read the profile (offline?) — never guess a plan
+    if (!onboarded) {
+      router.replace("/onboarding");
+      return;
+    }
+    const run = template && !active.data ? start({ template, date: today, mode: (profile.training_mode ?? "standard") as Mode }) : startToday();
     void run.then((ok) => !ok && setFailed(true));
-  }, [ready, template, active.data, start, startToday, today, profile?.training_mode]);
+  }, [ready, profile, onboarded, router, template, active.data, start, startToday, today]);
 
-  if (failed)
+  if (failed || (ready && !profile))
     return (
       <div className="mx-auto grid min-h-dvh max-w-[440px] place-items-center px-4">
         <div className="w-full space-y-4">
           <ErrorNote
             onRetry={() => {
+              if (!profile) return window.location.reload();
               fired.current = false;
               setFailed(false);
             }}

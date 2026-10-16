@@ -180,7 +180,7 @@ export function CollapsedExercise({
         <span className="grid size-7 shrink-0 place-items-center rounded-full border border-line text-fg-3">
           <SkipForward className="size-3.5" aria-hidden />
         </span>
-        <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+        <button type="button" onClick={onResume} aria-label={`${group.name}, skipped. Resume`} className="min-w-0 flex-1 text-left">
           <span className="block truncate text-[15px] font-semibold text-fg-3 line-through decoration-fg-3/50">{group.name}</span>
           <span className="block text-[12.5px] font-medium text-fg-3">Skipped{group.done ? ` · ${group.done} logged` : ""}</span>
         </button>

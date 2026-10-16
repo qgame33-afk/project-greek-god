@@ -233,7 +233,7 @@ const SetRowView = memo(function SetRowView(p: RowProps) {
           <Check className="size-[22px]" strokeWidth={logged ? 3 : 2.25} />
         </button>
       </div>
-      {error && (
+      {error && !p.padField && (
         <p className="px-1 pt-1 text-[12.5px] font-semibold text-danger" role="alert">
           {error}
         </p>

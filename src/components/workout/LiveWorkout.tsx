@@ -770,6 +770,16 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const [saving, setSaving] = useState(false);
   const [discarding, setDiscarding] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
+  // A "no connection" note goes stale the moment the connection is back.
+  const [seenOnline, setSeenOnline] = useState(isOnline);
+  if (seenOnline !== isOnline) {
+    setSeenOnline(isOnline);
+    if (isOnline && finishError) setFinishError(null);
+  }
+  const openFinish = () => {
+    setFinishError(null);
+    setFinishOpen(true);
+  };
   const busy = useRef(false);
 
   const finish = async () => {
@@ -1080,14 +1090,14 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
         onFinish={() => {
           if (pad && !commitPad(pad)) return;
           setPad(null);
-          if (live) setFinishOpen(true);
+          if (live) openFinish();
           else void finish();
         }}
         sync={{ pending: outbox.pending, offline: !isOnline || (outbox.pending > 0 && isNetworkError(outbox.error)), error: outbox.error }}
       />
 
       <div className="mx-auto w-full max-w-[1120px] px-3 pt-3 sm:px-4 lg:grid lg:grid-cols-[minmax(0,720px)_320px] lg:justify-center lg:gap-8 lg:px-6 lg:pt-6" style={{ paddingBottom: `calc(${bottomPad}px + var(--safe-bottom))` }}>
-        <main className="min-w-0 space-y-3" aria-label="Exercises">
+        <main className="mx-auto w-full min-w-0 max-w-[720px] space-y-3 lg:mx-0" aria-label="Exercises">
           {stale && (
             <div className="card-inset flex flex-col gap-3 border border-line-strong p-4" role="status">
               <div className="flex gap-3">
@@ -1100,7 +1110,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline-gold" onClick={() => setFinishOpen(true)}>
+                <Button variant="outline-gold" onClick={openFinish}>
                   Finish
                 </Button>
                 <Button variant="ghost" onClick={() => setDiscardOpen(true)}>
