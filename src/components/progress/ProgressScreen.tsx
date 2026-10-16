@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { Activity, Camera, Plus, Ruler, Scale } from "lucide-react";
 import { WeightLogSheet } from "@/components/shared/WeightLogSheet";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,14 @@ export function ProgressScreen() {
   const { profile } = useProfile();
   const urlTab = params.get("tab");
   const tab: ProgressTab = isTab(urlTab) ? urlTab : "weight";
+  // the new panel slides in from the side of the chip that was picked
+  const [shownTab, setShownTab] = useState(tab);
+  const [tabDir, setTabDir] = useState(0);
+  if (tab !== shownTab) {
+    const order = (t: ProgressTab) => TABS.findIndex((x) => x.key === t);
+    setTabDir(order(tab) > order(shownTab) ? 1 : -1);
+    setShownTab(tab);
+  }
 
   const [chooser, setChooser] = useState(false);
   const [weight, setWeight] = useState<{ open: boolean; date?: ISODate }>({ open: false });
@@ -149,7 +157,14 @@ export function ProgressScreen() {
         </div>
       </div>
 
-      <div id="progress-panel" role="tabpanel" aria-labelledby={`progress-tab-${tab}`} key={tab} className="animate-[rise_260ms_var(--ease-out)_both] motion-reduce:animate-none">
+      <div
+        id="progress-panel"
+        role="tabpanel"
+        aria-labelledby={`progress-tab-${tab}`}
+        key={tab}
+        className="animate-[swap-in-x_var(--dur-base)_var(--ease-out)_both] motion-reduce:animate-none"
+        style={{ "--swap-dx": `${tabDir * 14}px`, "--swap-dy": tabDir ? "0px" : "6px" } as CSSProperties}
+      >
         {tab === "weight" && <WeightTab />}
         {tab === "body" && <BodyTab />}
         {tab === "photos" && <PhotosTab />}

@@ -5,7 +5,9 @@
 const CSS = `
 @keyframes wk-sheen{from{transform:translateX(-120%)}to{transform:translateX(220%)}}
 @keyframes wk-pop{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
-@keyframes wk-check{from{transform:scale(.9)}to{transform:scale(1)}}
+@keyframes wk-check{from{transform:scale(.82)}to{transform:scale(1)}}
+@keyframes wk-draw{to{stroke-dashoffset:0}}
+@keyframes wk-burst{from{opacity:.7;transform:scale(1)}to{opacity:0;transform:scale(1.5)}}
 @keyframes wk-ring{from{stroke-dashoffset:0}to{stroke-dashoffset:var(--wk-c)}}
 @keyframes wk-meter{from{transform:translateX(0)}to{transform:translateX(-100%)}}
 @keyframes wk-blink{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
@@ -17,7 +19,9 @@ const CSS = `
 .wk-ring-arc[data-paused],.wk-meter[data-paused]{animation-play-state:paused}
 .wk-sheen{animation:wk-sheen 700ms var(--ease-out) 1 both}
 .wk-pop{animation:wk-pop 240ms var(--ease-pop) 1 both}
-.wk-check{animation:wk-check 240ms var(--ease-pop) 1 both}
+.wk-check{animation:wk-check 320ms var(--ease-bounce) 1 both}
+.wk-check svg path{stroke-dasharray:24;stroke-dashoffset:24;animation:wk-draw 200ms var(--ease-out) 60ms 1 both}
+.wk-check::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:0 0 0 2px var(--wk-burst,var(--success));animation:wk-burst 460ms var(--ease-out) 1 both}
 .wk-blink{animation:wk-blink 1200ms var(--ease-out) 1 both}
 .wk-flash{animation:wk-blink 360ms var(--ease-out) 1 both}
 .wk-glow{animation:wk-blink 500ms var(--ease-out) 1 both}

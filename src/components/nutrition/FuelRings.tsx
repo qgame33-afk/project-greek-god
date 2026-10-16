@@ -124,7 +124,7 @@ function WaterMeter({ ml, goal }: { ml: number | null; goal: number }) {
   const leftMl = goal - (ml ?? 0);
   const met = known && goal > 0 && leftMl <= 0;
   return (
-    <a href="#water" className="group block rounded-[10px] outline-offset-4">
+    <a href="#water" className="group relative block rounded-[10px] outline-offset-4 before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']">
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <span className={cn("flex items-center gap-2 text-[13px] font-semibold", met ? "text-gold-300" : "text-fg-2")}>
           <span className="size-2 rounded-full bg-lapis" aria-hidden />

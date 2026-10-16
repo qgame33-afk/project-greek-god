@@ -76,7 +76,7 @@ export const Composer = forwardRef<
         disabled={!canSend}
         aria-label={busy ? "Sending" : "Send"}
         className={cn(
-          "press grid size-10 shrink-0 place-items-center rounded-full transition-[background-color,color,opacity] duration-150",
+          "press relative grid size-10 shrink-0 place-items-center rounded-full transition-[background-color,color,opacity] duration-150 before:absolute before:-inset-0.5 before:content-['']",
           canSend ? "bg-[image:var(--grad-leaf)] text-ink shadow-[inset_0_1px_0_rgb(255_255_255/.45),var(--glow-cta)]" : "bg-s4 text-fg-dis",
         )}
       >

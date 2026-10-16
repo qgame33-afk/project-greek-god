@@ -6,6 +6,7 @@ import { PageHeader, Skeleton } from "@/components/ui/misc";
 import { useToday } from "@/lib/data/core";
 import { useProfile } from "@/lib/data/profile";
 import { useRecoveryDay } from "@/lib/data/recovery";
+import { useSwapIn } from "@/lib/motion";
 import { useReadiness } from "@/lib/recovery/hooks";
 import {
   addDays,
@@ -103,6 +104,8 @@ export function RecoveryScreen() {
   // loaded (so nothing shifts it afterwards), then drop the flag.
   const readiness = useReadiness(date);
   const day = useRecoveryDay(date);
+  // another day slides in from the side it lives on (earlier = left)
+  const dayRef = useSwapIn<HTMLDivElement, ISODate>(date);
   const settled = !loading && !readiness.loading && !day.loading;
   const handled = useRef(false);
   useEffect(() => {
@@ -145,7 +148,10 @@ export function RecoveryScreen() {
       </div>
 
       {/* Mobile: guidance → check-in → water → habits. Desktop: check-in left, the rest right. */}
-      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-12 lg:items-start lg:gap-4">
+      <div
+        ref={dayRef}
+        className="flex flex-col gap-3 lg:grid lg:grid-cols-12 lg:items-start lg:gap-4"
+      >
         <div className="contents lg:col-span-7 lg:block">
           <CheckInCard
             ref={checkin}

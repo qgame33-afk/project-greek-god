@@ -10,6 +10,7 @@ import { useToday, useUser } from "@/lib/data/core";
 import { useFoodEntries, useWater, type FoodEntry } from "@/lib/data/nutrition";
 import { useProfile } from "@/lib/data/profile";
 import { addDays, type ISODate } from "@/lib/dates";
+import { useSwapIn } from "@/lib/motion";
 import { clampDay } from "@/lib/nutrition-ui/format";
 import { asMeal, mealSections } from "@/lib/nutrition-ui/group";
 import { FuelProvider, useFuel, type Goals, type LogRequest } from "./context";
@@ -54,6 +55,8 @@ function Screen() {
   const { profile, loading: profileLoading } = useProfile();
   const food = useFoodEntries(date);
   const water = useWater(date);
+  // another day's meals slide in from the side that day lives on (earlier = left)
+  const mealsRef = useSwapIn<HTMLDivElement, ISODate>(date);
 
   const goals: Goals | null = useMemo(
     () =>
@@ -182,7 +185,7 @@ function Screen() {
             <div className="order-3 lg:order-none">
               <RecentRail />
             </div>
-            <div className="order-4 flex flex-col gap-3 lg:order-none">
+            <div ref={mealsRef} className="order-4 flex flex-col gap-3 lg:order-none">
               {loading
                 ? showSkeleton && [0, 1, 2, 3].map((i) => <MealCardSkeleton key={i} />)
                 : foodUnknown

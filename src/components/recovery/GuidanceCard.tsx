@@ -4,7 +4,7 @@ import { useState, type CSSProperties } from "react";
 import { ChevronDown, Moon, ShieldAlert } from "lucide-react";
 import { SuggestedBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ErrorNote, Skeleton } from "@/components/ui/misc";
+import { Collapse, ErrorNote, Skeleton } from "@/components/ui/misc";
 import { relativeDay, type ISODate } from "@/lib/dates";
 import {
   DISCLAIMER,
@@ -206,13 +206,14 @@ function GuidanceBody({
           <button
             type="button"
             aria-expanded={open}
+            aria-controls="guidance-how"
             onClick={() => setOpen((o) => !o)}
             className="-my-2 -mr-2 inline-flex h-11 shrink-0 items-center gap-1 px-2 text-[12px] font-bold text-fg-2 hover:text-fg"
           >
             How this works
             <ChevronDown
               className={cn(
-                "size-4 transition-transform duration-200",
+                "size-4 transition-[rotate] duration-(--dur-base) ease-out",
                 open && "rotate-180",
               )}
               aria-hidden
@@ -221,56 +222,58 @@ function GuidanceBody({
         )}
       </div>
 
-      {open && !compact && (
-        <div className="card-inset mt-2 p-3.5">
-          <table className="w-full text-[13px]">
-            <caption className="sr-only">
-              What the suggestion is based on
-            </caption>
-            <thead>
-              <tr className="text-left text-[10.5px] font-bold uppercase tracking-[0.1em] text-fg-3">
-                <th className="pb-2 font-bold">Signal</th>
-                <th className="pb-2 font-bold">Logged</th>
-                <th className="pb-2 text-right font-bold">Points</th>
-              </tr>
-            </thead>
-            <tbody>
-              {g.factors.map((f) => (
-                <tr key={f.key} className="border-t border-line-hair">
-                  <td className="py-2 pr-2 font-semibold text-fg-2">
-                    {f.label}
+      {!compact && g.factors.length > 0 && (
+        <Collapse open={open} id="guidance-how">
+          <div className="card-inset mt-2 p-3.5">
+            <table className="w-full text-[13px]">
+              <caption className="sr-only">
+                What the suggestion is based on
+              </caption>
+              <thead>
+                <tr className="text-left text-[10.5px] font-bold uppercase tracking-[0.1em] text-fg-3">
+                  <th className="pb-2 font-bold">Signal</th>
+                  <th className="pb-2 font-bold">Logged</th>
+                  <th className="pb-2 text-right font-bold">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.factors.map((f) => (
+                  <tr key={f.key} className="border-t border-line-hair">
+                    <td className="py-2 pr-2 font-semibold text-fg-2">
+                      {f.label}
+                    </td>
+                    <td className="max-w-[9rem] truncate py-2 pr-2 text-fg-2">
+                      {f.value}
+                    </td>
+                    <td
+                      className={cn(
+                        "num py-2 text-right text-[15px]",
+                        f.points ? "text-lapis-text" : "text-fg-3",
+                      )}
+                    >
+                      {f.points ? `+${f.points}` : "0"}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="border-t border-line">
+                  <td className="pt-2 font-bold text-fg" colSpan={2}>
+                    Total
                   </td>
-                  <td className="max-w-[9rem] truncate py-2 pr-2 text-fg-2">
-                    {f.value}
-                  </td>
-                  <td
-                    className={cn(
-                      "num py-2 text-right text-[15px]",
-                      f.points ? "text-lapis-text" : "text-fg-3",
-                    )}
-                  >
-                    {f.points ? `+${f.points}` : "0"}
+                  <td className="num pt-2 text-right text-[15px] text-fg">
+                    {g.score}
                   </td>
                 </tr>
-              ))}
-              <tr className="border-t border-line">
-                <td className="pt-2 font-bold text-fg" colSpan={2}>
-                  Total
-                </td>
-                <td className="num pt-2 text-right text-[15px] text-fg">
-                  {g.score}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p className="mt-3 text-[12px] leading-relaxed text-fg-3">
-            0–{THRESHOLDS.trim - 1} train as planned · {THRESHOLDS.trim}–
-            {THRESHOLDS.ease - 1} drop a set · {THRESHOLDS.ease}–
-            {THRESHOLDS.recover - 1} go lighter · {THRESHOLDS.recover}+ recovery
-            day. Sleep counts at most 3. Leg days after volleyball skip jumps
-            when legs are sore or tired.
-          </p>
-        </div>
+              </tbody>
+            </table>
+            <p className="mt-3 text-[12px] leading-relaxed text-fg-3">
+              0–{THRESHOLDS.trim - 1} train as planned · {THRESHOLDS.trim}–
+              {THRESHOLDS.ease - 1} drop a set · {THRESHOLDS.ease}–
+              {THRESHOLDS.recover - 1} go lighter · {THRESHOLDS.recover}+
+              recovery day. Sleep counts at most 3. Leg days after volleyball
+              skip jumps when legs are sore or tired.
+            </p>
+          </div>
+        </Collapse>
       )}
     </>
   );

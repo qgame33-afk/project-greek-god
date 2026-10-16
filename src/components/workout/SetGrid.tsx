@@ -133,6 +133,14 @@ const FIELD_WORD: Record<CellField, string> = { weight: "weight", work: "reps", 
 const SetRowView = memo(function SetRowView(p: RowProps) {
   const { set, label, ghost, upNext, pr, sheen, pulse, flash, error, errorField } = p.row;
   const logged = set.completed;
+  // The check pops, draws and sends out one ring only when the set is logged while this row is
+  // on screen — sets that were already logged when the screen opened just sit there.
+  const [wasLogged, setWasLogged] = useState(logged);
+  const [justLogged, setJustLogged] = useState(false);
+  if (logged !== wasLogged) {
+    setWasLogged(logged);
+    setJustLogged(logged);
+  }
   const warm = set.kind === "warmup";
   const name = warm ? "Warm-up set" : `Set ${label}`;
   const fields: CellField[] = [...(hasWeight(p.tracking) ? (["weight"] as const) : []), "work", ...(hasRir(p.tracking) ? (["rir"] as const) : [])];
@@ -224,12 +232,13 @@ const SetRowView = memo(function SetRowView(p: RowProps) {
           aria-pressed={logged}
           aria-label={logged ? `${name} logged. Tap to unlog` : `Log ${name.toLowerCase()}`}
           className={cn(
-            "press grid size-[52px] place-items-center rounded-[12px] transition-colors duration-150",
+            "press relative grid size-[52px] place-items-center rounded-[12px] transition-colors duration-150",
             logged
               ? pr
-                ? "wk-check bg-[image:var(--grad-leaf)] text-ink"
-                : "wk-check bg-success text-ink"
+                ? "bg-[image:var(--grad-leaf)] text-ink [--wk-burst:var(--gold-300)]"
+                : "bg-success text-ink"
               : "border border-line-strong bg-s3 text-fg-3 hover:text-fg-2",
+            logged && justLogged && "wk-check",
           )}
         >
           <Check className="size-[22px]" strokeWidth={logged ? 3 : 2.25} />

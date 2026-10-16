@@ -6,6 +6,7 @@ import { Segmented } from "@/components/ui/controls";
 import { ErrorNote, PageHeader } from "@/components/ui/misc";
 import { addDays, dayName, longDate, parseISODate, toISODate, type ISODate } from "@/lib/dates";
 import type { Session } from "@/lib/data/training";
+import { useSwapIn } from "@/lib/motion";
 import { DaySheet } from "./DaySheet";
 import { ExercisesTab } from "./ExercisesTab";
 import { HistoryTab } from "./HistoryTab";
@@ -50,6 +51,8 @@ function Hub() {
   const tabParam = params.get("tab") as Tab | null;
   const tab: Tab = tabParam && TABS.includes(tabParam) ? tabParam : "program";
   const dayParam = params.get("day");
+  // switching sections slides the panel in from the side of the tab that was picked
+  const panelRef = useSwapIn<HTMLDivElement, number>(TABS.indexOf(tab));
 
   const [day, setDay] = useState<ISODate | null>(() => validDay(dayParam, week.today));
   const [dayOpen, setDayOpen] = useState(!!day);
@@ -122,7 +125,7 @@ function Hub() {
         />
       </div>
 
-      <div className="mt-5" role="tabpanel" aria-label={TAB_LABEL[tab]}>
+      <div ref={panelRef} className="mt-5" role="tabpanel" aria-label={TAB_LABEL[tab]}>
         {tab === "program" && <ProgramTab week={week} />}
         {tab === "history" && <HistoryTab week={week} onStartToday={() => openDay(week.today)} />}
         {tab === "exercises" && <ExercisesTab today={week.today} />}

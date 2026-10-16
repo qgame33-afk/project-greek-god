@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { EstimateBadge, SourceBadge } from "@/components/ui/badge";
-import { ErrorNote } from "@/components/ui/misc";
+import { Collapse, ErrorNote } from "@/components/ui/misc";
 import { cn } from "@/lib/cn";
 import { MEALS, mealForTime, type Meal } from "@/lib/nutrition";
 import { useToday } from "@/lib/data/core";
@@ -215,10 +215,11 @@ export function HandoffSheet({
               <button
                 type="button"
                 aria-expanded={showPrompt}
+                aria-controls="handoff-prompt"
                 onClick={() => setShowPrompt((v) => !v)}
                 className="flex h-11 flex-1 items-center gap-1.5 px-3.5 text-left text-[13px] font-semibold text-fg-2 hover:text-fg"
               >
-                <ChevronDown className={cn("size-4 transition-transform", showPrompt && "rotate-180")} />
+                <ChevronDown className={cn("size-4 transition-[rotate] duration-(--dur-base) ease-out", showPrompt && "rotate-180")} />
                 {showPrompt ? "Hide the request" : "Show the request"}
               </button>
               <button type="button" onClick={() => void copy()} className="inline-flex h-11 items-center gap-1.5 px-3.5 text-[13px] font-bold text-gold-300">
@@ -226,11 +227,11 @@ export function HandoffSheet({
                 Copy prompt
               </button>
             </div>
-            {showPrompt && (
+            <Collapse open={showPrompt} id="handoff-prompt">
               <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words border-t border-line-hair px-3.5 py-3 text-[12px] leading-relaxed text-fg-2">
                 {prompt}
               </pre>
-            )}
+            </Collapse>
           </div>
 
           <Field label="Paste the result" hint={`from ${ASSISTANT_LABEL[assistant]}`}>

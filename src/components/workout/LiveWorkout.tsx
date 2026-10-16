@@ -8,6 +8,7 @@ import { ChevronDown, Plus, TriangleAlert } from "lucide-react";
 import { LaurelBullet } from "@/components/art/Motifs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/field";
+import { Collapse } from "@/components/ui/misc";
 import { useMediaQuery } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { friendlyError, must, sb, useToday, useUser } from "@/lib/data/core";
@@ -1147,17 +1148,23 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
 
           {warmupShown && (
             <section ref={warmRef} className="card-instrument overflow-hidden" aria-label="Warm-up">
-              <button type="button" onClick={() => setWarmOpen(!warmExpanded)} aria-expanded={warmExpanded} className="flex min-h-[56px] w-full items-center gap-3 px-4 text-left">
+              <button
+                type="button"
+                onClick={() => setWarmOpen(!warmExpanded)}
+                aria-expanded={warmExpanded}
+                aria-controls="wk-warmup"
+                className="flex min-h-[56px] w-full items-center gap-3 px-4 text-left"
+              >
                 <span className="min-w-0 flex-1">
                   <span className="eyebrow block">Warm-up</span>
                   <span className="mt-0.5 block text-[14px] font-semibold text-fg">
                     {template!.warmup.length} steps · about 10 min{anyLogged ? " · done" : ""}
                   </span>
                 </span>
-                <ChevronDown className={cn("size-5 text-fg-3 transition-transform duration-200", warmExpanded && "rotate-180")} aria-hidden />
+                <ChevronDown className={cn("size-5 text-fg-3 transition-[rotate] duration-(--dur-base) ease-out", warmExpanded && "rotate-180")} aria-hidden />
               </button>
-              {warmExpanded && (
-                <ol className="wk-fade space-y-2.5 border-t border-line-hair px-4 pb-4 pt-3.5">
+              <Collapse open={warmExpanded} id="wk-warmup">
+                <ol className="space-y-2.5 border-t border-line-hair px-4 pb-4 pt-3.5">
                   {template!.warmup.map((w, i) => (
                     <li key={i} className="flex gap-3 text-[13.5px] leading-[1.45]">
                       <span className="num w-4 shrink-0 pt-px text-[14px] font-semibold text-gold-600">{i + 1}</span>
@@ -1168,7 +1175,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
                   ))}
                   <li className="pl-7 pt-0.5 text-[12.5px] leading-relaxed text-fg-3">Sharp or joint pain is a stop sign. Swap or skip the exercise — never train through it.</li>
                 </ol>
-              )}
+              </Collapse>
             </section>
           )}
 

@@ -333,7 +333,7 @@ function ChartCard({
         </Empty>
       ) : (
         <>
-          <ChartFrame>
+          <ChartFrame swapKey={range}>
             {domainY && (hasPoints || showPlan) ? (
               <WeightChart rows={rows} domainX={[dateToT(from), dateToT(today)]} domainY={domainY} ticksX={ticks} showPlan={showPlan} unit={unit} onScrub={handleScrub} tooltip={desktop} />
             ) : (

@@ -17,6 +17,7 @@ import { useExerciseBests, useExerciseDaily, useExerciseSets } from "@/lib/data/
 import { getExercise } from "@/lib/training/library";
 import { MUSCLE_LABEL, sessionsFromSets, strengthSeries } from "@/lib/training/volume";
 import { formatInt, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
+import { RISE_IN_PLACE, useSwapIn } from "@/lib/motion";
 import { fmtLoadValue, fmtVolume, plural } from "./format";
 import { useCustomExercises, useExercisePRs, useUnits } from "./hooks";
 import { equipmentLabel } from "./LibraryPicker";
@@ -371,6 +372,7 @@ function ChartCard({
   const first = data.find((d) => d.value != null);
   const change = latest && first && latest !== first && latest.value != null && first.value != null ? latest.value - first.value : null;
   const desktop = useMediaQuery("(min-width: 1024px)");
+  const chartRef = useSwapIn<HTMLDivElement, Range>(range, { direction: RISE_IN_PLACE });
   const chartLabel =
     first && latest && first !== latest
       ? `${label} chart: ${fmtValue(first.value)} ${metricUnit} on ${shortDate(first.date, today)} to ${fmtValue(latest.value)} ${metricUnit} on ${shortDate(latest.date, today)}, over ${plural(data.length, "session")}.`
@@ -412,7 +414,7 @@ function ChartCard({
         </p>
       )}
 
-      <div className="mt-4">
+      <div ref={chartRef} className="mt-4">
         {loading ? (
           <Skeleton className="h-[220px] w-full lg:h-[300px]" />
         ) : error ? (

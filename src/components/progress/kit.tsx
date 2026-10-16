@@ -4,6 +4,7 @@ import { DropdownMenu } from "radix-ui";
 import { Ellipsis, Pencil, Trash } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { RISE_IN_PLACE, useSwapIn } from "@/lib/motion";
 import type { Tone } from "@/lib/progress/plan";
 
 /* ------------------------------------------------------------- stat tile */
@@ -121,8 +122,14 @@ export function SrTable({ caption, head, rows }: { caption: string; head: string
 /* --------------------------------------------------------- chart frame */
 
 /** Fixed-height frame so lazy charts never shift layout (220px mobile, 300px desktop). */
-export function ChartFrame({ children, className, tall = true }: { children: ReactNode; className?: string; tall?: boolean }) {
-  return <div className={cn("relative w-full touch-pan-y select-none", tall ? "h-[220px] lg:h-[300px]" : "h-[180px] lg:h-[220px]", className)}>{children}</div>;
+/** Fixed-height chart box. `swapKey` (e.g. the range) fades the new chart in when it changes. */
+export function ChartFrame({ children, className, tall = true, swapKey = "" }: { children: ReactNode; className?: string; tall?: boolean; swapKey?: string }) {
+  const ref = useSwapIn<HTMLDivElement, string>(swapKey, { direction: RISE_IN_PLACE });
+  return (
+    <div ref={ref} className={cn("relative w-full touch-pan-y select-none", tall ? "h-[220px] lg:h-[300px]" : "h-[180px] lg:h-[220px]", className)}>
+      {children}
+    </div>
+  );
 }
 
 export function ChartSkeleton() {

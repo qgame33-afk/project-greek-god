@@ -496,11 +496,11 @@ function ExerciseItem({
             {targetLabel(e)} · {e.rir === "Fresh" ? "Fresh" : `RIR ${e.rir}`} · {fmtRest(e.rest)} rest
           </span>
         </span>
-        <ChevronDown className={cn("size-4 shrink-0 text-fg-3 transition-transform", open && "rotate-180")} />
+        <ChevronDown className={cn("size-4 shrink-0 text-fg-3 transition-[rotate] duration-(--dur-base) ease-out", open && "rotate-180")} />
       </button>
       {error && !open && <p className="-mt-1 px-3.5 pb-2.5 pl-11 text-[13px] font-medium text-danger">{error}</p>}
       {open && (
-        <div id={id} className="space-y-4 border-t border-line-hair px-3.5 pb-3.5 pt-4">
+        <div id={id} className="swap-in space-y-4 border-t border-line-hair px-3.5 pb-3.5 pt-4">
           <Field label="Name on the card" hint={lib && lib.name !== e.name ? `Library: ${lib.name}` : undefined}>
             {(fid) => <Input id={fid} value={e.name} maxLength={60} onChange={(ev) => onChange({ name: ev.target.value })} className="bg-s2" autoComplete="off" />}
           </Field>
