@@ -2,7 +2,7 @@
 
 import { DropdownMenu } from "radix-ui";
 import { Ellipsis, Pencil, Trash } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { RISE_IN_PLACE, useSwapIn } from "@/lib/motion";
 import type { Tone } from "@/lib/progress/plan";
@@ -136,14 +136,10 @@ export function ChartSkeleton() {
   return <DelayedSkeleton className="absolute inset-0 rounded-[14px]" />;
 }
 
-/** Skeleton that only appears after 150ms (DESIGN §5.10), so quick loads never flash. */
+/** Skeleton that only appears after 150ms (DESIGN §5.10), so quick loads never flash. The
+ *  delay now lives in the shared `skeleton` utility, so this is a plain skeleton. */
 export function DelayedSkeleton({ className }: { className?: string }) {
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    const t = window.setTimeout(() => setShow(true), 150);
-    return () => window.clearTimeout(t);
-  }, []);
-  return <div className={cn("skeleton transition-opacity duration-150", show ? "opacity-100" : "opacity-0", className)} aria-hidden />;
+  return <div className={cn("skeleton", className)} aria-hidden />;
 }
 
 /* ------------------------------------------------------------- row menu */

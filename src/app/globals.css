@@ -213,8 +213,7 @@
     user-select: none;
   }
   a[href],
-  button,
-  img {
+  button {
     -webkit-touch-callout: none;
   }
   /* Press feedback for every pressable that doesn't opt into the `press` / `press-soft` scale:
