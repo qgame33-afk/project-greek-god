@@ -3,7 +3,7 @@
 // that drove a learned feature, the real minutes and ingredient count, the computed kcal.
 // Nothing here is decorative: no part, no reason.
 
-import { ingredientName } from "../ingredients";
+import { ingredientInline } from "../ingredients";
 import { ingredientCount, recipeCostCad } from "../recipe";
 import type { Difficulty, FeedbackEvent, Macros, Recipe, Slot, WhyReason } from "../types";
 import { featureKind, featureShort, likedRecipesWith, type LearnedModel, type NameOf } from "./prefs";
@@ -17,7 +17,6 @@ const MIN_WEIGHT = 0.05;
 export const MAX_REASONS = 4;
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
-const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 const list = (xs: string[]) => (xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 const times = (n: number) => (n === 1 ? "once" : n === 2 ? "twice" : `${n} times`);
 
@@ -88,7 +87,7 @@ export function explainPick(c: ScoredCandidate, ctx: ExplainContext, final?: { s
   const likedIng = get("liked_ingredient");
   if (likedIng && likedIng.value > 0) {
     const keys = (likedIng.data?.keys as string[]) ?? [];
-    add("liked_ingredient", `Has ingredients you like: ${list(keys.map((k) => lower(ingredientName(k))))}`, likedIng.value);
+    add("liked_ingredient", `Has ingredients you like: ${list(keys.map((k) => ingredientInline(k)))}`, likedIng.value);
   }
   const likedC = get("liked_cuisine");
   if (likedC && likedC.value > 0) {
@@ -98,7 +97,7 @@ export function explainPick(c: ScoredCandidate, ctx: ExplainContext, final?: { s
   const pantry = get("pantry");
   if (pantry && pantry.value > 0) {
     const keys = (pantry.data?.keys as string[]) ?? [];
-    add("pantry", `Uses what you have: ${list(keys.map((k) => lower(ingredientName(k))))}`, pantry.value);
+    add("pantry", `Uses what you have: ${list(keys.map((k) => ingredientInline(k)))}`, pantry.value);
   }
 
   // fit

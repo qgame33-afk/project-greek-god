@@ -420,14 +420,26 @@ function placeKey(m: Pick<EngineMeal, "id" | "local_date" | "slot" | "position">
   return m.id ?? `${m.local_date}|${m.slot}|${m.position}`;
 }
 
+export interface RegenerateOptions {
+  /** Why the current pick is being replaced, when the user said so up front. It is recorded with the "regenerated" event and already shapes this pick. */
+  reason?: FeedbackReason | null;
+  /** The ingredient for reason "dislike_ingredient". */
+  ingredient?: string | null;
+}
+
 /**
  * A different recipe for ONE meal: never the current one or any already shown in this
  * regenerate session. Everything else in the week stays exactly as it is. The servings aim at
  * what the day still needs, so the day stays balanced.
  */
-export function regenerateMeal(ctx: PlanContext, meal: EngineMeal, shown: readonly string[] = []): RegenerateResult {
+export function regenerateMeal(ctx: PlanContext, meal: EngineMeal, shown: readonly string[] = [], opts: RegenerateOptions = {}): RegenerateResult {
   checkGoals(ctx.goals);
-  const P = prepare(ctx);
+  const reason = opts.reason ?? null;
+  const oldRecipe = ctx.pool.find((r) => r.key === meal.recipe_key);
+  const feedback = feedbackFor(oldRecipe, meal.recipe_key, "regenerated", reason, opts.ingredient ?? null);
+  // a reason given now (e.g. "too complicated") already counts for this pick
+  const learnedCtx: PlanContext = reason && !ctx.learned ? { ...ctx, feedback: [...(ctx.feedback ?? []), { ...feedback, created_at: new Date(ctx.now ?? Date.now()).toISOString() }] } : ctx;
+  const P = prepare(learnedCtx);
   const key = placeKey(meal);
   const others = (ctx.meals ?? []).filter((m) => placeKey(m) !== key && !(m.id && m.id === meal.id));
   const placed: Placed[] = others.map((m) => ({ meal: m, recipe: P.byKey.get(m.recipe_key), fixed: true }));
@@ -441,7 +453,6 @@ export function regenerateMeal(ctx: PlanContext, meal: EngineMeal, shown: readon
   const res = choose(P, { date: meal.local_date, slot: meal.slot, position: meal.position, placed, target: { kcal, protein: base.protein }, attempt: shown.length + 1, exclude, tag: `regen:${key}` });
   if (!res) return { ok: false, reason: "no_alternative", message: "Nothing else fits this meal with your current settings." };
   const c = res.candidate;
-  const old = P.byKey.get(meal.recipe_key);
   const reasons = explainPick(c, { slot: meal.slot, learned: P.learned, nameOf: P.nameOf });
   const patch: MealPatch = {
     recipe_key: c.recipe.key,
@@ -456,7 +467,7 @@ export function regenerateMeal(ctx: PlanContext, meal: EngineMeal, shown: readon
     recipe: c.recipe,
     reasons,
     candidate: c,
-    feedback: feedbackFor(old, meal.recipe_key, "regenerated"),
+    feedback,
     shown: [...new Set([...shown, meal.recipe_key, c.recipe.key])],
   };
 }

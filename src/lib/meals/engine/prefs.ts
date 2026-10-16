@@ -11,7 +11,7 @@
 // puts the recipe on a 14-day cooldown.
 
 import { getLibraryRecipe } from "../library";
-import { ingredientName } from "../ingredients";
+import { ingredientInline, ingredientName } from "../ingredients";
 import type { FeedbackEvent, FeedbackReason, FeedbackRow } from "../types";
 
 /* ------------------------------------------------------------------ constants */
@@ -297,10 +297,8 @@ export function featureShort(f: string): string {
       return (STYLE[v] ?? words(v)).toLowerCase();
     case "dish":
       return words(v);
-    case "ingredient": {
-      const n = ingredientName(v);
-      return n.charAt(0).toLowerCase() + n.slice(1);
-    }
+    case "ingredient":
+      return ingredientInline(v);
     default:
       return featureLabel(f).toLowerCase();
   }
