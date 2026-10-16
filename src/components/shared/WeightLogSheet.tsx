@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/controls";
@@ -17,7 +17,7 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
   const today = useToday();
   const { profile } = useProfile();
   const unit = (profile?.weight_unit ?? "lb") as "lb" | "kg";
-  const { weights } = useWeights();
+  const { weights, loading: weightsLoading } = useWeights();
   const { save, remove } = useWeightMutations();
   const last = weights.at(-1);
   const [date, setDate] = useState(initialDate ?? today);
@@ -27,18 +27,24 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
 
   const existing = useMemo(() => weights.find((w) => w.local_date === date), [weights, date]);
 
-  useEffect(() => {
-    if (!open) return;
-    const d = initialDate ?? today;
-    setDate(d);
-    const ex = weights.find((w) => w.local_date === d);
-    const start = ex ? Number(ex.weight_lb) : last ? Number(last.weight_lb) : Number(profile?.start_weight_lb ?? 163);
-    const v = round(toDisplayWeight(start, unit), 1);
-    setValue(v);
-    setText(v.toFixed(1));
-    setNotes(ex?.notes ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  // Each time the sheet opens, start from that day's weigh-in (or the latest one) — once the
+  // weigh-ins and profile have loaded, so a deep link (?log=1) doesn't seed a placeholder.
+  const ready = !weightsLoading && !!profile;
+  const seedKey = open ? (ready ? "ready" : "loading") : "closed";
+  const [seeded, setSeeded] = useState("closed");
+  if (seedKey !== seeded) {
+    setSeeded(seedKey);
+    if (seedKey === "ready") {
+      const d = initialDate ?? today;
+      setDate(d);
+      const ex = weights.find((w) => w.local_date === d);
+      const start = ex ? Number(ex.weight_lb) : last ? Number(last.weight_lb) : Number(profile!.start_weight_lb);
+      const v = round(toDisplayWeight(start, unit), 1);
+      setValue(v);
+      setText(v.toFixed(1));
+      setNotes(ex?.notes ?? "");
+    }
+  }
 
   const step = unit === "kg" ? 0.1 : 0.2;
   const min = unit === "kg" ? 30 : 60;

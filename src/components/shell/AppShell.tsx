@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { m } from "motion/react";
-import { ViewTransition, useEffect, useRef, useState, type ReactNode } from "react";
+import { ViewTransition, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { HeartPulse, Plus } from "lucide-react";
 import { Mark } from "@/components/art/Mark";
 import { Meander } from "@/components/art/Motifs";
@@ -95,16 +95,34 @@ function TopBar({ pathname }: { pathname: string }) {
     return () => window.removeEventListener("scroll", on);
   }, []);
   const initial = (user?.email ?? "?").slice(0, 1).toUpperCase();
+  const home = pathname === "/";
+  const { title, show } = useScrolledPageTitle(!home);
   return (
     <header
       className={cn("chrome sticky top-0 z-20 border-b transition-colors md:hidden", scrolled ? "border-line-hair" : "border-transparent")}
       style={{ paddingTop: "var(--safe-top)" }}
     >
-      <div className="flex h-[52px] items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2" aria-label="Project Greek God — home">
-          <Mark size={24} />
-          <span className="font-serif text-[13px] font-semibold tracking-[0.14em] text-gold">PROJECT GREEK GOD</span>
-        </Link>
+      <div className="flex h-[52px] items-center justify-between gap-3 px-4">
+        {home ? (
+          <Link href="/" className="flex items-center gap-2" aria-label="Project Greek God — home">
+            <Mark size={24} />
+            <span className="font-serif text-[13px] font-semibold tracking-[0.14em] text-gold">PROJECT GREEK GOD</span>
+          </Link>
+        ) : (
+          // Other screens: the page's own title takes over once its big heading scrolls away.
+          <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="Project Greek God — home">
+            <Mark size={24} className="shrink-0" />
+            <span
+              aria-hidden
+              className={cn(
+                "truncate font-num text-[17px] font-bold uppercase leading-none tracking-[0.02em] text-fg transition-[opacity,transform] duration-200 ease-out",
+                show && title ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0",
+              )}
+            >
+              {title}
+            </span>
+          </Link>
+        )}
         <div className="flex items-center gap-1">
           {pathname === "/" && (
             <Link href="/recovery" aria-label="Recovery and habits" className="grid size-11 place-items-center rounded-[12px] text-fg-2 hover:text-fg">
@@ -122,6 +140,38 @@ function TopBar({ pathname }: { pathname: string }) {
       </div>
     </header>
   );
+}
+
+/** The page's <h1> text, and whether it has scrolled up under the top bar. */
+function useScrolledPageTitle(enabled: boolean) {
+  const [title, setTitle] = useState<string | null>(null);
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!enabled) return;
+    let io: IntersectionObserver | null = null;
+    let observed: Element | null = null;
+    const attach = () => {
+      const el = document.querySelector("main h1");
+      setTitle(el?.textContent?.trim() || null);
+      if (el === observed) return;
+      io?.disconnect();
+      observed = el;
+      if (!el) return setShow(false);
+      // hidden under the 52px bar (plus the safe area) counts as scrolled away
+      io = new IntersectionObserver(([e]) => setShow(!e.isIntersecting && e.boundingClientRect.top < 60), { rootMargin: "-60px 0px 0px 0px" });
+      io.observe(el);
+    };
+    attach();
+    const main = document.querySelector("main") ?? document.body;
+    const mo = new MutationObserver(attach);
+    mo.observe(main, { childList: true, subtree: true, characterData: true });
+    return () => {
+      mo.disconnect();
+      io?.disconnect();
+      setShow(false);
+    };
+  }, [enabled]);
+  return { title: enabled ? title : null, show: enabled && show };
 }
 
 /* --------------------------------------------------------- mobile tabs */
@@ -215,10 +265,10 @@ function Sidebar({ pathname, onQuickLog }: { pathname: string; onQuickLog: () =>
   );
 }
 
+const noSubscribe = () => () => {};
+/** False on the server and during hydration, true once running in the browser. */
 function useMounted() {
-  const [m, setM] = useState(false);
-  useEffect(() => setM(true), []);
-  return m;
+  return useSyncExternalStore(noSubscribe, () => true, () => false);
 }
 
 /** Static first paint: the chrome without any data, so there's no blank flash. */

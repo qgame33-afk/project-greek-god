@@ -124,7 +124,6 @@ export function useSessionOps(id: string) {
         if (!rows.length) return;
         patch((d) => ({ ...d, sets: [...d.sets.filter((s) => !rows.some((r) => r.id === s.id)), ...rows] }));
         for (const r of rows) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { created_at, updated_at, ...values } = r;
           enqueue({ kind: "insert", table: "exercise_sets", values });
         }

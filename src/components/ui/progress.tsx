@@ -33,7 +33,9 @@ export function Bar({
   const [shown, setShown] = useState(0);
   const filled = useRef(false);
   useEffect(() => {
-    const t = window.setTimeout(() => setShown(v), delay + 30);
+    // the stagger delay is for the first fill only; later changes (a new log) move at once
+    const t = window.setTimeout(() => setShown(v), (filled.current ? 0 : delay) + 30);
+    filled.current = true;
     return () => window.clearTimeout(t);
   }, [v, delay]);
   return (
