@@ -27,6 +27,7 @@ import {
 import { useProfile } from "@/lib/data/profile";
 import { addDays, type ISODate } from "@/lib/dates";
 import type { Goals } from "@/lib/meals/engine";
+import type { MealPrefs } from "@/lib/meals/types";
 import type { Json } from "@/lib/supabase/database.types";
 import { useRecipePool } from "../shared/useRecipePool";
 import { plannerContext } from "./model";
@@ -70,14 +71,17 @@ export function usePlannerData(offset: number) {
   const ready = !!profile && prefsQ.hasData && recipes.hasData && !!feedback && favs.hasData && !!history && plan.hasData && logged.hasData;
   const error = profileError ?? prefsQ.error ?? recipes.error ?? feedbackQ.error ?? favs.error ?? historyQ.error ?? plan.error ?? null;
 
-  /** The engine context right now (null until ready and goals are set). `meals` overrides the week's meals. */
+  /**
+   * The engine context right now (null until ready and goals are set). `meals` overrides the
+   * week's meals; `prefs` overrides the stored prefs (a dislike added a moment ago).
+   */
   const makeContext = useCallback(
-    (opts: { seed?: string; meals?: WeekPlan["meals"] } = {}) =>
+    (opts: { seed?: string; meals?: WeekPlan["meals"]; prefs?: MealPrefs } = {}) =>
       ready
         ? plannerContext({
             weekStart: ws,
             goals,
-            prefs: prefsQ.prefs,
+            prefs: opts.prefs ?? prefsQ.prefs,
             pool: recipes.pool,
             feedback: feedback ?? [],
             favourites: favs.favourites,

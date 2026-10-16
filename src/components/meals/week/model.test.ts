@@ -10,9 +10,12 @@ import {
   dayFit,
   ingredientChoices,
   missingMainSlots,
+  notedText,
   plannerContext,
   reasonWantsRepick,
   REGEN_REASONS,
+  thumbRows,
+  weekNotes,
   weekRangeLabel,
 } from "./model";
 
@@ -181,5 +184,37 @@ describe("planner context", () => {
     const week = generateWeek(ctx);
     expect(new Set(week.meals.map((m) => m.local_date)).size).toBe(7);
     expect(week.meals.filter((m) => m.slot === "dinner")).toHaveLength(7);
+  });
+});
+
+describe("strip and week notes", () => {
+  it("names the second pick only when there was one", () => {
+    expect(notedText("too_complicated")).toBe("Noted. Simpler meals from now on.");
+    expect(notedText("too_complicated", "Tuna Melts")).toBe("Noted. Swapped in something simpler: Tuna Melts.");
+    expect(notedText("dislike_ingredient", "Beef Tacos")).toBe("Added to your dislikes. Swapped in Beef Tacos.");
+    // taste reasons never re-pick, so a name is ignored
+    expect(notedText("ate_recently", "Beef Tacos")).toBe("Noted. It'll rest for 2 weeks.");
+  });
+
+  it("says nothing when the week came out whole", () => {
+    const days = Array.from({ length: 7 }, () => ({ meals: 5, proteinOk: true }));
+    expect(weekNotes({ meals: Array(35), kept: [], days }, 5)).toBeNull();
+  });
+
+  it("counts empty places and low-protein days honestly", () => {
+    const days = Array.from({ length: 7 }, (_, i) => ({ meals: 5, proteinOk: i > 1 }));
+    const text = weekNotes({ meals: Array(31), kept: Array(2), days }, 5);
+    expect(text).toBe("2 meals have nothing that fits your settings, and 2 days are under 90% of your protein goal. Loosening a preference gives the planner more to pick from.");
+    expect(weekNotes({ meals: Array(34), kept: [], days: days.map((d) => ({ ...d, proteinOk: true })) }, 5)).toMatch(/^1 meal has nothing/);
+  });
+
+  it("finds every thumbs row for a recipe and nothing else", () => {
+    const rows = [
+      { recipe_key: "lib:a", event: "thumbs_up" as const },
+      { recipe_key: "lib:a", event: "kept" as const },
+      { recipe_key: "lib:a", event: "thumbs_down" as const },
+      { recipe_key: "lib:b", event: "thumbs_up" as const },
+    ];
+    expect(thumbRows(rows, "lib:a").map((r) => r.event)).toEqual(["thumbs_up", "thumbs_down"]);
   });
 });

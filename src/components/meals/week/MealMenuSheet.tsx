@@ -96,8 +96,8 @@ export function MealMenuSheet({
           ? `Replaces ${occName} (Undo puts it back).`
           : `Adds a copy on ${dayName(day)}.`;
 
-  const title = view === "main" ? name : view === "move" ? "Move to…" : "Repeat on…";
-  const description = view === "main" ? `${SLOT_LABEL[meal.slot]} · ${dayName(meal.local_date)}, ${shortDate(meal.local_date, today)}` : name;
+  const title = view === "main" ? `${SLOT_LABEL[meal.slot]} · ${dayName(meal.local_date)}` : view === "move" ? "Move to…" : "Repeat on…";
+  const description = view === "main" ? shortDate(meal.local_date, today) : name;
 
   const footer =
     view === "main" ? undefined : (
@@ -126,7 +126,7 @@ export function MealMenuSheet({
       {view === "main" ? (
         <div className="swap-in pb-2">
           <div className="card-inset mb-4 p-3.5">
-            <RecipeCardBody recipe={recipe} eyebrow={SLOT_LABEL[meal.slot]} servings={meal.servings} macroMode="protein" />
+            <RecipeCardBody recipe={recipe} servings={meal.servings} macroMode="protein" />
           </div>
 
           <div className="grid grid-cols-3 gap-2" role="group" aria-label="Your opinion">

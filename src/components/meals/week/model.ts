@@ -42,6 +42,38 @@ export const REGEN_REASONS: ReasonOption[] = [
 
 export const reasonOption = (r: FeedbackReason) => REGEN_REASONS.find((o) => o.reason === r)!;
 
+/** What the strip says once a reason is recorded; names the second pick when there was one. */
+export function notedText(reason: FeedbackReason, repickedName?: string | null): string {
+  if (!repickedName) return reasonOption(reason).noted;
+  switch (reason) {
+    case "too_complicated":
+      return `Noted. Swapped in something simpler: ${repickedName}.`;
+    case "too_long":
+      return `Noted. Swapped in something quicker: ${repickedName}.`;
+    case "too_expensive":
+      return `Noted. Swapped in something cheaper: ${repickedName}.`;
+    case "dislike_ingredient":
+      return `Added to your dislikes. Swapped in ${repickedName}.`;
+    default:
+      return reasonOption(reason).noted;
+  }
+}
+
+/**
+ * Honest notes after planning a week: places nothing fit, and days the allowed recipes can't
+ * bring to 90% of the protein goal. Null when the week came out whole.
+ */
+export function weekNotes(res: { meals: readonly unknown[]; kept: readonly unknown[]; days: readonly { meals: number; proteinOk: boolean }[] }, placesPerDay: number): string | null {
+  const unfilled = Math.max(0, 7 * placesPerDay - res.meals.length - res.kept.length);
+  const lowProtein = res.days.filter((d) => d.meals > 0 && !d.proteinOk).length;
+  const parts: string[] = [];
+  if (unfilled) parts.push(`${unfilled} ${unfilled === 1 ? "meal has" : "meals have"} nothing that fits your settings`);
+  if (lowProtein) parts.push(`${lowProtein} ${lowProtein === 1 ? "day is" : "days are"} under 90% of your protein goal`);
+  if (!parts.length) return null;
+  const text = parts.join(", and ");
+  return `${text[0].toUpperCase()}${text.slice(1)}. Loosening a preference gives the planner more to pick from.`;
+}
+
 /** Fewer ingredients and fewer steps read as simpler; ties count as "not simpler". */
 const complexity = (r: Recipe) => ingredientCount(r) + r.steps.length;
 
@@ -184,6 +216,11 @@ export function dayFit(planned: Macros | undefined, goals: Goals | null, meals: 
 /* ---------------------------------------------------------------- thumbs */
 
 export type Thumb = "up" | "down" | null;
+
+/** Every stored thumbs row for a recipe (replaced together when the thumbs change). */
+export function thumbRows<F extends Pick<FeedbackRow, "recipe_key" | "event">>(feedback: readonly F[], recipeKey: string): F[] {
+  return feedback.filter((f) => f.recipe_key === recipeKey && (f.event === "thumbs_up" || f.event === "thumbs_down"));
+}
 
 /** The user's current thumbs on a recipe: their newest thumbs event, if any. */
 export function currentThumb(feedback: readonly (Pick<FeedbackRow, "recipe_key" | "event" | "created_at"> & { id: string })[], recipeKey: string): { thumb: Thumb; id: string | null } {

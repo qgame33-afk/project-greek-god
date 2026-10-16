@@ -42,7 +42,7 @@ export function EmptyWeek({
 }) {
   return (
     <section className="card-accent relative overflow-hidden px-5 pt-7 pb-5 text-center sm:px-8" aria-labelledby="empty-week-title">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-24 h-48 bg-[radial-gradient(60%_60%_at_50%_100%,rgb(213_172_103/.10),transparent_70%)]" />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(55%_75%_at_50%_0%,rgb(213_172_103/.11),transparent)]" />
       <EmptyArt kind="kylix" size={64} strokeWidth={1.25} className="relative mx-auto" />
       <h2 id="empty-week-title" className="t-h2 relative mt-3">
         Plan {range}
@@ -54,7 +54,7 @@ export function EmptyWeek({
       <p className="relative mt-4 text-[12.5px] font-semibold text-fg-3">{prefsSummary(prefs)}</p>
       {!prefsSaved && (
         <Link href="/nutrition/meals/preferences" className="press relative mt-3 inline-flex min-h-11 items-center gap-1 rounded-[12px] px-3 text-[13.5px] font-bold text-lapis-text hover:text-fg">
-          Allergies or foods you don&apos;t eat? Set them first
+          Allergies or dislikes? Set them first
           <ChevronRight className="size-4" aria-hidden />
         </Link>
       )}
