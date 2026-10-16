@@ -37,7 +37,7 @@ import { easierSwapPatch } from "./easier";
 import { usePlannedMealById, useServingsWriteBack, useThumbs, useViewedSignal } from "./hooks";
 import { IngredientList } from "./IngredientList";
 import { MakeEasierSheet, type EasierChoice } from "./MakeEasierSheet";
-import { LoggedStrip, TasteCard, WhyThisMeal } from "./RecipeExtras";
+import { LoggedStrip, loggedText, TasteCard, WhyThisMeal } from "./RecipeExtras";
 import { clampServings, servingsNumber } from "./servings";
 import { ServingsStepper } from "./ServingsStepper";
 import { StepList } from "./StepList";
@@ -191,21 +191,23 @@ function RecipeView({
       }
       const feedbackId = crypto.randomUUID();
       addFeedback.mutate({ id: feedbackId, recipe_key: recipe.key, event: "made_easier", features });
-      const before = meal ? { recipe_key: meal.recipe_key, servings: meal.servings, reason: meal.reason, history: meal.history } : null;
-      if (meal) {
+      // a meal already in the food log keeps its recipe in the plan (it's what was eaten)
+      const swapIn = meal && !logged.logged ? meal : null;
+      const before = swapIn ? { recipe_key: swapIn.recipe_key, servings: swapIn.servings, reason: swapIn.reason, history: swapIn.history } : null;
+      if (swapIn) {
         writeBack.flush();
-        await updateMeal.mutateAsync({ id: meal.id, patch: easierSwapPatch({ ...meal, servings }, next), weekStart: weekStart ?? undefined });
+        await updateMeal.mutateAsync({ id: swapIn.id, patch: easierSwapPatch({ ...swapIn, servings }, next), weekStart: weekStart ?? undefined });
       }
       setEasierOpen(false);
-      router.replace(meal ? recipeHref(next.key, meal.id) : `${recipeHref(next.key)}${servings !== 1 ? `?servings=${servings}` : ""}`, { scroll: true });
-      toast(meal ? `${next.name} is in your plan` : `Showing ${next.name}`, {
-        description: c.kind === "easier_version" ? "The easier library version." : "Saved to your recipes.",
+      router.replace(swapIn ? recipeHref(next.key, swapIn.id) : `${recipeHref(next.key)}${servings !== 1 ? `?servings=${servings}` : ""}`, { scroll: true });
+      toast(swapIn ? `${next.name} is in your plan` : `Showing ${next.name}`, {
+        description: meal && !swapIn ? "This meal is already in your food log, so the plan keeps it." : c.kind === "easier_version" ? "The easier library version." : "Saved to your recipes.",
         duration: 6000,
         action: {
           label: "Undo",
           onClick: () => {
             deleteFeedback.mutate(feedbackId);
-            if (meal && before) updateMeal.mutate({ id: meal.id, patch: before, weekStart: weekStart ?? undefined });
+            if (swapIn && before) updateMeal.mutate({ id: swapIn.id, patch: before, weekStart: weekStart ?? undefined });
             router.replace(meal ? recipeHref(recipe.key, meal.id) : recipeHref(recipe.key));
           },
         },
@@ -224,7 +226,7 @@ function RecipeView({
   const savedWhere = meal ? `${meal.local_date === today ? "today's" : `${dayName(meal.local_date)}'s`} ${SLOT_LABEL[meal.slot].toLowerCase()}` : null;
 
   const loggedLine = lastLog
-    ? { text: `Logged ${relativeDay(lastLog.res.entry.local_date, today).toLowerCase()} · ${kcalText(Number(lastLog.res.entry.calories))} kcal`, undo: undoLastLog }
+    ? { text: loggedText(lastLog.res.entry.local_date, today, Number(lastLog.res.entry.calories)), undo: undoLastLog }
     : logged.logged
       ? {
           text: logged.loggedToday

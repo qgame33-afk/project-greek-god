@@ -14,7 +14,6 @@ import { useToday } from "@/lib/data/core";
 import { useAddFeedback, type LogPlannedMealResult, type PlanMeal } from "@/lib/data/meals";
 import { haptic } from "@/lib/haptics";
 import { useNowSec } from "@/lib/live-clock";
-import { relativeDay } from "@/lib/dates";
 import { recipeFeatures, recipeMacros, scaleIngredients } from "@/lib/meals/recipe";
 import type { Recipe } from "@/lib/meals/types";
 import { useSwapIn } from "@/lib/motion";
@@ -22,7 +21,7 @@ import { LogMealSheet } from "../log/LogMealSheet";
 import { checkScope, useChecks } from "../recipe/checks";
 import { usePlannedMealById } from "../recipe/hooks";
 import { IngredientList } from "../recipe/IngredientList";
-import { LoggedStrip } from "../recipe/RecipeExtras";
+import { LoggedStrip, loggedText } from "../recipe/RecipeExtras";
 import { clampServings } from "../recipe/servings";
 import { SafetyNote, stepLabel } from "../recipe/StepList";
 import { BigTimer } from "./BigTimer";
@@ -410,7 +409,7 @@ function Finished({
             </div>
             <MacroLine macros={macros} />
           </div>
-          {lastLog && <LoggedStrip className="mt-4" text={`Logged ${relativeDay(lastLog.entry.local_date, today).toLowerCase()} · ${Math.round(Number(lastLog.entry.calories)).toLocaleString("en-US")} kcal`} href={`/nutrition?date=${lastLog.entry.local_date}`} />}
+          {lastLog && <LoggedStrip className="mt-4" text={loggedText(lastLog.entry.local_date, today, Number(lastLog.entry.calories))} href={`/nutrition?date=${lastLog.entry.local_date}`} />}
         </div>
         <div className="mt-8 space-y-3">
           {lastLog ? (

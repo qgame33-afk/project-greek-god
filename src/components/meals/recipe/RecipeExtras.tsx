@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Check, Coins, Gauge, Globe, Heart, Leaf, Package, RotateCcw, Sparkles, Star, ThumbsDown, ThumbsUp, Utensils, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { relativeDay } from "@/lib/dates";
 import type { WhyReason } from "@/lib/meals/types";
 
 const WHY_ICON: Record<WhyReason["kind"], LucideIcon> = {
@@ -89,6 +90,13 @@ export function TasteCard({
       </div>
     </section>
   );
+}
+
+/** "Logged today · 1,155 kcal" / "Logged on Oct 14 · 900 kcal". */
+export function loggedText(date: string, today: string, kcal: number): string {
+  const rd = relativeDay(date, today);
+  const when = /^(Today|Yesterday|Tomorrow)$/.test(rd) ? rd.toLowerCase() : `on ${rd}`;
+  return `Logged ${when} · ${Math.round(Number.isFinite(kcal) ? kcal : 0).toLocaleString("en-US")} kcal`;
 }
 
 /** "Logged today · 1,155 kcal" after this meal went into the food diary, with Undo when we can. */
