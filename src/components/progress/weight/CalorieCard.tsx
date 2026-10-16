@@ -70,14 +70,19 @@ export function CalorieCard({ weights, plan, planRate, unit }: { weights: Weight
   }
 
   if (sug.kind === "on_track") {
+    // Within the no-change band, but say honestly when the pace is off the plan line.
+    const ratio = sug.ratePerWeek / sug.targetRate;
+    const pace = ratio > 1.25 ? "ahead" : ratio < 0.8 ? "behind" : "on";
     return (
       <Card>
         <h2 className="eyebrow mb-2">Calorie check</h2>
         <p className="flex items-center gap-2 text-[14px] font-semibold text-fg">
-          <span className="size-2 rounded-full bg-success" aria-hidden /> On plan
+          <span className={pace === "on" ? "size-2 rounded-full bg-success" : "size-2 rounded-full bg-fg-3"} aria-hidden />
+          {pace === "on" ? "On plan" : pace === "ahead" ? "A little ahead of plan" : "A little behind plan"}
         </p>
         <p className="mt-1 text-[13px] leading-relaxed text-fg-2">
-          Trend {rate(sug.ratePerWeek)} vs {rate(sug.targetRate)} planned over the last two weeks. Keep {formatInt(cal)} kcal.
+          Trend {rate(sug.ratePerWeek)} vs {rate(sug.targetRate)} planned over the last two weeks. Keep {formatInt(cal)} kcal
+          {pace === "on" ? "." : "; a change is suggested only if the trend stays well off the plan."}
         </p>
       </Card>
     );
