@@ -2,7 +2,7 @@
 // detection, rescheduling moves, volleyball load advice and deload advice.
 // No React, no Supabase: every function takes plain rows and returns plain data.
 
-import { addDays, dayName, weekStart, type ISODate } from "@/lib/dates";
+import { addDays, dayName, weekday, weekStart, type ISODate } from "@/lib/dates";
 
 /** A template key ("push_a" …) or "rest". */
 export type PlanKey = string;
@@ -96,15 +96,20 @@ export interface MissedWorkout {
   date: ISODate;
   key: PlanKey;
   name: string;
+  /** Name of a different workout that was done that day instead, if any. */
+  doneInstead?: string | null;
 }
 
 /**
- * Planned training days in the `lookback` days before today that have no session and no
- * override. A plan counts as handled when:
- * - any session (done or in progress) exists on that date, or
+ * Planned training days in the `lookback` days before today whose workout was not done.
+ * A planned day counts as handled when:
+ * - a session of that template (or a free-form session with no template) exists on the date, or
  * - the same template was done or started later, up to today (done on another day), or
- * - the date has a day_plans override (moved, swapped, or marked rest — the user decided).
- * Days before `since` (e.g. the programme start date) are never flagged. Newest first.
+ * - the same template was done earlier in that week on a day that planned something else
+ *   (the user swapped days without telling the app), or
+ * - the date was set to rest (the user decided to skip or rest).
+ * Moved, swapped or kept training overrides are still plans: a workout moved to Thursday and
+ * then skipped on Thursday is surfaced. Days before `since` are never flagged. Newest first.
  */
 export function missedWorkouts({
   today,
@@ -120,15 +125,21 @@ export function missedWorkouts({
   lookback?: number;
 }): MissedWorkout[] {
   const live = sessions.filter((s) => s.status === "done" || s.status === "active");
+  const planOn = (d: ISODate) => plans.find((p) => p.date === d);
   const out: MissedWorkout[] = [];
   for (let i = 1; i <= lookback; i++) {
     const date = addDays(today, -i);
     if (since && date < since) continue;
-    const plan = plans.find((p) => p.date === date);
-    if (!plan || plan.key === "rest" || plan.overridden) continue;
-    if (live.some((s) => s.local_date === date)) continue;
+    const plan = planOn(date);
+    if (!plan || plan.key === "rest") continue;
+    const onDay = live.filter((s) => s.local_date === date);
+    if (onDay.some((s) => s.template_key === plan.key || s.template_key == null)) continue;
     if (live.some((s) => s.template_key === plan.key && s.local_date > date && s.local_date <= today)) continue;
-    out.push({ date, key: plan.key, name: plan.name ?? plan.key });
+    const ws = weekStart(date);
+    const doneEarlier = live.some((s) => s.template_key === plan.key && s.local_date >= ws && s.local_date < date && planOn(s.local_date)?.key !== plan.key);
+    if (doneEarlier) continue;
+    const instead = onDay.find((s) => s.template_key !== plan.key);
+    out.push({ date, key: plan.key, name: plan.name ?? plan.key, doneInstead: instead ? (instead.name ?? null) : null });
   }
   return out;
 }
@@ -149,6 +160,8 @@ export interface PlannedMove {
   writes: DayPlanWrite[];
   /** The template that loses its day (replace only). */
   displaced: PlanKey | null;
+  /** The source day is already used (past, or another workout was trained there). */
+  closed?: boolean;
 }
 
 /**
@@ -156,9 +169,9 @@ export interface PlannedMove {
  * "rescheduled":
  * - target is a rest day → move; `from` becomes rest.
  * - target has a workout and `from` is today or later → swap the two days.
- * - target has a workout and `from` is in the past (a missed day) → the moved workout
- *   replaces it; the past day is closed as rest. The replaced workout is reported, never
- *   silently re-placed.
+ * - target has a workout and `from` is in the past (a missed day) or `closed` (another workout
+ *   was already trained there) → the moved workout replaces it; the source day is closed as
+ *   rest. The replaced workout is reported, never silently re-placed.
  */
 export function planMove({
   from,
@@ -166,24 +179,28 @@ export function planMove({
   fromKey,
   toKey,
   today,
+  closed = false,
 }: {
   from: ISODate;
   to: ISODate;
   fromKey: PlanKey;
   toKey: PlanKey;
   today: ISODate;
+  closed?: boolean;
 }): PlannedMove {
   if (from === to) throw new Error("Pick a different day.");
   if (fromKey === "rest") throw new Error("Nothing is planned on that day.");
   const moved: DayPlanWrite = { plan_date: to, template_key: fromKey, reason: "rescheduled", moved_from: from };
+  const isClosed = closed || from < today;
   if (toKey === "rest" || toKey === fromKey) {
     return {
       kind: "move",
       writes: [moved, { plan_date: from, template_key: "rest", reason: "rescheduled", moved_from: null }],
       displaced: null,
+      closed: isClosed,
     };
   }
-  if (from >= today) {
+  if (!isClosed) {
     return {
       kind: "swap",
       writes: [moved, { plan_date: from, template_key: toKey, reason: "rescheduled", moved_from: to }],
@@ -194,6 +211,7 @@ export function planMove({
     kind: "replace",
     writes: [moved, { plan_date: from, template_key: "rest", reason: "rescheduled", moved_from: null }],
     displaced: toKey,
+    closed: true,
   };
 }
 
@@ -216,12 +234,15 @@ export function rescheduleOptions({
   today,
   plans,
   horizon = 7,
+  closed = false,
 }: {
   from: ISODate;
   fromKey: PlanKey;
   today: ISODate;
   plans: PlanLike[];
   horizon?: number;
+  /** The source day is already used (see planMove). */
+  closed?: boolean;
 }): RescheduleOption[] {
   const out: RescheduleOption[] = [];
   for (let i = 0; i < horizon; i++) {
@@ -229,8 +250,8 @@ export function rescheduleOptions({
     if (date === from) continue;
     const p = plans.find((x) => x.date === date);
     const key = p?.key ?? "rest";
-    const { kind } = planMove({ from, to: date, fromKey, toKey: key, today });
-    const catchUp = from < today && i <= 1;
+    const { kind } = planMove({ from, to: date, fromKey, toKey: key, today, closed });
+    const catchUp = (from < today || closed) && i <= 1;
     out.push({ date, key, name: p?.name ?? null, kind, recommended: key === "rest" || catchUp });
   }
   return out;
@@ -243,7 +264,7 @@ export function describeMove(m: PlannedMove, names: Record<string, string>, toda
   const day = (d: ISODate) => (d === today ? "today" : d === addDays(today, 1) ? "tomorrow" : dayName(d));
   if (m.kind === "swap") return `${n(moved.template_key)} moves to ${day(moved.plan_date)} and ${n(other.template_key)} to ${day(other.plan_date)}.`;
   if (m.kind === "replace") return `${n(moved.template_key)} replaces ${n(m.displaced!)} ${day(moved.plan_date)}. ${n(m.displaced!)} is skipped unless you move it.`;
-  return `${n(moved.template_key)} moves to ${day(moved.plan_date)}. ${other.plan_date < today ? "" : `${cap(day(other.plan_date))} becomes a rest day.`}`.trim();
+  return `${n(moved.template_key)} moves to ${day(moved.plan_date)}. ${m.closed || other.plan_date < today ? "" : `${cap(day(other.plan_date))} becomes a rest day.`}`.trim();
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -258,8 +279,8 @@ export interface VolleyballAdvice {
 
 /**
  * Recommend lighter leg work when on-court volume is high or recovery is down:
- * - ≥ 3 volleyball days in the last 7, or at least one more than the usual weekly count
- *   (and at least 2 — a single session never triggers it), or
+ * - ≥ 3 volleyball sessions in the last 7 days, or at least one more than the usual weekly
+ *   count (and at least 2 — a single session never triggers it), or
  * - the latest check-in from the last 3 days rates soreness or fatigue 4/5 or higher.
  */
 export function volleyballAdvice({
@@ -268,6 +289,7 @@ export function volleyballAdvice({
   recovery,
   today,
 }: {
+  /** Volleyball sessions logged in the last 7 days (today included). */
   load7d: number;
   perWeek: number;
   recovery: RecoveryLike | null;
@@ -277,19 +299,25 @@ export function volleyballAdvice({
   if (load7d >= 3 || (load7d >= 2 && load7d >= perWeek + 1)) {
     reasons.push(
       load7d >= perWeek + 1
-        ? `${load7d} volleyball days in the last 7, above your usual ${perWeek} a week.`
-        : `${load7d} volleyball days in the last 7.`,
+        ? `${load7d} volleyball sessions in the last 7 days, above your usual ${perWeek} a week.`
+        : `${load7d} volleyball sessions in the last 7 days.`,
     );
   }
   if (recovery && recovery.local_date >= addDays(today, -2) && recovery.local_date <= today) {
-    const when = recovery.local_date === today ? "today" : dayName(recovery.local_date);
+    const when = recovery.local_date === today ? "today" : `on ${dayName(recovery.local_date)}`;
     const s = recovery.soreness ?? 0;
     const f = recovery.fatigue ?? 0;
-    if (s >= 4 && f >= 4) reasons.push(`Soreness ${s}/5 and fatigue ${f}/5 at your check-in ${when === "today" ? "today" : `on ${when}`}.`);
-    else if (s >= 4) reasons.push(`Soreness ${s}/5 at your check-in ${when === "today" ? "today" : `on ${when}`}.`);
-    else if (f >= 4) reasons.push(`Fatigue ${f}/5 at your check-in ${when === "today" ? "today" : `on ${when}`}.`);
+    if (s >= 4 && f >= 4) reasons.push(`Soreness ${s}/5 and fatigue ${f}/5 at your check-in ${when}.`);
+    else if (s >= 4) reasons.push(`Soreness ${s}/5 at your check-in ${when}.`);
+    else if (f >= 4) reasons.push(`Fatigue ${f}/5 at your check-in ${when}.`);
   }
   return { heavy: reasons.length > 0, reasons };
+}
+
+/** Volleyball sessions (not days) in the 7 days ending on `date`. */
+export function volleyballSessions7d(rows: VolleyballLike[], date: ISODate): number {
+  const from = addDays(date, -6);
+  return rows.filter((r) => r.local_date >= from && r.local_date <= date).length;
 }
 
 /** Latest check-in (by date) that rated soreness or fatigue at all. */
@@ -321,12 +349,15 @@ export function deloadAdvice({
   today,
   mode,
   hardWeekSessions = 4,
+  historyFrom,
 }: {
   sessions: (SessionLike & { mode?: string | null })[];
   recovery: RecoveryLike[];
   today: ISODate;
   mode: string;
   hardWeekSessions?: number;
+  /** First date the `sessions` cover; a streak reaching it is reported as "at least". */
+  historyFrom?: ISODate | null;
 }): DeloadAdvice {
   if (mode === "deload") return { suggest: false, hardWeeks: 0, reasons: [] };
   const done = sessions.filter((s) => s.status === "done");
@@ -343,23 +374,88 @@ export function deloadAdvice({
   // The current week counts once it is already hard; otherwise start from last week.
   const cur = byWeek.get(current);
   if (cur && !cur.deload && cur.n >= hardWeekSessions) hardWeeks++;
-  else if (cur?.deload) return finish(0);
+  else if (cur?.deload) return finish(0, "deload");
+  let end: "deload" | "light" | "data" = "light";
   for (let w = addDays(current, -7); ; w = addDays(w, -7)) {
+    if (historyFrom && w < weekStart(historyFrom)) {
+      end = "data";
+      break;
+    }
     const e = byWeek.get(w);
+    if (e?.deload) end = "deload";
     if (!e || e.deload || e.n < hardWeekSessions) break;
     hardWeeks++;
     if (hardWeeks > 52) break;
   }
-  return finish(hardWeeks);
+  return finish(hardWeeks, end);
 
-  function finish(hw: number): DeloadAdvice {
+  function finish(hw: number, end: "deload" | "light" | "data"): DeloadAdvice {
     const reasons: string[] = [];
-    if (hw >= 5) reasons.push(`${hw} hard weeks in a row since your last lighter week.`);
+    if (hw >= 5)
+      reasons.push(
+        end === "data" ? `At least ${hw} hard weeks in a row.` : end === "deload" ? `${hw} hard weeks in a row since your last deload.` : `${hw} hard weeks in a row.`,
+      );
     const recent = recovery.filter((r) => r.local_date > addDays(today, -7) && r.local_date <= today && r.fatigue != null);
     const high = recent.filter((r) => (r.fatigue ?? 0) >= 4).length;
     if (high >= 3) reasons.push(`Fatigue was 4/5 or higher on ${high} of your last ${recent.length} check-ins.`);
     return { suggest: reasons.length > 0, hardWeeks: hw, reasons };
   }
+}
+
+/* ------------------------------------------------------- plan bookkeeping */
+
+export interface DayPlanRowLike {
+  plan_date: ISODate;
+  template_key: PlanKey;
+  reason: string | null;
+  moved_from: ISODate | null;
+}
+
+/**
+ * Other dates written by the same reschedule as `date`, so resetting one side never orphans
+ * the other: the source of a move into `date`, and any day moved here from `date`.
+ */
+export function linkedMoveDates(date: ISODate, rows: DayPlanRowLike[]): ISODate[] {
+  const out = new Set<ISODate>();
+  const own = rows.find((r) => r.plan_date === date);
+  if (own?.reason === "rescheduled" && own.moved_from) {
+    const src = rows.find((r) => r.plan_date === own.moved_from);
+    if (src && src.reason === "rescheduled" && (src.moved_from == null || src.moved_from === date)) out.add(src.plan_date);
+  }
+  for (const r of rows) if (r.reason === "rescheduled" && r.moved_from === date && r.plan_date !== date) out.add(r.plan_date);
+  out.delete(date);
+  return [...out].sort();
+}
+
+/**
+ * When the weekly schedule changes, keep the recent past as it was planned: one "custom"
+ * day_plans row for each past date in [from, today) with no override whose old weekday plan
+ * differs from the new one. Without this, a new schedule would invent missed workouts for
+ * days that were rest days at the time.
+ */
+export function scheduleFreeze({
+  from,
+  today,
+  oldSchedule,
+  newSchedule,
+  overridden,
+}: {
+  from: ISODate;
+  today: ISODate;
+  oldSchedule: Record<string, PlanKey>;
+  newSchedule: Record<string, PlanKey>;
+  /** Dates that already have a day_plans row. */
+  overridden: ISODate[];
+}): DayPlanWrite[] {
+  const out: DayPlanWrite[] = [];
+  for (let d = from; d < today; d = addDays(d, 1)) {
+    if (overridden.includes(d)) continue;
+    const wd = String(weekday(d));
+    const before = oldSchedule[wd] ?? "rest";
+    const after = newSchedule[wd] ?? "rest";
+    if (before !== after) out.push({ plan_date: d, template_key: before, reason: "custom", moved_from: null });
+  }
+  return out;
 }
 
 /* ---------------------------------------------------------------- history */

@@ -29,6 +29,8 @@ export const EXAMPLES = [
 
 interface Pending {
   id: string;
+  /** Conversation it was sent from (null = a new chat). */
+  conv: string | null;
   text: string;
   image: string | null;
   startedAt: number;
@@ -59,10 +61,14 @@ function useKeyboardSafeBox(): CSSProperties | undefined {
   return style;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function FoodCoach() {
   const router = useRouter();
   const params = useSearchParams();
-  const convId = params.get("c");
+  const rawConv = params.get("c");
+  // a hand-edited or stale ?c= that isn't a conversation id behaves like a new chat
+  const convId = rawConv && UUID_RE.test(rawConv) ? rawConv : null;
   const qc = useQueryClient();
   const todayDate = useToday();
   const { userId } = useUser();
@@ -75,15 +81,26 @@ export function FoodCoach() {
   const [image, setImage] = useState<PreparedImage | null>(null);
   const [preparing, setPreparing] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
-  const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [error, setError] = useState<{ code: string; message: string; retry: string | null } | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const sendingRef = useRef(false);
+  // the conversation on screen right now (a reply can land after the user moved to another chat)
+  const viewingRef = useRef(convId);
+  useEffect(() => {
+    viewingRef.current = convId;
+  }, [convId]);
   const threadRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<ComposerHandle>(null);
   const kbStyle = useKeyboardSafeBox();
 
   const messages = useMemo(() => msgs.data ?? [], [msgs.data]);
+
+  // ?c= pointing at a malformed id, or at a chat that was deleted (here or on another device)
+  const convMissing = !!convId && !!convs.data && !convs.data.some((c) => c.id === convId) && !!msgs.data && msgs.data.length === 0;
+  useEffect(() => {
+    if ((rawConv && !convId) || convMissing) router.replace("/nutrition/coach", { scroll: false });
+  }, [rawConv, convId, convMissing, router]);
   const configured = cap.data?.configured ?? true;
   const isMock = !!cap.data?.mock || messages.some((m) => (m.payload as { mock?: boolean } | null)?.mock);
 
@@ -127,7 +144,7 @@ export function FoodCoach() {
     const fromComposer = raw === undefined;
     const img = fromComposer ? image : null;
     const clientMessageId = newId();
-    setPending({ id: clientMessageId, text: msg, image: img?.dataUrl ?? null, startedAt: Date.now() });
+    setPending({ id: clientMessageId, conv: convId, text: msg, image: img?.dataUrl ?? null, startedAt: Date.now() });
     setError(null);
     if (fromComposer) {
       setText("");
@@ -139,7 +156,8 @@ export function FoodCoach() {
         const base = (prev ?? []).filter((m) => m.id !== res.userMessage.id && m.id !== res.assistantMessage.id);
         return [...base, res.userMessage, res.assistantMessage];
       });
-      if (res.conversationId !== convId) router.replace(`/nutrition/coach?c=${res.conversationId}`, { scroll: false });
+      // open the new chat only if the user is still looking at the one they sent from
+      if (res.conversationId !== convId && viewingRef.current === convId) router.replace(`/nutrition/coach?c=${res.conversationId}`, { scroll: false });
       qc.invalidateQueries({ queryKey: ["food-convs"] });
     } catch (e) {
       const err = e instanceof FoodAIRequestError ? e : new FoodAIRequestError("upstream", "Couldn't reach Food Coach. Try again.", 0);
@@ -147,7 +165,8 @@ export function FoodCoach() {
         setText(msg);
         setImage(img);
       }
-      setError({ code: err.code, message: err.message });
+      // chips and question answers aren't in the composer: remember them for Retry
+      setError({ code: err.code, message: err.message, retry: fromComposer ? null : msg });
       if (err.code === "not_found") router.replace("/nutrition/coach", { scroll: false });
     } finally {
       setPending(null);
@@ -177,7 +196,8 @@ export function FoodCoach() {
 
   // "no data yet" (not isLoading) so the server render and the first client render agree
   const msgsLoading = !!convId && !msgs.data && !msgs.isError;
-  const showEmpty = !pending && (!convId || (!!msgs.data && messages.length === 0));
+  const shownPending = pending && pending.conv === convId ? pending : null;
+  const showEmpty = !shownPending && (!convId || (!!msgs.data && messages.length === 0));
   const list = (
     <ConversationList
       conversations={convs.data ?? []}
@@ -250,14 +270,25 @@ export function FoodCoach() {
                   const p = m.payload as FoodChatPayload | null;
                   const revised = p?.revises ? messages.find((x) => x.id === p.revises) : null;
                   const revisedGroup = revised?.logged_group_id && groups.data?.has(revised.logged_group_id) ? revised.logged_group_id : null;
-                  const prevUser = [...messages.slice(0, idx)].reverse().find((x) => x.role === "user");
-                  const firstUser = messages.find((x) => x.role === "user");
+                  // what the user said about THIS meal (first description, answers, corrections) for the
+                  // hand-off prompt: walk back until an earlier, unrelated draft
+                  const lineage = new Set<string>();
+                  for (let r = p?.revises ?? null; r && !lineage.has(r);) {
+                    lineage.add(r);
+                    r = (messages.find((x) => x.id === r)?.payload as FoodChatPayload | null)?.revises ?? null;
+                  }
+                  const said: string[] = [];
+                  for (let j = idx - 1; j >= 0; j--) {
+                    const x = messages[j];
+                    if (x.role === "user") said.unshift(x.content);
+                    else if (((x.payload as FoodChatPayload | null)?.items?.length ?? 0) > 0 && !lineage.has(x.id)) break;
+                  }
                   return (
                     <li key={m.id} id={`msg-${m.id}`}>
                       <AssistantMessage
                         message={m}
                         conversationId={convId}
-                        userText={revised ? `${firstUser?.content ?? ""} — ${prevUser?.content ?? ""}` : (prevUser?.content ?? "")}
+                        userText={said.slice(-4).join(" — ")}
                         latest={view.lastAssistant === m.id}
                         superseded={view.revisedBy.has(m.id)}
                         replacesGroup={revisedGroup}
@@ -277,10 +308,10 @@ export function FoodCoach() {
                     </li>
                   );
                 })}
-                {pending && (
+                {shownPending && (
                   <>
                     <li>
-                      <UserBubble text={pending.text} localImage={pending.image} pending />
+                      <UserBubble text={shownPending.text} localImage={shownPending.image} pending />
                     </li>
                     <li className="flex items-center gap-2.5" role="status">
                       <CoachAvatar loading />
@@ -303,10 +334,10 @@ export function FoodCoach() {
               >
                 <span>
                   {error.message}
-                  {error.code !== "not_configured" && error.code !== "quota" ? " Your message is kept." : ""}
+                  {error.code !== "not_configured" && error.code !== "quota" && !error.retry ? " Your message is kept." : ""}
                 </span>
                 {error.code !== "not_configured" && error.code !== "quota" && (
-                  <button type="button" onClick={() => void send()} className="h-9 shrink-0 font-bold text-gold-300">
+                  <button type="button" onClick={() => void send(error.retry ?? undefined)} className="-my-1 h-11 shrink-0 px-1 font-bold text-gold-300">
                     Retry
                   </button>
                 )}
@@ -340,14 +371,19 @@ export function FoodCoach() {
 function CapabilityBanner({ configured, onSources }: { configured: boolean; onSources: () => void }) {
   if (!configured) {
     return (
-      <div className="shrink-0 border-b border-line-hair bg-s1 px-4 py-3 md:px-6">
-        <p className="text-[13px] font-semibold text-fg">Food Coach isn&apos;t connected yet.</p>
-        <p className="mt-0.5 text-[12px] leading-relaxed text-fg-2">
-          It needs a Gemini API key on the server. Manual logging works now.{" "}
-          <Link href="/nutrition?add=1" className="font-bold text-gold-300">
-            Log manually
-          </Link>
-        </p>
+      <div className="flex shrink-0 items-center gap-3 border-b border-line-hair bg-s1 py-2 pl-4 pr-2 md:pl-6 md:pr-4" role="status">
+        <Info className="size-4 shrink-0 text-fg-3" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-semibold leading-snug text-fg">Food Coach isn&apos;t connected yet.</p>
+          <p className="text-[12px] leading-snug text-fg-2">It needs a Gemini API key on the server. Manual logging works now.</p>
+        </div>
+        <Link
+          href="/nutrition?add=1"
+          className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[12px] px-2.5 text-[13px] font-bold text-gold-300 hover:bg-gold-tint"
+        >
+          <PenLine className="size-4" aria-hidden />
+          Log manually
+        </Link>
       </div>
     );
   }
@@ -367,7 +403,7 @@ function CapabilityBanner({ configured, onSources }: { configured: boolean; onSo
 function EmptyCoach({ configured, onExample }: { configured: boolean; onExample: (e: string) => void }) {
   return (
     <div className="mx-auto flex max-w-[520px] flex-col items-center pt-6 text-center md:pt-12">
-      <EmptyArt kind="amphora" size={72} />
+      <EmptyArt kind="kylix" size={72} />
       <h2 className="t-h2 mt-4 text-[22px]">Describe what you ate.</h2>
       <p className="mt-1.5 max-w-[34ch] text-[14px] leading-relaxed text-fg-2">
         Plain words work. Quantities and restaurant names make it sharper. Nothing is logged until you confirm.
@@ -386,12 +422,6 @@ function EmptyCoach({ configured, onExample }: { configured: boolean; onExample:
           </li>
         ))}
       </ul>
-      {!configured && (
-        <Link href="/nutrition?add=1" className="mt-5 inline-flex h-11 items-center gap-1.5 text-[13px] font-bold text-gold-300">
-          <PenLine className="size-4" />
-          Log manually instead
-        </Link>
-      )}
     </div>
   );
 }
@@ -434,7 +464,7 @@ function SourcesSheet({ open, onOpenChange, usda }: { open: boolean; onOpenChang
         )}
         {row(
           "Published restaurant numbers",
-          "Food Coach can't browse the web. Use Published numbers on a restaurant meal to hand the question to ChatGPT or Claude, then paste the answer back. Their links are shown as reported, because we didn't open those pages ourselves.",
+          "Food Coach can't browse the web. On a restaurant row, tap Research it to hand the question to ChatGPT or Claude, then paste the answer back. Their links are shown as reported, because we didn't open those pages ourselves.",
         )}
         {row("Privacy", "Chats and photos are stored in your account only. Deleting a chat deletes its photos; logged food stays in your diary.")}
       </div>

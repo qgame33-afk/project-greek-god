@@ -27,6 +27,11 @@ const SLOT = 44;
 const X0 = 6;
 const cxOf = (i: number) => X0 + SLOT / 2 + SLOT * i;
 
+/** Horizontal position of day slot `i` as percentages of the colonnade's width (for labels laid under it). */
+export function colonnadeSlot(i: number): { left: number; width: number } {
+  return { left: ((X0 + SLOT * i) / VB_W) * 100, width: (SLOT / VB_W) * 100 };
+}
+
 // Column geometry (18 × 52): abacus, tapered-look shaft, base.
 const COL_TOP = 30;
 const COL_BOTTOM = 82;
@@ -44,8 +49,27 @@ const FRIEZE_H = 6;
 
 const LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 const STORE_KEY = "pgg.colonnade.gilded";
+const RISE_KEY = "pgg.colonnade.risen";
 
 const noopSubscribe = () => () => {};
+
+/** Done dates whose gold-leaf rise already played this session (choreography plays once). */
+function readRisen(): Set<string> {
+  try {
+    return new Set(JSON.parse(sessionStorage.getItem(RISE_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
+function writeRisen(dates: string[]) {
+  try {
+    const all = readRisen();
+    dates.forEach((d) => all.add(d));
+    sessionStorage.setItem(RISE_KEY, JSON.stringify([...all].slice(-60)));
+  } catch {
+    /* storage blocked — the rise simply plays again next time */
+  }
+}
 
 export function Colonnade({ days, height = 112, interactive = false, onDayClick, className }: ColonnadeProps) {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
@@ -55,11 +79,22 @@ export function Colonnade({ days, height = 112, interactive = false, onDayClick,
   const complete = train.length > 0 && doneCount === train.length;
 
   // Render empty on the first frame, then fill — columns rise from the base like the rings.
+  // Each done column rises once per session; on later visits it is simply gilded.
+  const [risen] = useState(() => (typeof window === "undefined" ? new Set<string>() : readRisen()));
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     const id = requestAnimationFrame(() => setArmed(true));
     return () => cancelAnimationFrame(id);
   }, []);
+  const doneKey = days
+    .filter((d) => d.done)
+    .map((d) => d.date)
+    .join(",");
+  useEffect(() => {
+    if (!armed || !doneKey) return;
+    const t = window.setTimeout(() => writeRisen(doneKey.split(",")), 1200);
+    return () => window.clearTimeout(t);
+  }, [armed, doneKey]);
 
   // The pediment draw plays once per week (per device); later visits render it settled.
   const seen = useSyncExternalStore(
@@ -188,10 +223,10 @@ export function Colonnade({ days, height = 112, interactive = false, onDayClick,
                     height={COL_BOTTOM - COL_TOP}
                     fill={`url(#leaf-${uid})`}
                     style={{
-                      transform: `scaleY(${armed ? 1 : 0})`,
+                      transform: `scaleY(${armed || risen.has(d.date) ? 1 : 0})`,
                       transformBox: "fill-box",
                       transformOrigin: "50% 100%",
-                      transition: `transform 600ms var(--ease-gold) ${i * 60}ms`,
+                      transition: risen.has(d.date) ? "none" : `transform 600ms var(--ease-gold) ${i * 60}ms`,
                     }}
                   />
                 </g>
@@ -201,7 +236,11 @@ export function Colonnade({ days, height = 112, interactive = false, onDayClick,
                 stroke={d.done ? "rgb(8 9 12 / .35)" : "var(--line-hair)"}
                 strokeWidth={1}
                 vectorEffect="non-scaling-stroke"
-                style={d.done ? { opacity: armed ? 1 : 0, transition: `opacity 300ms ease ${300 + i * 60}ms` } : undefined}
+                style={
+                  d.done
+                    ? { opacity: armed || risen.has(d.date) ? 1 : 0, transition: risen.has(d.date) ? "none" : `opacity 300ms ease ${300 + i * 60}ms` }
+                    : undefined
+                }
               />
               <path d={columnPath(cx)} fill="none" stroke={outline} strokeWidth={1} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
               <DayLetter cx={cx} letter={LETTERS[wd]} today={d.today} volleyball={d.volleyball} />

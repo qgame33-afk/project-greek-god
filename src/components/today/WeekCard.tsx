@@ -8,6 +8,7 @@ import { monthName, parseISODate } from "@/lib/dates";
 import { trendCaption, trendTone, type TrendTone } from "@/lib/today/ascent";
 import { fmtHours } from "@/lib/today/daily-line";
 import { formatDelta, formatInt, type WeightUnit } from "@/lib/units";
+import { useMedia } from "./dawn";
 import type { TodayModel } from "./useTodayModel";
 
 /** This week: the Colonnade plus eight honest stat tiles. */
@@ -22,6 +23,7 @@ export function WeekCard({ m, loading, error, onRetry, className }: { m: TodayMo
   const range = s.getMonth() === e.getMonth() ? `${monthName(m.week[0], true)} ${s.getDate()}–${e.getDate()}` : `${monthName(m.week[0], true)} ${s.getDate()} – ${monthName(m.week[6], true)} ${e.getDate()}`;
   const left = Math.max(0, o.scheduled - o.done);
   const sleepGoal = Number(m.profile.sleep_goal_h);
+  const desktop = useMedia("(min-width: 1024px)");
 
   const tiles: { label: string; value: string; unit?: string; caption: string; tone?: TrendTone }[] = [
     {
@@ -90,7 +92,7 @@ export function WeekCard({ m, loading, error, onRetry, className }: { m: TodayMo
         </ErrorNote>
       )}
       <div className="px-1 py-1">
-        <Colonnade days={o.colonnade} height={88} />
+        <Colonnade days={o.colonnade} height={desktop ? 112 : 88} />
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-3 @[560px]:grid-cols-4">
         {tiles.map((t) =>

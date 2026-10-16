@@ -98,6 +98,8 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
   const invalid = Object.keys(errors).length > 0;
   const empty = !hasAnyValue(values);
   const future = date > today;
+  // Moving an entry onto a day that already has one would collide (one entry per day).
+  const collides = !!editing && !!sameDay;
 
   const step = (k: Key, dir: 1 | -1) => {
     const isFat = k === "body_fat_pct";
@@ -112,13 +114,15 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
       }
       next = isFat ? last.v : toDisplayLength(last.v, unit);
     } else next = cur + dir * inc;
-    next = snap(next, inc);
+    // Inches sit on the quarter-inch grid; centimetres and body fat just keep one decimal
+    // (snapping 36.8 cm to 37.0 would quietly change the starting value).
+    next = !isFat && unit === "in" ? snap(next, inc) : round(next, 1);
     setTexts((t) => ({ ...t, [k]: isFat ? next.toFixed(1) : fmt(next, unit) }));
   };
 
   const submit = () => {
     setSubmitted(true);
-    if (busy.current || invalid || empty || future) return;
+    if (busy.current || invalid || empty || future || collides) return;
     busy.current = true;
     let v: MeasurementValues = { local_date: date, notes: notes.trim() || null };
     for (const f of MEASURE_FIELDS) v = { ...v, [f.key]: values[f.key] ?? null };
@@ -139,7 +143,7 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
   }, [pending]);
 
   const title = editing ? `Edit ${shortDate(editing.local_date, today)}` : "Log measurements";
-  const description = sameDay && !editing ? `Adds to your ${shortDate(date, today)} entry.` : `Inches or centimetres. Stored exactly as entered.`;
+  const description = sameDay && !editing ? `Adds to your ${shortDate(date, today)} entry.` : unit === "cm" ? "Centimetres, 0.5 cm steps." : "Inches, 0.25 in steps.";
 
   return (
     <Sheet
@@ -151,7 +155,10 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
         <div className="grid grid-cols-1 gap-2">
           {submitted && empty && <p className="text-center text-[13px] font-medium text-danger">Enter at least one measurement.</p>}
           {future && <p className="text-center text-[13px] font-medium text-danger">That date is in the future.</p>}
-          <Button variant="primary" size="lg" block onClick={submit} loading={pending} disabled={invalid}>
+          {collides && sameDay && (
+            <p className="text-center text-[13px] font-medium text-danger">{shortDate(sameDay.local_date, today)} already has an entry. Pick another date or edit that one.</p>
+          )}
+          <Button variant="primary" size="lg" block onClick={submit} loading={pending} disabled={invalid || collides}>
             {editing ? "Save changes" : "Save measurements"}
           </Button>
         </div>
@@ -232,7 +239,7 @@ function MeasureRow({
   onStep: (dir: 1 | -1) => void;
   inputRef: (el: HTMLInputElement | null) => void;
 }) {
-  const btn = "press grid size-12 shrink-0 place-items-center rounded-[12px] bg-s4 text-fg-2 hover:text-fg active:bg-s5";
+  const btn = "press grid size-[52px] shrink-0 place-items-center rounded-[12px] bg-s4 text-fg-2 hover:text-fg active:bg-s5";
   return (
     <div className="py-3">
       <div className="flex items-center gap-3">
@@ -240,7 +247,7 @@ function MeasureRow({
           <span className="block truncate text-[15px] font-semibold text-fg">{label}</span>
           <span className="block truncate text-[12px] font-medium text-fg-3">{hint}</span>
         </label>
-        <div className="flex shrink-0 items-center gap-1.5" role="group" aria-label={label}>
+        <div className="flex shrink-0 items-center gap-2" role="group" aria-label={label}>
           <button type="button" className={btn} onClick={() => onStep(-1)} aria-label={`Decrease ${label}`}>
             <Minus className="size-[18px]" />
           </button>
@@ -258,11 +265,11 @@ function MeasureRow({
               aria-invalid={!!error}
               aria-describedby={error ? `${id}-err` : undefined}
               className={cn(
-                "num h-12 w-[84px] rounded-[12px] border bg-s2 pr-7 text-center text-[19px] font-semibold text-fg outline-none transition-[border-color,box-shadow] placeholder:text-fg-3 focus:border-gold-400 focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)]",
+                "num h-[52px] w-[78px] rounded-[12px] border bg-s2 pr-6 text-center text-[19px] font-semibold text-fg outline-none transition-[border-color,box-shadow] placeholder:text-fg-3 focus:border-gold-400 focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)]",
                 error ? "border-danger" : "border-line-field",
               )}
             />
-            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[11px] font-semibold text-fg-3">{unit}</span>
+            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[12px] font-semibold text-fg-3">{unit}</span>
           </div>
           <button type="button" className={btn} onClick={() => onStep(1)} aria-label={`Increase ${label}`}>
             <Plus className="size-[18px]" />

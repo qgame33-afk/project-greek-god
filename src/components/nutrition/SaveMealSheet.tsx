@@ -1,7 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
@@ -16,6 +16,7 @@ import { savedMealItemFromEntry } from "@/lib/nutrition-ui/savedMeal";
 import { formatInt } from "@/lib/units";
 import { StickyFooter } from "./bits";
 import { ToastMark } from "./context";
+import { useFocusIntoSheet } from "./hooks";
 
 export interface SaveMealState {
   open: boolean;
@@ -34,6 +35,8 @@ export function SaveMealSheet({ state, onOpenChange }: { state: SaveMealState; o
 
 function SaveMealBody({ section, close }: { section: MealSection<FoodEntry>; close: () => void }) {
   const m = useSavedMealMutations();
+  const root = useRef<HTMLDivElement>(null);
+  useFocusIntoSheet(root);
   const [name, setName] = useState(() => (section.entries.length === 1 ? section.entries[0].name : `My ${section.label.toLowerCase()}`));
   const [picked, setPicked] = useState<Set<string>>(() => new Set(section.entries.map((e) => e.id)));
   const [touched, setTouched] = useState(false);
@@ -70,7 +73,7 @@ function SaveMealBody({ section, close }: { section: MealSection<FoodEntry>; clo
   };
 
   return (
-    <div className="pt-2">
+    <div className="pt-2" ref={root}>
       <Field label="Name" error={touched ? nameErr : null}>
         {(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="off" aria-invalid={touched && !!nameErr} />}
       </Field>

@@ -4,13 +4,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { Segmented } from "@/components/ui/controls";
 import { ErrorNote, PageHeader } from "@/components/ui/misc";
-import { dayName, longDate, type ISODate } from "@/lib/dates";
+import { addDays, dayName, longDate, parseISODate, toISODate, type ISODate } from "@/lib/dates";
 import type { Session } from "@/lib/data/training";
 import { DaySheet } from "./DaySheet";
 import { ExercisesTab } from "./ExercisesTab";
 import { HistoryTab } from "./HistoryTab";
 import { LegAdviceCard, MissedCard, NextWorkoutCard, WeekCard } from "./HubCards";
-import { useAllPREvents, useTrainingWeek, useUnits } from "./hooks";
+import { PLAN_AHEAD, PLAN_BACK, useAllPREvents, useTrainingWeek, useUnits } from "./hooks";
 import { ProgramTab } from "./ProgramTab";
 import { SessionSheet } from "./SessionSheet";
 import { TrainingSkeleton } from "./Skeletons";
@@ -19,6 +19,17 @@ import { VolleyballSheet } from "./VolleyballSheet";
 
 type Tab = "program" | "history" | "exercises";
 const TABS: Tab[] = ["program", "history", "exercises"];
+const TAB_LABEL: Record<Tab, string> = { program: "Program", history: "History", exercises: "Exercises" };
+
+/**
+ * A real calendar date in YYYY-MM-DD (rejects 2026-02-31 and friends) inside the window the
+ * hub has plans for (two weeks either side of today), else null.
+ */
+function validDay(d: string | null, today: ISODate): ISODate | null {
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+  if (toISODate(parseISODate(d)) !== d) return null;
+  return d >= addDays(today, -PLAN_BACK) && d <= addDays(today, PLAN_AHEAD) ? d : null;
+}
 
 /**
  * /training — the week as a colonnade, today's workout, quiet catch-up for missed sessions,
@@ -40,8 +51,18 @@ function Hub() {
   const tab: Tab = tabParam && TABS.includes(tabParam) ? tabParam : "program";
   const dayParam = params.get("day");
 
-  const [day, setDay] = useState<ISODate | null>(dayParam && /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : null);
+  const [day, setDay] = useState<ISODate | null>(() => validDay(dayParam, week.today));
   const [dayOpen, setDayOpen] = useState(!!day);
+  // A new ?day= while the hub is already mounted (e.g. from the Today colonnade) opens it too.
+  const [seenParam, setSeenParam] = useState(dayParam);
+  if (dayParam !== seenParam) {
+    setSeenParam(dayParam);
+    const d = validDay(dayParam, week.today);
+    if (d) {
+      setDay(d);
+      setDayOpen(true);
+    }
+  }
   const [vb, setVb] = useState<{ open: boolean; date: ISODate }>({ open: false, date: week.today });
   const [session, setSession] = useState<Session | null>(null);
   const [sessionOpen, setSessionOpen] = useState(false);
@@ -97,15 +118,11 @@ function Hub() {
           ariaLabel="Training sections"
           value={tab}
           onChange={(v) => setParam("tab", v === "program" ? null : v)}
-          options={[
-            { value: "program", label: "Program" },
-            { value: "history", label: "History" },
-            { value: "exercises", label: "Exercises" },
-          ]}
+          options={TABS.map((t) => ({ value: t, label: TAB_LABEL[t] }))}
         />
       </div>
 
-      <div className="mt-5" role="tabpanel" aria-label={tab}>
+      <div className="mt-5" role="tabpanel" aria-label={TAB_LABEL[tab]}>
         {tab === "program" && <ProgramTab week={week} />}
         {tab === "history" && <HistoryTab week={week} onStartToday={() => openDay(week.today)} />}
         {tab === "exercises" && <ExercisesTab today={week.today} />}

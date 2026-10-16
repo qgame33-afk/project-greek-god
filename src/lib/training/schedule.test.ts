@@ -4,11 +4,14 @@ import {
   describeMove,
   groupByWeek,
   latestRecovery,
+  linkedMoveDates,
   missedWorkouts,
   planMove,
   rescheduleOptions,
+  scheduleFreeze,
   scheduleIssues,
   volleyballAdvice,
+  volleyballSessions7d,
   weekComplete,
   weekDays,
   weekdaysFor,
@@ -79,16 +82,44 @@ describe("missedWorkouts", () => {
     expect(m[0]).toMatchObject({ key: "pull_a", name: "Pull A" });
   });
 
-  it("ignores today, rest days, overrides and days before the start date", () => {
+  it("ignores today, rest days, rest overrides and days before the start date", () => {
     const p = plansFor("2026-10-05", 14, { "2026-10-13": "rest", "2026-10-12": "push_b" });
     const m = missedWorkouts({ today: TODAY, plans: p, sessions: [], since: "2026-10-10" });
-    // 10-10 (Legs B) is missed; 10-11 is Sunday rest; 10-12 overridden; 10-13 rest override; 10-14 Legs A missed
-    expect(m.map((x) => x.date)).toEqual(["2026-10-14", "2026-10-10"]);
+    // 10-10 Legs B missed; 10-11 Sunday rest; 10-12 swapped to Push B and not done; 10-13 set to rest; 10-14 Legs A missed
+    expect(m.map((x) => x.date)).toEqual(["2026-10-14", "2026-10-12", "2026-10-10"]);
+    expect(m[1]).toMatchObject({ key: "push_b", name: "Push B" });
   });
 
-  it("treats the same template done later as handled", () => {
+  it("treats the same template done later as handled, but not a different one done that day", () => {
     const m = missedWorkouts({ today: TODAY, plans, sessions: [done("2026-10-14", "pull_a")], since: "2026-10-13" });
-    // Pull A planned on the 13th was done on the 14th; Legs A on the 14th is not missed because a session exists that day
+    // Pull A planned on the 13th was done on the 14th; Legs A planned on the 14th was not done
+    expect(m).toEqual([{ date: "2026-10-14", key: "legs_a", name: "Legs A", doneInstead: "Pull A" }]);
+  });
+
+  it("surfaces a workout that was moved to another day and then skipped there", () => {
+    const p = plansFor("2026-10-05", 14, { "2026-10-12": "rest", "2026-10-13": "push_a" }).map((x) =>
+      x.date === "2026-10-13" ? { ...x, reason: "rescheduled", movedFrom: "2026-10-12" } : x,
+    );
+    const m = missedWorkouts({ today: TODAY, plans: p, sessions: [done("2026-10-14", "legs_a")], since: "2026-10-12" });
+    expect(m.map((x) => [x.date, x.key])).toEqual([["2026-10-13", "push_a"]]);
+  });
+
+  it("counts a template done earlier in the week on another day as handled", () => {
+    // Pull B done Monday (planned Push A); Friday's Pull B is covered, Monday's Push A is not
+    const p = plansFor("2026-10-12", 7);
+    const m = missedWorkouts({ today: "2026-10-17", plans: p, sessions: [done("2026-10-12", "pull_b"), done("2026-10-13", "pull_a"), done("2026-10-14", "legs_a"), done("2026-10-15", "push_b")], since: "2026-10-12" });
+    expect(m.map((x) => x.key)).toEqual(["push_a"]);
+    expect(m[0].doneInstead).toBe("Pull B");
+  });
+
+  it("does not let a duplicate weekday plan borrow another day's session", () => {
+    const p = plansFor("2026-10-12", 7, { "2026-10-15": "push_a" });
+    const m = missedWorkouts({ today: "2026-10-17", plans: p, sessions: [done("2026-10-12", "push_a")], since: "2026-10-15" });
+    expect(m.map((x) => [x.date, x.key])).toEqual([["2026-10-16", "pull_b"], ["2026-10-15", "push_a"]]);
+  });
+
+  it("counts a free-form session on the day as handled", () => {
+    const m = missedWorkouts({ today: TODAY, plans, sessions: [{ local_date: "2026-10-14", status: "done", template_key: null, name: "Custom" }], since: "2026-10-14" });
     expect(m).toEqual([]);
   });
 
@@ -120,6 +151,15 @@ describe("planMove", () => {
     expect(m.displaced).toBe("push_b");
     expect(m.writes[1]).toMatchObject({ plan_date: "2026-10-13", template_key: "rest" });
     expect(describeMove(m, NAMES, TODAY)).toBe("Pull A replaces Push B today. Push B is skipped unless you move it.");
+  });
+
+  it("never swaps out of a day that was already trained", () => {
+    // Push A was done today although Push B was planned; moving Push B onto Friday's Pull B replaces it
+    const m = planMove({ from: TODAY, to: "2026-10-16", fromKey: "push_b", toKey: "pull_b", today: TODAY, closed: true });
+    expect(m.kind).toBe("replace");
+    expect(m.writes[1]).toMatchObject({ plan_date: TODAY, template_key: "rest" });
+    const free = planMove({ from: TODAY, to: "2026-10-18", fromKey: "push_b", toKey: "rest", today: TODAY, closed: true });
+    expect(describeMove(free, NAMES, TODAY)).toBe("Push B moves to Sunday.");
   });
 
   it("rejects no-op and rest moves", () => {
@@ -157,14 +197,19 @@ describe("rescheduleOptions", () => {
 });
 
 describe("volleyballAdvice", () => {
-  it("flags three or more volleyball days", () => {
+  it("flags three or more volleyball sessions", () => {
     const a = volleyballAdvice({ load7d: 3, perWeek: 3, recovery: null, today: TODAY });
     expect(a.heavy).toBe(true);
-    expect(a.reasons[0]).toBe("3 volleyball days in the last 7.");
+    expect(a.reasons[0]).toBe("3 volleyball sessions in the last 7 days.");
+  });
+
+  it("counts sessions, not days, over the last 7 days", () => {
+    const rows = [{ local_date: TODAY }, { local_date: TODAY }, { local_date: "2026-10-09" }, { local_date: "2026-10-08" }];
+    expect(volleyballSessions7d(rows, TODAY)).toBe(3);
   });
 
   it("flags one more than usual, but never a single session", () => {
-    expect(volleyballAdvice({ load7d: 2, perWeek: 1, recovery: null, today: TODAY }).reasons[0]).toBe("2 volleyball days in the last 7, above your usual 1 a week.");
+    expect(volleyballAdvice({ load7d: 2, perWeek: 1, recovery: null, today: TODAY }).reasons[0]).toBe("2 volleyball sessions in the last 7 days, above your usual 1 a week.");
     expect(volleyballAdvice({ load7d: 1, perWeek: 0, recovery: null, today: TODAY }).heavy).toBe(false);
     expect(volleyballAdvice({ load7d: 2, perWeek: 2, recovery: null, today: TODAY }).heavy).toBe(false);
   });
@@ -206,7 +251,15 @@ describe("deloadAdvice", () => {
   it("suggests a deload after 5 hard weeks", () => {
     const a = deloadAdvice({ sessions: weeksOf(5, 5), recovery: [], today: TODAY, mode: "standard" });
     expect(a).toMatchObject({ suggest: true, hardWeeks: 5 });
-    expect(a.reasons[0]).toBe("5 hard weeks in a row since your last lighter week.");
+    expect(a.reasons[0]).toBe("5 hard weeks in a row.");
+  });
+
+  it("says when the streak started at a deload, or ran past the fetched history", () => {
+    const s = [...weeksOf(5, 5), ...weeksOf(6, 5, "deload").filter((x) => x.local_date < addDays("2026-10-12", -35))];
+    expect(deloadAdvice({ sessions: s, recovery: [], today: TODAY, mode: "standard" }).reasons[0]).toBe("5 hard weeks in a row since your last deload.");
+    const capped = deloadAdvice({ sessions: weeksOf(9, 5), recovery: [], today: TODAY, mode: "standard", historyFrom: addDays("2026-10-12", -42) });
+    expect(capped).toMatchObject({ hardWeeks: 6 });
+    expect(capped.reasons[0]).toBe("At least 6 hard weeks in a row.");
   });
 
   it("does not suggest after 4 hard weeks or when weeks are light", () => {
@@ -253,5 +306,51 @@ describe("scheduleIssues", () => {
     expect(scheduleIssues(s, keys)).toEqual({ duplicates: ["push_a"], missing: ["push_b", "legs_b"], trainingDays: 5 });
     expect(weekdaysFor(s, "push_a")).toEqual([1, 4]);
     expect(weekdaysFor(s, "legs_b")).toEqual([]);
+  });
+});
+
+describe("linkedMoveDates", () => {
+  it("pairs both sides of a move, a swap and a catch-up", () => {
+    const move = [
+      { plan_date: "2026-10-18", template_key: "legs_b", reason: "rescheduled", moved_from: "2026-10-17" },
+      { plan_date: "2026-10-17", template_key: "rest", reason: "rescheduled", moved_from: null },
+    ];
+    expect(linkedMoveDates("2026-10-18", move)).toEqual(["2026-10-17"]);
+    expect(linkedMoveDates("2026-10-17", move)).toEqual(["2026-10-18"]);
+    const swap = [
+      { plan_date: "2026-10-16", template_key: "legs_b", reason: "rescheduled", moved_from: "2026-10-17" },
+      { plan_date: "2026-10-17", template_key: "pull_b", reason: "rescheduled", moved_from: "2026-10-16" },
+    ];
+    expect(linkedMoveDates("2026-10-16", swap)).toEqual(["2026-10-17"]);
+    expect(linkedMoveDates("2026-10-17", swap)).toEqual(["2026-10-16"]);
+  });
+
+  it("leaves unrelated overrides alone", () => {
+    const rows = [
+      { plan_date: "2026-10-16", template_key: "push_a", reason: "swap", moved_from: null },
+      { plan_date: "2026-10-17", template_key: "rest", reason: "rest", moved_from: null },
+      // a newer move whose source was later re-planned on its own
+      { plan_date: "2026-10-18", template_key: "legs_b", reason: "rescheduled", moved_from: "2026-10-17" },
+    ];
+    expect(linkedMoveDates("2026-10-16", rows)).toEqual([]);
+    expect(linkedMoveDates("2026-10-18", rows)).toEqual([]);
+  });
+});
+
+describe("scheduleFreeze", () => {
+  const old: Record<string, string> = { "0": "rest", "1": "push_a", "2": "pull_a", "3": "legs_a", "4": "push_b", "5": "pull_b", "6": "legs_b" };
+
+  it("keeps changed past weekdays as they were planned, never today or later", () => {
+    const next = { ...old, "0": "legs_b", "3": "rest" };
+    const w = scheduleFreeze({ from: "2026-10-05", today: TODAY, oldSchedule: old, newSchedule: next, overridden: ["2026-10-07"] });
+    // Sundays 10-11 (was rest) and Wednesday 10-14 (was Legs A); 10-07 already has an override
+    expect(w).toEqual([
+      { plan_date: "2026-10-11", template_key: "rest", reason: "custom", moved_from: null },
+      { plan_date: "2026-10-14", template_key: "legs_a", reason: "custom", moved_from: null },
+    ]);
+  });
+
+  it("writes nothing when the past is unchanged", () => {
+    expect(scheduleFreeze({ from: "2026-10-01", today: TODAY, oldSchedule: old, newSchedule: { ...old }, overridden: [] })).toEqual([]);
   });
 });

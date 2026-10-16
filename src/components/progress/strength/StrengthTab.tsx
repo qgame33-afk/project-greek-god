@@ -87,7 +87,7 @@ export function StrengthTab() {
         <>
           <div className="grid grid-cols-3 gap-3">
             <Card className="min-w-0 !p-3.5 lg:!p-5">
-              <StatTile label="Sessions" value={new Set(sets.map((s) => s.session_id)).size} size="sm" caption="with sets" />
+              <StatTile label="Sessions" value={new Set(sets.map((s) => s.session_id)).size} size="sm" caption="logged" />
             </Card>
             <Card className="min-w-0 !p-3.5 lg:!p-5">
               <StatTile label="Sets" value={formatInt(sets.length)} size="sm" caption={`since ${shortDate(sets[0].local_date, today)}`} />
@@ -152,8 +152,8 @@ function LiftRowView({ row, s, unit, first, onOpen }: { row: LiftRow; s: LiftSum
         </span>
         {spark.length > 1 && <Sparkline values={spark} width={44} height={22} />}
         <span className="w-[64px] shrink-0 text-right">
-          <span className="num-sm block">{head != null ? (mode === "reps" ? head : fmt(head)) : "—"}</span>
-          <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-fg-3">{!logged ? "\u00a0" : mode === "e1rm" ? `e1RM ${unit}` : mode === "load" ? (row.bodyweight ? `+${unit}` : `top ${unit}`) : "reps"}</span>
+          <span className="num-sm block">{head != null ? (mode === "reps" ? head : mode === "e1rm" ? e1(head, unit) : fmt(head)) : "—"}</span>
+          <span className="block text-[11px] font-bold uppercase tracking-[0.1em] text-fg-3">{!logged ? "\u00a0" : mode === "e1rm" ? `e1RM ${unit}` : mode === "load" ? (row.bodyweight ? `+${unit}` : `top ${unit}`) : "reps"}</span>
         </span>
         <ChevronRight className="size-4 shrink-0 text-fg-3" aria-hidden />
       </button>
@@ -177,7 +177,7 @@ function LiftDetail({ row, s, unit, onClose }: { row: LiftRow | null; s: LiftSum
     t: dateToT(x.date),
     metric: (() => {
       const v = sessionMetric(x, mode);
-      return v == null ? null : mode === "reps" ? v : Math.round(toDisplayWeight(v, unit) * 10) / 10;
+      return v == null ? null : mode === "reps" ? v : mode === "e1rm" ? Math.round(toDisplayWeight(v, unit)) : Math.round(toDisplayWeight(v, unit) * 10) / 10;
     })(),
     volume: loadVol ? Math.round(toDisplayWeight(x.volume, unit)) : x.totalReps,
     pr: x.pr,
@@ -204,7 +204,7 @@ function LiftDetail({ row, s, unit, onClose }: { row: LiftRow | null; s: LiftSum
             ) : (
               <StatTile
                 label="Best e1RM"
-                value={sum.bestE1rm != null ? fmt(sum.bestE1rm) : "—"}
+                value={sum.bestE1rm != null ? e1(sum.bestE1rm, unit) : "—"}
                 unit={sum.bestE1rm != null ? unit : undefined}
                 caption={sum.bestE1rmSet ? `${formatSet(sum.bestE1rmSet, fmt, r.bodyweight)} · ${shortDate(sum.bestE1rmSet.local_date, today)}` : "Needs a 1–12 rep set"}
                 size="md"
@@ -220,7 +220,7 @@ function LiftDetail({ row, s, unit, onClose }: { row: LiftRow | null; s: LiftSum
             <StatTile label="Best reps" value={sum.bestReps?.reps ?? "—"} caption={sum.bestReps ? `${sum.bestReps.weight ? `at ${fmt(sum.bestReps.weight)} ${unit}` : "bodyweight"} · ${shortDate(sum.bestReps.date, today)}` : undefined} size="md" />
             <StatTile
               label="Strength trend"
-              value={trend ? signed(toDisplayWeight(trend.change, unit), 1) : "—"}
+              value={trend ? signed(toDisplayWeight(trend.change, unit), 0) : "—"}
               unit={trend ? unit : undefined}
               delta={trend ? `e1RM since ${shortDate(trend.since, today)}` : undefined}
               tone={trend && trend.change > 0 ? "success" : "neutral"}
@@ -281,7 +281,7 @@ function LiftDetail({ row, s, unit, onClose }: { row: LiftRow | null; s: LiftSum
                       </span>
                       <span className="num text-[13px] text-fg-3">
                         {loadVol ? `${formatInt(toDisplayWeight(x.volume, unit))} ${unit}` : `${x.totalReps} reps`}
-                        {x.bestE1rm != null ? ` · e1RM ${fmt(x.bestE1rm)}` : ""}
+                        {x.bestE1rm != null ? ` · e1RM ${e1(x.bestE1rm, unit)}` : ""}
                       </span>
                     </div>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -290,7 +290,7 @@ function LiftDetail({ row, s, unit, onClose }: { row: LiftRow | null; s: LiftSum
                           {formatSet(set, fmt, r.bodyweight).replace(" × ", "×")}
                         </span>
                       ))}
-                      {x.pr && x.prGain != null && <span className="num inline-flex h-7 items-center px-1 text-[13px] text-gold-300">{signed(toDisplayWeight(x.prGain, unit), 1)} e1RM</span>}
+                      {x.pr && x.prGain != null && <span className="num inline-flex h-7 items-center px-1 text-[13px] text-gold-300">{signed(toDisplayWeight(x.prGain, unit), 0)} e1RM</span>}
                     </div>
                   </li>
                 );
@@ -311,4 +311,9 @@ function LiftDetail({ row, s, unit, onClose }: { row: LiftRow | null; s: LiftSum
       )}
     </Sheet>
   );
+}
+
+/** e1RM is an estimate: show it in whole units (268, not 268.3) so it never reads as a measured load. */
+function e1(lb: number, unit: WeightUnit) {
+  return String(Math.round(toDisplayWeight(lb, unit)));
 }

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, Plus, Replace, RotateCcw, Trash } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyArt } from "@/components/art/Motifs";
@@ -21,14 +22,15 @@ import { getExercise } from "@/lib/training/library";
 import { PROGRAM_BY_KEY } from "@/lib/training/program";
 import { weekdaysFor } from "@/lib/training/schedule";
 import type { RepUnit, TemplateExercise, TemplateKey } from "@/lib/training/types";
-import { RIR_OPTIONS, moveItem, newTemplateExercise, substituteExercise, validateTemplate } from "@/lib/training/volume";
+import { RIR_OPTIONS, moveItem, newTemplateExercise, sameTemplateContent, substituteExercise, validateTemplate } from "@/lib/training/volume";
 import { targetLabel, templateMeta, weekdaysLabel } from "./format";
 import { LibraryPicker } from "./LibraryPicker";
 import { DetailSkeleton } from "./Skeletons";
 import { useMounted } from "./useMounted";
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const same = (a: StoredTemplate, b: StoredTemplate) => sameTemplateContent(a, b);
+const draftKey = (k: string) => `pgg.template-draft.${k}`;
 const fmtRest = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 /** /training/program/[key] — edit one of the six day templates. */
@@ -39,6 +41,7 @@ export function TemplateEditor({ templateKey }: { templateKey: string }) {
     return (
       <div>
         <BackLink />
+        <h1 className="sr-only">No such workout</h1>
         <Empty art={<EmptyArt kind="column" size={56} />} title="No such workout" className="mt-6" action={<Button variant="secondary" asChild><Link href="/training">Back to Training</Link></Button>}>
           The program has six templates: Push A, Pull A, Legs A, Push B, Pull B and Legs B.
         </Empty>
@@ -65,10 +68,23 @@ function Loaded({ templateKey }: { templateKey: TemplateKey }) {
 
 function Editor({ stored }: { stored: StoredTemplate }) {
   const qc = useQueryClient();
+  const router = useRouter();
   const { userId } = useUser();
   const { profile } = useProfile();
   const save = useSaveTemplate();
+  const busy = useRef(false);
   const [draft, setDraft] = useState<StoredTemplate>(() => clone(stored));
+  const [leaveTo, setLeaveTo] = useState<string | null>(null);
+  // Unsaved edits from an earlier visit (kept in sessionStorage when the page was left).
+  const [earlier, setEarlier] = useState<StoredTemplate | null>(() => {
+    try {
+      const raw = sessionStorage.getItem(draftKey(stored.key));
+      const d = raw ? (JSON.parse(raw) as StoredTemplate) : null;
+      return d && Array.isArray(d.exercises) && !sameTemplateContent(d, stored) ? d : null;
+    } catch {
+      return null;
+    }
+  });
   const [open, setOpen] = useState<number | null>(null);
   const [picker, setPicker] = useState<{ mode: "add" } | { mode: "sub"; index: number } | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -85,29 +101,66 @@ function Editor({ stored }: { stored: StoredTemplate }) {
   const { ok, errors } = validateTemplate(draft);
   const days = weekdaysFor(scheduleOf(profile ?? undefined), stored.key);
   const def = PROGRAM_BY_KEY[stored.key];
-  const isDefault = same({ n: draft.name, f: draft.focus, w: draft.warmup, e: draft.exercises }, { n: def.name, f: def.focus, w: def.warmup, e: def.exercises });
+  const isDefault = sameTemplateContent(draft, def);
 
+  // Keep unsaved edits for this browser session, so a back gesture never loses them.
+  useEffect(() => {
+    try {
+      if (dirty) sessionStorage.setItem(draftKey(stored.key), JSON.stringify(draft));
+      else if (!earlier) sessionStorage.removeItem(draftKey(stored.key));
+    } catch {
+      /* storage blocked: the leave guard below still protects in-app links */
+    }
+  }, [dirty, draft, stored.key, earlier]);
+
+  // Leaving with unsaved edits: reloads get the browser prompt, in-app links get a Confirm.
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => {
       e.preventDefault();
     };
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!a || a.target === "_blank" || a.hasAttribute("download")) return;
+      const url = new URL(a.href, location.href);
+      if (url.origin !== location.origin || url.pathname === location.pathname) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setLeaveTo(url.pathname + url.search + url.hash);
+    };
     window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
+    document.addEventListener("click", onClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      document.removeEventListener("click", onClick, true);
+    };
   }, [dirty]);
+
+  const forgetDraft = () => {
+    try {
+      sessionStorage.removeItem(draftKey(stored.key));
+    } catch {
+      /* nothing stored */
+    }
+  };
 
   const writeCache = (t: StoredTemplate) =>
     qc.setQueryData<StoredTemplate[]>(["templates", userId], (rows) => (rows ? rows.map((r) => (r.key === t.key ? { ...r, ...t } : r)) : rows));
 
   const persist = async (next: StoredTemplate, message: string) => {
-    if (save.isPending) return false;
+    if (busy.current) return false;
+    busy.current = true;
     const prev = clone(stored);
     try {
       await save.mutateAsync(next);
     } catch {
       return false; // the form keeps every edit; the hook showed why
+    } finally {
+      busy.current = false;
     }
     writeCache(next);
+    forgetDraft();
     toast.success(message, {
       duration: 6000,
       action: {
@@ -143,8 +196,10 @@ function Editor({ stored }: { stored: StoredTemplate }) {
 
   const onReset = async () => {
     const next: StoredTemplate = { ...clone(def), id: stored.id };
-    setDraft(clone(next));
-    await persist(next, `${def.name} reset to the original program`);
+    if (await persist(next, `${def.name} reset to the original program`)) {
+      setDraft(clone(next));
+      setShowErrors(false);
+    }
   };
 
   const setEx = (i: number, patch: Partial<TemplateExercise>) => setDraft((d) => ({ ...d, exercises: d.exercises.map((e, j) => (j === i ? { ...e, ...patch } : e)) }));
@@ -176,6 +231,35 @@ function Editor({ stored }: { stored: StoredTemplate }) {
           {meta}
         </p>
       </header>
+
+      {earlier && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[14px] border border-line-gold bg-gold-tint px-4 py-2.5">
+          <p className="min-w-0 flex-1 text-[14px] font-semibold text-fg">You left unsaved changes here.</p>
+          <div className="-mr-2 flex shrink-0 items-center">
+            <Button
+              variant="ghost"
+              size="md"
+              className="h-11 px-3 text-[14px]"
+              onClick={() => {
+                setEarlier(null);
+                forgetDraft();
+              }}
+            >
+              Discard
+            </Button>
+            <Button
+              variant="link"
+              className="h-11 px-3 text-[14px]"
+              onClick={() => {
+                setDraft(clone(earlier));
+                setEarlier(null);
+              }}
+            >
+              Restore
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
         <div className="min-w-0 space-y-4 lg:col-span-7">
@@ -291,7 +375,16 @@ function Editor({ stored }: { stored: StoredTemplate }) {
         <div className="chrome fixed inset-x-0 bottom-[calc(var(--tabbar-h)+var(--safe-bottom))] z-[36] border-t border-line-hair px-4 py-3 md:bottom-0 md:left-[76px] md:pb-[calc(12px+var(--safe-bottom))] lg:left-[248px]">
           <div className="mx-auto flex max-w-[1116px] items-center gap-3">
             <p className="hidden min-w-0 flex-1 text-[13px] text-fg-2 sm:block">{ok || !showErrors ? "Unsaved changes" : "Fix the highlighted fields to save."}</p>
-            <Button variant="ghost" onClick={() => setDraft(clone(stored))} disabled={save.isPending} className="shrink-0">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDraft(clone(stored));
+                setShowErrors(false);
+                forgetDraft();
+              }}
+              disabled={save.isPending}
+              className="shrink-0"
+            >
               Discard
             </Button>
             <Button variant="primary" onClick={onSave} loading={save.isPending} className="flex-1 sm:w-48 sm:flex-none">
@@ -325,6 +418,21 @@ function Editor({ stored }: { stored: StoredTemplate }) {
             toast(`Added ${lib.name}`, { description: "Set the sets and reps, then save." });
           }
           setPicker(null);
+        }}
+      />
+
+      <Confirm
+        open={!!leaveTo}
+        onOpenChange={(o) => !o && setLeaveTo(null)}
+        title="Discard your changes?"
+        body={`Your edits to ${draft.name.trim() || stored.name} are not saved. Leave and lose them, or stay and save.`}
+        confirmLabel="Discard"
+        onConfirm={() => {
+          const to = leaveTo;
+          forgetDraft();
+          setDraft(clone(stored));
+          setLeaveTo(null);
+          if (to) router.push(to);
         }}
       />
 

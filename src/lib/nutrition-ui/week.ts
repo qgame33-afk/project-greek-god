@@ -26,7 +26,10 @@ export interface WeekDay {
 export interface WeekSummary {
   days: WeekDay[];
   loggedDays: number;
+  /** Average over logged days that are over (today's partial intake is left out). */
   avgKcal: number | null;
+  /** How many days the averages cover. */
+  avgDays: number;
   avgProtein: number | null;
   proteinHits: number;
   calorieHits: number;
@@ -55,12 +58,15 @@ export function buildWeek(rows: DayTotalsRow[], end: ISODate, today: ISODate, go
     });
   }
   const logged = days.filter((d) => d.logged);
+  // Today is still in progress, so a mid-morning total would drag the average down.
+  const full = logged.filter((d) => !d.isToday);
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
   return {
     days,
     loggedDays: logged.length,
-    avgKcal: avg(logged.map((d) => d.kcal ?? 0)),
-    avgProtein: avg(logged.map((d) => d.protein ?? 0)),
+    avgKcal: avg(full.map((d) => d.kcal ?? 0)),
+    avgDays: full.length,
+    avgProtein: avg(full.map((d) => d.protein ?? 0)),
     proteinHits: days.filter((d) => d.proteinHit).length,
     calorieHits: days.filter((d) => d.calorieHit).length,
   };

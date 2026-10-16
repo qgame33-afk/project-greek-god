@@ -5,6 +5,7 @@ import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/cn";
 
 const REVEAL = 144; // two 72px actions
+const LONG_PRESS = 480;
 
 /**
  * Touch row: swipe left (or long-press) to reveal actions; tap opens. Mouse and keyboard
@@ -27,11 +28,18 @@ export function SwipeRow({
   label: string;
   className?: string;
 }) {
-  const drag = useRef<{ x: number; y: number; off: number; lock: "x" | "y" | null; timer: number | null } | null>(null);
+  const drag = useRef<{ x: number; y: number; t0: number; off: number; lock: "x" | "y" | null; timer: number | null } | null>(null);
   const suppressClick = useRef(false);
   const [live, setLive] = useState<number | null>(null);
   const base = open ? -REVEAL : 0;
   const offset = live ?? base;
+
+  const longPress = () => {
+    suppressClick.current = true;
+    haptic(12);
+    onOpenChange(true);
+    drag.current = null;
+  };
 
   const clearTimer = () => {
     const d = drag.current;
@@ -54,15 +62,10 @@ export function SwipeRow({
         }}
         onPointerDown={(e) => {
           if (e.pointerType !== "touch") return;
-          const d = { x: e.clientX, y: e.clientY, off: base, lock: null as "x" | "y" | null, timer: null as number | null };
+          const d = { x: e.clientX, y: e.clientY, t0: performance.now(), off: base, lock: null as "x" | "y" | null, timer: null as number | null };
           d.timer = window.setTimeout(() => {
-            if (drag.current === d && d.lock == null) {
-              suppressClick.current = true;
-              haptic(12);
-              onOpenChange(true);
-              drag.current = null;
-            }
-          }, 480);
+            if (drag.current === d && d.lock == null) longPress();
+          }, LONG_PRESS);
           drag.current = d;
         }}
         onPointerMove={(e) => {
@@ -85,6 +88,11 @@ export function SwipeRow({
           drag.current = null;
           if (!d) return;
           clearTimer();
+          // A busy main thread can run this before the timer; the hold still counts.
+          if (d.lock == null && performance.now() - d.t0 >= LONG_PRESS) {
+            longPress();
+            return;
+          }
           if (d.lock === "x") {
             suppressClick.current = true;
             setLive(null);

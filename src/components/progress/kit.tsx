@@ -40,7 +40,7 @@ export function StatTile({
       </div>
       <p className={cn("mt-1.5 truncate", size === "lg" ? "num-lg" : size === "md" ? "num-md" : "num-sm")}>
         {value}
-        {unit && <span className="unit">{unit}</span>}
+        {unit && <span className="unit [font-size:max(12px,0.4em)]!">{unit}</span>}
       </p>
       {delta != null && <p className={cn("mt-1 truncate text-[12px] font-semibold", TONE_CLS[tone])}>{delta}</p>}
       {caption != null && <p className="mt-0.5 line-clamp-2 text-[12px] font-medium leading-snug text-fg-3">{caption}</p>}
@@ -50,17 +50,8 @@ export function StatTile({
 
 /* --------------------------------------------------------------- badges */
 
-const badgeBase = "inline-flex h-5 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-[10.5px] font-bold uppercase leading-none tracking-[0.06em]";
-
-/** PLAN provenance: dashed line-strong, text-3 — never looks like data. */
-export function PlanBadge({ children, className }: { children?: ReactNode; className?: string }) {
-  return <span className={cn(badgeBase, "border border-dashed border-line-strong text-fg-3", className)}>{children ?? "Plan"}</span>;
-}
-
-/** First logged result — marble outline, never gold. */
-export function BenchmarkBadge({ className }: { className?: string }) {
-  return <span className={cn(badgeBase, "border border-marble/50 text-marble", className)}>First benchmark</span>;
-}
+// Provenance badges come from the shared kit so PLAN / FIRST BENCHMARK look the same app-wide.
+export { PlanBadge, FirstBenchmarkBadge as BenchmarkBadge } from "@/components/ui/badge";
 
 /* ------------------------------------------------------------ sparkline */
 

@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Clock, SquarePen } from "lucide-react";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { ErrorNote, Skeleton } from "@/components/ui/misc";
+import { Skeleton } from "@/components/ui/misc";
 import { Sheet } from "@/components/ui/sheet";
 import { CoachRequestError, askCoach, useCoachStatus, useConversations, useMessages, useReceiveReply, useSetSuggestionStatus } from "@/lib/coach/hooks";
 import { MAX_MESSAGE_CHARS } from "@/lib/coach/schema";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/cn";
 import { AccessChip } from "./AccessSheet";
 import { Composer, type ComposerHandle } from "./Composer";
 import { ConversationList } from "./ConversationList";
-import { AssistantMessage, DaySeparator, DevMockBadge, EmptyThread, Footnote, NotConnected, Thinking, UserBubble } from "./Thread";
+import { AssistantMessage, CoachError, DaySeparator, DevMockBadge, EmptyThread, Footnote, NotConnected, Thinking, UserBubble } from "./Thread";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SESSION_KEY = "pgg.coach.conversation";
@@ -39,6 +39,13 @@ const session = {
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
+const deviceZone = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
+  } catch {
+    return null;
+  }
+};
 
 interface Pending {
   text: string;
@@ -156,11 +163,11 @@ function CoachScreenInner() {
   }, [pending, msgs]);
 
   /* ------------------------------------------------------------- scroll */
-  const scrollToEnd = useCallback((smooth: boolean) => {
+  const scrollToEnd = useCallback((smooth: boolean, top = false) => {
     const el = scroller.current;
     const behavior: ScrollBehavior = smooth ? "smooth" : "auto";
-    if (el && getComputedStyle(el).overflowY !== "visible") el.scrollTo({ top: el.scrollHeight, behavior });
-    else window.scrollTo({ top: document.documentElement.scrollHeight, behavior });
+    if (el && getComputedStyle(el).overflowY !== "visible") el.scrollTo({ top: top ? 0 : el.scrollHeight, behavior });
+    else window.scrollTo({ top: top ? 0 : document.documentElement.scrollHeight, behavior });
   }, []);
 
   // opening a conversation lands at its end
@@ -180,6 +187,17 @@ function CoachScreenInner() {
     setScrollTo(null); // eslint-disable-line react-hooks/set-state-in-effect
   }, [scrollTo, msgs]);
 
+  // the question bubble + thinking state, or an error, land in view once they're rendered
+  // (scrolling before the commit would stop short of content that isn't laid out yet)
+  const waiting = !!pending && !pending.savedId;
+  useEffect(() => {
+    if (waiting) scrollToEnd(true);
+  }, [waiting, scrollToEnd]);
+  // a failed first question shows its error at the top of the new chat; later ones at the end
+  useEffect(() => {
+    if (error) scrollToEnd(true, !error.convId);
+  }, [error, scrollToEnd]);
+
   /* --------------------------------------------------------------- send */
   const send = useCallback(
     async (raw: string) => {
@@ -190,10 +208,9 @@ function CoachScreenInner() {
       setError(null);
       setPending({ text, convId: from });
       setDraft("");
-      requestAnimationFrame(() => scrollToEnd(true));
       try {
         const now = new Date();
-        const r = await askCoach({ conversationId: from, message: text, localDate: today(now), localTime: `${pad(now.getHours())}:${pad(now.getMinutes())}` });
+        const r = await askCoach({ conversationId: from, message: text, localDate: today(now), localTime: `${pad(now.getHours())}:${pad(now.getMinutes())}`, timeZone: deviceZone() });
         receive(r);
         setPending({ text, convId: r.conversationId, savedId: r.userMessage.id });
         opened.current = r.conversationId;
@@ -205,7 +222,6 @@ function CoachScreenInner() {
         setPending(null);
         setError({ code: err.code, message: err.message, text, convId: err.code === "not_found" ? null : from });
         setDraft((d) => d || text);
-        requestAnimationFrame(() => scrollToEnd(true));
         if (err.code === "not_configured") qc.invalidateQueries({ queryKey: ["coach-status"] });
         if (err.code === "not_found") {
           setConvId(null);
@@ -215,14 +231,16 @@ function CoachScreenInner() {
         sending.current = false;
       }
     },
-    [convId, qc, receive, scrollToEnd],
+    [convId, qc, receive],
   );
 
+  // keyed by the message's own conversation, so a late Undo still lands on the right message
+  const { mutate: mutateStatus } = setStatus;
   const onStatus = useCallback(
-    (messageId: string, suggestionId: string, st: SuggestionStatus) => {
-      if (convId) setStatus.mutate({ convId, messageId, suggestionId, status: st });
+    (conversationId: string, messageId: string, suggestionId: string, st: SuggestionStatus) => {
+      mutateStatus({ convId: conversationId, messageId, suggestionId, status: st });
     },
-    [convId, setStatus],
+    [mutateStatus],
   );
 
   const dismissNote = () => {
@@ -249,13 +267,21 @@ function CoachScreenInner() {
   };
 
   /* ------------------------------------------------------------- render */
-  const busy = !!pending && !pending.savedId;
+  const busy = waiting;
   const showPending = !!pending && pending.convId === convId && !msgs.some((m) => m.id === pending.savedId);
   const loadingThread = !!convId && messages.isLoading;
   const empty = !convId && !showPending;
   const lastAssistant = [...msgs].reverse().find((m) => m.role === "assistant")?.id;
   const footnote = !noteSeen && profile ? <Footnote onDismiss={dismissNote} /> : null;
   const composerDisabled = notConnected || !profile;
+  const errorNote =
+    error && error.convId === convId ? (
+      error.code === "not_configured" ? (
+        <NotConnected compact />
+      ) : (
+        <CoachError onRetry={error.code === "quota" ? undefined : () => send(error.text)}>{error.message}</CoachError>
+      )
+    ) : null;
 
   return (
     <div className="lg:grid lg:h-[calc(100dvh-96px)] lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-6">
@@ -265,8 +291,11 @@ function CoachScreenInner() {
       </aside>
 
       <section className="flex min-h-0 flex-col lg:rounded-[24px] lg:border lg:border-line-hair lg:bg-[var(--surface-1)]/40">
-        <div ref={scroller} className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:px-8 lg:pt-7">
-          <div className="mx-auto w-full max-w-[760px]">
+        <div
+          ref={scroller}
+          className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:px-8 lg:pt-7 lg:[mask-image:linear-gradient(to_bottom,transparent,#000_20px,#000_calc(100%-32px),transparent)]"
+        >
+          <div className="mx-auto w-full max-w-[760px] lg:pb-8">
             <header className="mb-5">
               <div className="flex items-end justify-between gap-3">
                 <div className="min-w-0">
@@ -295,7 +324,10 @@ function CoachScreenInner() {
             </header>
 
             {empty ? (
-              <EmptyThread profile={profile} onAsk={send} disabled={!profile || busy} notConnected={notConnected} footnote={footnote} />
+              <>
+                {errorNote && !(error?.code === "not_configured" && notConnected) && <div className="mb-6">{errorNote}</div>}
+                <EmptyThread profile={profile} onAsk={send} disabled={!profile || busy} notConnected={notConnected} footnote={footnote} />
+              </>
             ) : (
               <div className="space-y-6 pb-2" aria-live="polite" aria-busy={busy}>
                 {loadingThread && (
@@ -313,7 +345,7 @@ function CoachScreenInner() {
                     </div>
                   </div>
                 )}
-                {messages.error && <ErrorNote onRetry={() => messages.refetch()}>Couldn&apos;t load this conversation.</ErrorNote>}
+                {messages.error && <CoachError onRetry={() => messages.refetch()}>Couldn&apos;t load this conversation. Check your connection.</CoachError>}
                 {msgs.map((m, i) => {
                   const day = localDateOf(m.created_at);
                   const sep = m.role === "user" && (i === 0 ? msgs.length > 2 || day !== today() : localDateOf(msgs[i - 1].created_at) !== day);
@@ -345,15 +377,7 @@ function CoachScreenInner() {
               </div>
             )}
 
-            {error && error.convId === convId && (
-              <div className="mt-4" role="alert">
-                {error.code === "not_configured" ? (
-                  <NotConnected compact />
-                ) : (
-                  <ErrorNote onRetry={error.code === "quota" ? undefined : () => send(error.text)}>{error.message}</ErrorNote>
-                )}
-              </div>
-            )}
+            {!empty && errorNote && <div className="mt-4">{errorNote}</div>}
             {!empty && notConnected && !error && <NotConnected compact className="mt-5" />}
           </div>
         </div>
@@ -382,22 +406,38 @@ function CoachScreenInner() {
   );
 }
 
+/** True while the shell's Live Session Dock is on screen (an active workout elsewhere). */
+const subscribeDom = (cb: () => void) => {
+  const mo = new MutationObserver(cb);
+  mo.observe(document.body, { childList: true, subtree: true });
+  return () => mo.disconnect();
+};
+const liveDockSnapshot = () => !!document.querySelector("[data-live-dock]");
+const noLiveDock = () => false;
+function useLiveDockShown() {
+  return useSyncExternalStore(subscribeDom, liveDockSnapshot, noLiveDock);
+}
+
 /**
- * Phones: fixed above the tab bar, lifted above the on-screen keyboard (visualViewport), with a
- * spacer so the last message never hides behind it. Desktop: a static footer of the chat pane.
- * Horizontal padding mirrors <main> so the pill lines up with the content column.
+ * Phones: fixed above the tab bar (and above the Live Session Dock when a workout is running),
+ * lifted above the on-screen keyboard (visualViewport), with a spacer so the last message never
+ * hides behind it. Desktop: a static footer of the chat pane. Horizontal padding mirrors <main>
+ * so the pill lines up with the content column.
  */
 function ComposerDock({ children }: { children: React.ReactNode }) {
   const [kb, setKb] = useState(0);
-  const [h, setH] = useState(0);
+  const [spacer, setSpacer] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const kbRef = useRef(0);
+  const liveDock = useLiveDockShown();
 
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
     const on = () => {
       const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      setKb(inset > 120 ? Math.round(inset) : 0);
+      kbRef.current = inset > 120 ? Math.round(inset) : 0;
+      setKb(kbRef.current);
     };
     on();
     vv.addEventListener("resize", on);
@@ -408,23 +448,43 @@ function ComposerDock({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Room under the thread = how far the pill reaches up past <main>'s own bottom padding (which
+  // already accounts for the tab bar and, on phones, the Live Dock), plus a little air.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setH(el.offsetHeight));
+    const measure = () => {
+      if (kbRef.current) return; // keep the resting layout while typing
+      const main = el.closest("main");
+      const pill = el.querySelector("form");
+      if (!main || !pill || getComputedStyle(el).position !== "fixed") return setSpacer(0);
+      const pb = parseFloat(getComputedStyle(main).paddingBottom) || 0;
+      setSpacer(Math.max(0, Math.round(window.innerHeight - pill.getBoundingClientRect().top + 16 - pb)));
+    };
+    const raf = requestAnimationFrame(measure);
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [liveDock]);
 
   return (
     <>
-      {/* extra room when the pill grows past one line (phones only) */}
-      <div aria-hidden className="lg:hidden" style={{ height: Math.max(0, h - 80) }} />
+      <div aria-hidden className="lg:hidden" style={{ height: spacer }} />
       <div
         ref={ref}
         className={cn(
           "pointer-events-none fixed inset-x-0 z-[25] bg-[linear-gradient(to_bottom,transparent,var(--bg)_42%)] pt-5 lg:pointer-events-auto lg:static lg:z-auto lg:rounded-b-[24px] lg:bg-none lg:px-8 lg:pb-6 lg:pt-3",
-          kb ? "pb-2" : "bottom-[calc(var(--tabbar-h)+var(--safe-bottom))] pb-2 md:bottom-0 md:pb-[calc(var(--safe-bottom)+16px)]",
+          kb
+            ? "pb-2"
+            : liveDock
+              ? // the dock sits 14px above the tab bar (52px tall) on phones, 24px from the corner on tablets
+                "bottom-[calc(var(--tabbar-h)+var(--safe-bottom))] pb-[74px] md:bottom-0 md:pb-[calc(var(--safe-bottom)+88px)]"
+              : "bottom-[calc(var(--tabbar-h)+var(--safe-bottom))] pb-2 md:bottom-0 md:pb-[calc(var(--safe-bottom)+16px)]",
         )}
         style={kb ? { bottom: kb } : undefined}
       >

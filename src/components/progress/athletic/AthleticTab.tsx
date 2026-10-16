@@ -16,7 +16,7 @@ import { useProfile } from "@/lib/data/profile";
 import { useVolleyball } from "@/lib/data/training";
 import { weightStats } from "@/lib/bodyweight";
 import { addDays, shortDate } from "@/lib/dates";
-import { formatLoad, round, toDisplayLength, type LengthUnit, type WeightUnit } from "@/lib/units";
+import { formatLoad, round, toDisplayLength, toDisplayWeight, type LengthUnit, type WeightUnit } from "@/lib/units";
 import { fmtLen } from "@/lib/progress/measurements";
 import { cn } from "@/lib/cn";
 import { TESTS, TEST_BY_KEY, feetInches, prIds, sprintDistances, squatToBodyweight, testPR, testSeries, touchHeight, volleyballFrequency, type TestType } from "@/lib/progress/athletic";
@@ -92,7 +92,7 @@ export function AthleticTab() {
             <div>
               <p className="num-md mt-3 whitespace-nowrap">
                 {touch != null ? (lu === "in" ? feetInches(touch) : fmtLen(touch, lu)) : "—"}
-                {touch != null && lu === "cm" && <span className="unit">cm</span>}
+                {touch != null && lu === "cm" && <span className="unit [font-size:max(12px,0.4em)]!">cm</span>}
               </p>
               <p className="mt-1 text-[12px] font-medium leading-snug text-fg-3">
                 {touch != null ? "Reach + best approach vertical" : !reach ? "Log standing reach to see it" : "Log an approach vertical"}
@@ -114,7 +114,7 @@ export function AthleticTab() {
           {ratio != null && squat.bestE1rm != null && trendBw != null && (
             <div className="shrink-0 text-right text-[12px] font-medium leading-relaxed text-fg-3">
               <p>
-                e1RM <span className="num text-[14px] text-fg-2">{formatLoad(squat.bestE1rm, wu)}</span>
+                e1RM <span className="num text-[14px] text-fg-2">{Math.round(toDisplayWeight(squat.bestE1rm, wu))} {wu}</span>
               </p>
               <p>
                 weight <span className="num text-[14px] text-fg-2">{formatLoad(round(trendBw, 1), wu)}</span>
@@ -191,7 +191,7 @@ function TestTile({ type, tests, unit, onOpen, onLog }: { type: TestType; tests:
           <p className="flex items-baseline gap-1.5 whitespace-nowrap">
             <span className="num-md">
               {v.value}
-              <span className="unit">{v.unit}</span>
+              <span className="unit [font-size:max(12px,0.4em)]!">{v.unit}</span>
             </span>
             {latestIsPR && <PRBadge className="self-center" />}
           </p>
@@ -283,7 +283,7 @@ function TestDetail({ type, tests, unit, onClose }: { type: TestType | null; tes
                 </div>
                 <span className="num-sm">
                   {conv(Number(r.value)).toFixed(dp)}
-                  <span className="unit">{u}</span>
+                  <span className="unit [font-size:max(12px,0.4em)]!">{u}</span>
                 </span>
                 {!r.id.startsWith("optimistic") && <RowMenu label={`${def.label} ${shortDate(r.local_date, today)}`} onDelete={() => del(r)} />}
               </li>

@@ -128,8 +128,13 @@ export function validateDraft(
   else if (label.length > LABEL_MAX)
     errors.label = `Keep it under ${LABEL_MAX} characters.`;
   else if (
-    otherLabels.some((l) => l.trim().toLowerCase() === label.toLowerCase())
+    otherLabels.some(
+      (l) =>
+        habitDisplayLabel(l.trim()).toLowerCase() ===
+        habitDisplayLabel(label).toLowerCase(),
+    )
   )
+    // compared by display name: "Mobility" duplicates the built-in "Mobility (optional)"
     errors.label = "You already have a habit with that name.";
   let target: number | null = null;
   let unit: string | null = null;
@@ -171,6 +176,41 @@ export function moveHabit<T extends HabitDefEdit>(
   };
 }
 
+/**
+ * Move one visible (active) habit up or down among the visible habits only — hidden habits
+ * never swallow a move. Active habits get sort 0…n−1 in their new order and hidden ones
+ * follow, so the stored order always matches what the list shows.
+ */
+export function moveVisible<T extends HabitDefEdit>(
+  defs: T[],
+  key: string,
+  dir: -1 | 1,
+): { list: T[]; changed: T[] } {
+  const byOrder = (a: T, b: T) => a.sort - b.sort || a.key.localeCompare(b.key);
+  const active = defs.filter((d) => d.active).sort(byOrder);
+  const hidden = defs.filter((d) => !d.active).sort(byOrder);
+  const i = active.findIndex((d) => d.key === key);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= active.length) return { list: [...active, ...hidden], changed: [] };
+  [active[i], active[j]] = [active[j], active[i]];
+  const next = [...active, ...hidden].map((d, idx) => ({ ...d, sort: idx }));
+  const before = new Map(defs.map((d) => [d.key, d.sort]));
+  return {
+    list: next,
+    changed: next.filter((d) => before.get(d.key) !== d.sort),
+  };
+}
+
+/** Whether a habit is marked optional (built-in mobility, or "(optional)" in its name). */
+export function isOptionalHabit(key: string, label: string) {
+  return key === "mobility" || /\(optional\)/i.test(label);
+}
+
+/** One display name everywhere: "Mobility (optional)" → "Mobility" (the OPTIONAL badge says the rest). */
+export function habitDisplayLabel(label: string) {
+  return label.replace(/\s*\(optional\)\s*/gi, " ").trim() || label;
+}
+
 export interface HabitPreset {
   id: string;
   group: "Mobility" | "Supplements" | "Sleep" | "Movement";
@@ -187,7 +227,7 @@ export const HABIT_PRESETS: HabitPreset[] = [
   {
     id: "mobility",
     group: "Mobility",
-    label: "Mobility (optional)",
+    label: "Mobility",
     kind: "check",
     builtIn: "mobility",
   },

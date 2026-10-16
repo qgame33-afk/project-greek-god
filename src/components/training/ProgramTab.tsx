@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Check, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { SuggestedBadge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ import { scheduleIssues, weekdaysFor } from "@/lib/training/schedule";
 import { modeTemplate } from "@/lib/training/volume";
 import { MODE_HELP } from "./DaySheet";
 import { templateMeta, weekdaysLabel } from "./format";
-import { MODE_LABEL, type useTrainingWeek } from "./hooks";
+import { MODE_LABEL, useSaveSchedule, useTypicalDurations, type useTrainingWeek } from "./hooks";
 
 type Week = ReturnType<typeof useTrainingWeek>;
 
@@ -35,6 +35,7 @@ const DAYS: { wd: number; label: string }[] = [
 
 export function ProgramTab({ week }: { week: Week }) {
   const all = useAllSessions();
+  const typical = useTypicalDurations();
   const schedule = scheduleOf(week.profile ?? undefined);
   const lastDone = useMemo(() => {
     const m: Record<string, string> = {};
@@ -68,7 +69,7 @@ export function ProgramTab({ week }: { week: Week }) {
                   </div>
                   <p className="t-h2 mt-1.5 text-[24px] leading-none">{t.name}</p>
                   <p className="mt-1 truncate text-[13px] text-fg-2">{t.subtitle || t.focus}</p>
-                  <p className="num mt-auto pt-2.5 text-[15px] text-fg">{templateMeta(week.mode === "standard" ? t : modeTemplate(t, week.mode))}</p>
+                  <p className="num mt-auto pt-2.5 text-[15px] text-fg">{templateMeta(modeTemplate(t, week.mode), week.mode === "standard" ? typical[t.key] : null)}</p>
                 </div>
                 <ChevronRight className="mt-0.5 size-4 shrink-0 self-center text-fg-3 transition-transform group-hover:translate-x-0.5" />
               </Link>
@@ -109,7 +110,7 @@ function RecoveryCard() {
 /* --------------------------------------------------------- schedule */
 
 function ScheduleEditor({ week }: { week: Week }) {
-  const save = useSaveProfile();
+  const save = useSaveSchedule();
   const saved = scheduleOf(week.profile ?? undefined);
   const [draft, setDraft] = useState<Record<string, string> | null>(null);
   const current = draft ?? saved;
@@ -120,26 +121,9 @@ function ScheduleEditor({ week }: { week: Week }) {
   const isDefault = DAYS.every(({ wd }) => current[String(wd)] === DEFAULT_SCHEDULE[String(wd)]);
 
   const commit = async () => {
-    if (!draft || save.isPending) return;
-    const prev = { ...saved };
-    try {
-      await save.mutateAsync({ values: { weekly_schedule: draft } });
-    } catch {
-      return; // draft is kept; the hook already showed the error
-    }
-    setDraft(null);
-    toast.success("Weekly schedule saved", {
-      description: "Applies to every week. Single-day changes stay as they are.",
-      duration: 6000,
-      action: {
-        label: "Undo",
-        onClick: () =>
-          save
-            .mutateAsync({ values: { weekly_schedule: prev } })
-            .then(() => toast("Schedule restored."))
-            .catch(() => {}),
-      },
-    });
+    if (!draft) return;
+    // Past days keep the plan they had; the draft is kept if anything fails.
+    if (await save.commit({ ...draft }, { ...saved })) setDraft(null);
   };
 
   return (
@@ -192,10 +176,10 @@ function ScheduleEditor({ week }: { week: Week }) {
       </div>
       {dirty && (
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button variant="ghost" onClick={() => setDraft(null)} disabled={save.isPending}>
+          <Button variant="ghost" onClick={() => setDraft(null)} disabled={save.pending}>
             Discard
           </Button>
-          <Button variant="outline-gold" onClick={commit} loading={save.isPending}>
+          <Button variant="outline-gold" onClick={commit} loading={save.pending}>
             Save schedule
           </Button>
         </div>
@@ -214,14 +198,18 @@ const MODES: { value: Mode; title: string }[] = [
 
 function ModeCard({ week }: { week: Week }) {
   const save = useSaveProfile();
+  const busy = useRef(false);
   const mode = week.mode;
   const setMode = async (m: Mode) => {
-    if (m === mode || save.isPending) return;
+    if (m === mode || busy.current) return;
+    busy.current = true;
     const prev = mode;
     try {
       await save.mutateAsync({ values: { training_mode: m } });
     } catch {
       return;
+    } finally {
+      busy.current = false;
     }
     toast.success(`${MODE_LABEL[m]} mode on`, {
       description: "Applies to workouts you start from now on.",

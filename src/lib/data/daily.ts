@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { dateRange, type ISODate } from "@/lib/dates";
 import { dayScore, evaluate, streak, type DayFacts, type Goals, type HabitDefLite, type HabitStatus } from "@/lib/habits";
+import { habitsOn } from "@/lib/recovery/habit-history";
 import { useWeights } from "./body";
 import { useDailyNutrition, useDailyWater } from "./nutrition";
 import { useProfile } from "./profile";
@@ -46,7 +47,7 @@ export function useMissionDays(from: ISODate, to: ISODate) {
       sleep_goal_h: Number(profile.sleep_goal_h),
       steps_goal: profile.steps_goal,
     };
-    const defList: HabitDefLite[] = (defs.data ?? []).map((d) => ({ key: d.key, label: d.label, kind: d.kind as HabitDefLite["kind"], target: d.target == null ? null : Number(d.target), unit: d.unit, active: d.active, sort: d.sort }));
+    const defList: (HabitDefLite & { created_at: string })[] = (defs.data ?? []).map((d) => ({ key: d.key, label: d.label, kind: d.kind as HabitDefLite["kind"], target: d.target == null ? null : Number(d.target), unit: d.unit, active: d.active, sort: d.sort, created_at: d.created_at }));
     const doneByDate = new Set((sessions.data ?? []).filter((s) => s.status === "done").map((s) => s.local_date));
     const foodBy = new Map((food.data ?? []).map((r) => [r.local_date!, r]));
     const waterBy = new Map((water.data ?? []).map((r) => [r.local_date!, r.total_ml ?? 0]));
@@ -75,7 +76,8 @@ export function useMissionDays(from: ISODate, to: ISODate) {
         recoveryLogged: !!rec,
         logs: logBy.get(date) ?? {},
       };
-      const statuses = evaluate(defList, facts, goals);
+      // a custom habit only counts from the day it was created — adding one never rewrites history
+      const statuses = evaluate(habitsOn(defList, date), facts, goals);
       const s = dayScore(statuses);
       return { date, statuses, ...s, workoutDone: facts.workoutDone, isTrainingDay: facts.isTrainingDay };
     });

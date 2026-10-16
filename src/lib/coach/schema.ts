@@ -12,6 +12,12 @@ export const CoachRequest = z.object({
     .string()
     .regex(/^\d{2}:\d{2}$/)
     .nullish(),
+  /** IANA zone of the device ("America/Toronto"), so timestamps become the user's dates. */
+  timeZone: z
+    .string()
+    .max(64)
+    .regex(/^[A-Za-z0-9_+\-/]+$/)
+    .nullish(),
 });
 export type CoachRequest = z.infer<typeof CoachRequest>;
 
@@ -70,7 +76,7 @@ export const COACH_RESPONSE_SCHEMA: Record<string, unknown> = {
 /** Strip anything the UI shouldn't render from model markdown (ids, raw HTML, links, images). */
 export function sanitizeAnswer(md: string): string {
   return md
-    .replace(/<[^>]{1,200}>/g, "") // raw HTML tags
+    .replace(/<\/?[a-z][a-z0-9-]*(?:\s[^<>]{0,200})?\/?>/gi, "") // raw HTML tags (not "< 10" or "->")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, "") // images
     .replace(/\[([^\]]+)\]\((?:https?:)?\/\/[^)]*\)/g, "$1") // external links → text
     .replace(/\s?\[(?:[a-z]+\.)[a-z0-9._-]+\]/gi, "") // leaked [fact.ids]
@@ -94,6 +100,7 @@ export function sanitizeFollowUps(xs: unknown[]): string[] {
 /** A conversation title from the first question. */
 export function titleFrom(message: string): string {
   const s = message.replace(/\s+/g, " ").trim();
+  if (/^give me my weekly summary\b/i.test(s)) return "Weekly summary";
   if (s.length <= 60) return s;
   const cut = s.slice(0, 60);
   const sp = cut.lastIndexOf(" ");

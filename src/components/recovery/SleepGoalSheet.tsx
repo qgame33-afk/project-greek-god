@@ -10,7 +10,7 @@ import { formatHours, formatSleep } from "@/lib/recovery/checkin";
 
 const MIN = 4;
 const MAX = 12;
-const STEP = 0.5; // sleep_goal_h is numeric(3,1)
+const STEP = 0.25; // DESIGN: sleep to 0.25 h
 
 /** Edit the nightly sleep goal. Saving is the explicit confirmation; the change is recorded. */
 export function SleepGoalSheet({

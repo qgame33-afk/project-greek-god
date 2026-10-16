@@ -109,7 +109,7 @@ function GuidanceBody({
   const sleepExtra = isToday
     ? g.extras.find((e) => e.startsWith("Aim for"))
     : undefined;
-  const pastUnknown = !isToday && g.level === "unknown";
+  const pastUnknown = !isToday && g.level === "unknown" && !g.partialCheckin;
 
   return (
     <>
@@ -196,7 +196,7 @@ function GuidanceBody({
 
       {!g.hasCheckin && onCheckin && isToday && (
         <Button variant="secondary" block className="mt-4" onClick={onCheckin}>
-          Start check-in
+          {g.partialCheckin ? "Finish check-in" : "Start check-in"}
         </Button>
       )}
 

@@ -66,7 +66,7 @@ export class CoachRequestError extends Error {
 }
 
 /** POST a question. Throws CoachRequestError with a user-readable message. */
-export async function askCoach(body: { conversationId: string | null; message: string; localDate: string; localTime: string }): Promise<CoachReplyResponse> {
+export async function askCoach(body: { conversationId: string | null; message: string; localDate: string; localTime: string; timeZone?: string | null }): Promise<CoachReplyResponse> {
   let res: Response;
   try {
     res = await fetch("/api/ai/coach", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -153,32 +153,29 @@ export function useDeleteConversation() {
 export function useSetSuggestionStatus() {
   const qc = useQueryClient();
   const { userId } = useUser();
+  const patch = (p: CoachPayload, suggestionId: string, status: SuggestionStatus): CoachPayload => ({
+    ...p,
+    suggestions: p.suggestions.map((s) => (s.id === suggestionId ? { ...s, status, decidedAt: status === "open" ? null : new Date().toISOString() } : s)),
+  });
   return useMutation({
-    mutationFn: async ({ convId, messageId }: { convId: string; messageId: string; suggestionId: string; status: SuggestionStatus }) => {
-      // onMutate already wrote the new status into the cache; persist that payload
-      const msg = qc.getQueryData<CoachMessageRow[]>(msgsKey(convId, userId))?.find((m) => m.id === messageId);
-      if (!msg?.payload) return;
-      must(await sb().from("ai_messages").update({ payload: msg.payload as unknown as Json }).eq("id", messageId).select("id").single());
+    mutationFn: async ({ convId, messageId, suggestionId, status }: { convId: string; messageId: string; suggestionId: string; status: SuggestionStatus }) => {
+      // onMutate already wrote the new status into the cache (with any other pending changes on
+      // the same message); persist that. If the conversation isn't cached any more (the Undo
+      // toast outlived the screen), patch the stored payload instead.
+      const cached = qc.getQueryData<CoachMessageRow[]>(msgsKey(convId, userId))?.find((m) => m.id === messageId)?.payload;
+      let payload = cached ?? null;
+      if (!payload) {
+        const row = must(await sb().from("ai_messages").select("payload").eq("id", messageId).single()) as unknown as { payload: CoachPayload | null };
+        if (!row.payload) return;
+        payload = patch(row.payload, suggestionId, status);
+      }
+      must(await sb().from("ai_messages").update({ payload: payload as unknown as Json }).eq("id", messageId).select("id").single());
     },
     onMutate: async ({ convId, messageId, suggestionId, status }) => {
       const key = msgsKey(convId, userId);
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<CoachMessageRow[]>(key);
-      if (prev)
-        qc.setQueryData<CoachMessageRow[]>(
-          key,
-          prev.map((m) =>
-            m.id === messageId && m.payload
-              ? {
-                  ...m,
-                  payload: {
-                    ...m.payload,
-                    suggestions: m.payload.suggestions.map((s) => (s.id === suggestionId ? { ...s, status, decidedAt: status === "open" ? null : new Date().toISOString() } : s)),
-                  } satisfies CoachPayload,
-                }
-              : m,
-          ),
-        );
+      if (prev) qc.setQueryData<CoachMessageRow[]>(key, prev.map((m) => (m.id === messageId && m.payload ? { ...m, payload: patch(m.payload, suggestionId, status) } : m)));
       return { prev, key };
     },
     onError: (e: Error, _v, ctx) => {
@@ -191,39 +188,63 @@ export function useSetSuggestionStatus() {
 const GOAL_FIELDS = ["calorie_goal", "protein_goal", "carb_goal", "fat_goal", "goal_weight_lb", "water_goal_ml", "sleep_goal_h", "steps_goal"];
 
 /**
- * Apply a confirmed coach suggestion to the profile and record it in goal_changes.
- * Local equivalent of useSaveProfile: that hook reads the "previous" values after its own
- * optimistic update, so it never sees a difference and writes no goal history. Here the old
- * values are read from the database first, so the audit trail (and the 14-day calorie
- * cooldown that depends on it) is correct.
+ * Apply a confirmed coach suggestion to the profile and record it in goal_changes (source
+ * "suggestion"). The old values are read from the database first, so the audit trail and the
+ * 14-day calorie cooldown that depends on it are exact. Returns the goal_changes ids it wrote so
+ * an Undo can take them back out.
  */
 export function useApplyProfileChange() {
   const qc = useQueryClient();
   const { userId } = useUser();
   return useMutation({
-    mutationFn: async ({ values, reason, source }: { values: Record<string, number | string>; reason: string; source: "suggestion" | "user" }) => {
+    mutationFn: async ({ values, reason }: { values: Record<string, number | string>; reason: string }): Promise<{ goalChangeIds: string[] }> => {
       const fields = Object.keys(values);
       const before = must(await sb().from("profiles").select(fields.join(",")).eq("id", userId!).single()) as unknown as Record<string, unknown>;
       must(await sb().from("profiles").update(values as Update<"profiles">).eq("id", userId!).select("id").single());
       const changes = fields
         .filter((k) => GOAL_FIELDS.includes(k) && Number(before[k]) !== Number(values[k]))
-        .map((k) => ({ field: k, old_value: Number(before[k]), new_value: Number(values[k]), reason, source }));
-      if (changes.length) must(await sb().from("goal_changes").insert(changes).select("id"));
+        .map((k) => ({ field: k, old_value: Number(before[k]), new_value: Number(values[k]), reason, source: "suggestion" as const }));
+      if (!changes.length) return { goalChangeIds: [] };
+      const rows = must(await sb().from("goal_changes").insert(changes).select("id")) as { id: string }[];
+      return { goalChangeIds: rows.map((r) => r.id) };
     },
-    onMutate: async ({ values }) => {
+    ...optimisticProfile(qc, userId, "Couldn't change that"),
+  });
+}
+
+/**
+ * Undo an applied suggestion: put the previous values back and remove the goal_changes rows
+ * the apply wrote. An undo is "it never happened", so it must not leave a second history row
+ * (which would also start a fresh 14-day calorie cooldown for a change that was taken back).
+ */
+export function useRevertProfileChange() {
+  const qc = useQueryClient();
+  const { userId } = useUser();
+  return useMutation({
+    mutationFn: async ({ values, goalChangeIds }: { values: Record<string, number | string>; goalChangeIds: string[] }) => {
+      must(await sb().from("profiles").update(values as Update<"profiles">).eq("id", userId!).select("id").single());
+      if (goalChangeIds.length) must(await sb().from("goal_changes").delete().in("id", goalChangeIds).select("id"));
+    },
+    ...optimisticProfile(qc, userId, "Couldn't undo that"),
+  });
+}
+
+function optimisticProfile(qc: ReturnType<typeof useQueryClient>, userId: string | null, failure: string) {
+  return {
+    onMutate: async ({ values }: { values: Record<string, number | string> }) => {
       const key = ["profile", userId];
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<Record<string, unknown>>(key);
       if (prev) qc.setQueryData(key, { ...prev, ...values });
       return { prev, key };
     },
-    onError: (e: Error, _v, ctx) => {
+    onError: (e: Error, _v: unknown, ctx: { prev: Record<string, unknown> | undefined; key: (string | null)[] } | undefined) => {
       if (ctx?.prev) qc.setQueryData(ctx.key, ctx.prev);
-      toast.error("Couldn't change that", { description: e.message });
+      toast.error(failure, { description: e.message });
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["goal-changes"] });
     },
-  });
+  };
 }

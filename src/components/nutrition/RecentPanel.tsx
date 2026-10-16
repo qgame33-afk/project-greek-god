@@ -6,19 +6,20 @@ import { EmptyArt } from "@/components/art/Motifs";
 import { Input } from "@/components/ui/field";
 import { Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
 import { newId } from "@/lib/data/core";
-import { useRecentFoods, type FoodEntry } from "@/lib/data/nutrition";
+import type { FoodEntry } from "@/lib/data/nutrition";
 import { relativeDay } from "@/lib/dates";
 import { composeEatenAt, formatAmount } from "@/lib/nutrition-ui/format";
 import { buildEntry, fromEntry } from "@/lib/nutrition-ui/portion";
 import { formatInt } from "@/lib/units";
-import { ProvenanceBadge } from "./bits";
+import { RowProvenance } from "./bits";
 import { mealLabel, useFuel } from "./context";
+import { useFuelRecent } from "./hooks";
 import type { When } from "./log-shared";
 
 /** Distinct recently logged foods. Tap to adjust the amount; + logs it again as-is. */
 export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntry) => void }) {
   const { log, today } = useFuel();
-  const recent = useRecentFoods(40);
+  const recent = useFuelRecent();
   const [q, setQ] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const list = useMemo(() => {
@@ -53,7 +54,7 @@ export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntr
   if (recent.error) return <ErrorNote onRetry={() => recent.refetch()}>Couldn&apos;t load recent foods.</ErrorNote>;
   if (!recent.data?.length)
     return (
-      <Empty art={<EmptyArt kind="amphora" size={56} />} title="Nothing logged yet">
+      <Empty art={<EmptyArt kind="kylix" size={56} />} title="Nothing logged yet">
         Foods you log show up here, so the next time takes one tap.
       </Empty>
     );
@@ -69,7 +70,7 @@ export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntr
       {!list.length ? (
         <p className="py-6 text-center text-[14px] text-fg-3">No recent foods match “{q.trim()}”.</p>
       ) : (
-        <ul>
+        <ul className="@container">
           {list.map((e) => (
             <li key={e.id} className="flex items-center gap-2 border-b border-line-hair last:border-b-0">
               <button type="button" onClick={() => onPick(e)} className="press-soft min-w-0 flex-1 py-2.5 text-left">
@@ -78,7 +79,7 @@ export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntr
                   <span className="truncate text-[12.5px] font-medium text-fg-3">
                     {formatAmount(Number(e.amount), e.unit)} · <span className="num text-[13px]">{formatInt(Number(e.calories))}</span> kcal · {relativeDay(e.local_date, today)}
                   </span>
-                  <ProvenanceBadge item={e} still />
+                  <RowProvenance item={e} />
                 </div>
               </button>
               <button

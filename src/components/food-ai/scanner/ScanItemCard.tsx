@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Minus, Plus, Trash } from "lucide-react";
+import { ChevronDown, Minus, Plus, Trash } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { MULT_STEP, multLabel, withGrams, withEstimate, withMultiplier, type EditableItem } from "@/lib/ai/food-edit";
 import { PREPARATIONS } from "@/lib/ai/food-schemas";
@@ -61,12 +61,20 @@ export function ScanItemCard({
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <ItemBadge item={item} />
             {!userAdded && (
-              <span className="relative inline-flex">
+              // 44px tall hit area around a 28px pill; the native select is the invisible layer on top
+              <span className="group relative -my-2 inline-flex h-11 items-center">
+                <span
+                  className="pointer-events-none inline-flex h-7 items-center gap-1 rounded-full border border-line bg-s3 pl-2.5 pr-2 text-[12px] font-semibold text-fg-2 transition-colors group-hover:text-fg group-has-[:focus-visible]:border-gold-400"
+                  aria-hidden
+                >
+                  {prepLabel(item.preparation)}
+                  <ChevronDown className="size-3.5 text-fg-3" />
+                </span>
                 <select
                   value={item.preparation}
                   onChange={(e) => onPrep(e.target.value)}
                   aria-label={`How ${item.name} was prepared`}
-                  className="h-7 appearance-none rounded-full border border-line bg-s3 pl-2.5 pr-6 text-[12px] font-semibold text-fg-2 outline-none hover:text-fg focus:border-gold-400"
+                  className="absolute inset-0 size-full cursor-pointer appearance-none opacity-0"
                 >
                   {prepOptions.map((p) => (
                     <option key={p} value={p}>
@@ -74,9 +82,6 @@ export function ScanItemCard({
                     </option>
                   ))}
                 </select>
-                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-fg-3" aria-hidden>
-                  ▼
-                </span>
               </span>
             )}
             {item.portion && <span className="truncate text-[12px] font-medium text-fg-3">{item.portion}</span>}
@@ -95,7 +100,7 @@ export function ScanItemCard({
       <div className="mt-3 flex items-end justify-between gap-3">
         <p className="leading-none" aria-label={`${fmtKcal(item.macros.calories)} calories`}>
           <span className="num-md">{fmtKcal(item.macros.calories)}</span>
-          <span className="unit">kcal</span>
+          <span className="unit !text-[12px]">kcal</span>
         </p>
         <MacroTrio m={item.macros} />
       </div>

@@ -11,14 +11,43 @@ import { liters, waterCells } from "@/lib/nutrition-ui/water";
 import { formatInt } from "@/lib/units";
 import type { Goals } from "./context";
 
-/** Calories ring + macro meters + water meter for the viewed day. */
-export function FuelRings({ totals, goals, waterMl, isToday, empty }: { totals: Macros; goals: Goals; waterMl: number; isToday: boolean; empty: boolean }) {
+/**
+ * Calories ring + macro meters + water meter for the viewed day.
+ * `totals` null = the day couldn't be loaded: every value reads "—", never a plausible 0.
+ */
+export function FuelRings({
+  totals,
+  goals,
+  waterMl,
+  isToday,
+  empty,
+}: {
+  totals: Macros | null;
+  goals: Goals;
+  waterMl: number | null;
+  isToday: boolean;
+  empty: boolean;
+}) {
   const goal = goals.calories;
-  const left = goal - totals.calories;
-  const over = left < -0.5;
-  const ratio = goal > 0 ? totals.calories / goal : 0;
-  const hit = caloriesHit(totals.calories, goal);
+  const known = totals != null;
+  const eaten = totals?.calories ?? 0;
+  const left = goal - eaten;
+  const over = known && left < -0.5;
+  const ratio = known && goal > 0 ? eaten / goal : 0;
+  const hit = known && caloriesHit(eaten, goal);
   const pct = Math.round(ratio * 100);
+
+  const caption = !known
+    ? "This day didn't load, so nothing is counted yet."
+    : over
+      ? `+${formatInt(-left)} kcal over target${hit ? ", within your range." : "."}`
+      : hit
+        ? "On target for the day."
+        : empty
+          ? isToday
+            ? "Nothing logged yet today."
+            : "Nothing logged this day."
+          : `${pct}% of the daily target.`;
 
   return (
     <section className="card @container p-4 sm:p-5 lg:p-6" aria-label="Calories and macros">
@@ -26,16 +55,16 @@ export function FuelRings({ totals, goals, waterMl, isToday, empty }: { totals: 
         <Ring
           size="lg"
           value={ratio}
-          label={`Calories ${formatInt(totals.calories)} of ${formatInt(goal)}, ${pct} percent${over ? `, ${formatInt(-left)} over` : ""}`}
+          label={known ? `Calories ${formatInt(eaten)} of ${formatInt(goal)}, ${pct} percent${over ? `, ${formatInt(-left)} over` : ""}` : "Calories not loaded"}
         >
-          <span className="num text-[35px] font-semibold leading-none tracking-[-0.01em] text-fg">{over ? `+${formatInt(-left)}` : formatInt(Math.max(0, left))}</span>
-          <span className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-fg-3">{over ? "kcal over" : "kcal left"}</span>
+          <span className="num text-[35px] font-semibold leading-none tracking-[-0.01em] text-fg">{!known ? "—" : over ? `+${formatInt(-left)}` : formatInt(Math.max(0, left))}</span>
+          <span className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-fg-3">{over ? "kcal over" : "kcal left"}</span>
         </Ring>
         <dl className="grid min-w-0 flex-1 gap-3">
           <div>
             <dt className="eyebrow">Eaten</dt>
             <dd className="num-md mt-1 truncate">
-              {formatInt(totals.calories)}
+              {known ? formatInt(eaten) : "—"}
               <span className="unit !text-[12px]">kcal</span>
             </dd>
           </div>
@@ -49,30 +78,22 @@ export function FuelRings({ totals, goals, waterMl, isToday, empty }: { totals: 
         </dl>
       </div>
 
-      <p className={cn("mt-3 min-h-5 text-[13px] font-semibold", hit ? "text-gold-300" : "text-fg-2")} aria-live="polite">
-        {hit
-          ? "On target for the day."
-          : over
-            ? `+${formatInt(-left)} kcal over target.`
-            : empty
-              ? isToday
-                ? "Nothing logged yet today."
-                : "Nothing logged this day."
-              : `${pct}% of the daily target.`}
+      <p className={cn("mt-3 min-h-5 text-[13px] font-semibold", hit && !over ? "text-gold-300" : "text-fg-2")} aria-live="polite">
+        {caption}
       </p>
 
       <div className="mt-4 grid gap-x-6 gap-y-3.5 border-t border-line-hair pt-4 @[34rem]:grid-cols-2">
-        <MacroMeter label="Protein" dot="bg-marble" tone="marble" eaten={totals.protein} goal={goals.protein} delay={80} />
-        <MacroMeter label="Carbs" dot="bg-terracotta" tone="terracotta" eaten={totals.carbs} goal={goals.carbs} delay={160} />
-        <MacroMeter label="Fat" dot="bg-porphyry" tone="porphyry" eaten={totals.fat} goal={goals.fat} delay={240} />
+        <MacroMeter label="Protein" dot="bg-marble" tone="marble" eaten={totals?.protein ?? null} goal={goals.protein} delay={80} />
+        <MacroMeter label="Carbs" dot="bg-terracotta" tone="terracotta" eaten={totals?.carbs ?? null} goal={goals.carbs} delay={160} />
+        <MacroMeter label="Fat" dot="bg-porphyry" tone="porphyry" eaten={totals?.fat ?? null} goal={goals.fat} delay={240} />
         <WaterMeter ml={waterMl} goal={goals.waterMl} />
       </div>
     </section>
   );
 }
 
-function MacroMeter({ label, dot, tone, eaten, goal, delay }: { label: string; dot: string; tone: "marble" | "terracotta" | "porphyry"; eaten: number; goal: number; delay: number }) {
-  const l = leftLabel(goal, eaten);
+function MacroMeter({ label, dot, tone, eaten, goal, delay }: { label: string; dot: string; tone: "marble" | "terracotta" | "porphyry"; eaten: number | null; goal: number; delay: number }) {
+  const l = eaten == null ? null : leftLabel(goal, eaten);
   const met = l?.state === "met" || (l?.state === "over" && label === "Protein");
   return (
     <div>
@@ -82,20 +103,26 @@ function MacroMeter({ label, dot, tone, eaten, goal, delay }: { label: string; d
           {label}
         </span>
         <span className="truncate text-right">
-          <span className="num text-[16px] font-semibold text-fg">{formatInt(eaten)}</span>
+          <span className="num text-[16px] font-semibold text-fg">{eaten == null ? "—" : formatInt(eaten)}</span>
           <span className="num text-[15px] text-fg-3"> / {goal > 0 ? formatInt(goal) : "—"} g</span>
           {l && <span className={cn("ml-1.5 text-[12px] font-semibold", met ? "text-gold-300" : "text-fg-3")}>· {l.state === "left" ? l.text : met ? "Goal met" : l.text}</span>}
         </span>
       </div>
-      <Bar value={goal > 0 ? eaten / goal : 0} tone={tone} delay={delay} label={`${label} ${formatInt(eaten)} of ${formatInt(goal)} grams`} />
+      <Bar
+        value={goal > 0 && eaten != null ? eaten / goal : 0}
+        tone={tone}
+        delay={delay}
+        label={eaten == null ? `${label} not loaded` : `${label} ${formatInt(eaten)} of ${formatInt(goal)} grams`}
+      />
     </div>
   );
 }
 
-function WaterMeter({ ml, goal }: { ml: number; goal: number }) {
-  const cells = waterCells(ml, goal);
-  const leftMl = goal - ml;
-  const met = goal > 0 && leftMl <= 0;
+function WaterMeter({ ml, goal }: { ml: number | null; goal: number }) {
+  const known = ml != null;
+  const cells = waterCells(ml ?? 0, goal);
+  const leftMl = goal - (ml ?? 0);
+  const met = known && goal > 0 && leftMl <= 0;
   return (
     <a href="#water" className="group block rounded-[10px] outline-offset-4">
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
@@ -104,12 +131,12 @@ function WaterMeter({ ml, goal }: { ml: number; goal: number }) {
           Water
         </span>
         <span className="truncate text-right">
-          <span className="num text-[16px] font-semibold text-fg">{liters(ml)}</span>
+          <span className="num text-[16px] font-semibold text-fg">{known ? liters(ml) : "—"}</span>
           <span className="num text-[15px] text-fg-3"> / {goal > 0 ? liters(goal) : "—"} L</span>
-          {goal > 0 && <span className={cn("ml-1.5 text-[12px] font-semibold", met ? "text-gold-300" : "text-fg-3")}>· {met ? "Goal met" : `${liters(leftMl)} L left`}</span>}
+          {known && goal > 0 && <span className={cn("ml-1.5 text-[12px] font-semibold", met ? "text-gold-300" : "text-fg-3")}>· {met ? "Goal met" : `${liters(leftMl)} L left`}</span>}
         </span>
       </div>
-      <div className="flex gap-1" role="img" aria-label={`Water ${liters(ml)} of ${liters(goal)} litres`}>
+      <div className="flex gap-1" role="img" aria-label={known ? `Water ${liters(ml)} of ${liters(goal)} litres` : "Water not loaded"}>
         {cells.map((f, i) => (
           <span key={i} className="relative h-1.5 flex-1 overflow-hidden rounded-[3px] bg-white/[.07]">
             <span

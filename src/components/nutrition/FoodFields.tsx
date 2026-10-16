@@ -5,8 +5,9 @@ import { UNITS } from "@/lib/nutrition";
 import { formatAmount } from "@/lib/nutrition-ui/format";
 import { normalizeUnit } from "@/lib/nutrition-ui/portion";
 import { consistencyNote, previewMacros, weightNote, type FoodErrors, type FoodForm } from "@/lib/nutrition-ui/validate";
-import { formatInt, parseNumber } from "@/lib/units";
-import { SoftNote } from "./bits";
+import { formatInt } from "@/lib/units";
+import { parseFoodNumber } from "@/lib/nutrition-ui/number";
+import { SoftNote, SubLabel } from "./bits";
 
 const UNIT_LABEL: Record<string, string> = { g: "g (grams)", oz: "oz", ml: "mL", serving: "serving", cup: "cup", tbsp: "tbsp", tsp: "tsp", piece: "piece", slice: "slice", scoop: "scoop", bowl: "bowl", plate: "plate" };
 
@@ -28,7 +29,7 @@ export function FoodFields({
   amountLabel?: string;
 }) {
   const preview = previewMacros(form);
-  const amount = parseNumber(form.amount);
+  const amount = parseFoodNumber(form.amount);
   const unit = normalizeUnit(form.unit) ?? form.unit;
   const note = preview.caloriesBlank ? null : consistencyNote(preview.macros);
   const wNote = weightNote(amount, unit, preview.macros);
@@ -79,10 +80,7 @@ export function FoodFields({
       </div>
 
       <div>
-        <p className="mb-2 flex items-baseline justify-between gap-2 text-[13px] font-semibold text-fg-2">
-          <span>Nutrition</span>
-          <span className="text-[12px] font-medium text-fg-3">{per ? `For ${per}` : "For the amount above"}</span>
-        </p>
+        <SubLabel action={<span className="text-[12px] font-medium text-fg-3">{per ? `For ${per}` : "For the amount above"}</span>}>Nutrition</SubLabel>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Calories" error={errors.calories}>
             {(id) => (

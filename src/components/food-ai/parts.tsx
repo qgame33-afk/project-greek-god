@@ -109,8 +109,10 @@ export function MacroTrio({ m, className, size = "sm" }: { m: MacroSet; classNam
 /* --------------------------------------------------------- focus screen */
 
 /**
- * Full-screen "push" layout for the scanner and chats: on phones it covers the tab bar
- * with its own back header (safe areas included); on tablet/desktop it sits in the page.
+ * Full-screen "push" layout for the scanner and chats: on phones it covers the tab bar,
+ * FAB and Live Session Dock (z 35) with its own back header (safe areas included), so
+ * nothing floats over the sticky confirm footer or the composer. Sheets (51) and toasts
+ * (60) still sit above it. On tablet/desktop it sits in the page.
  */
 export function FocusScreen({
   title,
@@ -138,7 +140,7 @@ export function FocusScreen({
   style?: React.CSSProperties;
 }) {
   return (
-    <div className={cn("max-md:fixed max-md:inset-0 max-md:z-[32] max-md:flex max-md:flex-col max-md:bg-bg", className)} style={style}>
+    <div className={cn("max-md:fixed max-md:inset-0 max-md:z-[36] max-md:flex max-md:flex-col max-md:bg-bg", className)} style={style}>
       {/* phone header */}
       <header className="chrome z-10 shrink-0 border-b border-line-hair md:hidden" style={{ paddingTop: "var(--safe-top)" }}>
         <div className="flex h-[52px] items-center gap-1 px-1.5">

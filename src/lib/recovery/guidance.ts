@@ -96,6 +96,11 @@ export interface Guidance {
   adjustments: Adjustments;
   /** True when today's check-in has at least one recovery signal. */
   hasCheckin: boolean;
+  /**
+   * A check-in row exists for the date but holds no recovery signal yet (only the
+   * volleyball switch, say), so the call is "finish the check-in", not "start one".
+   */
+  partialCheckin: boolean;
   /** Text of the pain note when one was logged for the date. */
   pain: string | null;
 }
@@ -189,6 +194,7 @@ export function computeGuidance(input: ReadinessInput): Guidance {
   const byDate = new Map(input.checkins.map((c) => [c.local_date, c]));
   const today = byDate.get(date) ?? null;
   const hasCheckin = hasSignal(today);
+  const partialCheckin = !!today && !hasCheckin;
   const factors: GuidanceFactor[] = [];
 
   /* sleep: last night, plus a 3-night average for accumulated debt */
@@ -361,6 +367,7 @@ export function computeGuidance(input: ReadinessInput): Guidance {
       ...adjustments,
     },
     hasCheckin,
+    partialCheckin,
     pain,
   });
 
@@ -371,7 +378,9 @@ export function computeGuidance(input: ReadinessInput): Guidance {
         ...base(
           "rest",
           "Recovery day",
-          "Walk, mobility and an early night. Check in to log how you slept.",
+          partialCheckin
+            ? "Walk, mobility and an early night. Add sleep and how you feel to your check-in."
+            : "Walk, mobility and an early night. Check in to log how you slept.",
         ),
         reasons: heavy.slice(0, 3).map(reasonOf),
       };
@@ -391,8 +400,12 @@ export function computeGuidance(input: ReadinessInput): Guidance {
     return {
       ...base(
         "unknown",
-        "Check in for today's guidance",
-        `Sleep, energy and soreness decide whether to run ${session} as planned. It takes 20 seconds.`,
+        partialCheckin
+          ? "Add sleep and soreness"
+          : "Check in for today's guidance",
+        partialCheckin
+          ? `${today?.volleyball ? "Volleyball is logged. " : ""}Sleep, energy and soreness decide whether to run ${session} as planned.`
+          : `Sleep, energy and soreness decide whether to run ${session} as planned. It takes 20 seconds.`,
       ),
       reasons: heavy.slice(0, 3).map(reasonOf),
     };
@@ -410,7 +423,7 @@ export function computeGuidance(input: ReadinessInput): Guidance {
     return base(
       "ease",
       "Go lighter today",
-      "Keep the exercises, take about 10% off the load, do 2 sets each and stop at RIR 3.",
+      "Same exercises, about 10% lighter, one set fewer per exercise, and stop at RIR 3.",
       {
         dropSets: 1,
         rir: "3",
@@ -461,4 +474,36 @@ export function planLite(
     isLegs: key.startsWith("legs"),
     hasJumps: exerciseSlugs.some((s) => JUMPS.test(s)),
   };
+}
+
+/**
+ * The guidance as one sentence for other screens (Today's daily line, the Training start
+ * card), so every screen says the same thing for the same check-in (SPEC §25). Null when
+ * there's no check-in to go on, or nothing worth saying.
+ */
+export function readinessLine(
+  g: Pick<Guidance, "level" | "score" | "adjustments">,
+  session: string | null,
+): string | null {
+  const n = session ?? "Today's session";
+  switch (g.level) {
+    case "recover":
+      return `Recovery day suggested. Move ${n} to tomorrow: walk, mobility, sleep.`;
+    case "ease":
+      return `${n} today, lighter: about 10% off the load, one set fewer per exercise, RIR 3.`;
+    case "trim":
+      return `${n} today, trimmed: one set fewer per exercise, RIR 2–3.`;
+    case "legs":
+      return g.adjustments.skipJumps
+        ? `${n} today without the jumps. Legs are carrying volleyball fatigue.`
+        : `${n} today with leg work at RIR 2–3. Legs are carrying volleyball fatigue.`;
+    case "go":
+      return `${n} today as planned. Recovery markers look fine.`;
+    case "rest":
+      return g.score >= THRESHOLDS.ease
+        ? "Rest fully today. An easy walk at most, then sleep."
+        : null;
+    default:
+      return null;
+  }
 }

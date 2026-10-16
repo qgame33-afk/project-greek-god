@@ -4,28 +4,30 @@ import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/
 import { useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { fetchAll, must, newId, sb, useToday, useUser, type Insert } from "@/lib/data/core";
-import { useProfile } from "@/lib/data/profile";
+import { useProfile, useSaveProfile } from "@/lib/data/profile";
 import { useRecovery } from "@/lib/data/recovery";
 import {
   planFor,
+  useAllSessions,
   useDayPlans,
   useSessions,
   useTemplates,
   useVolleyball,
-  volleyballLoad,
   type DayPlan,
   type DayPlanResolved,
   type Session,
   type StoredTemplate,
   type Volleyball,
 } from "@/lib/data/training";
-import { addDays, dateRange, weekDates, type ISODate } from "@/lib/dates";
+import { addDays, dateRange, shortDate, weekDates, type ISODate } from "@/lib/dates";
 import type { Mode } from "@/lib/training/progression";
 import {
   deloadAdvice,
   latestRecovery,
   missedWorkouts,
+  scheduleFreeze,
   volleyballAdvice,
+  volleyballSessions7d,
   weekDays,
   type DayPlanWrite,
   type PlanLike,
@@ -34,6 +36,8 @@ import type { WeightUnit } from "@/lib/units";
 
 export const PLAN_BACK = 14;
 export const PLAN_AHEAD = 14;
+/** How far back sessions are read for the week view, missed detection and deload advice. */
+export const SESSIONS_BACK = 56;
 
 export function useUnits(): { unit: WeightUnit } {
   const { profile } = useProfile();
@@ -56,12 +60,12 @@ export function useTrainingWeek() {
   const from = addDays(today, -PLAN_BACK);
   const to = addDays(today, PLAN_AHEAD);
   const plansQ = useDayPlans(from, to);
-  const sessionsQ = useSessions(addDays(today, -56), addDays(today, PLAN_AHEAD));
+  const sessionsQ = useSessions(addDays(today, -SESSIONS_BACK), addDays(today, PLAN_AHEAD));
   const vbQ = useVolleyball(from, to);
   const recQ = useRecovery(addDays(today, -13), today);
 
   const derived = useMemo(() => {
-    const plansRows = plansQ.data ?? [];
+    const plansRows: DayPlan[] = plansQ.data ?? [];
     const resolve = (d: ISODate) => planFor(d, profile ?? undefined, plansRows, byKey);
     const resolved = dateRange(from, to).map(resolve);
     const planLikes = resolved.map(toPlanLike);
@@ -71,10 +75,10 @@ export function useTrainingWeek() {
     const dates = weekDates(today);
     const days = weekDays({ dates, plans: planLikes, sessions, volleyball, today });
     const missed = missedWorkouts({ today, plans: planLikes, sessions, since: profile?.start_date ?? null });
-    const load7d = volleyballLoad(volleyball, today);
+    const load7d = volleyballSessions7d(volleyball, today);
     const vbAdvice = volleyballAdvice({ load7d, perWeek: profile?.volleyball_per_week ?? 2, recovery: latestRecovery(recovery), today });
-    const deload = deloadAdvice({ sessions, recovery, today, mode: profile?.training_mode ?? "standard" });
-    return { resolved, planLikes, resolve, sessions, volleyball, recovery, days, missed, load7d, vbAdvice, deload };
+    const deload = deloadAdvice({ sessions, recovery, today, mode: profile?.training_mode ?? "standard", historyFrom: addDays(today, -SESSIONS_BACK) });
+    return { plansRows, resolved, planLikes, resolve, sessions, volleyball, recovery, days, missed, load7d, vbAdvice, deload };
   }, [plansQ.data, sessionsQ.data, vbQ.data, recQ.data, profile, byKey, today, from, to]);
 
   const loading = profileLoading || templatesLoading || plansQ.isLoading || sessionsQ.isLoading;
@@ -200,10 +204,16 @@ function patchVolleyball(qc: ReturnType<typeof useQueryClient>, fn: (rows: Volle
   return snaps;
 }
 
-/** Log / delete volleyball sessions optimistically; both offer Undo. */
+/**
+ * Log / delete volleyball sessions optimistically; both offer Undo. Double taps are ignored
+ * (a ref guard, so two taps in the same frame never write twice).
+ */
 export function useVolleyballLog() {
   const qc = useQueryClient();
   const { userId } = useUser();
+  const adding = useRef(false);
+  /** Row ids with a delete or restore in flight; another write to the same row waits. */
+  const deleting = useRef(new Set<string>());
   const rollback = (snaps: [QueryKey, Volleyball[] | undefined][] | undefined) => snaps?.forEach(([k, rows]) => qc.setQueryData(k, rows));
   const settle = () => {
     qc.invalidateQueries({ queryKey: ["volleyball"] });
@@ -223,7 +233,7 @@ export function useVolleyballLog() {
         notes: row.notes ?? null,
         created_at: new Date().toISOString(),
       };
-      return { snaps: patchVolleyball(qc, (rows, f, t) => (full.local_date >= f && full.local_date <= t ? [full, ...rows] : rows)) };
+      return { snaps: patchVolleyball(qc, (rows, f, t) => (full.local_date >= f && full.local_date <= t && !rows.some((r) => r.id === full.id) ? [full, ...rows] : rows)) };
     },
     onError: (e: Error, _v, ctx) => {
       rollback(ctx?.snaps);
@@ -240,17 +250,21 @@ export function useVolleyballLog() {
     },
     onError: (e: Error, _v, ctx) => {
       rollback(ctx?.snaps);
-      toast.error("Couldn't delete it.", { description: e.message });
+      toast.error("Couldn't delete it. Nothing changed.", { description: e.message });
     },
     onSettled: settle,
   });
 
   const add = async (v: { local_date: ISODate; kind: VbKind; duration_min: number | null; intensity: number | null; notes?: string | null }) => {
+    if (adding.current) return false;
+    adding.current = true;
     const id = newId();
     try {
       await insert.mutateAsync({ id, ...v, notes: v.notes ?? null });
     } catch {
       return false;
+    } finally {
+      adding.current = false;
     }
     toast.success(`Volleyball logged · ${vbKindLabel(v.kind)}${v.duration_min ? ` · ${v.duration_min} min` : ""}`, {
       duration: 6000,
@@ -259,24 +273,50 @@ export function useVolleyballLog() {
     return true;
   };
 
-  const del = async (row: Volleyball) => {
+  /** Put a deleted row back exactly as it was (same id). A delete of that row waits for it. */
+  const restore = async (row: Volleyball) => {
+    if (deleting.current.has(row.id)) return false;
+    deleting.current.add(row.id);
+    try {
+      await insert.mutateAsync({ id: row.id, local_date: row.local_date, kind: row.kind, duration_min: row.duration_min, intensity: row.intensity, notes: row.notes });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      deleting.current.delete(row.id);
+    }
+  };
+
+  /**
+   * Delete with a toast Undo. Resolves to the toast's id (so an inline Undo can dismiss it), or
+   * null when nothing was deleted. `onUndone` keeps the caller's inline Undo in sync.
+   */
+  const del = async (row: Volleyball, opts: { onUndone?: () => void } = {}): Promise<string | null> => {
+    if (deleting.current.has(row.id)) return null;
+    deleting.current.add(row.id);
     try {
       await remove.mutateAsync(row.id);
     } catch {
-      return false;
+      return null;
+    } finally {
+      deleting.current.delete(row.id);
     }
-    toast(`Deleted ${vbKindLabel(row.kind).toLowerCase()}`, {
+    const toastId = `vb-del-${row.id}-${Date.now()}`;
+    toast(`Deleted ${vbKindLabel(row.kind).toLowerCase()} · ${shortDate(row.local_date)}`, {
+      id: toastId,
       duration: 6000,
       action: {
         label: "Undo",
-        onClick: () =>
-          insert.mutate({ id: row.id, local_date: row.local_date, kind: row.kind, duration_min: row.duration_min, intensity: row.intensity, notes: row.notes }),
+        onClick: () => {
+          opts.onUndone?.();
+          restore(row);
+        },
       },
     });
-    return true;
+    return toastId;
   };
 
-  return { add, del, adding: insert.isPending };
+  return { add, del, restore, adding: insert.isPending };
 }
 
 /* --------------------------------------------------------------- history */
@@ -323,11 +363,16 @@ export function useSessionDelete() {
       for (const k of ["sessions", "exercise-bests", "exercise-daily", "exercise-sets", "pr-events", "sets-range", "recent-history", "session"]) qc.invalidateQueries({ queryKey: [k] });
     },
   });
+  const busy = useRef(false);
   const del = async (s: Session) => {
+    if (busy.current) return false;
+    busy.current = true;
     try {
       await m.mutateAsync({ id: s.id, status: "discarded" });
     } catch {
       return false;
+    } finally {
+      busy.current = false;
     }
     toast(`Deleted ${s.name}`, {
       description: "Its sets no longer count toward history or records.",
@@ -360,4 +405,101 @@ export function useCustomExercises() {
     enabled: !!userId,
     queryFn: async () => must(await sb().from("custom_exercises").select("*").order("name")),
   });
+}
+
+/* -------------------------------------------------------- schedule save */
+
+/**
+ * Save profile.weekly_schedule. The recent past keeps the plan it had: past dates whose
+ * weekday changes get a "custom" day_plans row with the old template, so a new schedule never
+ * invents missed workouts. Undo restores the old schedule and removes those rows.
+ */
+export function useSaveSchedule() {
+  const qc = useQueryClient();
+  const today = useToday();
+  const save = useSaveProfile();
+  const busy = useRef(false);
+
+  const write = async (next: Record<string, string>, prev: Record<string, string>): Promise<string[] | null> => {
+    const from = addDays(today, -PLAN_BACK);
+    let frozen: string[] = [];
+    try {
+      const existing = must(await sb().from("day_plans").select("plan_date").gte("plan_date", from).lt("plan_date", today));
+      const writes = scheduleFreeze({ from, today, oldSchedule: prev, newSchedule: next, overridden: existing.map((r) => r.plan_date) });
+      if (writes.length) {
+        const rows = must(await sb().from("day_plans").upsert(writes, { onConflict: "user_id,plan_date", ignoreDuplicates: true }).select("id"));
+        frozen = rows.map((r) => r.id);
+      }
+    } catch (e) {
+      toast.error("Couldn't save the schedule. Nothing changed.", { description: (e as Error).message });
+      return null;
+    }
+    try {
+      await save.mutateAsync({ values: { weekly_schedule: next } });
+    } catch {
+      if (frozen.length) await sb().from("day_plans").delete().in("id", frozen);
+      return null; // useSaveProfile already explained why
+    } finally {
+      qc.invalidateQueries({ queryKey: ["day-plans"] });
+    }
+    return frozen;
+  };
+
+  const commit = async (next: Record<string, string>, prev: Record<string, string>) => {
+    if (busy.current) return false;
+    busy.current = true;
+    try {
+      const frozen = await write(next, prev);
+      if (!frozen) return false;
+      toast.success("Weekly schedule saved", {
+        description: frozen.length ? "Applies from today. Past days keep the plan they had." : "Applies from today. Single-day changes stay as they are.",
+        duration: 6000,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              await save.mutateAsync({ values: { weekly_schedule: prev } });
+              if (frozen.length) must(await sb().from("day_plans").delete().in("id", frozen).select("id"));
+              qc.invalidateQueries({ queryKey: ["day-plans"] });
+              toast("Schedule restored.");
+            } catch {
+              /* the profile hook already reported it */
+            }
+          },
+        },
+      });
+      return true;
+    } finally {
+      busy.current = false;
+    }
+  };
+
+  return { commit, pending: save.isPending };
+}
+
+/* ---------------------------------------------------- typical durations */
+
+/**
+ * The user's median session length per template (standard mode, last 8 completed sessions of
+ * at least 10 min), rounded to 5 min. Only templates with 3 or more such sessions are included.
+ */
+export function useTypicalDurations(): Record<string, number> {
+  const all = useAllSessions();
+  return useMemo(() => {
+    const by: Record<string, number[]> = {};
+    for (const s of all.data ?? []) {
+      if (!s.template_key || s.mode !== "standard" || !s.duration_sec || s.duration_sec < 600) continue;
+      const list = (by[s.template_key] ??= []);
+      if (list.length < 8) list.push(s.duration_sec);
+    }
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(by)) {
+      if (v.length < 3) continue;
+      const sorted = [...v].sort((a, b) => a - b);
+      const mid = sorted.length / 2;
+      const median = sorted.length % 2 ? sorted[Math.floor(mid)] : (sorted[mid - 1] + sorted[mid]) / 2;
+      out[k] = Math.round(median / 60 / 5) * 5;
+    }
+    return out;
+  }, [all.data]);
 }

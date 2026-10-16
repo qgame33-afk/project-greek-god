@@ -82,12 +82,13 @@ export function useLoggedGroups(groupIds: string[]) {
     queryKey: ["food-ai-groups", key, userId],
     enabled: !!userId && groupIds.length > 0,
     queryFn: async () => {
-      const rows = must(await sb().from("food_entries").select("id, meal_group_id, meal, local_date").in("meal_group_id", groupIds));
-      const map = new Map<string, { meal: string; date: string; ids: string[] }>();
+      const rows = must(await sb().from("food_entries").select("id, meal_group_id, meal, local_date, calories").in("meal_group_id", groupIds));
+      const map = new Map<string, { meal: string; date: string; ids: string[]; kcal: number }>();
       for (const r of rows) {
         if (!r.meal_group_id) continue;
-        const g = map.get(r.meal_group_id) ?? { meal: r.meal, date: r.local_date, ids: [] };
+        const g = map.get(r.meal_group_id) ?? { meal: r.meal, date: r.local_date, ids: [], kcal: 0 };
         g.ids.push(r.id);
+        g.kcal += Number(r.calories) || 0;
         map.set(r.meal_group_id, g);
       }
       return map;

@@ -26,6 +26,7 @@ export function useRecoveryDay(date: ISODate) {
 export function useSaveRecovery() {
   const qc = useQueryClient();
   return useMutation({
+    networkMode: "always",
     /** Upsert the whole day's check-in; blank fields are saved as null (never a fake default). */
     mutationFn: async (v: Omit<Insert<"recovery_logs">, "user_id">) =>
       must(await sb().from("recovery_logs").upsert(v, { onConflict: "user_id,local_date" }).select("*").single()),
@@ -44,7 +45,7 @@ export const DEFAULT_HABITS: Omit<Insert<"habit_definitions">, "user_id">[] = [
   { key: "weighin", label: "Log bodyweight", kind: "auto", sort: 4 },
   { key: "sleep", label: "Sleep goal", kind: "auto", sort: 5 },
   { key: "steps", label: "Steps", kind: "value", unit: "steps", sort: 6 },
-  { key: "mobility", label: "Mobility (optional)", kind: "check", sort: 7 },
+  { key: "mobility", label: "Mobility", kind: "check", sort: 7 },
 ];
 
 export function useHabitDefs() {

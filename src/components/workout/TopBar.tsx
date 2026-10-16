@@ -56,9 +56,9 @@ export function WorkoutTopBar({
           <h1 className="t-h2 truncate text-[17px] leading-tight text-fg">{name}</h1>
           <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold leading-tight">
             {dateLabel ? <span className="text-fg-2">{dateLabel}</span> : <Elapsed startedAt={startedAt} className="text-[15px] font-semibold text-gold-300" />}
-            {sync.offline && sync.pending > 0 && (
-              <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-fg-3">
-                <CloudOff className="size-3" aria-hidden /> {sync.pending} on device
+            {sync.offline && (
+              <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-fg-3" role="status">
+                <CloudOff className="size-3" aria-hidden /> {sync.pending > 0 ? `${sync.pending} on device` : "Offline"}
               </span>
             )}
           </p>

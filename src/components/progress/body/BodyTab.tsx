@@ -141,7 +141,7 @@ function MeasureTile({ rows, field, unit, today, onOpen }: { rows: Measurement[]
       <div className="mt-3 flex items-end justify-between gap-2">
         <p className="num-md whitespace-nowrap">
           {fmtLen(s.latest, unit)}
-          {s.latest != null && <span className="unit">{unit}</span>}
+          {s.latest != null && <span className="unit [font-size:max(12px,0.4em)]!">{unit}</span>}
         </p>
         <Sparkline values={series} tone={f.growthGood ? "gold" : "marble"} width={48} height={22} className="mb-0.5" />
       </div>
@@ -189,7 +189,7 @@ function FieldDetail({ field, rows, unit, onClose }: { field: FieldKey | null; r
               <p className="eyebrow">Since {shortDate(s.firstDate!, today)}</p>
               <p className={cn("num-md mt-2", good ? "text-success" : "text-fg")}>
                 {signed(conv(s.change), dp)}
-                <span className="unit">{u}</span>
+                <span className="unit [font-size:max(12px,0.4em)]!">{u}</span>
               </p>
             </div>
           )}
@@ -227,7 +227,7 @@ function FieldDetail({ field, rows, unit, onClose }: { field: FieldKey | null; r
                     <span className="num text-[13px] text-fg-3">{prev ? signed(conv(p.value - prev.value), dp) : "First"}</span>
                     <span className="num-sm">
                       {conv(p.value).toFixed(dp)}
-                      <span className="unit">{u}</span>
+                      <span className="unit [font-size:max(12px,0.4em)]!">{u}</span>
                     </span>
                   </span>
                 </button>

@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/supabase/server";
 import { aiErrorResponse, generateJSON, imagePart, type Part } from "@/lib/ai/gemini";
 import { chargeUsage } from "@/lib/ai/usage";
 import { CHAT_RESPONSE_SCHEMA, type AIFoodItem, type FoodChatPayload } from "@/lib/ai/food-schemas";
-import { resolveItems, sanitizeChatOutput, totalsOf, type SavedFoodLite } from "@/lib/ai/food-pipeline";
+import { alignReplyKcal, resolveItems, sanitizeChatOutput, totalsOf, type SavedFoodLite } from "@/lib/ai/food-pipeline";
 import { CHAT_SYSTEM, chatUserText, type ChatTurn } from "@/lib/ai/food-prompts";
 import { MOCK_MODEL, foodMockEnabled, mockChat } from "@/lib/ai/food-mock";
 import { ChatBody, badRequest, base64ToBytes, notConfigured, readJson, serverLookup, sleep, unauthorized } from "@/lib/ai/food-server";
@@ -158,8 +158,9 @@ export async function POST(request: Request) {
     const totals = totalsOf(items);
     const notes = [...clean.notes];
 
+    const modelTotal = clean.items.reduce((a, i) => a + i.estimate.calories, 0);
     const reply =
-      clean.reply ||
+      (clean.reply && items.length ? alignReplyKcal(clean.reply, modelTotal, totals.calories) : clean.reply) ||
       (items.length
         ? `About ${totals.calories.toLocaleString("en-US")} kcal. Review the rows below.`
         : pointsAtDraft

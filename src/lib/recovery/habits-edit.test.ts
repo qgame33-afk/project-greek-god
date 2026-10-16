@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   editability,
   formatTarget,
+  habitDisplayLabel,
   habitKeyFor,
   HABIT_PRESETS,
+  isOptionalHabit,
   moveHabit,
+  moveVisible,
   nextSort,
   presetState,
   validateDraft,
@@ -106,6 +109,13 @@ describe("validateDraft", () => {
       value: { label: "Mobility", kind: "value", target: 10.5, unit: "min" },
     });
   });
+  it("treats a name that only differs by '(optional)' as a duplicate", () => {
+    const r = validateDraft(
+      { label: "mobility", kind: "check", target: "", unit: "" },
+      ["Mobility (optional)"],
+    );
+    expect(r.ok).toBe(false);
+  });
   it("rejects blanks and duplicate names", () => {
     expect(
       validateDraft({ label: " ", kind: "check", target: "", unit: "" }).ok,
@@ -141,6 +151,49 @@ describe("moveHabit", () => {
     );
     expect(next.map((d) => d.sort)).toEqual([0, 1, 2]);
     expect(next.map((d) => d.key)).toEqual(["a", "c", "b"]);
+  });
+});
+
+describe("moveVisible", () => {
+  const defs = [
+    def("a", 0),
+    def("b", 1),
+    def("h", 2, { active: false }),
+    def("c", 3),
+    def("z", 4, { active: false }),
+  ];
+  it("moves among visible habits only, skipping hidden ones", () => {
+    const { list, changed } = moveVisible(defs, "c", -1);
+    expect(list.filter((d) => d.active).map((d) => d.key)).toEqual([
+      "a",
+      "c",
+      "b",
+    ]);
+    // hidden rows follow the visible ones, sorts rewritten 0…n−1
+    expect(list.map((d) => [d.key, d.sort])).toEqual([
+      ["a", 0],
+      ["c", 1],
+      ["b", 2],
+      ["h", 3],
+      ["z", 4],
+    ]);
+    expect(changed.map((d) => d.key).sort()).toEqual(["b", "c", "h"]);
+  });
+  it("is a no-op for the last visible habit even when hidden ones sort after it", () => {
+    expect(moveVisible(defs, "c", 1).changed).toEqual([]);
+    expect(moveVisible(defs, "a", -1).changed).toEqual([]);
+    expect(moveVisible(defs, "h", 1).changed).toEqual([]);
+  });
+});
+
+describe("display labels", () => {
+  it("strips the optional marker and keeps one name everywhere", () => {
+    expect(habitDisplayLabel("Mobility (optional)")).toBe("Mobility");
+    expect(habitDisplayLabel("Creatine 5 g")).toBe("Creatine 5 g");
+    expect(habitDisplayLabel("(Optional) stretch")).toBe("stretch");
+    expect(isOptionalHabit("mobility", "Mobility")).toBe(true);
+    expect(isOptionalHabit("c-x", "Walk (optional)")).toBe(true);
+    expect(isOptionalHabit("c-x", "Walk")).toBe(false);
   });
 });
 

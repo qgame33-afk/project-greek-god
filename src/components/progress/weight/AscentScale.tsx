@@ -77,8 +77,8 @@ export function AscentScale({
 
   const label =
     avg == null
-      ? `Ascent scale from ${start} to ${goal} ${unit}. No 7-day average yet.`
-      : `Ascent scale: 7-day average ${avg.toFixed(1)} ${unit}, between start ${start} and goal ${goal} ${unit}${plan != null ? `. Plan for today ${plan.toFixed(1)}` : ""}.`;
+      ? `Ascent scale from ${start.toFixed(1)} to ${goal.toFixed(1)} ${unit}. No 7-day average yet.`
+      : `Ascent scale: 7-day average ${avg.toFixed(1)} ${unit}, between start ${start.toFixed(1)} and goal ${goal.toFixed(1)} ${unit}${plan != null ? `. Plan for today ${plan.toFixed(1)}` : ""}.`;
 
   return (
     <div ref={wrap} className="relative w-full" style={{ height: H }} role="img" aria-label={label}>
@@ -88,7 +88,9 @@ export function AscentScale({
             <clipPath id={clip}>
               <rect x={left} y={TRACK_Y - 2} width={Math.max(0, right - left)} height={4} rx={2} />
             </clipPath>
-            <linearGradient id={grad} x1={left} y1="0" x2={right} y2="0" gradientUnits="userSpaceOnUse">
+            {/* The fill rect is translated (never resized), so the gradient lives in its shifted space:
+                start it where the visible span begins so every fill runs deep gold → gold-50 at the needle. */}
+            <linearGradient id={grad} x1={g.avgX != null ? Math.min(right - 1, left + right - g.avgX) : left} y1="0" x2={right} y2="0" gradientUnits="userSpaceOnUse">
               <stop offset="0" stopColor="#A97E40" />
               <stop offset=".55" stopColor="#D5AC67" />
               <stop offset="1" stopColor="#F3DDA8" />
@@ -129,7 +131,9 @@ export function AscentScale({
           {/* PLAN needle: dashed gold-700 so it never reads as data */}
           {g.planX != null && (
             <g style={{ transform: `translateX(${g.planX}px)`, transition: `transform ${ease}` }}>
-              <line x1={0} x2={0} y1={TRACK_Y - 14} y2={TRACK_Y + 16} stroke="var(--gold-700)" strokeWidth={1.5} strokeDasharray="3 3" />
+              {/* an outlined pointer above the needle head keeps PLAN visible even when the average sits on it */}
+              <path d="M-4.5 1.5h9L0 8z" fill="var(--surface-1)" stroke="var(--gold-600)" strokeWidth={1.25} strokeLinejoin="round" />
+              <line x1={0} x2={0} y1={10} y2={TRACK_Y + 16} stroke="var(--gold-700)" strokeWidth={1.5} strokeDasharray="3 3" />
             </g>
           )}
 

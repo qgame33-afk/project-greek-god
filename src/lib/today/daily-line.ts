@@ -56,7 +56,7 @@ export function dailyLine(i: DailyLineInput): string {
   }
 
   if (i.session === "done") {
-    if (proteinLeft > 0) return `${name} done. Protein is the lever now: ${proteinLeft} g to go.`;
+    if (proteinLeft > 0) return `${name} done. Protein next: ${proteinLeft} g to go.`;
     if (kcalLeft > i.calories.goal * 0.1) return `${name} done. ${formatInt(kcalLeft)} kcal left to fuel the recovery.`;
     return `${name} done and fuelled. Sleep ${goalH} h to lock it in.`;
   }

@@ -9,14 +9,15 @@ import { Sheet } from "@/components/ui/sheet";
 import { fieldLabel, planApply, type ApplyProfile } from "@/lib/coach/apply";
 import { suggestionIsCurrent } from "@/lib/coach/suggestions";
 import type { CoachSuggestion, SuggestionStatus } from "@/lib/coach/types";
-import { useApplyProfileChange } from "@/lib/coach/hooks";
+import { useApplyProfileChange, useRevertProfileChange } from "@/lib/coach/hooks";
 import type { Profile } from "@/lib/data/profile";
 import { cn } from "@/lib/cn";
 
 /**
  * A SUGGESTED change (lapis, never gold). Nothing changes until the user taps Apply and then
- * confirms in a sheet; the write goes through useSaveProfile with source "suggestion" so it
- * lands in the goal history. Applied / Not now is stored on the message, so it syncs.
+ * confirms in a sheet; the write is recorded in the goal history with source "suggestion".
+ * Undo puts the old values back and removes that history row. Applied / Not now is stored on
+ * the message, so it syncs across devices.
  */
 export function SuggestionCard({
   suggestion: s,
@@ -29,6 +30,7 @@ export function SuggestionCard({
 }) {
   const [open, setOpen] = useState(false);
   const save = useApplyProfileChange();
+  const revert = useRevertProfileChange();
   const busy = useRef(false);
   const isNote = s.kind === "note" || !s.field;
   const current = isNote || suggestionIsCurrent(s, profile as unknown as Record<string, unknown>);
@@ -65,25 +67,33 @@ export function SuggestionCard({
   const confirm = () => {
     if (!plan || busy.current) return;
     busy.current = true;
-    save.mutate(
-      { values: plan.values as Record<string, number | string>, reason: `Coach suggestion: ${s.title}`, source: "suggestion" },
-      {
-        onSuccess: () => {
-          setOpen(false);
-          onStatus("applied");
-          toast(`${fieldLabel(s)} set to ${s.proposedLabel}`, {
-            duration: 6000,
-            action: {
-              label: "Undo",
-              onClick: () => save.mutate({ values: plan.previous as Record<string, number | string>, reason: "Undid a coach suggestion", source: "user" }, { onSuccess: () => onStatus("open") }),
+    // mutateAsync (not per-call callbacks) so the toast's Undo still works after this card
+    // unmounts — e.g. the user switched conversations within the 6 seconds.
+    save
+      .mutateAsync({ values: plan.values as Record<string, number | string>, reason: `Coach suggestion: ${s.title}` })
+      .then(({ goalChangeIds }) => {
+        setOpen(false);
+        onStatus("applied");
+        toast(`${fieldLabel(s)} set to ${s.proposedLabel}`, {
+          duration: 6000,
+          action: {
+            label: "Undo",
+            onClick: () => {
+              revert
+                .mutateAsync({ values: plan.previous as Record<string, number | string>, goalChangeIds })
+                .then(() => {
+                  onStatus("open");
+                  toast(`${fieldLabel(s)} back to ${s.currentLabel}`);
+                })
+                .catch(() => {}); // the hook already shows the error toast
             },
-          });
-        },
-        onSettled: () => {
-          busy.current = false;
-        },
-      },
-    );
+          },
+        });
+      })
+      .catch(() => {})
+      .finally(() => {
+        busy.current = false;
+      });
   };
 
   return (

@@ -265,17 +265,3 @@ export function usePhotoDelete({ quiet = false }: { quiet?: boolean } = {}) {
     onSettled: () => qc.invalidateQueries({ queryKey: ["photos"] }),
   });
 }
-
-/* ------------------------------------------------------------ goal audit */
-
-/**
- * Make sure an applied calorie suggestion leaves a goal_changes row (the calorie check's
- * 14-day cooldown depends on it). If the shared save already wrote one, nothing is added.
- */
-export async function ensureCalorieChangeLogged(v: { since: string; oldValue: number; newValue: number; reason: string }) {
-  const recent = await sb().from("goal_changes").select("id").eq("field", "calorie_goal").eq("new_value", v.newValue).gte("changed_at", v.since).limit(1);
-  if (recent.error) throw new Error(friendlyError(recent.error.message));
-  if (recent.data?.length) return false;
-  must(await sb().from("goal_changes").insert({ field: "calorie_goal", old_value: v.oldValue, new_value: v.newValue, reason: v.reason, source: "suggestion" }).select("id").single());
-  return true;
-}

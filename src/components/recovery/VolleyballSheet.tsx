@@ -3,11 +3,12 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Scale, Segmented, Stepper } from "@/components/ui/controls";
+import { Scale, Segmented } from "@/components/ui/controls";
 import { Label, Textarea } from "@/components/ui/field";
 import { Sheet } from "@/components/ui/sheet";
 import { useVolleyballMutations, type Volleyball } from "@/lib/data/training";
 import { shortDate, type ISODate } from "@/lib/dates";
+import { OptionalStepper } from "./parts";
 
 type Kind = "practice" | "game" | "tournament" | "open_gym";
 const KINDS: { value: Kind; label: string }[] = [
@@ -118,13 +119,14 @@ function VbForm({ date, onDone }: { date: ISODate; onDone: () => void }) {
       </div>
       <div>
         <Label hint="Optional">Duration</Label>
-        <Stepper
+        <OptionalStepper
           label="duration in minutes"
-          value={minutes ?? 60}
+          value={minutes}
+          start={60}
           step={15}
           min={15}
           max={300}
-          onChange={(v) => setMinutes(minutes == null ? 60 : v)}
+          onChange={setMinutes}
         >
           {minutes == null ? (
             <span className="num-md text-fg-3">—</span>
@@ -134,7 +136,21 @@ function VbForm({ date, onDone }: { date: ISODate; onDone: () => void }) {
               <span className="unit">min</span>
             </span>
           )}
-        </Stepper>
+        </OptionalStepper>
+        <p className="mt-1.5 flex min-h-5 items-center justify-center gap-2 text-[12px] font-medium text-fg-3">
+          {minutes == null ? (
+            "Not logged · ± starts at 60 min"
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMinutes(null)}
+              className="-my-3 inline-flex h-11 items-center font-semibold text-fg-2 hover:text-fg"
+              aria-label="Clear duration"
+            >
+              Clear
+            </button>
+          )}
+        </p>
       </div>
       <Scale
         label="Intensity"

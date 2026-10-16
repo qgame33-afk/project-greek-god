@@ -1,7 +1,7 @@
 // Display + time helpers for the Fuel screen. Pure functions only (unit-tested).
 
 import type { Macros } from "@/lib/nutrition";
-import { addDays, daysBetween, parseISODate, shortDate, type ISODate } from "@/lib/dates";
+import { addDays, daysBetween, parseISODate, shortDate, toISODate, type ISODate } from "@/lib/dates";
 import { formatInt, round } from "@/lib/units";
 
 const PLURAL: Record<string, string> = {
@@ -104,6 +104,8 @@ export function dayLabel(d: ISODate, today: ISODate): string {
 /** Never let the viewed day run into the future. */
 export function clampDay(d: ISODate | null | undefined, today: ISODate): ISODate {
   if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return today;
+  // "2026-02-31" or "2026-13-01" would roll over into another day; treat it as no date.
+  if (toISODate(parseISODate(d)) !== d || d < "1900-01-01") return today;
   return d > today ? today : d;
 }
 

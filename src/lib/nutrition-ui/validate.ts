@@ -2,7 +2,8 @@
 // Hard limits mirror the database checks; the calorie/macro mismatch is a soft note only.
 
 import { kcalFromMacros, macrosConsistent, type Macros } from "@/lib/nutrition";
-import { formatInt, parseNumber, round } from "@/lib/units";
+import { formatInt, round } from "@/lib/units";
+import { parseFoodNumber } from "./number";
 import { normalizeUnit } from "./portion";
 
 export interface FoodForm {
@@ -42,7 +43,7 @@ export const LIMITS = {
 function num(raw: string, label: string, max: number, required: boolean): { value: number | null; error?: string } {
   const t = raw.trim();
   if (t === "") return required ? { value: null, error: `Enter ${label}.` } : { value: 0 };
-  const n = parseNumber(t);
+  const n = parseFoodNumber(t);
   if (n == null) return { value: null, error: "Enter a number." };
   if (n < 0) return { value: null, error: "Can't be negative." };
   if (n > max) return { value: null, error: `That's above ${formatInt(max)}. Check the number.` };
@@ -60,7 +61,7 @@ export function validateFoodForm(f: FoodForm, opts: { requireName?: boolean } = 
   if (brand.length > LIMITS.brand) errors.brand = `Keep it under ${LIMITS.brand} characters.`;
 
   const amountT = f.amount.trim();
-  const amount = parseNumber(amountT);
+  const amount = parseFoodNumber(amountT);
   if (amountT === "") errors.amount = "Enter an amount.";
   else if (amount == null) errors.amount = "Enter a number.";
   else if (amount <= 0) errors.amount = "Enter an amount above 0.";
@@ -108,7 +109,7 @@ export function validateFoodForm(f: FoodForm, opts: { requireName?: boolean } = 
 /** Live preview of what the form currently adds up to (ignores invalid fields). */
 export function previewMacros(f: Pick<FoodForm, "calories" | "protein" | "carbs" | "fat">): { macros: Macros; derived: number; caloriesBlank: boolean } {
   const n = (s: string) => {
-    const v = parseNumber(s);
+    const v = parseFoodNumber(s);
     return v != null && v >= 0 ? v : 0;
   };
   const protein = n(f.protein);

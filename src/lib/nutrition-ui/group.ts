@@ -66,3 +66,17 @@ export function groupMates<T extends EntryLike>(entries: T[], e: T): T[] {
   if (!e.meal_group_id) return [e];
   return entries.filter((x) => x.meal_group_id === e.meal_group_id);
 }
+
+/** Most recent first, one row per food (name + unit + base portion), up to `limit`. */
+export function distinctRecent<T extends { name: string; unit: string; base_amount: number | string }>(rows: T[], limit: number): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const r of rows) {
+    const k = `${r.name.trim().toLowerCase()}|${r.unit}|${Number(r.base_amount)}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(r);
+    if (out.length >= limit) break;
+  }
+  return out;
+}

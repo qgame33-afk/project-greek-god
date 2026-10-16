@@ -4,6 +4,7 @@
 // Straight segments between real entries (no smoothing that implies data between them),
 // gold PR diamonds, desktop tooltip, sr-only table rendered by the caller.
 
+import { useId } from "react";
 import { Line, LineChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { addDays, parseISODate, type ISODate } from "@/lib/dates";
 import { tickLabel, xTicks } from "@/lib/progress/weightSeries";
@@ -30,6 +31,7 @@ const TONES = { gold: "#D5AC67", verdigris: "#5DB5A4", lapis: "#6FA3EC" };
 
 export default function TrendChart({ points, format, invert, tone = "gold", decimals = 1 }: TrendChartProps) {
   const color = TONES[tone];
+  const leafId = `pgg-leaf-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const first = points[0]?.date;
   const last = points.at(-1)?.date;
   if (!first || !last) return null;
@@ -47,6 +49,13 @@ export default function TrendChart({ points, format, invert, tone = "gold", deci
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={points} margin={{ top: 12, right: 2, bottom: 0, left: 2 }}>
+        <defs>
+          <linearGradient id={leafId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#F3DDA8" />
+            <stop offset=".5" stopColor="#D5AC67" />
+            <stop offset="1" stopColor="#A97E40" />
+          </linearGradient>
+        </defs>
         <CartesianGrid vertical={false} stroke="rgb(255 255 255 / .05)" strokeDasharray="3 5" />
         <XAxis
           dataKey="t"
@@ -71,7 +80,7 @@ export default function TrendChart({ points, format, invert, tone = "gold", deci
           strokeWidth={2}
           isAnimationActive={points.length <= 120}
           animationDuration={600}
-          dot={<Dot color={color} />}
+          dot={<Dot color={color} leafId={leafId} />}
           activeDot={{ r: 5, fill: "#F3DDA8", stroke: "#08090C", strokeWidth: 2 }}
         />
       </LineChart>
@@ -91,22 +100,10 @@ function niceTicks(lo: number, hi: number, decimals: number) {
   return out;
 }
 
-function Dot(props: { cx?: number; cy?: number; payload?: TrendPoint; color: string }) {
-  const { cx, cy, payload, color } = props;
+function Dot(props: { cx?: number; cy?: number; payload?: TrendPoint; color: string; leafId: string }) {
+  const { cx, cy, payload, color, leafId } = props;
   if (cx == null || cy == null || !payload) return null;
-  if (payload.pr)
-    return (
-      <g aria-hidden>
-        <rect x={cx - 5} y={cy - 5} width={10} height={10} transform={`rotate(45 ${cx} ${cy})`} fill="url(#pgg-leaf)" stroke="#08090C" strokeWidth={1.5} />
-        <defs>
-          <linearGradient id="pgg-leaf" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#F3DDA8" />
-            <stop offset=".5" stopColor="#D5AC67" />
-            <stop offset="1" stopColor="#A97E40" />
-          </linearGradient>
-        </defs>
-      </g>
-    );
+  if (payload.pr) return <rect x={cx - 5} y={cy - 5} width={10} height={10} transform={`rotate(45 ${cx} ${cy})`} fill={`url(#${leafId})`} stroke="#08090C" strokeWidth={1.5} aria-hidden />;
   return <circle cx={cx} cy={cy} r={3.25} fill={color} stroke="#08090C" strokeWidth={1.5} aria-hidden />;
 }
 

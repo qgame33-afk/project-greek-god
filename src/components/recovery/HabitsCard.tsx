@@ -21,7 +21,11 @@ import {
 import { relativeDay, type ISODate } from "@/lib/dates";
 import { haptic } from "@/lib/haptics";
 import type { HabitStatus } from "@/lib/habits";
-import { formatTarget } from "@/lib/recovery/habits-edit";
+import {
+  formatTarget,
+  habitDisplayLabel,
+  isOptionalHabit,
+} from "@/lib/recovery/habits-edit";
 import { formatInt, parseNumber } from "@/lib/units";
 import { cn } from "@/lib/cn";
 import { CustomiseSheet } from "./CustomiseSheet";
@@ -55,8 +59,7 @@ export function HabitsCard({
   };
 
   const optional = (key: string) =>
-    key === "mobility" ||
-    /\(optional\)/i.test(defs.data?.find((d) => d.key === key)?.label ?? "");
+    isOptionalHabit(key, defs.data?.find((d) => d.key === key)?.label ?? "");
 
   return (
     <section
@@ -115,9 +118,7 @@ export function HabitsCard({
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
                     <span className="truncate text-[15px] font-semibold text-fg">
-                      {optional(s.key)
-                        ? s.label.replace(/\s*\(optional\)\s*/i, "")
-                        : s.label}
+                      {habitDisplayLabel(s.label)}
                     </span>
                     {s.auto && <AutoBadge />}
                     {!s.auto && optional(s.key) && (
@@ -148,7 +149,7 @@ export function HabitsCard({
                       type="button"
                       className={row}
                       onClick={onCheckin}
-                      aria-label={`${s.label}: ${s.caption}. Go to check-in`}
+                      aria-label={`${habitDisplayLabel(s.label)}: ${s.caption}. Go to check-in`}
                     >
                       {inner}
                       <ChevronRight
@@ -160,7 +161,7 @@ export function HabitsCard({
                     <Link
                       href={s.href ?? "/"}
                       className={row}
-                      aria-label={`${s.label}: ${s.caption}. Updates automatically from your logs`}
+                      aria-label={`${habitDisplayLabel(s.label)}: ${s.caption}. Updates automatically from your logs`}
                     >
                       {inner}
                       <ChevronRight
@@ -174,7 +175,7 @@ export function HabitsCard({
                     type="button"
                     className={row}
                     onClick={() => def && setValueFor(def)}
-                    aria-label={`${s.label}: ${s.caption}. Edit value`}
+                    aria-label={`${habitDisplayLabel(s.label)}: ${s.caption}. Edit value`}
                   >
                     {inner}
                     <ChevronRight
@@ -188,7 +189,7 @@ export function HabitsCard({
                     className={row}
                     onClick={() => toggle(s)}
                     aria-pressed={s.done}
-                    aria-label={`${s.label}: ${s.done ? "done. Tap to undo" : "not done. Tap when done"}`}
+                    aria-label={`${habitDisplayLabel(s.label)}: ${s.done ? "done. Tap to undo" : "not done. Tap when done"}`}
                   >
                     {inner}
                   </button>
@@ -242,7 +243,7 @@ function HabitValueSheet({
     <Sheet
       open={!!def}
       onOpenChange={(o) => !o && onClose()}
-      title={def?.label ?? "Habit"}
+      title={def ? habitDisplayLabel(def.label) : "Habit"}
       description={def ? relativeDay(date) : undefined}
     >
       {def && (

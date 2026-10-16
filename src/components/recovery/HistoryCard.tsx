@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type CSSProperties } from "react";
-import { AutoBadge } from "@/components/ui/badge";
+import { AutoBadge, OptionalBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
@@ -18,6 +18,10 @@ import {
   type ISODate,
 } from "@/lib/dates";
 import { STREAK_THRESHOLD } from "@/lib/habits";
+import {
+  habitDisplayLabel,
+  isOptionalHabit,
+} from "@/lib/recovery/habits-edit";
 import {
   cellKind,
   cellLabel,
@@ -278,13 +282,20 @@ function DaySheet({
               key={s.key}
               className="flex min-h-14 items-center gap-3 border-b border-line-hair last:border-0"
             >
-              <StatusMark done={s.done} progress={s.progress} label={s.label.replace(/\s*\(optional\)\s*/i, "")} />
+              <StatusMark
+                done={s.done}
+                progress={s.progress}
+                label={habitDisplayLabel(s.label)}
+              />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5">
                   <span className="truncate text-[15px] font-semibold text-fg">
-                    {s.label}
+                    {habitDisplayLabel(s.label)}
                   </span>
                   {s.auto && <AutoBadge />}
+                  {!s.auto && isOptionalHabit(s.key, s.label) && (
+                    <OptionalBadge className="h-4 px-1 text-[9.5px]" />
+                  )}
                 </span>
                 <span
                   className={cn(

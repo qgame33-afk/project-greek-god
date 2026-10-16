@@ -285,7 +285,7 @@ function ChartCard({
       <h2 className="sr-only">Trend</h2>
       <div className="mb-4 flex items-center gap-2">
         <Segmented
-          size="sm"
+          size="md"
           ariaLabel="Chart range"
           value={range}
           onChange={(v) => {
@@ -304,7 +304,7 @@ function ChartCard({
             writePref(PLAN_KEY, !showPlan);
           }}
           className={cn(
-            "press relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-dashed px-3 text-[12px] font-bold uppercase tracking-[0.08em] transition-colors before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']",
+            "press relative inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[12px] border border-dashed px-3.5 text-[12px] font-bold uppercase tracking-[0.08em] transition-colors",
             showPlan ? "border-gold-700 text-gold-300" : "border-line-strong text-fg-3",
           )}
         >
@@ -384,7 +384,8 @@ function StatsCard({
   today: ISODate;
 }) {
   const trend = stats.avg7 ?? stats.current;
-  const needed = trend != null && today < plan.targetDate ? requiredWeeklyGain(trend, plan.goalLb, today, plan.targetDate) : null;
+  // A PLAN value: from the trend weight, or from the start weight before the first weigh-in.
+  const needed = today < plan.targetDate ? requiredWeeklyGain(trend ?? plan.startLb, plan.goalLb, today < plan.startDate ? plan.startDate : today, plan.targetDate) : null;
   const d = (lb: number | null, dp = 1) => (lb == null ? "—" : disp(lb)!.toFixed(dp));
   const s = (lb: number | null, dp = 1) => (lb == null ? "—" : signed(disp(lb), dp));
   const planWk = planRate != null ? `Plan ${signed(disp(planRate), 2)}/wk` : null;
@@ -413,8 +414,8 @@ function StatsCard({
       tone: monthlyTone,
       caption: stats.monthlyChange != null ? "vs 30 days ago" : "Needs a month",
     },
-    { label: "Since start", value: s(stats.fromStart, 1), unit, caption: `from ${d(plan.startLb)} on ${shortDate(plan.startDate, today)}` },
-    { label: reached ? "Goal" : "To go", value: reached ? "Reached" : d(stats.toGoal), unit: reached ? undefined : unit, caption: `to ${d(plan.goalLb)} ${unit}` },
+    { label: "Since start", value: s(stats.fromStart, 1), unit, caption: stats.fromStart != null ? `7-day avg vs ${d(plan.startLb)} start` : `Start ${d(plan.startLb)} on ${shortDate(plan.startDate, today)}` },
+    { label: reached ? "Goal" : "To go", value: reached ? "Reached" : d(stats.toGoal), unit: reached ? undefined : unit, caption: `7-day avg to ${d(plan.goalLb)} ${unit}` },
     {
       label: "Avg rate",
       value: s(stats.ratePerWeek, 2),
@@ -512,7 +513,7 @@ function WeighInList({ busy, weights, unit }: { busy: boolean; weights: WeightEn
                   <span className="text-right">
                     <span className="num-sm block">
                       {toDisplayWeight(Number(w.weight_lb), unit).toFixed(1)}
-                      <span className="unit">{unit}</span>
+                      <span className="unit [font-size:max(12px,0.4em)]!">{unit}</span>
                     </span>
                     <span className="num block text-[12px] font-medium text-fg-3">{diff == null ? "First" : signed(diff, 1)}</span>
                   </span>

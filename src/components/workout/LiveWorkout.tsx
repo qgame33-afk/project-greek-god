@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ChevronDown, Plus, TriangleAlert } from "lucide-react";
@@ -56,15 +56,16 @@ import {
   type Ghost,
 } from "@/lib/workout/session";
 import { durationSec, effectiveEnd, lastCompletedAt, sessionTotals } from "@/lib/workout/summary";
+import { diffSets, isNetworkError, setPayload } from "@/lib/workout/sync";
 import type { CellField, Tracking, WSession, WSet } from "@/lib/workout/types";
 import { unlockAudio } from "./audio";
-import { fetchPriorBests, fetchPriorHistory, invalidateTraining, liveKey, newSetRow, usePriorBests, usePriorHistory, useSessionOps, type LiveData } from "./data";
+import { fetchPriorBests, fetchPriorHistory, invalidateTraining, liveKey, newSetRow, resyncSession, usePriorBests, usePriorHistory, useSessionOps, type LiveData } from "./data";
 import { CollapsedExercise, OpenExercise } from "./ExerciseBlock";
 import { NumberPad } from "./NumberPad";
 import { RestDock, RestFocus, RestPanel, RestWatcher, useClockSec } from "./rest";
 import type { RowView } from "./SetGrid";
 import { DiscardSheet, ExerciseMenuSheet, FinishSheet, HowToSheet, NoteSheet, PickExerciseSheet, SetSheetActions } from "./sheets";
-import { clearSessionStores, getRest, markMoment, setRest, setSkipped, useRest, useSkipped } from "./stores";
+import { clearSessionStores, getDeviceCopy, getRest, markDeviceCopyClean, markMoment, setRest, setSkipped, useOnline, useRest, useSkipped } from "./stores";
 import { WorkoutTopBar } from "./TopBar";
 
 const NO_GHOST: Ghost = { weight: null, work: null, weightSource: null, workSource: null };
@@ -112,6 +113,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const template = session.template_key ? byKey[session.template_key as TemplateKey] : undefined;
   const ops = useSessionOps(id);
   const outbox = useOutbox();
+  const isOnline = useOnline();
 
   const groups = useMemo(() => groupSets(sets), [sets]);
   const slugs = useMemo(() => [...new Set(groups.map((g) => g.slug))], [groups]);
@@ -197,12 +199,68 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const counts = sessionCounts(groups);
   const anyLogged = sets.some((s) => s.completed);
 
+  /* ------------------------------------------------ warm-up card collapse */
+
+  // The warm-up card collapses after the first logged set. Collapsing ~350px of steps above
+  // the set grid would yank the next ✓ out from under the thumb (a quick second tap then hits
+  // a different control), so the collapse is paired with an equal scroll adjustment. When the
+  // page isn't scrolled far enough to absorb it, the collapse waits until it can happen
+  // invisibly (more scrolling, or the next programmatic scroll to an exercise).
+  const [warmOpen, setWarmOpen] = useState<boolean | null>(null);
+  const [warmAutoClosed, setWarmAutoClosed] = useState(anyLogged);
+  const warmRef = useRef<HTMLElement>(null);
+  const warmShift = useRef<{ before: number; compensate: boolean } | null>(null);
+
+  const collapseWarm = useCallback((compensate: boolean) => {
+    const el = warmRef.current;
+    warmShift.current = el ? { before: el.getBoundingClientRect().height, compensate } : null;
+    setWarmAutoClosed(true);
+  }, []);
+
+  useLayoutEffect(() => {
+    const shift = warmShift.current;
+    const el = warmRef.current;
+    warmShift.current = null;
+    if (!shift || !el || !shift.compensate) return;
+    const delta = shift.before - el.getBoundingClientRect().height;
+    if (delta > 0) window.scrollBy({ top: -delta, behavior: "instant" });
+  }, [warmAutoClosed]);
+
+  const warmPending = anyLogged && !warmAutoClosed;
+  useEffect(() => {
+    if (!warmPending) return;
+    const el = warmRef.current;
+    // Nothing on screen changes when the card isn't rendered or the user chose its state.
+    if (!el || warmOpen !== null) {
+      setWarmAutoClosed(true);
+      return;
+    }
+    const delta = () => el.getBoundingClientRect().height - 56;
+    const tryCollapse = () => {
+      if (window.scrollY < delta()) return false;
+      collapseWarm(true);
+      return true;
+    };
+    if (tryCollapse()) return;
+    const onScroll = () => {
+      if (tryCollapse()) window.removeEventListener("scroll", onScroll);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [warmPending, warmOpen, collapseWarm]);
+
+  /** Before scrolling to an exercise, settle a pending collapse so the target doesn't move. */
+  const settleWarm = useCallback(() => {
+    if (warmPending) collapseWarm(false);
+  }, [warmPending, collapseWarm]);
+
   const scrollToGroup = useCallback((key: string) => {
+    settleWarm();
     window.setTimeout(() => {
       const el = document.querySelector(`[data-group="${CSS.escape(key)}"]`);
       el?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
     }, 60);
-  }, []);
+  }, [settleWarm]);
 
   const openGroupKey = (g: ExerciseGroup) => {
     setOpenRef(g.sets[0]?.id ?? null);
@@ -468,13 +526,17 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
 
   /* ----------------------------------------------------- rest finished */
 
-  const onRestDone = useCallback((r: { next: { setId: string | null } | null }) => {
-    const target = r.next?.setId;
-    if (!target) return;
-    document.querySelector(`[data-set="${CSS.escape(target)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
-    setPulseId(target);
-    window.setTimeout(() => setPulseId(null), 1300);
-  }, []);
+  const onRestDone = useCallback(
+    (r: { next: { setId: string | null } | null }) => {
+      const target = r.next?.setId;
+      if (!target) return;
+      settleWarm();
+      window.setTimeout(() => document.querySelector(`[data-set="${CSS.escape(target)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 60);
+      setPulseId(target);
+      window.setTimeout(() => setPulseId(null), 1300);
+    },
+    [settleWarm],
+  );
 
   /* ----------------------------------------------------- set operations */
 
@@ -723,9 +785,15 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       if (moves.length) ops.updateSets(moves.map((m) => ({ id: m.id, values: { notes: m.notes } })));
       const baseNotes = notes.trim() || null;
       const finalNotes = sessionLines.length ? [baseNotes, ...sessionLines].filter(Boolean).join("\n").slice(0, 2000) : baseNotes;
-      if (!(await drained(15000))) throw new Error("offline");
-      const del = await sb().from("exercise_sets").delete().eq("session_id", id).eq("completed", false);
-      if (del.error) throw new Error(friendlyError(del.error.message));
+      if (typeof navigator !== "undefined" && navigator.onLine === false) throw new Error("offline");
+      if (!(await drained(10000))) throw new Error("offline");
+      // The server ends up holding exactly the sets logged on this device: anything the
+      // outbox couldn't deliver is re-sent, unlogged and removed sets are deleted.
+      const logged = (qc.getQueryData<LiveData | null>(liveKey(id, userId)) ?? cur).sets.filter((s) => s.completed);
+      const before = must(await sb().from("exercise_sets").select("*").eq("session_id", id));
+      const fix = diffSets(logged, before);
+      if (fix.upserts.length) must(await sb().from("exercise_sets").upsert(fix.upserts.map(setPayload) as never, { onConflict: "id" }).select("id"));
+      if (fix.deletes.length) must(await sb().from("exercise_sets").delete().in("id", fix.deletes).select("id"));
       const fresh = must(await sb().from("exercise_sets").select("*").eq("session_id", id).order("exercise_order").order("set_index"));
       const totals = sessionTotals(fresh);
       const priors: Record<string, PriorBest> | null =
@@ -752,8 +820,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       if (live) q = q.eq("status", "active"); // a second tap or another device can't finish twice
       const updated = must(await q.select("*").maybeSingle());
       const finalSession: WSession = updated ?? (must(await sb().from("workout_sessions").select("*").eq("id", id).single()) as WSession);
+      clearSessionStores(id);
       ops.setData({ session: finalSession, sets: fresh });
-      if (live) clearSessionStores(id);
       invalidateTraining(qc);
       setFinishOpen(false);
       if (prefs.haptics) haptic([10, 40, 10]);
@@ -764,12 +832,10 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setFinishError(
-        msg === "offline"
-          ? "Couldn't reach the server. Every set is safe on this device — try again when you're back online."
-          : `Couldn't save. ${msg} Your sets are kept.`,
-      );
-      if (!live) toast.error("Couldn't save the changes", { description: msg });
+      const offline = msg === "offline" || isNetworkError(msg);
+      const text = offline ? "No connection. Every set is safe on this device — save again when you're back online." : `Couldn't save: ${msg} Every set is still on this device.`;
+      setFinishError(text);
+      if (!live) toast.error("Couldn't save the changes", { description: text });
     } finally {
       busy.current = false;
       setSaving(false);
@@ -832,22 +898,62 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     return () => window.removeEventListener("beforeunload", on);
   }, [outbox.pending]);
 
-  // A permanently rejected write: reload the session from the server so the screen is true.
+  // A write the server rejected (not a dropped connection): reload so the screen is true.
+  // Connection failures never reload — the device copy is the truth and is re-sent below.
   const lastErr = useRef<string | null>(null);
   useEffect(() => {
     if (!outbox.error || outbox.error === lastErr.current) return;
     lastErr.current = outbox.error;
-    if (/offline/i.test(outbox.error)) return;
-    toast.error("A change couldn't be saved", { description: `${outbox.error} The workout was reloaded from the server.` });
+    if (isNetworkError(outbox.error)) return;
+    toast.error("A change couldn't be saved", { description: `${friendlyError(outbox.error)} The workout was reloaded from the server.` });
     void ops.reload();
   }, [outbox.error, ops]);
+
+  // Safety net under the outbox: whenever it goes idle while this device holds changes the
+  // server hasn't confirmed (including a write it gave up on after a long dead spell), compare
+  // with the server and re-send the difference. Retries every 15 s while there is no signal.
+  const outboxRef = useRef(outbox);
+  useEffect(() => {
+    outboxRef.current = outbox;
+  });
+  const resyncs = useRef(0);
+  useEffect(() => {
+    if (outbox.pending > 0) return;
+    let cancelled = false;
+    const run = async () => {
+      const ob = outboxRef.current;
+      if (cancelled || ob.pending > 0 || !getDeviceCopy(id)?.dirty || resyncs.current > 8) return;
+      if (ob.error && !isNetworkError(ob.error)) return;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      const cur = qc.getQueryData<LiveData | null>(liveKey(id, userId));
+      if (!cur) return;
+      try {
+        const r = await resyncSession(id, cur);
+        // Only call it clean if nothing was tapped while the server was being checked.
+        if (r === "clean" && qc.getQueryData(liveKey(id, userId)) === cur) {
+          markDeviceCopyClean(id);
+          resyncs.current = 0;
+        } else if (r === "queued") resyncs.current++;
+      } catch {
+        /* still no signal — the interval tries again */
+      }
+    };
+    const first = window.setTimeout(run, 1500);
+    const every = window.setInterval(run, 15000);
+    window.addEventListener("online", run);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(first);
+      window.clearInterval(every);
+      window.removeEventListener("online", run);
+    };
+  }, [outbox.pending, outbox.error, id, qc, userId]);
 
   /* -------------------------------------------------------------- render */
 
   const stale = live && session.local_date !== today;
-  const [warmOpen, setWarmOpen] = useState<boolean | null>(null);
   const warmupShown = live && !stale && !!template?.warmup?.length;
-  const warmExpanded = warmOpen ?? !anyLogged;
+  const warmExpanded = warmOpen ?? !warmAutoClosed;
   const restShown = live && !!rest && !padOpen && !desktop;
   const totals = sessionTotals(sets);
   const plaques = bests ? sessionRecords(groups, bests) : [];
@@ -954,7 +1060,9 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       : null;
 
   return (
-    <div className="min-h-dvh bg-bg">
+    // overflow-anchor:none — scroll adjustments are made explicitly (see the warm-up collapse),
+    // so the browser's own anchoring must not apply a second one.
+    <div className="min-h-dvh bg-bg [overflow-anchor:none]">
       {live && <RestWatcher sessionId={id} chimeOn={prefs.restChime} hapticsOn={prefs.haptics} onDone={onRestDone} />}
       <WorkoutTopBar
         name={session.name}
@@ -975,7 +1083,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
           if (live) setFinishOpen(true);
           else void finish();
         }}
-        sync={{ pending: outbox.pending, offline: !!outbox.error && /offline/i.test(outbox.error), error: outbox.error }}
+        sync={{ pending: outbox.pending, offline: !isOnline || (outbox.pending > 0 && isNetworkError(outbox.error)), error: outbox.error }}
       />
 
       <div className="mx-auto w-full max-w-[1120px] px-3 pt-3 sm:px-4 lg:grid lg:grid-cols-[minmax(0,720px)_320px] lg:justify-center lg:gap-8 lg:px-6 lg:pt-6" style={{ paddingBottom: `calc(${bottomPad}px + var(--safe-bottom))` }}>
@@ -1021,7 +1129,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
           )}
 
           {warmupShown && (
-            <section className="card-instrument overflow-hidden" aria-label="Warm-up">
+            <section ref={warmRef} className="card-instrument overflow-hidden" aria-label="Warm-up">
               <button type="button" onClick={() => setWarmOpen(!warmExpanded)} aria-expanded={warmExpanded} className="flex min-h-[56px] w-full items-center gap-3 px-4 text-left">
                 <span className="min-w-0 flex-1">
                   <span className="eyebrow block">Warm-up</span>
@@ -1105,7 +1213,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
           step={nudgeStep(pad.field, { incrementLb: padInfo.lib?.increment ?? 5, unit, timed: isTimed(padInfo.tracking) })}
           lastText={lastValueFor(pad)}
           plates={
-            pad.field === "weight" && padInfo.lib?.equipment === "barbell"
+            pad.field === "weight" && padInfo.lib?.equipment === "barbell" && !pad.error
               ? platesLabel(Number(pad.text || ghostTextFor(pad) || 0), unit)
               : null
           }

@@ -6,11 +6,10 @@ import { shortDate, type ISODate } from "@/lib/dates";
 import { sparkSeries } from "@/lib/today/spark";
 import { formatBodyweight, type WeightUnit } from "@/lib/units";
 
-const H = 56;
 const DAYS = 28;
 
 /** Last 28 days: logged weigh-ins (marble dots) and the 7-day average (gold line). */
-export function WeightSpark({ weights, today, unit }: { weights: WeighIn[]; today: ISODate; unit: WeightUnit }) {
+export function WeightSpark({ weights, today, unit, height: H = 56 }: { weights: WeighIn[]; today: ISODate; unit: WeightUnit; height?: number }) {
   const box = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
   const s = sparkSeries(weights, today, DAYS, Math.max(1, w - 8), H, 7);

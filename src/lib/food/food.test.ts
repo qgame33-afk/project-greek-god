@@ -255,4 +255,23 @@ describe("general search ordering", () => {
     expect(keyed.results.some((r) => r.dataType === "Branded")).toBe(true);
     expect(keyed.status).toBe("ok");
   });
+
+  it("does not lead a branded query with a generic food that misses the brand", async () => {
+    const shake = {
+      fdcId: 2710724,
+      description: "Nutritional drink or shake, high protein, ready-to-drink (Slim Fast)",
+      dataType: "Survey (FNDDS)",
+      foodNutrients: [
+        { nutrientId: 1003, nutrientName: "Protein", nutrientNumber: "203", unitName: "G", value: 6.7 },
+        { nutrientId: 1004, nutrientName: "Total lipid (fat)", nutrientNumber: "204", unitName: "G", value: 3.3 },
+        { nutrientId: 1005, nutrientName: "Carbohydrate, by difference", nutrientNumber: "205", unitName: "G", value: 1 },
+        { nutrientId: 1008, nutrientName: "Energy", nutrientNumber: "208", unitName: "KCAL", value: 61 },
+      ],
+    };
+    const fetchImpl: FetchLike = async (u) => (u.includes("nal.usda.gov") ? jsonResponse({ foods: [shake] }) : jsonResponse(offFairlife));
+    const r = await searchFoods("fairlife protein shake", { kind: "all", fetchImpl, noCache: true });
+    expect(r.results[0].source).toBe("off");
+    expect(r.results[0].name.toLowerCase()).toContain("fairlife");
+    expect(r.results.some((x) => x.source === "usda")).toBe(true);
+  });
 });

@@ -16,7 +16,7 @@ import { FuelProvider, useFuel, type Goals, type LogRequest } from "./context";
 import { DateSwitcher } from "./DateSwitcher";
 import { EditFoodSheet, type EditState } from "./EditFoodSheet";
 import { FuelRings, FuelRingsSkeleton, NoTargets } from "./FuelRings";
-import { useDelayedFlag } from "./hooks";
+import { keepOpenOnToast, useDelayedFlag, useQueryHealth } from "./hooks";
 import { LOG_TABS, LogSheet, type LogRequestState, type LogTab } from "./LogSheet";
 import { MealCard, MealCardSkeleton } from "./MealCard";
 import { RecentRail } from "./RecentRail";
@@ -50,7 +50,7 @@ function Screen() {
   const params = useSearchParams();
   const today = useToday();
   const date = clampDay(params.get("date"), today);
-  const { loading: userLoading } = useUser();
+  const { userId, loading: userLoading } = useUser();
   const { profile, loading: profileLoading } = useProfile();
   const food = useFoodEntries(date);
   const water = useWater(date);
@@ -125,6 +125,11 @@ function Screen() {
   const sections = useMemo(() => mealSections(food.entries), [food.entries]);
   const loading = userLoading || profileLoading || food.loading;
   const showSkeleton = useDelayedFlag(loading, 150);
+  // A failed load must never read as "nothing logged": show "—" until real rows arrive.
+  const foodHealth = useQueryHealth(["food", date, userId]);
+  const waterHealth = useQueryHealth(["water", date, userId]);
+  const foodUnknown = !!food.error && !foodHealth.hasData;
+  const waterUnknown = waterHealth.failed && !waterHealth.hasData;
 
   return (
     <FuelProvider date={date} today={today} goals={goals} entries={food.entries} openLog={openLog} openEdit={openEdit} setDate={setDate}>
@@ -149,7 +154,13 @@ function Screen() {
               {loading ? (
                 showSkeleton ? <FuelRingsSkeleton /> : <div className="h-[372px]" aria-hidden />
               ) : goals && goals.calories > 0 ? (
-                <FuelRings totals={food.totals} goals={goals} waterMl={water.totalMl} isToday={date === today} empty={food.entries.length === 0} />
+                <FuelRings
+                  totals={foodUnknown ? null : food.totals}
+                  goals={goals}
+                  waterMl={waterUnknown ? null : water.totalMl}
+                  isToday={date === today}
+                  empty={food.entries.length === 0}
+                />
               ) : (
                 <NoTargets />
               )}
@@ -157,7 +168,7 @@ function Screen() {
             <Actions className="order-2 lg:order-none" />
             {goals && (
               <div className="order-5 lg:order-none">
-                <WaterCard date={date} goalMl={goals.waterMl} isToday={date === today} />
+                <WaterCard date={date} today={today} goalMl={goals.waterMl} unknown={waterUnknown} />
               </div>
             )}
             {goals && goals.calories > 0 && (
@@ -174,7 +185,9 @@ function Screen() {
             <div className="order-4 flex flex-col gap-3 lg:order-none">
               {loading
                 ? showSkeleton && [0, 1, 2, 3].map((i) => <MealCardSkeleton key={i} />)
-                : sections.map((s) => (
+                : foodUnknown
+                  ? <MealsUnavailable />
+                  : sections.map((s) => (
                     <MealCard
                       key={s.meal}
                       section={s}
@@ -183,18 +196,16 @@ function Screen() {
                       onSaveMeal={(sec) => setSaveMeal((st) => ({ open: true, nonce: st.nonce + 1, section: sec }))}
                     />
                   ))}
-              {!loading && food.entries.length > 0 && <DayTotalLine />}
+              {!loading && !foodUnknown && food.entries.length > 0 && <DayTotalLine />}
             </div>
           </div>
         </div>
       </div>
 
-      {/* An open sheet makes <body> pointer-events:none (modal), which also froze toast Undo
-          buttons. Keep visible toasts tappable. (Requested globally in globals.css.) */}
-      <style href="pgg-fuel-toast-undo" precedence="default">{`[data-sonner-toaster] [data-sonner-toast][data-visible="true"]{pointer-events:auto}`}</style>
-      <LogSheet state={logState} onOpenChange={(o) => setLogState((s) => ({ ...s, open: o }))} />
-      <EditFoodSheet state={edit} onOpenChange={(o) => setEdit((s) => ({ ...s, open: o }))} />
-      <SaveMealSheet state={saveMeal} onOpenChange={(o) => setSaveMeal((s) => ({ ...s, open: o }))} />
+      {/* Tapping a toast's Undo never dismisses the sheet underneath (the user keeps their place). */}
+      <LogSheet state={logState} onOpenChange={keepOpenOnToast((o) => setLogState((s) => ({ ...s, open: o })))} />
+      <EditFoodSheet state={edit} onOpenChange={keepOpenOnToast((o) => setEdit((s) => ({ ...s, open: o })))} />
+      <SaveMealSheet state={saveMeal} onOpenChange={keepOpenOnToast((o) => setSaveMeal((s) => ({ ...s, open: o })))} />
     </FuelProvider>
   );
 }
@@ -218,11 +229,20 @@ function Actions({ className }: { className?: string }) {
             Ask Food Coach
           </Link>
         </Button>
-        <Button variant="secondary" size="md" onClick={() => openLog()}>
+        <Button variant="secondary" size="md" onClick={() => openLog({ tab: "manual" })}>
           <NotebookPen className="size-[18px] text-gold-300" />
           Add manually
         </Button>
       </div>
+    </div>
+  );
+}
+
+function MealsUnavailable() {
+  return (
+    <div className="card-instrument px-5 py-8 text-center" role="status">
+      <p className="text-[15px] font-bold text-fg">Meals didn&apos;t load</p>
+      <p className="mx-auto mt-1 max-w-[34ch] text-[13px] leading-relaxed text-fg-2">Your entries are safe. They&apos;ll show here once the day loads.</p>
     </div>
   );
 }

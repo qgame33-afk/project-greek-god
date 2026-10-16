@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { useDailyNutrition } from "@/lib/data/nutrition";
@@ -10,6 +10,7 @@ import { addDays, addMonths, monthEnd, monthLabel, monthStart, longDate, type IS
 import { caloriesHit } from "@/lib/nutrition";
 import { dayLabel, monthGrid } from "@/lib/nutrition-ui/format";
 import { formatInt } from "@/lib/units";
+import { keepOpenOnToast, useFocusIntoSheet } from "./hooks";
 
 /** ‹ Today › — browse past days; never into the future. The label opens a month picker. */
 export function DateSwitcher({ date, today, onChange, calorieGoal }: { date: ISODate; today: ISODate; onChange: (d: ISODate) => void; calorieGoal: number }) {
@@ -44,7 +45,7 @@ export function DateSwitcher({ date, today, onChange, calorieGoal }: { date: ISO
           <ChevronRight className="size-5" />
         </button>
       </div>
-      <Sheet open={picker.open} onOpenChange={(o) => setPicker((p) => ({ ...p, open: o }))} title="Choose a day" description="Days with food logged are marked.">
+      <Sheet open={picker.open} onOpenChange={keepOpenOnToast((o) => setPicker((p) => ({ ...p, open: o })))} title="Choose a day" description="Days with food logged are marked.">
         <DayPicker
           key={picker.nonce}
           date={date}
@@ -64,13 +65,15 @@ const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 function DayPicker({ date, today, calorieGoal, onPick }: { date: ISODate; today: ISODate; calorieGoal: number; onPick: (d: ISODate) => void }) {
   const [month, setMonth] = useState(monthStart(date));
+  const root = useRef<HTMLDivElement>(null);
+  useFocusIntoSheet(root);
   const days = useDailyNutrition(month, monthEnd(month));
   const byDate = new Map((days.data ?? []).map((r) => [r.local_date ?? "", r]));
   const canNext = addMonths(month, 1) <= today;
   const grid = monthGrid(month);
 
   return (
-    <div className="pb-2 pt-1">
+    <div className="pb-2 pt-1" ref={root}>
       <div className="mb-3 flex items-center justify-between">
         <button type="button" onClick={() => setMonth(addMonths(month, -1))} aria-label="Previous month" className="press grid size-11 place-items-center rounded-[12px] text-fg-2 hover:bg-s3 hover:text-fg">
           <ChevronLeft className="size-5" />

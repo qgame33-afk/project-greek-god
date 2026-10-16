@@ -256,7 +256,7 @@ export function RestDock({ sessionId, rest, onFocus }: { sessionId: string; rest
       <div className="mx-auto flex h-[101px] max-w-[720px] items-center gap-2 pl-4 pr-3">
         <button type="button" onClick={onFocus} className="press-soft min-w-0 flex-1 text-left" aria-label="Open the full-screen rest timer">
           <RestClock rest={rest} className="num-xl block leading-[.9]" />
-          <RestCaption rest={rest} className="mt-1.5 block truncate text-[12.5px] font-semibold uppercase tracking-[0.06em] text-fg-2" />
+          <RestCaption rest={rest} className="mt-1.5 line-clamp-2 text-[12px] font-semibold uppercase leading-[1.3] tracking-[0.06em] text-fg-2" />
         </button>
         {over && rest.doneShown ? (
           <button type="button" onClick={a.skip} className="press h-[52px] rounded-[14px] border border-line-strong bg-s3 px-5 text-[15px] font-bold text-fg">
@@ -319,7 +319,7 @@ export function RestFocus({ sessionId, rest, onClose }: { sessionId: string; res
           </div>
         )}
       </div>
-      <div className="relative grid grid-cols-4 gap-3 px-6 pt-4" style={{ paddingBottom: "calc(var(--safe-bottom) + 28px)", minHeight: "35vh" }}>
+      <div className="relative grid grid-cols-4 content-end gap-3 px-6 pt-4" style={{ paddingBottom: "calc(var(--safe-bottom) + 36px)", minHeight: "35vh" }}>
         <FocusButton label="Subtract 15 seconds" onClick={() => a.adjust(-15)}>
           <span className="num text-[20px] font-semibold">−15</span>
         </FocusButton>

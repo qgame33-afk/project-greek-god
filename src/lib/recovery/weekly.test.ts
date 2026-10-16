@@ -102,9 +102,24 @@ describe("weeklyReview", () => {
       {
         key: "keep",
         title: "Keep the same plan",
-        reason: "Sleep, soreness and training are all on track.",
+        reason: "Sleep, soreness, fatigue and training are on track.",
       },
     ]);
+  });
+
+  it("never claims a signal is on track when it wasn't logged", () => {
+    const days = week(WS);
+    const r = weeklyReview(
+      base({
+        checkins: days.map((d) => ci(d, { sleep_hours: 8 })),
+        sessions: plannedSix.map((d) => sess(d)),
+      }),
+    );
+    expect(r.recommendations[0].key).toBe("keep");
+    expect(r.recommendations[0].reason).toBe(
+      "Sleep and training are on track. Rate soreness and fatigue at check-in to include them.",
+    );
+    expect(r.recommendations[0].reason).not.toMatch(/soreness (is|are) on track/);
   });
 
   it("flags short, erratic sleep and rising soreness", () => {

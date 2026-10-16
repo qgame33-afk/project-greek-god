@@ -109,12 +109,24 @@ export const AssistantMessage = memo(function AssistantMessage({
             onSend={onSend}
           />
         )}
-        {payload?.notes?.length && hasDraft ? <p className="mt-2 text-[12px] leading-relaxed text-fg-3">{payload.notes.join(" ")}</p> : null}
+        {hasDraft && (payload!.notes?.length || lookupDown(payload!)) ? (
+          <p className="mt-2 text-[12px] leading-relaxed text-fg-3">
+            {[...(payload!.notes ?? []), lookupDown(payload!) ? "USDA didn't answer this time, so generic foods are estimates." : null]
+              .filter(Boolean)
+              .join(" ")}
+          </p>
+        ) : null}
         {latest && payload?.questions?.length ? <Questions questions={payload.questions} onSend={onSend} /> : null}
       </div>
     </div>
   );
 });
+
+/** The USDA lookup failed and at least one generic row fell back to an estimate because of it. */
+function lookupDown(p: FoodChatPayload) {
+  const down = ["rate_limited", "error", "timeout"].includes(p.lookup?.usda ?? "");
+  return down && p.items.some((i) => i.kind === "generic" && i.provenance === "estimate");
+}
 
 /** Clarifying questions as lapis chips; answers are sent together (auto when all are picked). */
 function Questions({ questions, onSend }: { questions: AIQuestion[]; onSend: (text: string) => void }) {

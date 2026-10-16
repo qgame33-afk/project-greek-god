@@ -8,7 +8,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Minus,
+  Plus,
 } from "lucide-react";
+import { Stepper } from "@/components/ui/controls";
 import { Skeleton } from "@/components/ui/misc";
 import { Ring } from "@/components/ui/ring";
 import { cn } from "@/lib/cn";
@@ -202,6 +204,71 @@ export function Switcher({
         aria-label={nextLabel}
       >
         <ChevronRight className="size-5" />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * A stepper for a value that may be blank. While blank, the first tap on − or + sets
+ * `start` (e.g. the sleep goal) instead of inventing a default; after that it is the
+ * kit Stepper (hold to repeat). The blank state is its own pair of buttons so the kit
+ * Stepper always mounts with its real value and never steps from a stale one.
+ */
+export function OptionalStepper({
+  value,
+  start,
+  onChange,
+  label,
+  step,
+  min,
+  max,
+  children,
+}: {
+  value: number | null;
+  start: number;
+  onChange: (v: number) => void;
+  label: string;
+  step: number;
+  min: number;
+  max: number;
+  children: ReactNode;
+}) {
+  if (value != null)
+    return (
+      <Stepper
+        label={label}
+        value={value}
+        step={step}
+        min={min}
+        max={max}
+        onChange={onChange}
+      >
+        {children}
+      </Stepper>
+    );
+  const btn =
+    "press grid size-[52px] shrink-0 place-items-center rounded-[12px] bg-s3 text-fg-2 hover:text-fg active:bg-s4";
+  return (
+    <div className="flex items-center gap-3" role="group" aria-label={label}>
+      <button
+        type="button"
+        className={btn}
+        aria-label={`Decrease ${label}`}
+        onClick={() => onChange(start)}
+      >
+        <Minus className="size-5" />
+      </button>
+      <div className="min-w-0 flex-1 text-center" aria-live="polite">
+        {children}
+      </div>
+      <button
+        type="button"
+        className={btn}
+        aria-label={`Increase ${label}`}
+        onClick={() => onChange(start)}
+      >
+        <Plus className="size-5" />
       </button>
     </div>
   );

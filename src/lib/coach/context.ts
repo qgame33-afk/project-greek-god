@@ -125,7 +125,13 @@ async function loadTraining(sb: SB, today: ISODate): Promise<RawTraining> {
  * Build the coach context for `today` (the user's local date). Returns the snapshot plus the
  * profile row the suggestion validator checks against.
  */
-export async function buildCoachContext(sb: SB, userId: string, today: ISODate, localTime: string | null): Promise<{ snapshot: Snapshot; profile: ProfileRow; raw: RawCoachData }> {
+export async function buildCoachContext(
+  sb: SB,
+  userId: string,
+  today: ISODate,
+  localTime: string | null,
+  timeZone: string | null = null,
+): Promise<{ snapshot: Snapshot; profile: ProfileRow; raw: RawCoachData }> {
   const pr = await sb.from("profiles").select("*").eq("id", userId).maybeSingle();
   if (pr.error) throw new Error(pr.error.message);
   const profile: ProfileRow | null = pr.data;
@@ -173,6 +179,7 @@ export async function buildCoachContext(sb: SB, userId: string, today: ISODate, 
   const raw: RawCoachData = {
     today,
     localTime,
+    timeZone: timeZone ?? profile.timezone ?? null,
     profile: toRawProfile(profile),
     access,
     goalChanges: (goalChanges ?? []).map((g) => ({ ...g, old_value: n(g.old_value), new_value: n(g.new_value) })),

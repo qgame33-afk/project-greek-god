@@ -2,7 +2,7 @@
 
 import { m } from "motion/react";
 import { Switch as RSwitch } from "radix-ui";
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, type ReactNode } from "react";
 import { Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -153,9 +153,9 @@ export function Stepper({
 }) {
   const timer = useRef<number | null>(null);
   const valueRef = useRef(value);
-  useEffect(() => {
+  useLayoutEffect(() => {
     valueRef.current = value;
-  }, [value]);
+  });
   const clamp = (v: number) => Math.min(max, Math.max(min, Math.round(v / step) * step));
   const bump = (dir: 1 | -1) => {
     const next = clamp(Number((valueRef.current + dir * step).toFixed(4)));

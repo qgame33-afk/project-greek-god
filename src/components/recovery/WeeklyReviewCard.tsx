@@ -271,7 +271,7 @@ function SleepBars({ r }: { r: WeeklyReview }) {
           style={{ top: goalY }}
           aria-hidden
         >
-          <span className="absolute -top-[9px] right-0 bg-s3 pl-1.5 text-[10px] font-bold tracking-[0.08em] text-gold-600">
+          <span className="absolute -top-[9px] right-0 bg-s3 pl-1.5 text-[10px] font-bold tracking-[0.08em] text-fg-3">
             {formatHours(goal)} H
           </span>
         </div>

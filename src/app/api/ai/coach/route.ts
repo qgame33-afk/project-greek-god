@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     }
     const parsed = CoachRequest.safeParse(body);
     if (!parsed.success) return fail(400, "bad_request", parsed.error.issues[0]?.message ?? "Invalid request.");
-    const { conversationId, message, localDate, localTime } = parsed.data;
+    const { conversationId, message, localDate, localTime, timeZone } = parsed.data;
 
     const { supabase, user } = await requireUser();
     if (!user) return fail(401, "unauthorized", "Your session expired. Sign in again.");
@@ -53,13 +53,13 @@ export async function POST(req: Request) {
     if (conversationId) {
       const conv = await supabase.from("ai_conversations").select("id,kind").eq("id", conversationId).maybeSingle();
       if (conv.error) throw new Error(conv.error.message);
-      if (!conv.data || conv.data.kind !== "coach") return fail(404, "not_found", "That conversation no longer exists. Start a new one.");
+      if (!conv.data || conv.data.kind !== "coach") return fail(404, "not_found", "That conversation was deleted. Retry asks it in a new one.");
       const msgs = await supabase.from("ai_messages").select("role,content,created_at").eq("conversation_id", conversationId).order("created_at", { ascending: false }).limit(HISTORY_MESSAGES);
       if (msgs.error) throw new Error(msgs.error.message);
       history = (msgs.data ?? []).reverse();
     }
 
-    const { snapshot, raw } = await buildCoachContext(supabase, user.id, localDate, localTime ?? null);
+    const { snapshot, raw } = await buildCoachContext(supabase, user.id, localDate, localTime ?? null, timeZone ?? null);
 
     let reply: unknown;
     let model: string;

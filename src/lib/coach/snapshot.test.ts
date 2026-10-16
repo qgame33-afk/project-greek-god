@@ -3,7 +3,7 @@ import { ALL_ACCESS, accessChipLabel, normalizeAccess } from "./access";
 import { buildMockReply } from "./mock";
 import { buildSystemPrompt } from "./prompt";
 import { sanitizeAnswer, sanitizeFollowUps, titleFrom } from "./schema";
-import { buildSnapshot, chipsFor, type RawCoachData } from "./snapshot";
+import { buildSnapshot, chipsFor, dateInZone, type RawCoachData } from "./snapshot";
 import { validateSuggestions } from "./suggestions";
 
 const today = "2026-10-16"; // a Friday
@@ -108,6 +108,26 @@ describe("buildSnapshot", () => {
     expect(s.derived.calorieCheck).toBeNull();
   });
 
+  it("never counts planned days before the start date as missed", () => {
+    const p = { ...raw().profile, start_date: today };
+    const s = buildSnapshot(raw({ profile: p, training: { ...raw().training!, sessions: [], sets: [] } }));
+    const f = (id: string) => s.facts.find((x) => x.id === id);
+    expect(f("tr.count7")?.detail).toBe("0 of 0 planned training days done so far (counting from the start date, Oct 16)");
+    expect(f("tr.count28")?.detail).not.toMatch(/adherence/);
+    expect(f("plan.week")?.detail).toMatch(/Mon Push A — before the start date/);
+    expect(f("plan.week")?.detail).not.toMatch(/not logged/);
+  });
+
+  it("dates goal changes in the user's time zone, not UTC", () => {
+    // 9:30 pm Oct 1 in Toronto is already Oct 2 in UTC
+    const g = [{ field: "calorie_goal", old_value: 3100, new_value: 3300, changed_at: "2026-10-02T01:30:00+00:00", source: "suggestion" }];
+    const toronto = buildSnapshot(raw({ goalChanges: g, timeZone: "America/Toronto" }));
+    expect(toronto.derived.lastCalorieChange).toBe("2026-10-01");
+    expect(toronto.facts.find((f) => f.id === "goal.change.1")?.detail).toBe("on Oct 1 (suggestion)");
+    expect(buildSnapshot(raw({ goalChanges: g, timeZone: null })).derived.lastCalorieChange).toBe("2026-10-02");
+    expect(dateInZone("2026-10-02T01:30:00Z", "Not/AZone")).toBe("2026-10-02");
+  });
+
   it("uses the user's units", () => {
     const s = buildSnapshot(raw({ profile: { ...raw().profile, weight_unit: "kg", length_unit: "cm" } }));
     expect(s.facts.find((f) => f.id === "goal.weight")?.value).toBe("83.0 kg");
@@ -128,11 +148,15 @@ describe("schema helpers", () => {
   it("sanitises model markdown", () => {
     expect(sanitizeAnswer("You have **65 g** left [nut.left.protein].\n\n\n\n<script>x</script>Ok ![img](http://x) [site](https://evil.example)")).toBe("You have **65 g** left.\n\nxOk  site");
   });
+  it("keeps comparisons that only look like tags", () => {
+    expect(sanitizeAnswer("Keep sets < 10 and rest > 2 min <b>now</b>")).toBe("Keep sets < 10 and rest > 2 min now");
+  });
   it("keeps up to three short, unique follow-ups", () => {
     expect(sanitizeFollowUps(["What now?", "What now?", 3, "x", "**Bold** one", "a".repeat(120), "Four?", "Five?"])).toEqual(["What now?", "Bold one", "Four?"]);
   });
   it("titles conversations from the first question", () => {
     expect(titleFrom("  Am I eating enough?  ")).toBe("Am I eating enough?");
+    expect(titleFrom("Give me my weekly summary: training, nutrition, bodyweight and recovery for the last 7 days.")).toBe("Weekly summary");
     expect(titleFrom("Should I reduce leg training because I played volleyball yesterday and my knees hurt?")).toBe("Should I reduce leg training because I played volleyball…");
   });
   it("puts the context inside the system prompt", () => {

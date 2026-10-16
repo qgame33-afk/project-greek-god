@@ -181,7 +181,9 @@ describe("week strip", () => {
     expect(w.days.map((d) => d.date)).toEqual(["2026-10-10", "2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16"]);
     expect(w.days.map((d) => d.letter).join("")).toBe("SSMTWTF");
     expect(w.loggedDays).toBe(3);
-    expect(w.avgKcal).toBe(2333);
+    // today's partial day is left out of the average
+    expect(w.avgKcal).toBe(2900);
+    expect(w.avgDays).toBe(2);
     expect(w.proteinHits).toBe(1);
     expect(w.calorieHits).toBe(1);
     expect(w.days[1]).toMatchObject({ logged: false, kcal: null, pct: 0 });

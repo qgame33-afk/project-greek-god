@@ -11,6 +11,7 @@ import {
   Flame,
   HeartPulse,
   Info,
+  RotateCcw,
   Scale,
   TrendingUp,
   Utensils,
@@ -69,7 +70,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   last: boolean;
   /** just arrived in this session — rises in once */
   fresh?: boolean;
-  onStatus: (messageId: string, suggestionId: string, status: SuggestionStatus) => void;
+  onStatus: (conversationId: string, messageId: string, suggestionId: string, status: SuggestionStatus) => void;
   onFollowUp: (q: string) => void;
   followUpsDisabled?: boolean;
 }) {
@@ -85,7 +86,7 @@ export const AssistantMessage = memo(function AssistantMessage({
         )}
         <Markdown>{message.content}</Markdown>
         {p && <FactChips facts={p.facts ?? []} asOf={p.as_of} />}
-        {p?.suggestions?.map((s) => <SuggestionCard key={s.id} suggestion={s} profile={profile} onStatus={(st) => onStatus(message.id, s.id, st)} />)}
+        {p?.suggestions?.map((s) => <SuggestionCard key={s.id} suggestion={s} profile={profile} onStatus={(st) => onStatus(message.conversation_id, message.id, s.id, st)} />)}
         {last && !!p?.follow_ups?.length && (
           <div className="mt-3 flex flex-wrap gap-x-2" aria-label="Follow-up questions">
             {p.follow_ups.map((q) => (
@@ -118,6 +119,21 @@ export function Thinking() {
     <div className="flex items-center gap-3" role="status" aria-live="polite">
       <CoachAvatar thinking />
       <span className="text-[13px] font-medium text-fg-3">Reading your records…</span>
+    </div>
+  );
+}
+
+/** A failed question or load: what happened, and a 44px Retry when retrying can help. */
+export function CoachError({ children, onRetry, className }: { children: React.ReactNode; onRetry?: () => void; className?: string }) {
+  return (
+    <div role="alert" className={cn("flex items-center gap-2 rounded-[14px] border border-danger/30 bg-danger-tint py-1 pl-3.5 pr-1 text-[13.5px] leading-snug text-fg", className)}>
+      <span className="min-w-0 flex-1 py-2.5">{children}</span>
+      {onRetry && (
+        <button type="button" onClick={onRetry} className="press inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[10px] px-3 text-[14px] font-bold text-gold-300 hover:bg-white/[.04]">
+          <RotateCcw className="size-4" aria-hidden />
+          Retry
+        </button>
+      )}
     </div>
   );
 }

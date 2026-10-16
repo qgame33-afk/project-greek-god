@@ -7,6 +7,7 @@ import {
   niceTicks,
   newTemplateExercise,
   regionOf,
+  sameTemplateContent,
   sessionVolume,
   sessionsFromSets,
   strengthSeries,
@@ -73,9 +74,17 @@ describe("templates", () => {
     expect(estimateDurationMin(intro)).toBeLessThan(estimateDurationMin(pushA));
   });
 
-  it("deload roughly halves the sets", () => {
+  it("deload roughly halves the sets and lowers the top of each rep range by 2", () => {
     const d = modeTemplate(pushA, "deload");
     expect(d.exercises.map((e) => e.sets)).toEqual([2, 2, 2, 2, 2, 1]);
+    // bench 5–8 → 5–6, laterals 12–20 → 12–18 (matches the deload suggestion's target)
+    expect([d.exercises[0].repLow, d.exercises[0].repHigh]).toEqual([5, 6]);
+    expect(d.exercises[3].repHigh).toBe(pushA.exercises[3].repHigh - 2);
+    // jumps keep their fixed target
+    const jumps = modeTemplate(legsA, "deload").exercises.find((e) => e.slug === legsA.exercises[0].slug)!;
+    expect(jumps.repHigh).toBe(legsA.exercises[0].repHigh);
+    // never below the bottom of the range
+    expect(modeTemplate({ ...pushA, exercises: [{ ...pushA.exercises[0], repLow: 5, repHigh: 6 }] }, "deload").exercises[0].repHigh).toBe(5);
   });
 
   it("lighter legs drops optional jumps and trims leg accessories", () => {
@@ -85,6 +94,22 @@ describe("templates", () => {
     const squat = light.exercises.find((e) => e.slug === "back-squat");
     const orig = legsA.exercises.find((e) => e.slug === "back-squat");
     expect(squat!.sets).toBe(orig!.sets - 1);
+  });
+
+  it("compares template content regardless of jsonb key order", () => {
+    const shuffled = {
+      ...pushA,
+      exercises: pushA.exercises.map((e) => {
+        const { rir, name, note, rest, sets, slug, unit, repLow, repHigh, optional } = e;
+        return { rir, name, ...(note ? { note } : {}), rest, sets, slug, unit, repLow, repHigh, ...(optional ? { optional } : {}) };
+      }),
+      warmup: pushA.warmup.map((w) => ({ detail: w.detail, label: w.label })),
+    };
+    expect(JSON.stringify(shuffled.exercises) === JSON.stringify(pushA.exercises)).toBe(false);
+    expect(sameTemplateContent(shuffled, pushA)).toBe(true);
+    expect(sameTemplateContent({ ...pushA, exercises: pushA.exercises.map((e, i) => (i === 0 ? { ...e, optional: false, note: e.note ?? "" } : e)) }, pushA)).toBe(true);
+    expect(sameTemplateContent({ ...pushA, exercises: pushA.exercises.map((e, i) => (i === 0 ? { ...e, sets: e.sets + 1 } : e)) }, pushA)).toBe(false);
+    expect(sameTemplateContent({ ...pushA, name: "Push A2" }, pushA)).toBe(false);
   });
 
   it("recognises leg days", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { BookmarkPlus, Layers, Trash } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Segmented, Stepper } from "@/components/ui/controls";
@@ -15,10 +15,12 @@ import { asMeal, groupMates } from "@/lib/nutrition-ui/group";
 import { amountBounds, directEdit, entryBase, macrosEqual, normalizeUnit, rescaleEntry, savedFoodFromEntry, stepFor, type FoodUpdate } from "@/lib/nutrition-ui/portion";
 import { groupLabel } from "@/lib/nutrition-ui/provenance";
 import { fieldText, validateFoodForm, type FoodForm } from "@/lib/nutrition-ui/validate";
-import { formatInt, parseNumber } from "@/lib/units";
+import { formatInt } from "@/lib/units";
+import { parseFoodNumber } from "@/lib/nutrition-ui/number";
 import { MacroGrid, ProvenanceBadge, StickyFooter } from "./bits";
 import { ToastMark, useFuel } from "./context";
 import { FoodFields } from "./FoodFields";
+import { useFocusIntoSheet } from "./hooks";
 import { WhenFields, type When } from "./log-shared";
 
 export interface EditState {
@@ -66,6 +68,8 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
   const del = useDeleteFood();
   const savedFoods = useSavedFoods();
   const savedM = useSavedFoodMutations();
+  const root = useRef<HTMLDivElement>(null);
+  useFocusIntoSheet(root);
 
   const [mode, setMode] = useState<Mode>("amount");
   const [name, setName] = useState(entry.name);
@@ -88,11 +92,13 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
   const mates = useMemo(() => groupMates(entries, entry), [entries, entry]);
   const { baseAmount, base } = entryBase(entry);
   const { min, max } = amountBounds(entry.unit);
-  const parsedAmount = parseNumber(amountText);
+  const parsedAmount = parseFoodNumber(amountText);
   const amountInvalid = parsedAmount == null || parsedAmount <= 0 || parsedAmount > max;
   const formResult = validateFoodForm({ ...form, name: name || "x" });
   const nameTrim = name.trim();
   const nameInvalid = !nameTrim || nameTrim.length > 120;
+  // shown as soon as the name is cleared, so a disabled Save always has a visible reason
+  const nameError = nameInvalid && (touched || name !== entry.name) ? "Enter a food name." : null;
 
   // Only fields that really changed are written (untouched rows never drift by a rounding kcal).
   const current = { calories: Number(entry.calories), protein: Number(entry.protein_g), carbs: Number(entry.carbs_g), fat: Number(entry.fat_g) };
@@ -124,6 +130,31 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
       : null;
 
   const dirty = !!values && Object.keys(values).length > 0;
+
+  // The amount carries across modes, so a change made in one is never silently dropped.
+  const switchMode = (next: Mode) => {
+    if (next === mode) return;
+    if (next === "macros" && !amountInvalid && Math.abs(amount - Number(entry.amount)) > 1e-9 && preview) {
+      setForm((f) => ({
+        ...f,
+        amount: fieldText(amount),
+        unit: normalizeUnit(entry.unit) ?? entry.unit,
+        calories: fieldText(Math.round(preview.calories)),
+        protein: fieldText(preview.protein),
+        carbs: fieldText(preview.carbs),
+        fat: fieldText(preview.fat),
+      }));
+    }
+    if (next === "amount") {
+      const a = parseFoodNumber(form.amount);
+      const sameUnit = (normalizeUnit(form.unit) ?? form.unit) === (normalizeUnit(entry.unit) ?? entry.unit);
+      if (a != null && a > 0 && a <= max && sameUnit && Math.abs(a - amount) > 1e-9) {
+        setAmount(a);
+        setAmountText(fieldText(a));
+      }
+    }
+    setMode(next);
+  };
 
   const save = async () => {
     setTouched(true);
@@ -180,9 +211,9 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
   const gLabel = groupLabel(entry.source).toLowerCase();
 
   return (
-    <div className="pt-2">
-      <Field label="Food" error={touched && nameInvalid ? "Enter a food name." : null}>
-        {(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="off" aria-invalid={touched && nameInvalid} />}
+    <div className="pt-2" ref={root}>
+      <Field label="Food" error={nameError}>
+        {(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="off" enterKeyHint="done" aria-invalid={!!nameError} />}
       </Field>
       <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px] font-medium text-fg-3">
         <ProvenanceBadge item={entry} full />
@@ -196,7 +227,7 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
         className="mt-5"
         ariaLabel="What to change"
         value={mode}
-        onChange={setMode}
+        onChange={switchMode}
         options={[
           { value: "amount", label: "Adjust amount" },
           { value: "macros", label: "Edit macros" },
@@ -227,7 +258,7 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
                 onFocus={(e) => e.currentTarget.select()}
                 onChange={(e) => {
                   setAmountText(e.target.value);
-                  const n = parseNumber(e.target.value);
+                  const n = parseFoodNumber(e.target.value);
                   if (n != null) setAmount(n);
                 }}
                 className="num-xl w-full bg-transparent text-center text-fg outline-none"

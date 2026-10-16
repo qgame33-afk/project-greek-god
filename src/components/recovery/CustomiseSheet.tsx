@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  ArrowUpDown,
   Check,
   Eye,
   EyeOff,
@@ -11,8 +12,7 @@ import {
   Plus,
   Trash,
 } from "lucide-react";
-import { toast } from "sonner";
-import { AutoBadge } from "@/components/ui/badge";
+import { AutoBadge, OptionalBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Chip, Segmented, Stepper } from "@/components/ui/controls";
 import { Field, Input, NumberInput } from "@/components/ui/field";
@@ -29,8 +29,10 @@ import {
   editability,
   formatTarget,
   HABIT_PRESETS,
+  habitDisplayLabel,
   habitKeyFor,
-  moveHabit,
+  isOptionalHabit,
+  moveVisible,
   nextSort,
   presetState,
   validateDraft,
@@ -41,7 +43,6 @@ import {
 } from "@/lib/recovery/habits-edit";
 import { useHabitDefsCache } from "@/lib/recovery/hooks";
 import { formatInt } from "@/lib/units";
-import { cn } from "@/lib/cn";
 
 const AUTO_LABELS: Record<string, string> = {
   workout: "Training or recovery done",
@@ -64,7 +65,7 @@ const AUTO_SOURCE: Record<string, string> = {
 type Upsertable = Pick<
   HabitDef,
   "key" | "label" | "kind" | "target" | "unit" | "active" | "sort"
->;
+> & { created_at?: string };
 const toUpsert = (d: Upsertable) => ({
   key: d.key,
   label: d.label,
@@ -73,6 +74,10 @@ const toUpsert = (d: Upsertable) => ({
   unit: d.unit,
   active: d.active,
   sort: d.sort,
+  // Restoring a deleted habit keeps the day it was first added.
+  ...(d.created_at && !d.created_at.startsWith("optimistic")
+    ? { created_at: d.created_at }
+    : {}),
 });
 
 export function CustomiseSheet({
@@ -95,12 +100,46 @@ export function CustomiseSheet({
   );
 }
 
+interface Notice {
+  id: number;
+  text: string;
+  undo?: () => void;
+}
+
+/**
+ * Feedback inside the sheet. A toast's Undo can't be tapped while a modal sheet is open
+ * (the sheet treats the tap as "outside" and closes), so the sheet carries its own.
+ */
+function useNotice() {
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const timer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (timer.current) window.clearTimeout(timer.current);
+    },
+    [],
+  );
+  const show = (text: string, undo?: () => void) => {
+    if (timer.current) window.clearTimeout(timer.current);
+    const n = { id: Date.now(), text, undo };
+    setNotice(n);
+    timer.current = window.setTimeout(
+      () => setNotice((cur) => (cur?.id === n.id ? null : cur)),
+      undo ? 6000 : 3500,
+    );
+  };
+  const clear = () => setNotice(null);
+  return { notice, show, clear };
+}
+
 function CustomiseBody() {
   const defs = useHabitDefs();
   const { upsert, remove } = useHabitDefMutations();
   const patch = useHabitDefsCache();
   const { userId } = useUser();
   const [editing, setEditing] = useState<string | null>(null);
+  const [reorder, setReorder] = useState(false);
+  const { notice, show, clear } = useNotice();
   const list = [...(defs.data ?? [])].sort((a, b) => a.sort - b.sort);
 
   /** Optimistic upsert of one or more rows with rollback on failure. */
@@ -144,28 +183,34 @@ function CustomiseBody() {
   };
 
   const move = (key: string, dir: -1 | 1) => {
-    const { changed } = moveHabit(
-      list.map((d) => ({ ...d, kind: d.kind as "auto" | "value" | "check" })),
+    const { changed } = moveVisible(
+      list.map((d) => ({ ...d, kind: d.kind as HabitKind })),
       key,
       dir,
     );
     if (changed.length) write(changed);
   };
 
-  const setActive = (d: HabitDef, active: boolean) => write([{ ...d, active }]);
+  const setActive = (d: HabitDef, active: boolean, quiet = false) =>
+    write([{ ...d, active }], () => {
+      if (quiet) return;
+      const name = displayName(d);
+      show(
+        active ? `“${name}” is back on your list` : `“${name}” hidden`,
+        () => write([{ ...d, active: !active }]),
+      );
+    });
 
-  /** Delete a custom habit. `quiet` skips the Undo toast (used when undoing an add). */
+  /** Delete a custom habit. `quiet` skips the Undo notice (used when undoing an add). */
   const del = (d: HabitDef, quiet = false) => {
     const rollback = patch((cur) => cur.filter((x) => x.key !== d.key));
     remove.mutate(d.id, {
       onError: rollback,
       onSuccess: () => {
         if (quiet) return;
-        toast(`Removed “${d.label}”`, {
-          description: "Its past check marks are kept.",
-          duration: 6000,
-          action: { label: "Undo", onClick: () => write([d]) },
-        });
+        show(`Removed “${d.label}”. Past check marks are kept.`, () =>
+          write([d]),
+        );
       },
     });
     setEditing(null);
@@ -181,7 +226,6 @@ function CustomiseBody() {
           : x.label.trim().toLowerCase() === p.label.toLowerCase(),
       )!;
       setActive(d, true);
-      toast(`“${d.label}” is back on your list`);
       return;
     }
     const row: Upsertable = {
@@ -196,14 +240,11 @@ function CustomiseBody() {
       active: true,
       sort: nextSort(list),
     };
-    write([row], ([saved]) => undoableAddToast(saved));
+    write([row], ([saved]) => addedNotice(saved));
   };
 
-  const undoableAddToast = (saved: HabitDef) =>
-    toast(`Added “${saved.label}”`, {
-      duration: 6000,
-      action: { label: "Undo", onClick: () => del(saved, true) },
-    });
+  const addedNotice = (saved: HabitDef) =>
+    show(`Added “${saved.label}”`, () => del(saved, true));
 
   if (defs.isLoading)
     return (
@@ -219,31 +260,51 @@ function CustomiseBody() {
 
   return (
     <div className="pb-2">
-      <p className="eyebrow mb-1 mt-1">On your list · {active.length}</p>
+      <div className="mt-1 flex items-center justify-between">
+        <p className="eyebrow">On your list · {active.length}</p>
+        {active.length > 1 && (
+          <button
+            type="button"
+            onClick={() => {
+              setReorder((r) => !r);
+              setEditing(null);
+            }}
+            aria-pressed={reorder}
+            className="-mr-2 inline-flex h-11 items-center gap-1.5 px-2 text-[13px] font-bold text-gold-300 hover:text-gold-200"
+          >
+            {reorder ? (
+              "Done"
+            ) : (
+              <>
+                <ArrowUpDown className="size-4" aria-hidden /> Reorder
+              </>
+            )}
+          </button>
+        )}
+      </div>
       <ul>
-        {active.map((d) => {
-          const idx = list.findIndex((x) => x.key === d.key);
-          return (
-            <HabitRow
-              key={d.key}
-              d={d}
-              first={idx === 0}
-              last={idx === list.length - 1}
-              editing={editing === d.key}
-              onEdit={() => setEditing(editing === d.key ? null : d.key)}
-              onMove={(dir) => move(d.key, dir)}
-              onToggle={() => setActive(d, false)}
-              onSave={(v) => {
-                write([{ ...d, ...v }]);
-                setEditing(null);
-              }}
-              onDelete={() => del(d)}
-              otherLabels={list
-                .filter((x) => x.key !== d.key)
-                .map((x) => x.label)}
-            />
-          );
-        })}
+        {active.map((d, i) => (
+          <HabitRow
+            key={d.key}
+            d={d}
+            reorder={reorder}
+            first={i === 0}
+            last={i === active.length - 1}
+            editing={editing === d.key}
+            onEdit={() => setEditing(editing === d.key ? null : d.key)}
+            onMove={(dir) => move(d.key, dir)}
+            onToggle={() => setActive(d, false)}
+            onSave={(v) => {
+              write([{ ...d, ...v }], () => show(`Saved “${v.label}”`));
+              setEditing(null);
+            }}
+            onDelete={() => del(d)}
+            notify={show}
+            otherLabels={list
+              .filter((x) => x.key !== d.key)
+              .map((x) => x.label)}
+          />
+        ))}
       </ul>
 
       {hidden.length > 0 && (
@@ -253,13 +314,11 @@ function CustomiseBody() {
             {hidden.map((d) => (
               <li
                 key={d.key}
-                className="flex min-h-14 items-center gap-3 border-b border-line-hair last:border-0"
+                className="flex min-h-14 items-center gap-2 border-b border-line-hair last:border-0"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-semibold text-fg-2">
-                    {d.kind === "auto"
-                      ? (AUTO_LABELS[d.key] ?? d.label)
-                      : d.label}
+                    {displayName(d)}
                   </span>
                   <span className="block truncate text-[12px] text-fg-3">
                     Not counted toward your day
@@ -270,6 +329,7 @@ function CustomiseBody() {
                   size="sm"
                   className="h-11"
                   onClick={() => setActive(d, true)}
+                  aria-label={`Show ${displayName(d)}`}
                 >
                   <Eye className="size-4" /> Show
                 </Button>
@@ -303,10 +363,16 @@ function CustomiseBody() {
               ariaLabel={
                 st === "active"
                   ? `${p.label}, already on your list`
-                  : `Add ${p.label}`
+                  : st === "hidden"
+                    ? `Show ${p.label} again`
+                    : `Add ${p.label}`
               }
             >
-              {st === "active" ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
+              {st === "active" ? (
+                <Check className="size-3.5" />
+              ) : (
+                <Plus className="size-3.5" />
+              )}
               {p.label}
               {p.target ? (
                 <span className="text-fg-3">
@@ -321,17 +387,46 @@ function CustomiseBody() {
       <AddHabitForm
         existing={list}
         onAdd={(row) => {
-          write([row], ([saved]) => undoableAddToast(saved));
+          write([row], ([saved]) => addedNotice(saved));
         }}
       />
+
+      {notice && (
+        <div
+          role="status"
+          className="sticky bottom-3 z-10 mt-4 flex min-h-[52px] items-center gap-3 rounded-[14px] border border-line-strong bg-s4 py-1 pl-4 pr-1 shadow-[var(--e2)]"
+        >
+          <span className="min-w-0 flex-1 text-[14px] font-semibold leading-snug text-fg">
+            {notice.text}
+          </span>
+          {notice.undo && (
+            <button
+              type="button"
+              onClick={() => {
+                notice.undo?.();
+                clear();
+              }}
+              className="h-11 shrink-0 rounded-[10px] px-3 text-[13px] font-bold uppercase tracking-[0.06em] text-gold-300 hover:text-gold-200"
+            >
+              Undo
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
+
+const displayName = (d: Pick<HabitDef, "key" | "kind" | "label">) =>
+  d.kind === "auto"
+    ? (AUTO_LABELS[d.key] ?? d.label)
+    : habitDisplayLabel(d.label);
 
 /* ----------------------------------------------------------- one row */
 
 function HabitRow({
   d,
+  reorder,
   first,
   last,
   editing,
@@ -340,9 +435,12 @@ function HabitRow({
   onToggle,
   onSave,
   onDelete,
+  notify,
   otherLabels,
 }: {
   d: HabitDef;
+  reorder: boolean;
+  notify: (text: string) => void;
   first: boolean;
   last: boolean;
   editing: boolean;
@@ -359,7 +457,8 @@ function HabitRow({
 }) {
   const can = editability({ key: d.key, kind: d.kind as HabitKind });
   const isAuto = d.kind === "auto";
-  const label = isAuto ? (AUTO_LABELS[d.key] ?? d.label) : d.label;
+  const label = displayName(d);
+  const optional = !isAuto && isOptionalHabit(d.key, d.label);
   const caption = isAuto
     ? AUTO_SOURCE[d.key]
     : d.key === "steps"
@@ -368,65 +467,72 @@ function HabitRow({
         ? `Goal ${formatTarget(d.target == null ? null : Number(d.target), d.unit)}`
         : "Tick it off each day";
   const icon =
-    "grid size-11 shrink-0 place-items-center rounded-[12px] text-fg-3 transition-colors hover:text-fg disabled:text-fg-dis disabled:pointer-events-none";
+    "press grid size-11 shrink-0 place-items-center rounded-[12px] text-fg-3 transition-colors hover:text-fg disabled:text-fg-dis disabled:pointer-events-none";
 
   return (
     <li className="border-b border-line-hair last:border-0">
       <div className="flex min-h-14 items-center gap-1">
-        <div className="flex shrink-0 flex-col">
-          <button
-            type="button"
-            className={cn(icon, "h-7")}
-            disabled={first}
-            onClick={() => onMove(-1)}
-            aria-label={`Move ${label} up`}
-          >
-            <ArrowUp className="size-4" />
-          </button>
-          <button
-            type="button"
-            className={cn(icon, "h-7")}
-            disabled={last}
-            onClick={() => onMove(1)}
-            aria-label={`Move ${label} down`}
-          >
-            <ArrowDown className="size-4" />
-          </button>
-        </div>
-        <span className="min-w-0 flex-1 pl-1">
+        <span className="min-w-0 flex-1 pr-1">
           <span className="flex items-center gap-1.5">
             <span className="truncate text-[15px] font-semibold text-fg">
               {label}
             </span>
             {isAuto && <AutoBadge />}
+            {optional && <OptionalBadge className="h-4 px-1 text-[9.5px]" />}
           </span>
           <span className="block truncate text-[12px] text-fg-3">
             {caption}
           </span>
         </span>
-        {(can.rename || can.target || can.profileGoal) && (
-          <button
-            type="button"
-            className={icon}
-            onClick={onEdit}
-            aria-expanded={editing}
-            aria-label={`Edit ${label}`}
-          >
-            <Pencil className="size-4" />
-          </button>
+        {reorder ? (
+          <>
+            <button
+              type="button"
+              className={icon}
+              disabled={first}
+              onClick={() => onMove(-1)}
+              aria-label={`Move ${label} up`}
+            >
+              <ArrowUp className="size-4" />
+            </button>
+            <button
+              type="button"
+              className={icon}
+              disabled={last}
+              onClick={() => onMove(1)}
+              aria-label={`Move ${label} down`}
+            >
+              <ArrowDown className="size-4" />
+            </button>
+          </>
+        ) : (
+          <>
+            {(can.rename || can.target || can.profileGoal) && (
+              <button
+                type="button"
+                className={icon}
+                onClick={onEdit}
+                aria-expanded={editing}
+                aria-label={`Edit ${label}`}
+              >
+                <Pencil className="size-4" />
+              </button>
+            )}
+            <button
+              type="button"
+              className={icon}
+              onClick={onToggle}
+              aria-label={`Hide ${label}`}
+            >
+              <EyeOff className="size-4" />
+            </button>
+          </>
         )}
-        <button
-          type="button"
-          className={icon}
-          onClick={onToggle}
-          aria-label={`Hide ${label}`}
-        >
-          <EyeOff className="size-4" />
-        </button>
       </div>
       {editing &&
+        !reorder &&
         (can.profileGoal ? (
-          <StepsGoalEditor onDone={onEdit} />
+          <StepsGoalEditor onDone={onEdit} notify={notify} />
         ) : (
           <EditForm
             d={d}
@@ -549,7 +655,13 @@ function EditForm({
   );
 }
 
-function StepsGoalEditor({ onDone }: { onDone: () => void }) {
+function StepsGoalEditor({
+  onDone,
+  notify,
+}: {
+  onDone: () => void;
+  notify: (text: string) => void;
+}) {
   const { profile } = useProfile();
   const save = useSaveProfile();
   const current = profile?.steps_goal ?? 8000;
@@ -567,6 +679,7 @@ function StepsGoalEditor({ onDone }: { onDone: () => void }) {
         max={40000}
         onChange={setV}
         format={(n) => formatInt(n)}
+        buttonClassName="bg-s4"
       />
       <div className="mt-3 flex items-center justify-end gap-2">
         <Button variant="ghost" onClick={onDone}>
@@ -581,9 +694,9 @@ function StepsGoalEditor({ onDone }: { onDone: () => void }) {
               { values: { steps_goal: v }, reason: "Edited on Recovery" },
               {
                 onSuccess: () => {
-                  toast(`Steps goal set to ${formatInt(v)}`, {
-                    description: `Was ${formatInt(current)}.`,
-                  });
+                  notify(
+                    `Steps goal set to ${formatInt(v)}. Was ${formatInt(current)}.`,
+                  );
                   onDone();
                 },
               },

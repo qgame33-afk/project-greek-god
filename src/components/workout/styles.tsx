@@ -38,3 +38,16 @@ export function WorkoutStyles() {
     </style>
   );
 }
+
+/**
+ * Toasts are top-centre app-wide, but on the workout's focus screens that is exactly where the
+ * minimise chevron, FINISH, the rest focus-mode close button and the summary's Edit sets live —
+ * a "Set 2 logged · UNDO" toast would sit on FINISH for six seconds after every set. While a
+ * workout screen is mounted, toasts drop just below its 52px top bar. A plain (non-hoisted)
+ * <style>, so it disappears with the screen.
+ */
+export function ToastsBelowTopBar() {
+  return (
+    <style>{`[data-sonner-toaster][data-y-position="top"]{--offset-top:calc(var(--safe-top) + 62px)!important;--mobile-offset-top:calc(var(--safe-top) + 62px)!important}`}</style>
+  );
+}

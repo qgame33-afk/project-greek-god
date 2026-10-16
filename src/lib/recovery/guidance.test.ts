@@ -3,6 +3,7 @@ import {
   computeGuidance,
   hasSignal,
   planLite,
+  readinessLine,
   sleepPoints,
   trainingStreak,
   volumeChange,
@@ -76,6 +77,19 @@ describe("computeGuidance", () => {
     ).toBe("unknown");
   });
 
+  it("asks to finish a saved check-in rather than start a new one", () => {
+    const g = computeGuidance(input({ checkins: [ci({ volleyball: true })] }));
+    expect(g.partialCheckin).toBe(true);
+    expect(g.hasCheckin).toBe(false);
+    expect(g.title).toBe("Add sleep and soreness");
+    expect(g.detail).toMatch(/^Volleyball is logged\./);
+    expect(computeGuidance(input()).partialCheckin).toBe(false);
+    const rested = computeGuidance(
+      input({ plan: rest, checkins: [ci({ volleyball: true })] }),
+    );
+    expect(rested.detail).toMatch(/Add sleep/);
+  });
+
   it("says train as planned when markers are fine", () => {
     const g = computeGuidance(
       input({
@@ -130,6 +144,9 @@ describe("computeGuidance", () => {
     expect(g.score).toBe(4);
     expect(g.level).toBe("ease");
     expect(g.adjustments.loadPct).toBe(-10);
+    // the copy and the adjustments say the same thing
+    expect(g.adjustments.dropSets).toBe(1);
+    expect(g.detail).toContain("one set fewer per exercise");
   });
 
   it("suggests a recovery day when many markers are poor", () => {
@@ -304,5 +321,30 @@ describe("training context", () => {
       input({ sessions, checkins: [ci({ sleep_hours: 8 })] }),
     );
     expect(g.factors.find((f) => f.key === "streak")?.points).toBe(1);
+  });
+});
+
+describe("readinessLine", () => {
+  it("says the same thing as the card for the same check-in", () => {
+    const g = computeGuidance(
+      input({
+        checkins: [ci({ sleep_hours: 6.5, soreness: 4, fatigue: 4, energy: 3 })],
+      }),
+    );
+    expect(g.level).toBe("ease");
+    expect(readinessLine(g, "Pull B")).toBe(
+      "Pull B today, lighter: about 10% off the load, one set fewer per exercise, RIR 3.",
+    );
+    const bad = computeGuidance(
+      input({
+        checkins: [
+          ci({ sleep_hours: 5, soreness: 5, fatigue: 5, energy: 1, sleep_quality: 1 }),
+        ],
+      }),
+    );
+    expect(readinessLine(bad, "Pull B")).toMatch(/^Recovery day suggested\. Move Pull B/);
+  });
+  it("stays quiet without a check-in", () => {
+    expect(readinessLine(computeGuidance(input()), "Pull B")).toBeNull();
   });
 });

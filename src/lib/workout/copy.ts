@@ -86,6 +86,18 @@ export function suggestionHeadline(s: Suggestion, fmtLoad: (lb: number) => strin
   return `${fmtLoad(s.weightLb)} ${unit} × ${range}`;
 }
 
+/**
+ * The sentence under SUGGESTED, in the user's unit. A first-ever bodyweight movement gets
+ * bodyweight wording (the engine's generic line talks about choosing a weight).
+ */
+export function suggestionReason(s: Suggestion, tracking: string, unit: "lb" | "kg"): string {
+  if (s.kind === "first" && (tracking === "bodyweight_reps" || tracking === "reps")) {
+    const reps = repRange(s.target.low, s.target.high, s.target.unit);
+    return `First time: bodyweight only, clean reps up to ${reps}. Stop a rep or two short of failure. This sets your baseline.`;
+  }
+  return localizeLb(s.reason, unit);
+}
+
 /** A YouTube search for the movement — an optional demonstration, clearly external. */
 export function demoUrl(name: string) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${name} exercise technique`)}`;

@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState, type CSSProperties } from "react";
-import { Droplets, RotateCcw, X } from "lucide-react";
+import { CalendarClock, Droplets, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CardHeader } from "@/components/ui/card";
@@ -16,7 +16,13 @@ import {
   useWaterMutations,
   type WaterLog,
 } from "@/lib/data/nutrition";
-import { relativeDay, type ISODate } from "@/lib/dates";
+import {
+  localDateOf,
+  longDate,
+  relativeDay,
+  shortDate,
+  type ISODate,
+} from "@/lib/dates";
 import { haptic } from "@/lib/haptics";
 import { useRestoreWater } from "@/lib/recovery/hooks";
 import { formatInt, parseNumber } from "@/lib/units";
@@ -58,36 +64,89 @@ export function WaterCard({
   const left = Math.max(0, goalMl - totalMl);
   const latest = logs.at(-1);
   const when = relativeDay(date, today);
+  const isToday = date === today;
+  const key = ["water", date, userId];
+  const toastId = `water-${date}`;
+  const cached = () => qc.getQueryData<WaterLog[]>(key) ?? [];
 
   const add = (ml: number) => {
-    addMl(ml);
+    const id = addMl(ml);
     haptic(8);
-    // One water toast at a time: its Undo always refers to the newest tap.
+    // The total as it stands with this tap, read from the cache (not this render), so
+    // quick taps never show a stale number.
+    const total =
+      cached()
+        .filter((l) => l.id !== id)
+        .reduce((a, l) => a + l.amount_ml, 0) + ml;
     toast(`+${formatInt(ml)} mL water`, {
-      id: `water-${date}`,
-      description: `${(Math.min(totalMl + ml, 99_999) / 1000).toFixed(1)} of ${(goalMl / 1000).toFixed(1)} L ${date === today ? "today" : when.toLowerCase()}`,
+      id: toastId,
+      description: `${(total / 1000).toFixed(1)} of ${(goalMl / 1000).toFixed(1)} L ${isToday ? "today" : `for ${when.toLowerCase() === "yesterday" ? "yesterday" : when}`}`,
       duration: 6000,
-      action: { label: "Undo", onClick: () => undoLast() },
+      // Undo is bound to this tap's own row: it never removes a different entry.
+      action: { label: "Undo", onClick: () => undoTap(id) },
     });
   };
 
-  /** Removes the newest entry as it is in the cache at the moment of the tap. */
+  /**
+   * Resolves once the insert for this tap has settled. Deleting while the insert is still
+   * in flight would delete nothing, and the entry would come back when the insert lands.
+   */
+  const inserted = (id: string) =>
+    new Promise<void>((resolve) => {
+      const mc = qc.getMutationCache();
+      const pending = () =>
+        mc
+          .findAll({ status: "pending" })
+          .some((m) => (m.state.variables as { id?: string } | undefined)?.id === id);
+      if (!pending()) return resolve();
+      const unsub = mc.subscribe(() => {
+        if (pending()) return;
+        unsub();
+        resolve();
+      });
+    });
+
+  /** Remove one tap by id, if it still exists. Guards a burst of taps on Undo. */
+  const undoTap = (id: string, onRemoved?: () => void) => {
+    if (!cached().some((l) => l.id === id) || undoing.current === id) return;
+    undoing.current = id;
+    // hide it at once; the delete follows the insert
+    qc.setQueryData<WaterLog[]>(key, (rows) => rows?.filter((l) => l.id !== id));
+    void inserted(id).then(() =>
+      remove.mutate(id, {
+        onSuccess: onRemoved,
+        onSettled: () => (undoing.current = null),
+      }),
+    );
+  };
+
+  /** Removes the newest entry; any open water toast is now stale, so it goes too. */
   const undoLast = () => {
-    const last = qc.getQueryData<WaterLog[]>(["water", date, userId])?.at(-1);
-    if (!last || undoing.current === last.id) return;
-    undoing.current = last.id;
-    remove.mutate(last.id, { onSettled: () => (undoing.current = null) });
+    const newest = [...cached()].sort((a, b) =>
+      a.logged_at.localeCompare(b.logged_at),
+    ).at(-1);
+    if (!newest) return;
+    toast.dismiss(toastId);
+    undoTap(newest.id);
   };
 
   const removeOne = (log: WaterLog) => {
-    remove.mutate(log.id, {
-      onSuccess: () =>
-        toast(`Removed ${formatInt(log.amount_ml)} mL`, {
-          id: `water-${date}`,
-          duration: 6000,
-          action: { label: "Undo", onClick: () => restore.mutate(log) },
-        }),
-    });
+    toast.dismiss(toastId);
+    undoTap(log.id, () =>
+      toast(`Removed ${formatInt(log.amount_ml)} mL`, {
+        id: toastId,
+        duration: 6000,
+        action: { label: "Undo", onClick: () => restore.mutate(log) },
+      }),
+    );
+  };
+
+  /** The tap's time, or when it was added for an entry logged to a past day afterwards. */
+  const stamp = (l: WaterLog) => {
+    const on = localDateOf(l.logged_at);
+    return on === l.local_date
+      ? timeOf(l.logged_at)
+      : `Added ${shortDate(on, today)}`;
   };
 
   const shown = showAll
@@ -101,6 +160,12 @@ export function WaterCard({
       aria-labelledby={`water-${date}`}
     >
       <CardHeader title={<span id={`water-${date}`}>Water · {when}</span>} />
+      {!isToday && (
+        <p className="-mt-1 mb-3 flex items-center gap-2 text-[12.5px] font-semibold text-fg-2">
+          <CalendarClock className="size-4 shrink-0 text-fg-3" aria-hidden />
+          Adding to {longDate(date)}
+        </p>
+      )}
       {loading ? (
         <div className="flex items-center gap-4" aria-hidden>
           <Skeleton className="size-[136px] rounded-full" />
@@ -201,17 +266,15 @@ export function WaterCard({
                       className="size-1.5 shrink-0 rounded-full bg-lapis"
                       aria-hidden
                     />
-                    <span className="num-xs w-20 text-fg-3">
-                      {timeOf(l.logged_at)}
-                    </span>
                     <span className="num-xs flex-1 text-fg">
                       {formatInt(l.amount_ml)} mL
                     </span>
+                    <span className="num-xs text-fg-3">{stamp(l)}</span>
                     <button
                       type="button"
                       onClick={() => removeOne(l)}
                       className="-mr-2 grid size-11 place-items-center rounded-[12px] text-fg-3 hover:text-fg"
-                      aria-label={`Remove ${l.amount_ml} millilitres at ${timeOf(l.logged_at)}`}
+                      aria-label={`Remove ${l.amount_ml} millilitres, ${stamp(l)}`}
                     >
                       <X className="size-4" />
                     </button>

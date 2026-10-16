@@ -8,7 +8,7 @@ import { Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
 import { useLiveSession } from "./data";
 import { LiveWorkout } from "./LiveWorkout";
 import { SessionSummary } from "./SessionSummary";
-import { WorkoutStyles } from "./styles";
+import { ToastsBelowTopBar, WorkoutStyles } from "./styles";
 
 /** /workout/[id]: the live session, its summary once finished, or a clear dead end. */
 export function WorkoutScreen({ id }: { id: string }) {
@@ -45,6 +45,7 @@ export function WorkoutScreen({ id }: { id: string }) {
   return (
     <>
       <WorkoutStyles />
+      <ToastsBelowTopBar />
       {body}
     </>
   );

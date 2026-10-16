@@ -7,7 +7,13 @@ import { useToday } from "@/lib/data/core";
 import { useProfile } from "@/lib/data/profile";
 import { useRecoveryDay } from "@/lib/data/recovery";
 import { useReadiness } from "@/lib/recovery/hooks";
-import { type ISODate } from "@/lib/dates";
+import {
+  addDays,
+  parseISODate,
+  toISODate,
+  weekStart,
+  type ISODate,
+} from "@/lib/dates";
 import { CheckInCard, type CheckInHandle } from "./CheckInCard";
 import { DateStrip } from "./DateStrip";
 import { GuidanceCard } from "./GuidanceCard";
@@ -18,6 +24,25 @@ import { WaterCard } from "./WaterCard";
 import { WeeklyReviewCard } from "./WeeklyReviewCard";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const EARLIEST_WEEKS_BACK = 104;
+
+/**
+ * A `?date=` deep link, only when it is a real calendar day inside the editable range:
+ * not in the future, not before the start date, not beyond the date strip's reach.
+ */
+function validDateParam(
+  raw: string | null,
+  today: ISODate,
+  startDate: ISODate | null,
+): ISODate | null {
+  if (!raw || !ISO.test(raw)) return null;
+  if (toISODate(parseISODate(raw)) !== raw) return null; // 2026-02-31
+  if (raw > today) return null;
+  const earliest = addDays(weekStart(today), -7 * EARLIEST_WEEKS_BACK);
+  if (raw < earliest) return null;
+  if (startDate && raw < startDate) return null;
+  return raw;
+}
 
 export function RecoveryScreen() {
   const today = useToday();
@@ -29,9 +54,23 @@ export function RecoveryScreen() {
 
   const wantCheckin = params.get("checkin") === "1";
   const paramDate = params.get("date");
-  const [date, setDate] = useState<ISODate>(() =>
-    paramDate && ISO.test(paramDate) && paramDate <= today ? paramDate : today,
+  const [date, setDate] = useState<ISODate>(
+    () => validDateParam(paramDate, today, null) ?? today,
   );
+  // Once the profile is known, a deep link to before the start date falls back to today.
+  const startDate = profile?.start_date ?? null;
+  if (startDate && date < startDate && date !== today) setDate(today);
+
+  // Links into this screen while it is already open (Quick Log's Check-in tile, a
+  // ?date= link): follow them. A bare ?checkin=1 means today's check-in.
+  const query = params.toString();
+  const [seenQuery, setSeenQuery] = useState(query);
+  if (query !== seenQuery) {
+    setSeenQuery(query);
+    const d = validDateParam(paramDate, today, startDate);
+    if (d) setDate(d);
+    else if (wantCheckin) setDate(today);
+  }
 
   // Follow midnight: if you were on "today", stay on today when the date rolls over.
   const [seenToday, setSeenToday] = useState(today);
@@ -67,7 +106,11 @@ export function RecoveryScreen() {
   const settled = !loading && !readiness.loading && !day.loading;
   const handled = useRef(false);
   useEffect(() => {
-    if (!wantCheckin || handled.current || !settled) return;
+    if (!wantCheckin) {
+      handled.current = false; // ready for the next ?checkin=1
+      return;
+    }
+    if (handled.current || !settled) return;
     const t = window.setTimeout(() => {
       handled.current = true;
       goToCheckin();
@@ -83,7 +126,6 @@ export function RecoveryScreen() {
   if (loading || !profile) return <RecoverySkeleton />;
 
   const sleepGoal = Number(profile.sleep_goal_h);
-  const startDate = profile.start_date ?? null;
 
   return (
     <div className="pb-4">
@@ -97,6 +139,7 @@ export function RecoveryScreen() {
           value={date}
           onChange={setDate}
           today={today}
+          startDate={startDate}
           className="lg:mb-0 lg:w-[440px] lg:shrink-0"
         />
       </div>

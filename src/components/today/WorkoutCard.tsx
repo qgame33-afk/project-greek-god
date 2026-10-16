@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Check, ChevronRight, Clock, HeartPulse, ListOrdered } from "lucide-react";
+import { ArrowRight, Check, ChevronRight, HeartPulse } from "lucide-react";
 import { LaurelBullet } from "@/components/art/Motifs";
 import { Button } from "@/components/ui/button";
 import { ErrorNote } from "@/components/ui/misc";
@@ -157,17 +157,15 @@ export function WorkoutCard({ m, starting, onStart, shine, error, onRetry, class
         <p className="eyebrow">Today · {dayName(m.today)}</p>
         {vbChip}
       </div>
-      <h2 className="t-card mt-2">{t.name}</h2>
-      {t.subtitle && <p className="mt-1.5 truncate text-[14px] font-medium text-fg-2">{t.subtitle}</p>}
-      <p className="mt-2 flex items-center gap-4 text-[13px] font-semibold text-fg-2">
-        <span className="inline-flex items-center gap-1.5">
-          <ListOrdered className="size-4 text-fg-3" aria-hidden />
-          {t.exercises.length} exercises
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <Clock className="size-4 text-fg-3" aria-hidden />~{m.durationMin} min
-        </span>
-      </p>
+      {/* Title row carries the count and duration (DESIGN §7.1) so START WORKOUT stays clear of
+          the FAB at 390×844 even with a two-line greeting and daily line. */}
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <h2 className="t-card min-w-0 truncate">{t.name}</h2>
+        <p className="mb-1 shrink-0 text-[13px] font-semibold text-fg-2">
+          {t.exercises.length} exercises<span className="text-fg-3"> · </span>~{m.durationMin} min
+        </p>
+      </div>
+      {t.subtitle && <p className="mt-1 truncate text-[14px] font-medium text-fg-2">{t.subtitle}</p>}
       <Button variant="primary" size="lg" block shine={shine} className="mt-4" onClick={onStart} loading={starting}>
         Start workout
       </Button>

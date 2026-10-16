@@ -32,11 +32,14 @@ export function DateStrip({
   value,
   onChange,
   today,
+  startDate,
   className,
 }: {
   value: ISODate;
   onChange: (d: ISODate) => void;
   today: ISODate;
+  /** Days before the user's start date can't be picked. */
+  startDate?: ISODate | null;
   className?: string;
 }) {
   const days = weekDates(value);
@@ -48,7 +51,9 @@ export function DateStrip({
       .map((r) => r.local_date),
   );
   const thisWeek = weekStart(today);
-  const earliest = addDays(thisWeek, -7 * EARLIEST_WEEKS_BACK);
+  const floor = addDays(thisWeek, -7 * EARLIEST_WEEKS_BACK);
+  const earliest =
+    startDate && weekStart(startDate) > floor ? weekStart(startDate) : floor;
 
   const label = (() => {
     const a = parseISODate(days[0]);
@@ -62,7 +67,13 @@ export function DateStrip({
 
   const go = (weeks: number) => {
     const target = addDays(value, weeks * 7);
-    onChange(target > today ? today : target);
+    onChange(
+      target > today
+        ? today
+        : startDate && target < startDate
+          ? startDate
+          : target,
+    );
   };
 
   return (
@@ -91,6 +102,7 @@ export function DateStrip({
       <ol className="grid grid-cols-7 gap-1.5">
         {days.map((d, i) => {
           const future = d > today;
+          const early = !!startDate && d < startDate;
           const selected = d === value;
           const isToday = d === today;
           const has = logged.has(d);
@@ -98,22 +110,22 @@ export function DateStrip({
             <li key={d}>
               <button
                 type="button"
-                disabled={future}
+                disabled={future || early}
                 onClick={() => onChange(d)}
                 aria-pressed={selected}
-                aria-label={`${relativeDay(d, today)}${has ? ", check-in logged" : ""}${future ? ", upcoming" : ""}`}
+                aria-label={`${relativeDay(d, today)}${has ? ", check-in logged" : ""}${future ? ", upcoming" : early ? ", before your start date" : ""}`}
                 className={cn(
                   "press relative flex h-[62px] w-full flex-col items-center justify-center gap-1 rounded-[14px] border transition-colors",
                   selected
                     ? "border-line-strong bg-s3"
                     : "border-transparent hover:bg-s2",
-                  future && "pointer-events-none",
+                  (future || early) && "pointer-events-none",
                 )}
               >
                 <span
                   className={cn(
                     "text-[11px] font-bold tracking-[0.08em]",
-                    future
+                    future || early
                       ? "text-fg-dis"
                       : selected
                         ? "text-fg-2"
@@ -125,7 +137,7 @@ export function DateStrip({
                 <span
                   className={cn(
                     "num text-[19px] font-semibold leading-none",
-                    future
+                    future || early
                       ? "text-fg-dis"
                       : isToday
                         ? "text-gold-300"

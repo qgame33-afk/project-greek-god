@@ -12,7 +12,7 @@ import { newId } from "@/lib/data/core";
 import type { MealSection } from "@/lib/nutrition-ui/group";
 import { groupLabel } from "@/lib/nutrition-ui/provenance";
 import { formatInt } from "@/lib/units";
-import { ProvenanceBadge } from "./bits";
+import { RowProvenance } from "./bits";
 import { useFuel } from "./context";
 import { RowAction, SwipeRow } from "./SwipeRow";
 
@@ -52,7 +52,7 @@ export function MealCard({
   };
 
   return (
-    <section className="card-instrument overflow-hidden" aria-labelledby={`meal-${meal}`}>
+    <section className="card-instrument @container overflow-hidden" aria-labelledby={`meal-${meal}`}>
       <header className="flex items-center gap-1 py-2 pl-4 pr-1.5 sm:pl-5">
         <div className="min-w-0 flex-1 py-1">
           <div className="flex items-baseline gap-2.5">
@@ -129,9 +129,9 @@ export function MealCard({
                     Remove all
                   </button>
                 </div>
-                <ul className="relative before:absolute before:inset-y-2 before:left-4 before:w-px before:bg-line sm:before:left-5">
+                <ul className="relative before:pointer-events-none before:absolute before:inset-y-3 before:left-[23px] before:z-[2] before:w-px before:bg-line-strong sm:before:left-[27px]">
                   {it.entries.map((e) => (
-                    <li key={e.id} className="border-t border-line-hair pl-3">
+                    <li key={e.id} className="border-t border-line-hair pl-4">
                       <FoodRow
                         entry={e}
                         open={openRow === e.id}
@@ -181,10 +181,11 @@ function FoodRow({ entry, open, setOpen, onEdit, onDelete }: { entry: FoodEntry;
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold leading-tight text-fg">{entry.name}</p>
           <div className="mt-1 flex min-w-0 items-center gap-2">
-            <span className="truncate text-[12.5px] font-medium text-fg-3">
+            {/* amount · time is core row content; the badge gives way first */}
+            <span className="shrink-0 whitespace-nowrap text-[12.5px] font-medium text-fg-3">
               {formatAmount(Number(entry.amount), entry.unit)} · {formatClock(entry.eaten_at)}
             </span>
-            <ProvenanceBadge item={entry} still className="shrink-0" />
+            <RowProvenance item={entry} />
           </div>
         </div>
         <div className="shrink-0 text-right">

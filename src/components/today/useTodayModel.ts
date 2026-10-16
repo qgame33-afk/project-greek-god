@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useToday } from "@/lib/data/core";
 import { useMissionDays } from "@/lib/data/daily";
@@ -41,6 +42,7 @@ export function useTodayModel() {
   const vb = useVolleyball(addDays(week[0], -6), week[6]);
   const mission = useMissionDays(from, today);
   const workout = useStartWorkout();
+  const qc = useQueryClient();
 
   const coreLoading = profileLoading || templatesLoading || plans.isLoading || sessions.isLoading || weightsLoading || food.loading || water.loading;
 
@@ -81,7 +83,6 @@ export function useTodayModel() {
     const ascent = ascentProgress(startLb, goalLb, weights, today);
     const latestRow = weights.length ? weights[weights.length - 1] : null;
     const planRate = planRatePerWeek(startLb, goalLb, profile.start_date, profile.target_date);
-    const weighInsThisWeek = weights.filter((w) => w.local_date >= week[0] && w.local_date <= today).length;
 
     // Timeline
     const tl = timeline(profile.start_date, profile.target_date, today);
@@ -111,6 +112,8 @@ export function useTodayModel() {
 
     return {
       today,
+      /** Start of the mission window (same range as useMissionDays, so caches are shared). */
+      from,
       week,
       profile,
       todayPlan,
@@ -126,9 +129,10 @@ export function useTodayModel() {
       volleyballDays7,
       ascent,
       weights,
+      /** Weigh-ins failed to load and nothing is cached: show "—", not the start weight. */
+      weightsFailed: !!weightsError && weights.length === 0,
       latestRow,
       planRate,
-      weighInsThisWeek,
       timeline: tl,
       overview,
       missionToday,
@@ -136,10 +140,12 @@ export function useTodayModel() {
       next,
       records: latestRecords(prs.data ?? [], 3),
       food: food.totals,
+      /** Today's food failed to load and nothing is cached: food numbers show "—", not zeros. */
+      foodFailed: !!food.error && food.entries.length === 0,
       waterMl: water.totalMl,
       waterLogs: water.logs,
     };
-  }, [profile, plans.data, byKey, today, sessions.data, workout.active, recovery.data, vb.data, weights, week, foodDays.data, prs.data, mission.days, food.totals, water.totalMl, water.logs]);
+  }, [profile, plans.data, byKey, today, from, weightsError, sessions.data, workout.active, recovery.data, vb.data, weights, week, foodDays.data, prs.data, mission.days, food.totals, food.error, food.entries.length, water.totalMl, water.logs]);
 
   return {
     model,
@@ -153,6 +159,7 @@ export function useTodayModel() {
     },
     refetch: {
       sessions: sessions.refetch,
+      weights: () => qc.invalidateQueries({ queryKey: ["weights"] }),
       food: food.refetch,
       week: () => {
         foodDays.refetch();

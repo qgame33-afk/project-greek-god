@@ -102,11 +102,11 @@ export async function searchFoods(query: string, opts: SearchFoodsOptions = {}):
   const ranked = rankResults(q, merged, { kind });
   // In the general search, whole foods (USDA Foundation / SR Legacy / Survey) that match lead,
   // then products — people searching "greek yogurt" usually want the plain food first.
+  // Only a whole food that covers every query word leads: "fairlife protein shake" must not
+  // open with a generic USDA shake just because "protein shake" matched.
   const isGeneric = (r: FoodSearchResult) => r.source === "usda" && r.dataType !== "Branded";
-  const ordered =
-    kind === "all"
-      ? [...ranked.filter((m) => isGeneric(m.result) && m.score >= 0.5), ...ranked.filter((m) => !(isGeneric(m.result) && m.score >= 0.5))]
-      : ranked;
+  const leads = (m: (typeof ranked)[number]) => isGeneric(m.result) && m.score >= 0.5 && m.coverage >= 0.99;
+  const ordered = kind === "all" ? [...ranked.filter(leads), ...ranked.filter((m) => !leads(m))] : ranked;
   const results = ordered.map((m) => m.result).slice(0, opts.limit ?? 20);
   return { results, status: overallStatus(usda.status, off.status, results.length), sources: { usda: usda.status, off: off.status } };
 }

@@ -141,7 +141,7 @@ export function ErrorNote({ children, onRetry, className }: { children: ReactNod
     <div className={cn("flex items-center justify-between gap-3 rounded-[12px] border border-danger/30 bg-danger-tint px-3.5 py-3 text-[13px] text-fg", className)} role="alert">
       <span>{children}</span>
       {onRetry && (
-        <button type="button" onClick={onRetry} className="shrink-0 font-bold text-gold-300">
+        <button type="button" onClick={onRetry} className="-my-2 inline-flex h-11 shrink-0 items-center rounded-[10px] px-3 font-bold text-gold-300">
           Retry
         </button>
       )}

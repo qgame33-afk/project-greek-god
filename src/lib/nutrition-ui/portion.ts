@@ -299,6 +299,12 @@ export function macrosEqual(a: Macros, b: Macros): boolean {
  * When the numbers really change they are the user's own, so database/AI provenance is cleared.
  */
 export function directEdit(e: FoodRow, v: { amount: number; unit: string; macros: Macros }): FoodUpdate {
+  // Numbers that are exactly the base rescaled to the typed amount are a portion change,
+  // not new data: keep the base and the provenance (a USDA row stays a USDA row).
+  if (v.unit === e.unit && v.amount > 0) {
+    const r = rescaleEntry(e, v.amount);
+    if (macrosEqual(v.macros, { calories: Number(r.calories), protein: Number(r.protein_g), carbs: Number(r.carbs_g), fat: Number(r.fat_g) })) return r;
+  }
   const sameUnitGrams = v.unit === e.unit && e.grams != null && Number(e.amount) > 0 ? (Number(e.grams) * v.amount) / Number(e.amount) : null;
   const out: FoodUpdate = {
     amount: round(v.amount, 2),

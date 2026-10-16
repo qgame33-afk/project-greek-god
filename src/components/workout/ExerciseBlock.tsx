@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 import type { Suggestion } from "@/lib/training/progression";
 import type { LibraryExercise } from "@/lib/training/types";
 import { type WeightUnit } from "@/lib/units";
-import { localizeLb, musclesLine, suggestionHeadline } from "@/lib/workout/copy";
+import { musclesLine, suggestionHeadline, suggestionReason } from "@/lib/workout/copy";
 import type { ExerciseGroup } from "@/lib/workout/session";
 import type { Tracking, WSet } from "@/lib/workout/types";
 import { SetGrid, type GridPad, type RowView } from "./SetGrid";
@@ -62,7 +62,6 @@ export function OpenExercise(p: OpenExerciseProps) {
           {muscles && (
             <p className="mt-0.5 text-[13px] font-medium text-fg-2">
               {muscles}
-              {lib?.perHand ? " · per dumbbell" : ""}
             </p>
           )}
         </div>
@@ -95,7 +94,7 @@ export function OpenExercise(p: OpenExerciseProps) {
             <SuggestedBadge />
             {headline && <span className="num text-[17px] font-semibold tracking-[0.01em] text-lapis-text">{headline}</span>}
           </div>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-fg-2">{localizeLb(p.suggestion.reason, p.unit)}</p>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-fg-2">{suggestionReason(p.suggestion, p.tracking, p.unit)}</p>
         </div>
       ) : p.suggestionLoading ? (
         <div className="skeleton mt-3 h-[66px] rounded-[12px]" aria-hidden />

@@ -7,6 +7,7 @@ import type { FoodSearchResult, LookupKind, SearchResponse } from "@/lib/food/ty
 import { buildHandoffPrompt, extractJsonBlock, handoffUrl, parseHandoffResult } from "@/lib/food/handoff";
 import {
   agreesWithEstimate,
+  alignReplyKcal,
   macrosForPortion,
   resolveItems,
   sanitizeChatOutput,
@@ -115,6 +116,19 @@ describe("sanitising model output", () => {
     expect(stripResearchClaims("About 820 kcal with 82 g protein.")).toBe("About 820 kcal with 82 g protein.");
     const chat = sanitizeChatOutput({ reply: "I checked the official values at [Domino's](https://dominos.com). About **2,500 kcal**.", items: [] });
     expect(chat.reply).toBe("About **2,500 kcal**.");
+  });
+});
+
+describe("reply total vs card total", () => {
+  it("rewrites the model's whole-meal total to the database-backed total", () => {
+    expect(alignReplyKcal("About **1,000 kcal** and 60 g protein.", 971, 947)).toBe("About **947 kcal** and 60 g protein.");
+    expect(alignReplyKcal("About 820 kcal with 82 g protein.", 824, 824)).toBe("About 820 kcal with 82 g protein.");
+    expect(alignReplyKcal("About 820 calories.", 824, 1012)).toBe("About 1,012 calories.");
+  });
+  it("leaves per-item numbers and unrelated numbers alone", () => {
+    const r = "About 2,560 kcal. The pizza alone is 1,840 kcal; 250 g chicken.";
+    expect(alignReplyKcal(r, 2560, 2400)).toBe("About 2,400 kcal. The pizza alone is 1,840 kcal; 250 g chicken.");
+    expect(alignReplyKcal("Nothing to total here.", 500, 520)).toBe("Nothing to total here.");
   });
 });
 

@@ -10,6 +10,7 @@ import { latestRecords } from "./records";
 import { sparkSeries } from "./spark";
 import { restDayRecommendations } from "./recovery-recs";
 import { daysLeft, programWeeks, timeline, timelineElapsed, trainingWeek } from "./timeline";
+import { formatHabitValue, parseHabitValue, valueHabitSpec } from "./value-habit";
 import { consistencyStreak, weeklyOverview, type WeekInput } from "./weekly";
 
 describe("timeline", () => {
@@ -50,6 +51,22 @@ describe("timeline", () => {
 });
 
 describe("ascentProgress — one p for the hero, bust and meter", () => {
+  it("counts the weigh-ins behind the 7-day average, in the same window", () => {
+    const w = [
+      { local_date: "2026-10-01", weight_lb: 164 },
+      { local_date: "2026-10-10", weight_lb: 165 },
+      { local_date: "2026-10-12", weight_lb: 165.4 },
+      { local_date: "2026-10-16", weight_lb: 165.9 },
+    ];
+    const a = ascentProgress(163, 183, w, "2026-10-16");
+    expect(a.avgCount).toBe(3); // Oct 10–16
+    expect(a.avgEnd).toBe("2026-10-16");
+    // last weigh-in older than a week: the window ends at that weigh-in
+    const old = ascentProgress(163, 183, w.slice(0, 2), "2026-10-30");
+    expect(old.avgEnd).toBe("2026-10-10");
+    expect(old.avgCount).toBe(1);
+  });
+
   const w = (d: string, lb: number) => ({ local_date: d, weight_lb: lb });
 
   it("is 0 with no weigh-ins and reports the start, not a reading", () => {
@@ -152,7 +169,7 @@ describe("dailyLine", () => {
 
   it("follows the session through active and done", () => {
     expect(dailyLine({ ...base, session: "active" })).toBe("Push A is underway. Log every set, then refuel.");
-    expect(dailyLine({ ...base, session: "done", protein: { eaten: 120, goal: 185 } })).toBe("Push A done. Protein is the lever now: 65 g to go.");
+    expect(dailyLine({ ...base, session: "done", protein: { eaten: 120, goal: 185 } })).toBe("Push A done. Protein next: 65 g to go.");
     expect(dailyLine({ ...base, session: "done", protein: { eaten: 190, goal: 185 }, calories: { eaten: 2000, goal: 3300 } })).toBe(
       "Push A done. 1,300 kcal left to fuel the recovery.",
     );
@@ -370,5 +387,49 @@ describe("sparkSeries", () => {
     const s = sparkSeries([w("2026-10-15", 165), w("2026-10-16", 165)], "2026-10-16")!;
     expect(s.max - s.min).toBe(1);
     expect(s.dots.every((d) => Number.isFinite(d.y))).toBe(true);
+  });
+});
+
+describe("valueHabitSpec — Today's value-habit sheet", () => {
+  it("steps use the profile goal when the definition has no target", () => {
+    const s = valueHabitSpec("steps", { label: "Steps", target: null, unit: "steps" }, 8000);
+    expect(s).toMatchObject({ label: "Steps", target: 8000, unit: "steps", step: 500, max: 100000, integer: true });
+    expect(s.chips).toEqual([2500, 5000, 7500, 8000]);
+  });
+
+  it("steps chips never duplicate the goal", () => {
+    expect(valueHabitSpec("steps", { label: "Steps", target: null, unit: null }, 5000).chips).toEqual([2500, 5000, 7500]);
+  });
+
+  it("a custom habit keeps its own label, target and unit — never the steps settings", () => {
+    const s = valueHabitSpec("reading", { label: "Read (optional)", target: 20, unit: "pages" }, 8000);
+    expect(s).toMatchObject({ label: "Read", target: 20, unit: "pages", step: 1, integer: false });
+    expect(s.max).toBeGreaterThanOrEqual(200);
+    expect(s.chips).toEqual([10, 20]);
+  });
+
+  it("a decimal target allows one decimal", () => {
+    const s = valueHabitSpec("water_extra", { label: "Extra water", target: 1.5, unit: "L" }, 8000);
+    expect(s.integer).toBe(false);
+    expect(parseHabitValue("1.25", s)).toBe(1.3);
+    expect(formatHabitValue(1.3, s.integer)).toBe("1.3");
+  });
+
+  it("falls back safely when the definition is missing or the target is 0", () => {
+    expect(valueHabitSpec("steps", null, 8000).target).toBe(8000);
+    expect(valueHabitSpec("custom", { label: "X", target: 0, unit: null }, 8000).target).toBe(1);
+  });
+
+  it("parses only real, in-range numbers", () => {
+    const steps = valueHabitSpec("steps", null, 8000);
+    expect(parseHabitValue("", steps)).toBeNull();
+    expect(parseHabitValue("6,500", steps)).toBe(6500);
+    expect(parseHabitValue("200000", steps)).toBeNull();
+    expect(parseHabitValue("-5", steps)).toBeNull();
+    expect(parseHabitValue("12abc", steps)).toBeNull();
+    expect(parseHabitValue("12.5", steps)).toBeNull(); // steps are whole — never rounded, never read as 125
+    expect(parseHabitValue("12.5", valueHabitSpec("reading", { label: "Read", target: 20, unit: "pages" }, 8000))).toBe(12.5);
+    expect(parseHabitValue("0", steps)).toBe(0);
+    expect(formatHabitValue(6500, true)).toBe("6,500");
   });
 });

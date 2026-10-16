@@ -180,14 +180,22 @@ export function HandoffSheet({
             </li>
           </ol>
 
-          <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-            <Field label="Order details">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
+            <Field label="Order details" hint="sent as written">
               {(id) => (
-                <Input id={id} value={order} onChange={(e) => setOrder(e.target.value)} placeholder="Size, crust, toppings, how many" autoComplete="off" />
+                <Textarea
+                  id={id}
+                  value={order}
+                  onChange={(e) => setOrder(e.target.value)}
+                  placeholder="Size, crust, toppings, sauces, how many"
+                  autoComplete="off"
+                  maxLength={400}
+                  className="min-h-[88px]"
+                />
               )}
             </Field>
-            <Field label="Country" className="w-[132px]">
-              {(id) => <Input id={id} value={country} onChange={(e) => setCountry(e.target.value)} autoComplete="country-name" />}
+            <Field label="Country" className="sm:self-start">
+              {(id) => <Input id={id} value={country} onChange={(e) => setCountry(e.target.value)} autoComplete="country-name" maxLength={60} />}
             </Field>
           </div>
 
@@ -275,7 +283,7 @@ export function HandoffSheet({
                   </div>
                   <p className="shrink-0 text-right leading-none">
                     <span className="num-sm">{fmtKcal(i.total.calories)}</span>
-                    <span className="unit">kcal</span>
+                    <span className="unit !text-[12px]">kcal</span>
                   </p>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -315,7 +323,7 @@ export function HandoffSheet({
             <span className="eyebrow">{parsed.items.length + extraItems.length} items</span>
             <span>
               <span className="num-md">{fmtKcal(total + extraItems.reduce((a, e) => a + e.macros.calories, 0))}</span>
-              <span className="unit">kcal</span>
+              <span className="unit !text-[12px]">kcal</span>
             </span>
           </div>
           <MealDatePicker meal={meal} onMeal={setMeal} date={date} onDate={setDate} />

@@ -223,7 +223,7 @@ export function AddItemSheet({ open, onOpenChange, onAdd }: { open: boolean; onO
                 <div className="flex items-baseline justify-between">
                   <span>
                     <span className="num-md">{fmtKcal(pickedMacros.calories)}</span>
-                    <span className="unit">kcal</span>
+                    <span className="unit !text-[12px]">kcal</span>
                   </span>
                   <MacroTrio m={pickedMacros} />
                 </div>

@@ -98,6 +98,7 @@ export function FoodScanner() {
   const [addOpen, setAddOpen] = useState(false);
   const [prepDirty, setPrepDirty] = useState(false);
   const [mock, setMock] = useState(false);
+  const [rerunning, setRerunning] = useState(false);
 
   const orig = useRef(new Map<string, { name: string; prep: string }>());
   const removed = useRef<string[]>([]);
@@ -190,17 +191,21 @@ export function FoodScanner() {
       if (!o) continue;
       if (o.name.trim() !== it.name.trim()) notes.push(`"${o.name}" is actually ${it.name}.`);
       if (o.prep !== it.preparation) notes.push(`${it.name} was ${it.preparation}.`);
+      // keep the user's portion edits across a re-analysis
+      if (it.grams && it.base.grams && Math.abs(it.grams - it.base.grams) >= 1) notes.push(`The ${it.name} portion is about ${Math.round(it.grams)} g.`);
     }
     for (const r of removed.current) notes.push(`There is no ${r}.`);
     return notes.join(" ").slice(0, 480) || undefined;
   }, [items]);
 
   const run = useCallback(
-    async (img: PreparedImage, nextAnswers: Answer[], context?: string) => {
+    /** `rerun`: refining an existing review (answers, corrections) — a failure keeps that review. */
+    async (img: PreparedImage, nextAnswers: Answer[], context?: string, rerun = false) => {
       abortRef.current?.abort();
       const ctl = new AbortController();
       abortRef.current = ctl;
       setError(null);
+      setRerunning(rerun);
       setPhase("analysing");
       try {
         const res = await analysePhoto(
@@ -228,6 +233,12 @@ export function FoodScanner() {
       } catch (e) {
         if ((e as Error).name === "AbortError" || ctl.signal.aborted) return;
         const err = e instanceof FoodAIRequestError ? e : new FoodAIRequestError("upstream", "Analysis failed. Try again.", 0);
+        if (rerun) {
+          // the earlier analysis is still valid: go back to it rather than stranding the user
+          setPhase("review");
+          toast.error("Couldn't update the estimate. Your review is unchanged.", { description: err.message });
+          return;
+        }
         setError({ code: err.code, message: err.message });
         setPhase("error");
       }
@@ -294,7 +305,7 @@ export function FoodScanner() {
         answer: sel[q.id],
       }));
     const merged = [...answers.filter((a) => !fresh.some((f) => f.questionId === a.questionId)), ...fresh];
-    void run(photo, merged, corrections());
+    void run(photo, merged, corrections(), true);
   };
 
   /* ------------------------------------------------------------ edits */
@@ -392,11 +403,12 @@ export function FoodScanner() {
     }
   };
 
-  // success → back to Nutrition, with Undo still available from the toast
-  useEffect(() => {
-    if (phase !== "success" || !logged) return;
-    leaveTimer.current = window.setTimeout(() => {
-      const l = logged;
+  // success → back to Nutrition (automatically or via "View today"), with Undo still
+  // available from the toast once the success screen is gone
+  const leave = useCallback(
+    (l: Logged) => {
+      if (leaveTimer.current) window.clearTimeout(leaveTimer.current);
+      leaveTimer.current = null;
       toast(`Added to ${mealLabel(l.meal)} · ${fmtKcal(l.kcal)} kcal`, {
         duration: 6000,
         action: {
@@ -405,7 +417,7 @@ export function FoodScanner() {
             try {
               await deleteLogged(l.ids, l.photoPath);
               invalidateFood(qc);
-              toast("Removed");
+              toast("Removed from your diary");
             } catch (e) {
               toast.error("Couldn't undo", {
                 description: (e as Error).message,
@@ -415,11 +427,17 @@ export function FoodScanner() {
         },
       });
       router.push("/nutrition");
-    }, 2600);
+    },
+    [qc, router],
+  );
+
+  useEffect(() => {
+    if (phase !== "success" || !logged) return;
+    leaveTimer.current = window.setTimeout(() => leave(logged), 2600);
     return () => {
       if (leaveTimer.current) window.clearTimeout(leaveTimer.current);
     };
-  }, [phase, logged, router, qc]);
+  }, [phase, logged, leave]);
 
   /* ----------------------------------------------------------- render */
 
@@ -479,7 +497,7 @@ export function FoodScanner() {
       <input ref={libraryRef} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-hidden onChange={onInput} data-testid="scan-library" />
 
       {phase === "success" && logged ? (
-        <Success logged={logged} onUndo={undo} onView={() => router.push("/nutrition")} />
+        <Success logged={logged} onUndo={undo} onView={() => leave(logged)} />
       ) : (
         <div className={cn("px-4 pb-8 pt-4 md:px-0 md:pt-0", showReview && "lg:grid lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:items-start lg:gap-8")}>
           {/* ------------------------------------------------ photo column */}
@@ -519,9 +537,7 @@ export function FoodScanner() {
 
             {(phase === "analysing" || phase === "preparing") && (
               <div className="mt-6 text-center" role="status" aria-live="polite">
-                <p className="t-h3">
-                  {phase === "preparing" ? "Preparing your photo" : answers.length && result ? "Updating with your answers" : "Analyzing your meal"}
-                </p>
+                <p className="t-h3">{phase === "preparing" ? "Preparing your photo" : rerunning ? "Updating with your answers" : "Analyzing your meal"}</p>
                 <p className="mt-1 text-[13px] text-fg-2">
                   <span className="num text-[15px] text-fg">{elapsed}</span> s · usually 5–15 s
                 </p>
@@ -541,7 +557,7 @@ export function FoodScanner() {
 
               {result.not_food ? (
                 <div className="mt-5 card-inset flex flex-col items-center px-5 py-8 text-center">
-                  <EmptyArt kind="amphora" size={64} />
+                  <EmptyArt kind="kylix" size={64} />
                   <p className="mt-3 text-[15px] font-bold">No food found in this photo.</p>
                   <p className="mt-1 max-w-[32ch] text-[13px] text-fg-2">Retake it with the whole plate in the frame, or add the items yourself.</p>
                   <div className="mt-4 flex gap-2">
@@ -579,7 +595,7 @@ export function FoodScanner() {
                       {questions.map((q) => (
                         <QuestionCard key={q.id} q={q} value={picked[q.id]} onPick={(o) => pick(q, o)} />
                       ))}
-                      {Object.keys(picked).length > 0 && !questions.every((q) => picked[q.id]) && (
+                      {Object.keys(picked).length > 0 && (
                         <Button variant="secondary" block className="border-lapis-line text-lapis-text" onClick={() => submitAnswers()}>
                           Update estimate
                         </Button>
@@ -592,7 +608,7 @@ export function FoodScanner() {
                       <p className="text-[13px] text-lapis-text">You changed how something was cooked.</p>
                       <button
                         type="button"
-                        onClick={() => photo && run(photo, answers, corrections())}
+                        onClick={() => photo && run(photo, answers, corrections(), true)}
                         className="h-11 shrink-0 text-[13px] font-bold text-lapis-text"
                       >
                         Update estimate
@@ -790,11 +806,21 @@ function ConfirmBar({
           <MacroTrio m={totals} className="mt-1.5" />
         </div>
         <p className="shrink-0 leading-none">
-          <span className="num-md">{fmtKcal(totals.calories)}</span>
-          <span className="unit">kcal</span>
+          <span className="num-md" data-testid="scan-total-kcal">
+            {fmtKcal(totals.calories)}
+          </span>
+          <span className="unit !text-[12px]">kcal</span>
         </p>
       </div>
-      <Button variant="primary" size="lg" block className="mt-3 px-3 tracking-[0.06em]" onClick={onConfirm} loading={saving} disabled={!count}>
+      <Button
+        variant="primary"
+        size="lg"
+        block
+        className="mt-3 px-3 tracking-[0.06em] max-[359px]:!px-2 max-[359px]:!text-[15px] max-[359px]:!tracking-[0.03em]"
+        onClick={onConfirm}
+        loading={saving}
+        disabled={!count}
+      >
         Confirm &amp; add to daily nutrition
       </Button>
     </div>

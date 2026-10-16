@@ -287,7 +287,9 @@ export function useWaterMutations(date: ISODate) {
     qc.invalidateQueries({ queryKey: ["water"] });
     qc.invalidateQueries({ queryKey: ["water-days"] });
   };
+  // one scope: an Undo tapped while its insert is still in flight runs after the insert lands
   const add = useMutation({
+    scope: { id: "water-logs" },
     mutationFn: async ({ id, ml }: { id: string; ml: number }) => must(await sb().from("water_logs").insert({ id, local_date: date, amount_ml: ml }).select("*").single()),
     onMutate: async ({ id, ml }) => {
       await qc.cancelQueries({ queryKey: key });
@@ -302,6 +304,7 @@ export function useWaterMutations(date: ISODate) {
     onSettled: settle,
   });
   const remove = useMutation({
+    scope: { id: "water-logs" },
     mutationFn: async (id: string) => must(await sb().from("water_logs").delete().eq("id", id)),
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: key });

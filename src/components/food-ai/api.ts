@@ -37,7 +37,7 @@ async function call<T>(url: string, init: RequestInit = {}): Promise<T> {
     });
   } catch (e) {
     if ((e as Error).name === "AbortError") throw e;
-    throw new FoodAIRequestError("network", "You're offline or the connection dropped. Nothing was lost — try again.", 0);
+    throw new FoodAIRequestError("network", "You're offline or the connection dropped.", 0);
   }
   const body = (await res.json().catch(() => null)) as (T & { error?: string; code?: string }) | null;
   if (!res.ok || !body) {

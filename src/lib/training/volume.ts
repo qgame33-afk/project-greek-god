@@ -70,14 +70,58 @@ export function templateSummary(t: Pick<DayTemplate, "exercises">): { exercises:
 
 /**
  * The template as it would actually start in a given mode: intro and deload set counts,
- * and for "lighter legs" the optional jumps are dropped and leg accessories lose a set.
- * Mirrors `buildSessionSets`, so durations and set counts shown before starting are honest.
+ * deload rep targets (top of the range − 2, as the deload suggestion sets them), and for
+ * "lighter legs" the optional jumps are dropped and every leg lift loses a set (never below
+ * 2). Mirrors `buildSessionSets`, so the sets, ranges and durations shown before starting
+ * are honest.
  */
 export function modeTemplate<T extends DayTemplate>(t: T, mode: Mode, lighterLegs = false): T {
   const exercises = t.exercises
     .filter((e) => !(lighterLegs && e.optional))
-    .map((e) => ({ ...e, sets: plannedSetCount(e, getExercise(e.slug), mode, lighterLegs) }));
+    .map((e) => {
+      const lib = getExercise(e.slug);
+      const sets = plannedSetCount(e, lib, mode, lighterLegs);
+      const fixedTarget = lib?.category === "explosive" || lib?.tracking === "reps";
+      const repHigh = mode === "deload" && !fixedTarget ? Math.max(e.repLow, e.repHigh - 2) : e.repHigh;
+      return { ...e, sets, repHigh };
+    });
   return { ...t, exercises };
+}
+
+/* ------------------------------------------------------ template equality */
+
+/** One exercise with a fixed key order and no empty optional fields. */
+function canonExercise(e: TemplateExercise) {
+  return {
+    slug: e.slug,
+    name: e.name,
+    sets: Number(e.sets),
+    repLow: Number(e.repLow),
+    repHigh: Number(e.repHigh),
+    unit: e.unit,
+    rir: e.rir,
+    rest: Number(e.rest),
+    optional: e.optional ? true : undefined,
+    note: e.note ? e.note : undefined,
+  };
+}
+
+/**
+ * Compare the editable content of two templates (name, focus, warm-up, exercises). Insensitive
+ * to object key order (Postgres jsonb reorders keys) and to absent vs empty optional fields.
+ */
+export function sameTemplateContent(
+  a: Pick<DayTemplate, "name" | "focus" | "warmup" | "exercises">,
+  b: Pick<DayTemplate, "name" | "focus" | "warmup" | "exercises">,
+): boolean {
+  const canon = (t: typeof a) =>
+    JSON.stringify({
+      name: t.name,
+      focus: t.focus ?? "",
+      warmup: (t.warmup ?? []).map((w) => ({ label: w.label, detail: w.detail })),
+      exercises: (t.exercises ?? []).map(canonExercise),
+    });
+  return canon(a) === canon(b);
 }
 
 const LEG_MUSCLES: MuscleGroup[] = ["quads", "hamstrings", "glutes", "calves", "adductors"];

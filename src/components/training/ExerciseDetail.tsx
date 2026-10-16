@@ -9,6 +9,7 @@ import { PRBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/controls";
+import { useMediaQuery } from "@/components/ui/sheet";
 import { Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
 import { addDays, dayName, shortDate } from "@/lib/dates";
 import { useToday } from "@/lib/data/core";
@@ -57,6 +58,7 @@ function Detail({ slug }: { slug: string }) {
     return (
       <div>
         <BackLink />
+        <h1 className="sr-only">Exercise not found</h1>
         <Empty art={<EmptyArt kind="column" size={56} />} title="Exercise not found" className="mt-6" action={<Button variant="secondary" asChild><Link href="/training?tab=exercises">Browse exercises</Link></Button>}>
           It isn&apos;t in the library and you haven&apos;t logged it.
         </Empty>
@@ -92,24 +94,18 @@ function Detail({ slug }: { slug: string }) {
 
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
         <div className="min-w-0 space-y-4 lg:col-span-8">
-          {/* stat tiles */}
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-            {loading ? (
-              [0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[88px] rounded-[16px]" />)
-            ) : (
-              <>
-                <Tile label="Best e1RM" value={best?.best_e1rm_lb ? fmtLoadValue(best.best_e1rm_lb, unit) : "—"} unit={best?.best_e1rm_lb ? unit : undefined} />
-                <Tile label="Heaviest" value={best?.best_weight_lb ? fmtLoadValue(best.best_weight_lb, unit) : "—"} unit={best?.best_weight_lb ? unit : undefined} />
-                {timed ? (
-                  <Tile label="Longest" value={best?.best_duration_sec ? String(best.best_duration_sec) : "—"} unit={best?.best_duration_sec ? "s" : undefined} />
-                ) : (
-                  <Tile label="Best reps" value={best?.best_reps ? String(best.best_reps) : "—"} />
-                )}
-                <Tile label="Sets" value={hasHistory ? formatInt(best!.total_sets) : "—"} caption={hasHistory ? "All time" : undefined} />
-                <Tile label="Sessions" value={hasHistory ? formatInt(best!.sessions) : "—"} className="col-span-2 sm:col-span-1" caption={best?.last_date ? `Last ${shortDate(best.last_date, today)}` : undefined} />
-              </>
-            )}
-          </div>
+          {/* stat sheet: all-time bests from real sets, each dated to when it happened */}
+          {loading ? (
+            <Skeleton className="h-[188px] rounded-[20px] sm:h-[100px]" />
+          ) : (
+            <StatSheet
+              unit={unit}
+              timed={timed}
+              best={best}
+              daily={daily.data ?? []}
+              today={today}
+            />
+          )}
           {!loading && !hasHistory && (
             <Empty art={<EmptyArt kind="plinth" size={56} />} title="No sets logged yet">
               Log {name} in a workout and your estimated 1RM, best sets, chart and records build from those real sets.
@@ -261,16 +257,63 @@ function BackLink() {
   );
 }
 
-function Tile({ label, value, unit, caption, className }: { label: string; value: string; unit?: string; caption?: string; className?: string }) {
+type Best = NonNullable<ReturnType<typeof useExerciseBests>["data"]>[number];
+type Daily = NonNullable<ReturnType<typeof useExerciseDaily>["data"]>[number];
+
+/** Date of the first day a per-day value reached its all-time maximum. */
+function dateOfBest(daily: Daily[], pick: (d: Daily) => number | null): string | null {
+  let best = 0;
+  let date: string | null = null;
+  for (const d of daily) {
+    const v = Number(pick(d) ?? 0);
+    if (v > best && d.local_date) {
+      best = v;
+      date = d.local_date;
+    }
+  }
+  return date;
+}
+
+/** Four all-time numbers in one sheet (2×2 on phones, one row from 640px). */
+function StatSheet({ unit, timed, best, daily, today }: { unit: WeightUnit; timed: boolean; best: Best | null; daily: Daily[]; today: string }) {
+  const has = (best?.total_sets ?? 0) > 0;
+  const when = (d: string | null) => (d ? shortDate(d, today) : undefined);
+  const cells: { label: string; value: string; unit?: string; caption?: string }[] = [
+    {
+      label: "Best e1RM",
+      value: best?.best_e1rm_lb ? fmtLoadValue(best.best_e1rm_lb, unit) : "—",
+      unit: best?.best_e1rm_lb ? unit : undefined,
+      caption: best?.best_e1rm_lb ? when(dateOfBest(daily, (d) => d.best_e1rm_lb)) : has ? "Not a load lift" : undefined,
+    },
+    {
+      label: "Heaviest",
+      value: best?.best_weight_lb ? fmtLoadValue(best.best_weight_lb, unit) : "—",
+      unit: best?.best_weight_lb ? unit : undefined,
+      caption: best?.best_weight_lb ? when(dateOfBest(daily, (d) => d.top_weight_lb)) : has ? "Unloaded" : undefined,
+    },
+    timed
+      ? { label: "Longest", value: best?.best_duration_sec ? String(best.best_duration_sec) : "—", unit: best?.best_duration_sec ? "s" : undefined }
+      : { label: "Best reps", value: best?.best_reps ? String(best.best_reps) : "—", caption: best?.best_reps ? when(dateOfBest(daily, (d) => d.max_reps)) : undefined },
+    {
+      label: "Sessions",
+      value: has ? formatInt(best!.sessions ?? 0) : "—",
+      caption: has ? `${plural(best!.total_sets ?? 0, "set")}${best?.last_date ? ` · last ${shortDate(best.last_date, today)}` : ""}` : undefined,
+    },
+  ];
+  const anyCaption = cells.some((c) => c.caption);
   return (
-    <div className={`card-instrument min-w-0 px-3.5 py-3 ${className ?? ""}`}>
-      <p className="eyebrow truncate">{label}</p>
-      <p className="num mt-1.5 truncate text-[28px] font-semibold leading-none">
-        {value}
-        {unit && <span className="unit">{unit}</span>}
-      </p>
-      {caption && <p className="mt-1 truncate text-[12px] text-fg-3">{caption}</p>}
-    </div>
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[20px] border border-line bg-line-hair sm:grid-cols-4">
+      {cells.map((c) => (
+        <div key={c.label} className="min-w-0 bg-s1 px-4 py-3.5 sm:px-5">
+          <dt className="eyebrow truncate">{c.label}</dt>
+          <dd className="num mt-2 truncate text-[28px] font-semibold leading-none">
+            {c.value}
+            {c.unit && <span className="unit">{c.unit}</span>}
+          </dd>
+          {anyCaption && <dd className="mt-1.5 truncate text-[12px] text-fg-3">{c.caption ?? "\u00a0"}</dd>}
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -327,6 +370,11 @@ function ChartCard({
   const latest = data[latestIdx];
   const first = data.find((d) => d.value != null);
   const change = latest && first && latest !== first && latest.value != null && first.value != null ? latest.value - first.value : null;
+  const desktop = useMediaQuery("(min-width: 1024px)");
+  const chartLabel =
+    first && latest && first !== latest
+      ? `${label} chart: ${fmtValue(first.value)} ${metricUnit} on ${shortDate(first.date, today)} to ${fmtValue(latest.value)} ${metricUnit} on ${shortDate(latest.date, today)}, over ${plural(data.length, "session")}.`
+      : `${label} chart.`;
 
   return (
     <Card>
@@ -345,7 +393,7 @@ function ChartCard({
           </p>
         </div>
         <Segmented<Range>
-          size="sm"
+          size={desktop ? "sm" : "md"}
           ariaLabel="Chart range"
           className="w-[150px] shrink-0"
           value={range}
@@ -374,7 +422,9 @@ function ChartCard({
         ) : data.length === 1 ? (
           <p className="grid h-[160px] place-items-center rounded-[14px] bg-s3 px-6 text-center text-[13px] text-fg-2">One session so far. The trend line appears after your next one.</p>
         ) : (
-          <ExerciseChart data={data} metric={series.metric} bars={series.bars} onScrub={write} />
+          <div role="img" aria-label={chartLabel}>
+            <ExerciseChart data={data} metric={series.metric} bars={series.bars} unit={unit} onScrub={write} />
+          </div>
         )}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-fg-3">

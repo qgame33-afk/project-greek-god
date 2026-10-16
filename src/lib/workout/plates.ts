@@ -27,10 +27,22 @@ export function platesFor(total: number, unit: "lb" | "kg"): PlateLoad | null {
   return { bar, perSide, leftover: side };
 }
 
+/** More plates than this per side isn't a real load (a typo like 1999) — no line at all. */
+export const MAX_PLATES_PER_SIDE = 10;
+
 export function platesLabel(total: number, unit: "lb" | "kg"): string | null {
   const p = platesFor(total, unit);
-  if (!p) return null;
+  if (!p || p.perSide.length > MAX_PLATES_PER_SIDE) return null;
   if (!p.perSide.length) return `Empty ${p.bar} ${unit} bar`;
   const odd = p.leftover > 0 ? ` (+${p.leftover} not loadable)` : "";
-  return `${p.bar} bar + ${p.perSide.join(" · ")} per side${odd}`;
+  // Runs of the same plate read as "45×3" so heavy loads stay on one short line.
+  const groups: string[] = [];
+  for (let i = 0; i < p.perSide.length; ) {
+    let j = i;
+    while (j < p.perSide.length && p.perSide[j] === p.perSide[i]) j++;
+    const n = j - i;
+    groups.push(n >= 3 ? `${p.perSide[i]}×${n}` : Array(n).fill(p.perSide[i]).join(" · "));
+    i = j;
+  }
+  return `${p.bar} bar + ${groups.join(" · ")} per side${odd}`;
 }

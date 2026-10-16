@@ -65,10 +65,11 @@ export function AthleticLogSheet({ open, onOpenChange, type: initial }: { open: 
   else if (stored == null) error = "Enter a number.";
   else if (stored < lo || stored > hi) error = isTime ? `Between ${lo} and ${hi} seconds.` : `That looks off for ${def.label.toLowerCase()}. Check the unit (${unit}).`;
   const distError = isTime && (dist == null || dist <= 0 || dist > 400) ? "Distance in metres, 1–400." : null;
+  const future = date > today;
 
   const submit = () => {
     setSubmitted(true);
-    if (busy.current || stored == null || error || distError || date > today) return;
+    if (busy.current || stored == null || error || distError || future) return;
     busy.current = true;
     log(
       {
@@ -90,7 +91,7 @@ export function AthleticLogSheet({ open, onOpenChange, type: initial }: { open: 
       title="Log athletic test"
       description="Test fresh, same time, surface and footwear."
       footer={
-        <Button variant="primary" size="lg" block onClick={submit} loading={pending} disabled={!!(text.trim() && error)}>
+        <Button variant="primary" size="lg" block onClick={submit} loading={pending} disabled={!!(text.trim() && error) || future}>
           Save result
         </Button>
       }
@@ -127,7 +128,9 @@ export function AthleticLogSheet({ open, onOpenChange, type: initial }: { open: 
           </div>
         )}
 
-        <Field label="Date">{(id) => <Input id={id} type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)} />}</Field>
+        <Field label="Date" error={future ? "That date is in the future." : null}>
+          {(id) => <Input id={id} type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)} aria-invalid={future} />}
+        </Field>
         <Field label="Conditions" hint="Optional">
           {(id) => <Input id={id} value={conditions} maxLength={120} onChange={(e) => setConditions(e.target.value)} placeholder="e.g. gym court, volleyball shoes, 6 pm" autoComplete="off" />}
         </Field>

@@ -10,11 +10,12 @@ import {
   isDraftEmpty,
   parseSleepInput,
   snapSleep,
+  storedSleep,
 } from "./checkin";
 
 describe("snapSleep", () => {
-  it("recovers quarter hours stored at one decimal", () => {
-    expect(snapSleep(7.3)).toBe(7.25); // 7.25 stored as numeric(3,1)
+  it("snaps typed values to the stepper's quarter-hour grid", () => {
+    expect(snapSleep(7.3)).toBe(7.25);
     expect(snapSleep("7.8")).toBe(7.75);
     expect(snapSleep(6.5)).toBe(6.5);
     expect(snapSleep(null)).toBeNull();
@@ -24,10 +25,22 @@ describe("snapSleep", () => {
   });
 });
 
+describe("storedSleep", () => {
+  it("keeps the logged value exactly (numeric(4,2)), never snapping it", () => {
+    expect(storedSleep("7.25")).toBe(7.25);
+    expect(storedSleep("6.60")).toBe(6.6);
+    expect(storedSleep(7.75)).toBe(7.75);
+    expect(storedSleep(null)).toBeNull();
+    expect(storedSleep("")).toBeNull();
+    expect(storedSleep(-1)).toBeNull();
+    expect(storedSleep(25)).toBeNull();
+  });
+});
+
 describe("draft ↔ row", () => {
   const row = {
     local_date: "2026-10-16",
-    sleep_hours: "7.3",
+    sleep_hours: "7.25",
     sleep_quality: 4,
     energy: 3,
     soreness: null,
@@ -48,6 +61,14 @@ describe("draft ↔ row", () => {
       volleyball: true,
     });
     expect(draftFromRow(null)).toEqual(EMPTY_DRAFT);
+  });
+  it("keeps an off-grid legacy value when another field changes", () => {
+    const legacy = { ...row, sleep_hours: "6.60" };
+    const d = draftFromRow(legacy);
+    expect(d.sleep).toBe(6.6);
+    expect(draftToPayload("2026-10-15", { ...d, stress: 2 }).sleep_hours).toBe(
+      6.6,
+    );
   });
   it("saves blanks as null and trims the pain note", () => {
     const p = draftToPayload("2026-10-16", {

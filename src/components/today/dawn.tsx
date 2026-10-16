@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { formatInt } from "@/lib/units";
 import { cardDelay, DAWN_KEY, shouldPlayDawn } from "@/lib/today/dawn";
@@ -55,6 +55,54 @@ export function Reveal({ index, children, className, style }: { index: number; c
   );
 }
 
+/**
+ * Data marks (rings, meters) on a card under Dawn: held at zero until the card is in view,
+ * then filled on the choreography's stagger (`base` ms after Today mounted, minus time already
+ * passed). Once revealed every delay drops to 0, so later changes — a water tap, a new weigh-in —
+ * animate immediately. Without Dawn: shown at once, no delays.
+ */
+export function useReveal<T extends Element>(base: number) {
+  const { play } = useDawn();
+  const ref = useRef<T>(null);
+  const mountedAt = useRef(0);
+  const [seen, setSeen] = useState(!play);
+  const [lead, setLead] = useState(0);
+  const [settled, setSettled] = useState(!play);
+
+  useEffect(() => {
+    mountedAt.current = performance.now();
+  }, []);
+
+  useEffect(() => {
+    if (seen) return;
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      const t = window.setTimeout(() => setSeen(true), 0);
+      return () => window.clearTimeout(t);
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        setLead(Math.max(0, Math.round(base - (performance.now() - mountedAt.current))));
+        setSeen(true);
+        io.disconnect();
+      },
+      { threshold: 0.2 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [seen, base]);
+
+  useEffect(() => {
+    if (!seen || settled) return;
+    const t = window.setTimeout(() => setSettled(true), lead + 1400);
+    return () => window.clearTimeout(t);
+  }, [seen, settled, lead]);
+
+  // Plain numbers (not a function over this object) so callers never touch the ref in render.
+  return { ref, seen, delay: settled ? 0 : lead, stagger: settled ? 0 : 80 };
+}
+
 /* --------------------------------------------------------------- clocks */
 
 function subscribeMinute(cb: () => void) {
@@ -70,6 +118,20 @@ const hourNow = () => new Date().getHours();
 /** Local hour, refreshed every minute and when the app returns to the foreground. */
 export function useHour(): number {
   return useSyncExternalStore(subscribeMinute, hourNow, () => 9);
+}
+
+/** A media query that stays live (resize, rotation). Today renders client-only, so the first
+ *  render already has the real value — no 168 → 240 jump for the bust on desktop. */
+export function useMedia(query: string): boolean {
+  const subscribe = useCallback(
+    (cb: () => void) => {
+      const mq = window.matchMedia(query);
+      mq.addEventListener("change", cb);
+      return () => mq.removeEventListener("change", cb);
+    },
+    [query],
+  );
+  return useSyncExternalStore(subscribe, () => window.matchMedia(query).matches, () => false);
 }
 
 /* ------------------------------------------------------------ countdown */

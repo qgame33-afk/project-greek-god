@@ -368,8 +368,31 @@ export function recommend(r: WeeklyReview): WeeklyRecommendation[] {
     out.push({
       key: "keep",
       title: r.inProgress ? "Stay the course" : "Keep the same plan",
-      reason: "Sleep, soreness and training are all on track.",
+      reason: onTrackReason(r),
     });
   }
   return out.slice(0, 3);
+}
+
+/** "Sleep, soreness and training are on track." — naming only signals that were logged. */
+export function onTrackReason(r: WeeklyReview) {
+  const parts: string[] = [];
+  if (r.sleep.nights > 0) parts.push("sleep");
+  if (r.soreness.n > 0) parts.push("soreness");
+  if (r.fatigue.n > 0) parts.push("fatigue");
+  if (r.training.done > 0) parts.push("training");
+  const list =
+    parts.length <= 1
+      ? (parts[0] ?? "")
+      : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+  const head = list
+    ? `${list[0].toUpperCase()}${list.slice(1)} ${parts.length === 1 ? "is" : "are"} on track.`
+    : "Nothing logged this week needs a change.";
+  const missing = [
+    r.soreness.n === 0 ? "soreness" : null,
+    r.fatigue.n === 0 ? "fatigue" : null,
+  ].filter(Boolean);
+  return missing.length
+    ? `${head} Rate ${missing.join(" and ")} at check-in to include ${missing.length === 1 ? "it" : "them"}.`
+    : head;
 }

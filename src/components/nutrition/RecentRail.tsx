@@ -2,7 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useRecentFoods, type FoodEntry } from "@/lib/data/nutrition";
+import type { FoodEntry } from "@/lib/data/nutrition";
 import { newId } from "@/lib/data/core";
 import { mealForTime } from "@/lib/nutrition";
 import { composeEatenAt, dayLabel, formatAmount, timeValue } from "@/lib/nutrition-ui/format";
@@ -10,11 +10,12 @@ import { buildEntry, fromEntry } from "@/lib/nutrition-ui/portion";
 import { formatInt } from "@/lib/units";
 import { Skeleton } from "@/components/ui/misc";
 import { mealLabel, useFuel } from "./context";
+import { useFuelRecent } from "./hooks";
 
 /** One tap re-logs a recent food (same amount) to the meal for the current time. */
 export function RecentRail() {
   const { date, today, log } = useFuel();
-  const recent = useRecentFoods(12);
+  const recent = useFuelRecent();
   const [pending, setPending] = useState<string | null>(null);
   const [meal, setMeal] = useState(() => mealForTime(new Date()));
   // keep "Tap to add to Lunch" honest when the app is left open across meals
@@ -48,7 +49,7 @@ export function RecentRail() {
       </div>
     );
   }
-  const items = recent.data ?? [];
+  const items = (recent.data ?? []).slice(0, 12);
   if (!items.length) return null;
 
   return (

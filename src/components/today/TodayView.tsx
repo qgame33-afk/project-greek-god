@@ -25,15 +25,25 @@ import { WorkoutCard } from "./WorkoutCard";
 export function TodayView() {
   const t = useTodayModel();
   const qc = useQueryClient();
+  // The skeleton covers the first load only. Once the content has shown it stays mounted: an
+  // errored query refetches when a new observer mounts (TanStack v5 puts it back to pending),
+  // so swapping back to the skeleton would loop skeleton ↔ content forever. Card-level notes
+  // report those errors instead.
+  const [ready, setReady] = useState(false);
+  if (!ready && t.model && !t.loading) setReady(true);
 
-  if (t.profileError) {
-    return (
-      <div className="py-6">
-        <ErrorNote onRetry={() => qc.invalidateQueries({ queryKey: ["profile"] })}>Couldn&apos;t load your profile. Check the connection and retry.</ErrorNote>
-      </div>
-    );
+  if (!t.model) {
+    // Only when there's no profile at all — a failed background refetch never blanks the page.
+    if (t.profileError) {
+      return (
+        <div className="py-6">
+          <ErrorNote onRetry={() => qc.invalidateQueries({ queryKey: ["profile"] })}>Couldn&apos;t load your profile. Check the connection and retry.</ErrorNote>
+        </div>
+      );
+    }
+    return <TodaySkeleton />;
   }
-  if (t.loading || !t.model) return <TodaySkeleton />;
+  if (!ready) return <TodaySkeleton />;
 
   return (
     <DawnProvider>
@@ -76,7 +86,7 @@ function TodayContent({ t, m }: { t: ReturnType<typeof useTodayModel>; m: TodayM
         </Reveal>
 
         <Reveal index={1} className="@min-[760px]:col-span-7 @min-[1100px]:col-span-5">
-          <TransformationCard m={m} onLogWeight={() => setWeightOpen(true)} error={t.errors.weights} />
+          <TransformationCard m={m} onLogWeight={() => setWeightOpen(true)} error={t.errors.weights} onRetry={t.refetch.weights} />
         </Reveal>
 
         <Reveal index={2} className="@min-[760px]:col-span-5 @min-[1100px]:col-span-4">

@@ -1,8 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useMediaQuery } from "@/components/ui/sheet";
-import { shortDate } from "@/lib/dates";
+import { parseISODate, shortDate, toISODate } from "@/lib/dates";
+import { formatInt } from "@/lib/units";
 import { niceTicks, type StrengthSeries } from "@/lib/training/volume";
 
 export interface ChartDatum {
@@ -18,18 +20,31 @@ export interface ChartDatum {
  * card's hero number can be written through refs; `onScrub(null)` on release.
  */
 export default function ExerciseChart({
-  data,
+  data: rows,
   metric,
   bars,
+  unit,
   onScrub,
 }: {
   data: ChartDatum[];
   metric: StrengthSeries["metric"];
   bars: StrengthSeries["bars"];
+  /** Display unit for loads ("lb" | "kg"); used by the desktop tooltip. */
+  unit: string;
   onScrub: (index: number | null) => void;
 }) {
   const desktop = useMediaQuery("(min-width: 1024px)");
   const height = desktop ? 300 : 220;
+  // A real time axis: a 4-day gap is drawn shorter than a 7-day one.
+  const data = useMemo(() => rows.map((d) => ({ ...d, t: parseISODate(d.date).getTime() })), [rows]);
+  const xTicks = useMemo(() => {
+    if (data.length <= 5) return data.map((d) => d.t);
+    const n = desktop ? 6 : 4;
+    const idx = Array.from({ length: n }, (_, i) => Math.round((i * (data.length - 1)) / (n - 1)));
+    return [...new Set(idx)].map((i) => data[i].t);
+  }, [data, desktop]);
+  const span = data.length > 1 ? data[data.length - 1].t - data[0].t : 1;
+  const xPad = span * 0.04 || 86_400_000;
   const animate = data.length <= 120;
   const values = data.map((d) => d.value).filter((v): v is number => v != null);
   const lo = values.length ? Math.min(...values) : 0;
@@ -57,13 +72,17 @@ export default function ExerciseChart({
           </defs>
           <CartesianGrid vertical={false} stroke="rgb(255 255 255 / .05)" strokeDasharray="3 5" />
           <XAxis
-            dataKey="date"
+            dataKey="t"
+            type="number"
+            scale="time"
+            domain={[data[0].t - xPad, data[data.length - 1].t + xPad]}
+            ticks={xTicks}
             axisLine={false}
             tickLine={false}
-            minTickGap={28}
+            minTickGap={20}
             tickMargin={8}
             tick={{ fill: "var(--text-3)", fontSize: 11, fontFamily: "var(--font-num)", letterSpacing: "0.04em" }}
-            tickFormatter={(d: string) => shortDate(d).toUpperCase()}
+            tickFormatter={(t: number) => shortDate(toISODate(new Date(t))).toUpperCase()}
           />
           <YAxis yAxisId="bar" hide domain={[0, maxBar * 2.6]} />
           <YAxis
@@ -77,8 +96,13 @@ export default function ExerciseChart({
             interval={0}
             tick={{ fill: "var(--text-3)", fontSize: 11, fontFamily: "var(--font-num)" }}
           />
-          <Tooltip content={() => null} cursor={{ stroke: "var(--gold-400)", strokeWidth: 1 }} isAnimationActive={false} />
-          <Bar yAxisId="bar" dataKey="bar" fill="var(--s-verdigris)" fillOpacity={0.28} radius={[3, 3, 0, 0]} maxBarSize={14} isAnimationActive={animate} animationDuration={600} />
+          <Tooltip
+            content={desktop ? (p: { active?: boolean; payload?: readonly { payload?: ChartDatum }[] }) => <DesktopTip active={p.active} datum={p.payload?.[0]?.payload} metric={metric} bars={bars} unit={unit} /> : () => null}
+            cursor={{ stroke: "var(--gold-400)", strokeWidth: 1 }}
+            isAnimationActive={false}
+            offset={16}
+          />
+          <Bar yAxisId="bar" dataKey="bar" fill="var(--s-verdigris)" fillOpacity={0.28} radius={[3, 3, 0, 0]} barSize={desktop ? 12 : 8} isAnimationActive={animate} animationDuration={600} />
           <Line
             yAxisId="line"
             dataKey="value"
@@ -106,6 +130,27 @@ export default function ExerciseChart({
       <span className="sr-only">
         {metric === "e1rm" ? "Estimated one-rep max" : metric === "weight" ? "Top weight" : "Best reps"} line over {bars === "volume" ? "volume" : "sets"} bars.
       </span>
+    </div>
+  );
+}
+
+/** Small desktop tooltip (DESIGN §5.11: desktop also shows a tooltip while scrubbing). */
+function DesktopTip({ active, datum, metric, bars, unit }: { active?: boolean; datum?: ChartDatum; metric: StrengthSeries["metric"]; bars: StrengthSeries["bars"]; unit: string }) {
+  if (!active || !datum) return null;
+  const label = metric === "e1rm" ? "e1RM" : metric === "weight" ? "Top" : "Best";
+  const v = datum.value == null ? "—" : Number.isInteger(datum.value) ? String(datum.value) : datum.value.toFixed(1);
+  return (
+    <div className="rounded-[12px] border border-line-strong bg-s3 px-3 py-2 shadow-[var(--e2)]">
+      <p className="eyebrow">{shortDate(datum.date)}</p>
+      <p className="num mt-1 text-[17px] font-semibold leading-none">
+        {v}
+        <span className="unit">{metric === "reps" ? "reps" : unit}</span>
+        <span className="ml-1.5 text-[11px] font-bold uppercase tracking-[.1em] text-fg-3">{label}</span>
+      </p>
+      <p className="mt-1 text-[12px] text-fg-2">
+        {bars === "volume" ? `${formatInt(datum.bar)} ${unit} volume` : `${datum.bar} sets`}
+        {datum.pr ? " · Record" : ""}
+      </p>
     </div>
   );
 }

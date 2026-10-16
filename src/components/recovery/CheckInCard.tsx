@@ -8,18 +8,15 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { Plus, ShieldAlert, Trash, Volleyball } from "lucide-react";
+import { CloudOff, Plus, ShieldAlert, Trash, Volleyball } from "lucide-react";
 import { toast } from "sonner";
 import { LoggedBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Scale, Stepper, Switch } from "@/components/ui/controls";
+import { Scale, Switch } from "@/components/ui/controls";
 import { Label, Textarea } from "@/components/ui/field";
-import { Divider, ErrorNote, Skeleton } from "@/components/ui/misc";
-import {
-  useRecoveryDay,
-  useSaveRecovery,
-  type RecoveryLog,
-} from "@/lib/data/recovery";
+import { Divider, Skeleton } from "@/components/ui/misc";
+import { Confirm } from "@/components/ui/sheet";
+import { useRecoveryDay, type RecoveryLog } from "@/lib/data/recovery";
 import {
   useVolleyball,
   useVolleyballMutations,
@@ -45,8 +42,9 @@ import {
   storeDraft,
   type CheckinDraft,
 } from "@/lib/recovery/checkin";
-import { useDeleteRecovery, useOptimisticRecovery } from "@/lib/recovery/hooks";
+import { useDeleteRecovery, useSaveCheckin } from "@/lib/recovery/hooks";
 import { cn } from "@/lib/cn";
+import { OptionalStepper } from "./parts";
 import { SleepGoalSheet } from "./SleepGoalSheet";
 import { VolleyballSheet, describeVolleyball } from "./VolleyballSheet";
 
@@ -165,33 +163,49 @@ const CheckInForm = forwardRef<
     const stored = loadStoredDraft(date);
     return !!stored && !draftsEqual(stored, server);
   });
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<"offline" | "failed" | null>(null);
   const [goalOpen, setGoalOpen] = useState(false);
   const [vbOpen, setVbOpen] = useState(false);
+  const [vbConfirm, setVbConfirm] = useState(false);
+  const [vbGone, setVbGone] = useState<string[]>([]);
   const pending = useRef(false);
   const [saving, setSaving] = useState(false);
   const sleepBtn = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
-  const save = useSaveRecovery();
+  const save = useSaveCheckin();
   const del = useDeleteRecovery();
-  const optimistic = useOptimisticRecovery();
   const vb = useVolleyball(date, date);
   const vbMut = useVolleyballMutations();
-  const vbRows = vb.data ?? [];
+  const vbRows = (vb.data ?? []).filter((r) => !vbGone.includes(r.id));
 
-  const dirty = !draftsEqual(draft, server);
-  const canSave = dirty && !(isDraftEmpty(draft) && !log);
+  // A logged volleyball session means volleyball happened: the switch shows it, the
+  // guidance counts it, and switching it off asks to remove the session too.
+  const vbLogged = vbRows.length > 0;
+  const effective: CheckinDraft = {
+    ...draft,
+    volleyball: draft.volleyball || vbLogged,
+  };
+  const serverEffective: CheckinDraft = {
+    ...server,
+    volleyball: server.volleyball || vbLogged,
+  };
+  const dirty = !draftsEqual(effective, serverEffective);
+  const canSave = dirty && !(isDraftEmpty(effective) && !log);
+  const optimisticRow = !!log?.id.startsWith("optimistic-");
 
   useImperativeHandle(ref, () => ({
     focus: () =>
       (sleepBtn.current ?? titleRef.current)?.focus({ preventScroll: true }),
   }));
 
-  // Keep unsaved input across reloads and date switches; clear it once it matches the saved row.
+  // Keep unsaved input across reloads and date switches; clear it once it matches the
+  // saved row. Never while a save is in flight: the optimistic row already matches the
+  // draft, and wiping the stored copy then would lose the entry if the save fails.
   useEffect(() => {
+    if (saving) return;
     storeDraft(date, dirty ? draft : null);
-  }, [date, draft, dirty]);
+  }, [date, draft, dirty, saving]);
 
   const set = (patch: Partial<CheckinDraft>) => {
     setError(null);
@@ -203,9 +217,8 @@ const CheckInForm = forwardRef<
     pending.current = true;
     setSaving(true);
     setError(null);
-    const payload = draftToPayload(date, draft);
-    const prev = log;
-    const rollback = optimistic(date, payload);
+    const payload = draftToPayload(date, effective);
+    const prev = log && !optimisticRow ? log : null;
     try {
       await save.mutateAsync(payload);
       storeDraft(date, null);
@@ -225,30 +238,45 @@ const CheckInForm = forwardRef<
           label: "Undo",
           onClick: () => {
             if (prev) {
-              const rest = rowToUpsert(prev);
-              const undo = optimistic(date, rest);
-              save.mutate(rest, { onError: undo });
+              save.mutate(rowToUpsert(prev), {
+                onError: () =>
+                  toast.error("Couldn't undo", {
+                    description: "The new check-in is still saved.",
+                  }),
+              });
             } else {
-              del.mutate({
-                ...(log ?? ({} as RecoveryLog)),
-                ...payload,
-              } as RecoveryLog);
+              del.mutate({ local_date: date });
             }
             setDraft(draftFromRow(prev));
           },
         },
       });
-    } catch (e) {
-      rollback();
-      setError(e instanceof Error ? e.message : "Couldn't save.");
+    } catch {
+      setError(
+        typeof navigator !== "undefined" && !navigator.onLine
+          ? "offline"
+          : "failed",
+      );
     } finally {
       pending.current = false;
       setSaving(false);
     }
   };
 
+  // Offline: save on its own as soon as the connection comes back.
+  const submitRef = useRef(submit);
+  useEffect(() => {
+    submitRef.current = submit;
+  });
+  useEffect(() => {
+    if (error !== "offline") return;
+    const back = () => void submitRef.current();
+    window.addEventListener("online", back);
+    return () => window.removeEventListener("online", back);
+  }, [error]);
+
   const remove = () => {
-    if (!log || del.isPending) return;
+    if (!log || del.isPending || saving || optimisticRow) return;
     const row = log;
     const before = draft;
     setDraft({ ...EMPTY_DRAFT });
@@ -257,13 +285,14 @@ const CheckInForm = forwardRef<
       onSuccess: () => {
         storeDraft(date, null);
         toast("Check-in deleted", {
+          id: `checkin-${date}`,
           duration: 6000,
           action: {
             label: "Undo",
             onClick: () => {
-              const rest = rowToUpsert(row);
-              const undo = optimistic(date, rest);
-              save.mutate(rest, { onError: undo });
+              save.mutate(rowToUpsert(row), {
+                onError: () => toast.error("Couldn't restore the check-in"),
+              });
               setDraft(draftFromRow(row));
             },
           },
@@ -272,24 +301,45 @@ const CheckInForm = forwardRef<
     });
   };
 
-  const removeVb = (row: VolleyballRow) =>
-    vbMut.remove.mutate(row.id, {
-      onSuccess: () =>
-        toast("Volleyball session removed", {
-          duration: 6000,
-          action: {
-            label: "Undo",
-            onClick: () =>
-              vbMut.add.mutate({
-                local_date: row.local_date,
-                kind: row.kind,
-                duration_min: row.duration_min,
-                intensity: row.intensity,
-                notes: row.notes,
-              }),
-          },
-        }),
-    });
+  const removeVb = (rows: VolleyballRow[]) => {
+    const ids = rows.map((r) => r.id);
+    setVbGone((g) => [...g, ...ids]);
+    let failed = false;
+    let left = rows.length;
+    for (const row of rows)
+      vbMut.remove.mutate(row.id, {
+        onError: () => {
+          failed = true;
+          setVbGone((g) => g.filter((id) => id !== row.id));
+        },
+        onSettled: () => {
+          if (--left > 0 || failed) return;
+          toast(
+            rows.length === 1
+              ? "Volleyball session removed"
+              : `${rows.length} volleyball sessions removed`,
+            {
+              description:
+                rows.length === 1 ? describeVolleyball(rows[0]) : undefined,
+              duration: 6000,
+              action: {
+                label: "Undo",
+                onClick: () => {
+                  for (const r of rows)
+                    vbMut.add.mutate({
+                      local_date: r.local_date,
+                      kind: r.kind,
+                      duration_min: r.duration_min,
+                      intensity: r.intensity,
+                      notes: r.notes,
+                    });
+                },
+              },
+            },
+          );
+        },
+      });
+  };
 
   const dayLabel = relativeDay(date, today);
   const sleepDelta = draft.sleep == null ? null : draft.sleep - sleepGoal;
@@ -311,7 +361,7 @@ const CheckInForm = forwardRef<
           </h2>
         </div>
         <div className="shrink-0 pt-0.5">
-          {log && !dirty ? (
+          {saving ? null : log && !dirty && !optimisticRow ? (
             <LoggedBadge />
           ) : dirty ? (
             <span className="inline-flex h-5 items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-fg-2">
@@ -326,8 +376,18 @@ const CheckInForm = forwardRef<
         </div>
       </div>
       {restored && dirty && (
-        <p className="mt-2 text-[12px] font-medium text-fg-3">
-          Restored your unsaved entry from earlier.
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[12px] font-medium text-fg-3">
+          <span>Restored your unsaved entry from earlier.</span>
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setDraft(server);
+            }}
+            className="-my-1 inline-flex h-11 items-center font-semibold text-fg-2 hover:text-fg"
+          >
+            Discard
+          </button>
         </p>
       )}
 
@@ -341,6 +401,7 @@ const CheckInForm = forwardRef<
             type="button"
             onClick={() => setGoalOpen(true)}
             className="-my-3 -mr-2 inline-flex h-11 items-center px-2 text-[13px] font-semibold text-fg-3 hover:text-fg-2"
+            aria-label={`Sleep goal ${formatHours(sleepGoal)} hours. Edit`}
           >
             Goal{" "}
             <span className="num ml-1 text-[15px] text-gold-300">
@@ -348,25 +409,25 @@ const CheckInForm = forwardRef<
             </span>
           </button>
         </div>
-        <Stepper
+        <OptionalStepper
           label="hours slept"
-          value={draft.sleep ?? sleepGoal}
+          value={draft.sleep}
+          start={sleepGoal}
           step={SLEEP_STEP}
           min={SLEEP_MIN}
           max={SLEEP_MAX}
-          onChange={(v) => set({ sleep: draft.sleep == null ? sleepGoal : v })}
+          onChange={(v) => set({ sleep: v })}
         >
           <SleepValue
             ref={sleepBtn}
             value={draft.sleep}
             onCommit={(v) => set({ sleep: v })}
           />
-        </Stepper>
+        </OptionalStepper>
         <div className="mt-2 flex min-h-5 items-center justify-center gap-2 text-[12px] font-medium text-fg-3">
           {draft.sleep == null ? (
             <span>
-              Not logged · ± starts at {formatHours(sleepGoal)} h · tap the dash
-              to type
+              Not logged · ± starts at your {formatHours(sleepGoal)} h goal
             </span>
           ) : (
             <>
@@ -388,6 +449,7 @@ const CheckInForm = forwardRef<
                 type="button"
                 className="-my-3 inline-flex h-11 items-center font-semibold text-fg-2 hover:text-fg"
                 onClick={() => set({ sleep: null })}
+                aria-label="Clear hours slept"
               >
                 Clear
               </button>
@@ -433,11 +495,14 @@ const CheckInForm = forwardRef<
           <Switch
             id={`vb-${date}`}
             label="Volleyball participation"
-            checked={draft.volleyball}
-            onCheckedChange={(v) => set({ volleyball: v })}
+            checked={effective.volleyball}
+            onCheckedChange={(v) => {
+              if (!v && vbLogged) setVbConfirm(true);
+              else set({ volleyball: v });
+            }}
           />
         </div>
-        {(draft.volleyball || vbRows.length > 0) && (
+        {effective.volleyball && (
           <div className="mt-3 space-y-2">
             {vbRows.map((r) => (
               <div
@@ -454,20 +519,20 @@ const CheckInForm = forwardRef<
                 </div>
                 <button
                   type="button"
-                  onClick={() => removeVb(r)}
+                  onClick={() => removeVb([r])}
                   disabled={vbMut.remove.isPending}
                   className="press grid size-11 shrink-0 place-items-center rounded-[12px] text-fg-3 hover:text-danger"
-                  aria-label="Remove volleyball session"
+                  aria-label={`Remove volleyball session: ${describeVolleyball(r)}`}
                 >
                   <Trash className="size-4" />
                 </button>
               </div>
             ))}
-            {vbRows.length === 0 && (
+            {!vbLogged && (
               <button
                 type="button"
                 onClick={() => setVbOpen(true)}
-                className="press inline-flex h-11 items-center gap-1.5 text-[13px] font-bold text-gold-300 hover:text-gold-200"
+                className="press -ml-1 inline-flex h-11 items-center gap-1.5 px-1 text-[13px] font-bold text-gold-300 hover:text-gold-200"
               >
                 <Plus className="size-4" /> Add session details
               </button>
@@ -521,9 +586,31 @@ const CheckInForm = forwardRef<
       {/* --------------------------------------------------------- save */}
       <div className="mt-6">
         {error && (
-          <ErrorNote className="mb-3" onRetry={submit}>
-            Couldn&apos;t save. Your entry is kept. {error}
-          </ErrorNote>
+          <div
+            role="alert"
+            className={cn(
+              "mb-3 flex items-center gap-3 rounded-[12px] border py-1 pl-3.5 pr-1 text-[13px] leading-snug text-fg",
+              error === "offline"
+                ? "border-line bg-s3"
+                : "border-danger/30 bg-danger-tint",
+            )}
+          >
+            {error === "offline" && (
+              <CloudOff className="size-4 shrink-0 text-fg-3" aria-hidden />
+            )}
+            <span className="min-w-0 flex-1 py-2">
+              {error === "offline"
+                ? "You're offline. Your entry is kept and saves when you reconnect."
+                : "Couldn't save. Your entry is kept."}
+            </span>
+            <button
+              type="button"
+              onClick={submit}
+              className="h-11 shrink-0 rounded-[10px] px-3 font-bold text-gold-300 hover:text-gold-200"
+            >
+              Retry
+            </button>
+          </div>
         )}
         <Button
           variant="primary"
@@ -536,23 +623,23 @@ const CheckInForm = forwardRef<
           Save check-in
         </Button>
         <div className="mt-2 flex min-h-11 items-center justify-between gap-3 text-[12px] font-medium text-fg-3">
-          <span>
+          <span aria-live="polite">
             {saving
               ? "Saving…"
-              : log && !dirty
+              : log && !dirty && !optimisticRow
                 ? savedLabel(log.updated_at, today)
-                : isDraftEmpty(draft) && !log
+                : isDraftEmpty(effective) && !log
                   ? "Add at least one answer to save."
                   : dirty
                     ? "Changes not saved yet."
                     : ""}
           </span>
-          {log && (
+          {log && !optimisticRow && (
             <button
               type="button"
               onClick={remove}
-              disabled={del.isPending}
-              className="-mr-2 inline-flex h-11 items-center gap-1.5 px-2 font-semibold text-fg-3 hover:text-danger"
+              disabled={del.isPending || saving}
+              className="-mr-2 inline-flex h-11 items-center gap-1.5 px-2 font-semibold text-fg-3 hover:text-danger disabled:opacity-40"
             >
               <Trash className="size-3.5" /> Delete
             </button>
@@ -571,6 +658,28 @@ const CheckInForm = forwardRef<
         date={date}
         onAdded={() => {
           if (!draft.volleyball) set({ volleyball: true });
+        }}
+      />
+      <Confirm
+        open={vbConfirm}
+        onOpenChange={setVbConfirm}
+        title={
+          vbRows.length > 1
+            ? `Remove ${vbRows.length} logged sessions?`
+            : "Remove the logged session?"
+        }
+        body={
+          <>
+            {vbRows.length === 1
+              ? `${describeVolleyball(vbRows[0])} is logged for ${date === today || dayLabel === "Yesterday" ? dayLabel.toLowerCase() : dayLabel}.`
+              : `${vbRows.length} sessions are logged for this day.`}{" "}
+            Volleyball counts toward leg fatigue while a session is logged.
+          </>
+        }
+        confirmLabel="Remove"
+        onConfirm={() => {
+          removeVb(vbRows);
+          set({ volleyball: false });
         }}
       />
     </div>

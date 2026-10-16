@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Chip, Scale, Stepper } from "@/components/ui/controls";
 import { Field, Input } from "@/components/ui/field";
 import { Sheet } from "@/components/ui/sheet";
-import { addDays, relativeDay, type ISODate } from "@/lib/dates";
+import { addDays, type ISODate } from "@/lib/dates";
 import type { Volleyball } from "@/lib/data/training";
-import { VB_KINDS, useVolleyballLog, vbKindLabel, type VbKind } from "./hooks";
+import { VB_KINDS, useVolleyballLog, type VbKind } from "./hooks";
+import { VolleyballList } from "./VolleyballList";
 
 /**
  * Log a volleyball practice, game, tournament or open gym (kind, duration, intensity, date).
@@ -37,29 +37,33 @@ export function VolleyballSheet({
 }
 
 function VolleyballForm({ date: initialDate, today, recent, onDone }: { date: ISODate; today: ISODate; recent: Volleyball[]; onDone: () => void }) {
-  const { add, del, adding } = useVolleyballLog();
+  const { add, adding } = useVolleyballLog();
   const [kind, setKind] = useState<VbKind>("practice");
   const [duration, setDuration] = useState(90);
   const [intensity, setIntensity] = useState<number | null>(3);
   const [date, setDate] = useState<ISODate>(initialDate);
   const [notes, setNotes] = useState("");
-  const dateError = date > today ? "Volleyball can only be logged for today or earlier." : !date ? "Pick a date." : null;
+  const dateError = !date
+    ? "Pick a date."
+    : date > today
+      ? "Volleyball can only be logged for today or earlier."
+      : date < addDays(today, -365)
+        ? "Pick a date within the last year."
+        : null;
 
   const save = async () => {
-    if (adding || dateError) return;
+    if (dateError) return; // double taps are absorbed by the hook's ref guard
     const ok = await add({ local_date: date, kind, duration_min: duration || null, intensity, notes: notes.trim() || null });
     if (ok) onDone();
   };
-
-  const list = [...recent].sort((a, b) => b.local_date.localeCompare(a.local_date) || b.created_at.localeCompare(a.created_at)).slice(0, 8);
 
   return (
     <div className="space-y-6 pt-1">
       <div>
         <p className="mb-2 text-[13px] font-semibold text-fg-2">Type</p>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Type">
           {VB_KINDS.map((k) => (
-            <Chip key={k.value} selected={kind === k.value} onClick={() => setKind(k.value)} className="h-11 px-4">
+            <Chip key={k.value} selected={kind === k.value} onClick={() => setKind(k.value)} className="h-11 justify-center px-4 text-[14px]">
               {k.label}
             </Chip>
           ))}
@@ -68,7 +72,7 @@ function VolleyballForm({ date: initialDate, today, recent, onDone }: { date: IS
 
       <div>
         <p className="mb-2 text-[13px] font-semibold text-fg-2">Duration</p>
-        <Stepper value={duration} onChange={setDuration} step={15} min={0} max={480} label="duration in minutes" format={(v) => (
+        <Stepper value={duration} onChange={setDuration} step={15} min={15} max={480} label="duration in minutes" format={(v) => (
           <>
             {v}
             <span className="unit">min</span>
@@ -97,34 +101,7 @@ function VolleyballForm({ date: initialDate, today, recent, onDone }: { date: IS
         Save volleyball
       </Button>
 
-      {list.length > 0 && (
-        <div>
-          <p className="eyebrow mb-2">Recent</p>
-          <ul className="divide-y divide-line-hair overflow-hidden rounded-[14px] bg-s3">
-            {list.map((v) => (
-              <li key={v.id} className="flex min-h-14 items-center gap-3 pl-3.5">
-                <span className="size-2 shrink-0 rounded-full bg-lapis" aria-hidden />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-semibold">
-                    {vbKindLabel(v.kind)} · {relativeDay(v.local_date, today)}
-                  </p>
-                  <p className="truncate text-[12px] text-fg-3">
-                    {[v.duration_min ? `${v.duration_min} min` : null, v.intensity ? `Intensity ${v.intensity}/5` : null, v.notes].filter(Boolean).join(" · ") || "No details"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => del(v)}
-                  aria-label={`Delete ${vbKindLabel(v.kind)} on ${relativeDay(v.local_date, today)}`}
-                  className="grid size-11 shrink-0 place-items-center text-fg-3 hover:text-danger"
-                >
-                  <Trash className="size-[18px]" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <VolleyballList rows={recent} today={today} title="Recent" withDate limit={8} />
     </div>
   );
 }

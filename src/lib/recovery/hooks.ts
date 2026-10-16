@@ -12,7 +12,7 @@ import {
 import { useMemo } from "react";
 import { toast } from "sonner";
 import { addDays, dateRange, type ISODate } from "@/lib/dates";
-import { must, sb, useUser } from "@/lib/data/core";
+import { must, sb, useUser, type Insert } from "@/lib/data/core";
 import type { WaterLog } from "@/lib/data/nutrition";
 import { useProfile } from "@/lib/data/profile";
 import {
@@ -171,36 +171,71 @@ function patchRecoveryCaches(
   return snapshots;
 }
 
+export type CheckinPayload = Omit<Insert<"recovery_logs">, "user_id"> & {
+  local_date: ISODate;
+};
+
+function withRow(
+  rows: RecoveryLog[],
+  date: ISODate,
+  values: Partial<RecoveryLog>,
+  userId: string | null | undefined,
+) {
+  const i = rows.findIndex((r) => r.local_date === date);
+  if (i >= 0) return rows.map((r, j) => (j === i ? { ...r, ...values } : r));
+  const now = new Date().toISOString();
+  const row = {
+    id: `optimistic-${date}`,
+    user_id: userId ?? "",
+    local_date: date,
+    created_at: now,
+    updated_at: now,
+    notes: null,
+    ...EMPTY_ROW,
+    ...values,
+  } as RecoveryLog;
+  return [...rows, row].sort((a, b) => a.local_date.localeCompare(b.local_date));
+}
+
 /**
- * Show a saved check-in everywhere immediately (guidance, mission list) and return a
- * rollback for when the write fails.
+ * Save (upsert) a day's check-in. Optimistic: guidance, the date strip and the mission
+ * list update at once and roll back if the write fails. Unlike the shared
+ * useSaveRecovery it never pauses while offline (networkMode "always"): an offline save
+ * fails straight away so the form can keep the entry and say so, instead of sitting on
+ * "Saving…" while the unsaved values look saved everywhere else. It raises no toast of
+ * its own; callers show one message per outcome.
  */
-export function useOptimisticRecovery() {
+export function useSaveCheckin() {
   const qc = useQueryClient();
   const { userId } = useUser();
-  return (date: ISODate, values: Partial<RecoveryLog>) => {
-    void qc.cancelQueries({ queryKey: ["recovery"] });
-    const now = new Date().toISOString();
-    const snapshots = patchRecoveryCaches(qc, date, (rows) => {
-      const i = rows.findIndex((r) => r.local_date === date);
-      if (i >= 0)
-        return rows.map((r, j) => (j === i ? { ...r, ...values } : r));
-      const row = {
-        id: `optimistic-${date}`,
-        user_id: userId ?? "",
-        local_date: date,
-        created_at: now,
-        updated_at: now,
-        notes: null,
-        ...EMPTY_ROW,
-        ...values,
-      } as RecoveryLog;
-      return [...rows, row].sort((a, b) =>
-        a.local_date.localeCompare(b.local_date),
+  return useMutation({
+    networkMode: "always",
+    mutationFn: async (v: CheckinPayload) =>
+      must(
+        await sb()
+          .from("recovery_logs")
+          .upsert(v, { onConflict: "user_id,local_date" })
+          .select("*")
+          .single(),
+      ) as unknown as RecoveryLog,
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: ["recovery"] });
+      const snapshots = patchRecoveryCaches(qc, v.local_date, (rows) =>
+        withRow(rows, v.local_date, v as Partial<RecoveryLog>, userId),
       );
-    });
-    return () => snapshots.forEach(([k, rows]) => qc.setQueryData(k, rows));
-  };
+      return { snapshots };
+    },
+    onError: (_e: Error, _v, ctx) => {
+      ctx?.snapshots.forEach(([k, rows]) => qc.setQueryData(k, rows));
+    },
+    onSuccess: (row, v) => {
+      if (row)
+        patchRecoveryCaches(qc, v.local_date, (rows) =>
+          withRow(rows, v.local_date, row, userId),
+        );
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["recovery"] }),
+  });
 }
 
 const EMPTY_ROW = {
@@ -218,7 +253,8 @@ const EMPTY_ROW = {
 export function useDeleteRecovery() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (row: RecoveryLog) => {
+    networkMode: "always",
+    mutationFn: async (row: Pick<RecoveryLog, "local_date">) => {
       must(
         await sb()
           .from("recovery_logs")
@@ -235,7 +271,12 @@ export function useDeleteRecovery() {
     },
     onError: (e: Error, _row, ctx) => {
       ctx?.snapshots.forEach(([k, rows]) => qc.setQueryData(k, rows));
-      toast.error("Couldn't delete the check-in", { description: e.message });
+      toast.error("Couldn't delete the check-in", {
+        description:
+          typeof navigator !== "undefined" && !navigator.onLine
+            ? "You're offline. It's still saved."
+            : e.message,
+      });
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["recovery"] }),
   });

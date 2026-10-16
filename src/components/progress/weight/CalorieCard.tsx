@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowRight } from "lucide-react";
 import { SuggestedBadge } from "@/components/ui/badge";
@@ -17,7 +16,6 @@ import { localDateOf, shortDate } from "@/lib/dates";
 import { carbsForGoal } from "@/lib/nutrition";
 import { formatInt, toDisplayWeight, type WeightUnit } from "@/lib/units";
 import type { PlanInput } from "@/lib/progress/plan";
-import { ensureCalorieChangeLogged } from "@/lib/progress/hooks";
 import { signed } from "../kit";
 
 /**
@@ -29,7 +27,6 @@ export function CalorieCard({ weights, plan, planRate, unit }: { weights: Weight
   const { profile } = useProfile();
   const changes = useGoalChanges();
   const save = useSaveProfile();
-  const qc = useQueryClient();
   const [review, setReview] = useState(false);
 
   const lastCalChange = useMemo(() => {
@@ -96,18 +93,13 @@ export function CalorieCard({ weights, plan, planRate, unit }: { weights: Weight
 
   const apply = () => {
     if (save.isPending || !inRange) return;
-    const since = new Date(Date.now() - 60_000).toISOString();
+    // useSaveProfile records the goal_changes row (source "suggestion"), which starts the 14-day cooldown.
     save.mutate(
       { values: { calorie_goal: next, carb_goal: carbs }, reason, source: "suggestion" },
       {
-        onSuccess: async () => {
+        onSuccess: () => {
           setReview(false);
           toast.success(`Calorie goal set to ${formatInt(next)} kcal`, { description: "Change it any time in Settings." });
-          try {
-            await ensureCalorieChangeLogged({ since, oldValue: cal, newValue: next, reason });
-          } finally {
-            void qc.invalidateQueries({ queryKey: ["goal-changes"] });
-          }
         },
       },
     );
@@ -125,7 +117,7 @@ export function CalorieCard({ weights, plan, planRate, unit }: { weights: Weight
           Consider
           <span className="num text-[20px] font-semibold text-lapis-text">
             {signed(sug.delta, 0)}
-            <span className="unit">kcal/day</span>
+            <span className="unit [font-size:max(12px,0.4em)]!">kcal/day</span>
           </span>
           <span className="text-fg-3">to {formatInt(next)} kcal</span>
         </p>

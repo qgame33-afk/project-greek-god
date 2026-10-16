@@ -1,37 +1,46 @@
 "use client";
 
 import { Droplets, Undo2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/controls";
 import { Ring } from "@/components/ui/ring";
 import { Sheet } from "@/components/ui/sheet";
-import { useWater, useWaterMutations, type WaterLog } from "@/lib/data/nutrition";
+import { newId } from "@/lib/data/core";
+import { useWater, useWaterMutations } from "@/lib/data/nutrition";
 import { cn } from "@/lib/cn";
 import type { ISODate } from "@/lib/dates";
 import { haptic } from "@/lib/haptics";
-import { formatClock } from "@/lib/nutrition-ui/format";
-import { WATER_MAX, WATER_MIN, WATER_PRESETS, clampWater, liters, undoTarget } from "@/lib/nutrition-ui/water";
-import { formatInt, parseNumber } from "@/lib/units";
+import { composeEatenAt, dayLabel, formatClock, timeValue } from "@/lib/nutrition-ui/format";
+import { WATER_MAX, WATER_MIN, WATER_PRESETS, clampWater, liters } from "@/lib/nutrition-ui/water";
+import { afterPendingMutations, keepOpenOnToast, useAddPastWater, useFocusIntoSheet } from "./hooks";
+import { formatInt } from "@/lib/units";
+import { parseFoodNumber } from "@/lib/nutrition-ui/number";
 
 /** Hydration: lapis ring, quick-add chips, the day's taps, Undo last. */
-export function WaterCard({ date, goalMl, isToday }: { date: ISODate; goalMl: number; isToday: boolean }) {
+export function WaterCard({ date, today, goalMl, unknown }: { date: ISODate; today: ISODate; goalMl: number; unknown?: boolean }) {
   const { logs, totalMl, loading } = useWater(date);
   const water = useWaterMutations(date);
-  const logsRef = useRef<WaterLog[]>(logs);
-  useEffect(() => {
-    logsRef.current = logs; // read later from toast callbacks
-  }, [logs]);
+  const past = useAddPastWater(date);
+  const qc = useQueryClient();
+  const isToday = date === today;
   const [custom, setCustom] = useState({ open: false, nonce: 0 });
-  const ratio = goalMl > 0 ? totalMl / goalMl : 0;
+  // capped at full: extra water is fine, not an "over" to flag
+  const ratio = goalMl > 0 && !unknown ? Math.min(1, totalMl / goalMl) : 0;
   const left = goalMl - totalMl;
 
   const add = (ml: number) => {
-    const before = new Set(logsRef.current.map((l) => l.id));
-    water.addMl(ml);
+    let id: string;
+    if (isToday) id = water.addMl(ml);
+    else {
+      // a past day's tap is stamped on that day, at the current clock time
+      id = newId();
+      past.mutate({ id, ml, loggedAt: composeEatenAt(date, timeValue(new Date())) });
+    }
     haptic(8);
-    toast(`+${formatInt(ml)} mL water`, {
+    toast(`+${formatInt(ml)} mL water${isToday ? "" : ` · ${dayLabel(date, today)}`}`, {
       icon: (
         <span className="grid size-6 place-items-center rounded-full bg-lapis-tint text-lapis-text" aria-hidden>
           <Droplets className="size-3.5" />
@@ -41,8 +50,7 @@ export function WaterCard({ date, goalMl, isToday }: { date: ISODate; goalMl: nu
       action: {
         label: "Undo",
         onClick: () => {
-          const t = undoTarget(logsRef.current, before, ml);
-          if (t) water.remove.mutate(t.id);
+          void afterPendingMutations(qc, (v) => (v as { id?: string } | undefined)?.id === id).then(() => water.remove.mutate(id));
         },
       },
     });
@@ -61,11 +69,17 @@ export function WaterCard({ date, goalMl, isToday }: { date: ISODate; goalMl: nu
             Water
           </h2>
           <p className="num-md mt-1.5">
-            {loading ? "—" : liters(totalMl)}
+            {loading || unknown ? "—" : liters(totalMl)}
             <span className="unit !text-[12px]">/ {goalMl > 0 ? liters(goalMl) : "—"} L</span>
           </p>
           <p className={cn("mt-1 text-[12.5px] font-semibold", goalMl > 0 && left <= 0 ? "text-gold-300" : "text-fg-3")}>
-            {goalMl <= 0 ? "Set a water goal in Settings." : left <= 0 ? "Goal met." : `${liters(left)} L to go${isToday ? "" : " that day"}.`}
+            {unknown
+              ? "Water didn't load for this day."
+              : goalMl <= 0
+                ? "Set a water goal in Settings."
+                : left <= 0
+                  ? "Goal met."
+                  : `${liters(left)} L to go${isToday ? "" : " that day"}.`}
           </p>
         </div>
       </div>
@@ -116,7 +130,7 @@ export function WaterCard({ date, goalMl, isToday }: { date: ISODate; goalMl: nu
         </div>
       )}
 
-      <Sheet open={custom.open} onOpenChange={(o) => setCustom((c) => ({ ...c, open: o }))} title="Add water" description="Any amount from 50 mL to 2 L.">
+      <Sheet open={custom.open} onOpenChange={keepOpenOnToast((o) => setCustom((c) => ({ ...c, open: o })))} title="Add water" description="Any amount from 50 mL to 2 L.">
         <CustomWater
           key={custom.nonce}
           onAdd={(ml) => {
@@ -131,15 +145,17 @@ export function WaterCard({ date, goalMl, isToday }: { date: ISODate; goalMl: nu
 
 function CustomWater({ onAdd }: { onAdd: (ml: number) => void }) {
   const [ml, setMl] = useState(400);
+  const root = useRef<HTMLDivElement>(null);
+  useFocusIntoSheet(root);
   const [text, setText] = useState("400");
-  const parsed = parseNumber(text);
+  const parsed = parseFoodNumber(text);
   const invalid = parsed == null || parsed < WATER_MIN || parsed > WATER_MAX;
   const set = (v: number) => {
     setMl(v);
     setText(String(v));
   };
   return (
-    <div className="pb-1 pt-3">
+    <div className="pb-1 pt-3" ref={root}>
       <Stepper label="Water amount" value={ml} step={50} min={WATER_MIN} max={WATER_MAX} onChange={set} size="lg">
         <label className="block">
           <span className="sr-only">Millilitres</span>
@@ -150,7 +166,7 @@ function CustomWater({ onAdd }: { onAdd: (ml: number) => void }) {
             autoComplete="off"
             onChange={(e) => {
               setText(e.target.value);
-              const n = parseNumber(e.target.value);
+              const n = parseFoodNumber(e.target.value);
               if (n != null) setMl(n);
             }}
             onFocus={(e) => e.currentTarget.select()}

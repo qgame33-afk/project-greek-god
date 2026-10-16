@@ -2,7 +2,7 @@
 // Bust and the fluted meter all read `p` from ascentProgress().
 
 import { weightStats, type WeighIn } from "@/lib/bodyweight";
-import { daysBetween, type ISODate } from "@/lib/dates";
+import { addDays, daysBetween, type ISODate } from "@/lib/dates";
 
 const clamp01 = (n: number) => (Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0);
 
@@ -12,6 +12,10 @@ export interface Ascent {
   latestDate: ISODate | null;
   /** 7-day average ending today (or at the last weigh-in when it's older than a week). */
   avg7: number | null;
+  /** Weigh-ins inside the 7-day average's window (same window as weightStats). */
+  avgCount: number;
+  /** Last day of that window: today, or the last weigh-in when it's more than a week old. */
+  avgEnd: ISODate;
   /** avg7 ?? latest — the number p is computed from. */
   trend: number | null;
   /** avg7 now vs one week earlier, lb. */
@@ -37,6 +41,9 @@ export function ascentProgress(startLb: number | null | undefined, goalLb: numbe
   const valid = weights.filter((w) => Number.isFinite(Number(w.weight_lb)) && w.local_date <= ref);
   const s = weightStats(valid, start ?? 0, goal ?? 0, ref);
   const trend = s.avg7 ?? s.current;
+  const avgEnd = s.currentDate && daysBetween(s.currentDate, ref) > 7 ? s.currentDate : ref;
+  const avgFrom = addDays(avgEnd, -6);
+  const avgCount = valid.filter((w) => w.local_date >= avgFrom && w.local_date <= avgEnd).length;
   let p = 0;
   if (trend != null && start != null && goal != null) {
     p = goal === start ? 1 : clamp01((trend - start) / (goal - start));
@@ -45,6 +52,8 @@ export function ascentProgress(startLb: number | null | undefined, goalLb: numbe
     latest: s.current,
     latestDate: s.currentDate,
     avg7: s.avg7,
+    avgCount,
+    avgEnd,
     trend,
     weeklyChange: s.weeklyChange,
     toGo: goal == null ? null : trend != null ? round1(goal - trend) : start != null ? round1(goal - start) : null,

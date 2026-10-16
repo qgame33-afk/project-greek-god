@@ -31,6 +31,43 @@ export function ProvenanceBadge({ item, full, still, className }: { item: Proven
 
 const BADGE = "inline-flex h-5 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-[10.5px] font-bold uppercase leading-none tracking-[0.06em]";
 
+/**
+ * Row badge that fits the space: the full ESTIMATE / USDA / SOURCE badge when the card is
+ * wide enough, a 20px mark with the same colour and an accessible name on narrow phones
+ * (so "amount · time" never gets squeezed and no label is clipped mid-word).
+ * Needs an `@container` ancestor (the meal card).
+ */
+export function RowProvenance({ item }: { item: ProvenanceInput }) {
+  const p = provenanceOf(item);
+  if (!p) return null;
+  const label = p.kind === "estimate" ? "Estimate" : p.kind === "source" ? `Source: ${p.name}` : `Database: ${p.name}`;
+  const mark =
+    p.kind === "estimate" ? (
+      <span className="border border-dashed border-[rgb(163_169_180/.5)] text-fg-2">≈</span>
+    ) : p.kind === "source" ? (
+      <span className="border border-line-gold bg-gold-tint text-gold-300">
+        <BadgeCheck className="size-3" aria-hidden />
+      </span>
+    ) : (
+      <span className="border border-verdigris/40 bg-verdigris/10 text-verdigris">
+        <BadgeCheck className="size-3" aria-hidden />
+      </span>
+    );
+  return (
+    <>
+      <ProvenanceBadge item={item} still className="hidden min-w-0 shrink overflow-hidden @[21rem]:inline-flex" />
+      <span
+        role="img"
+        aria-label={label}
+        title={label}
+        className="inline-flex shrink-0 @[21rem]:hidden [&>span]:grid [&>span]:size-5 [&>span]:place-items-center [&>span]:rounded-[6px] [&>span]:text-[12px] [&>span]:font-bold"
+      >
+        {mark}
+      </span>
+    </>
+  );
+}
+
 /** Breakfast / Lunch / Dinner / Snacks selector (chips, 44px targets). */
 export function MealChips({ value, onChange, className }: { value: Meal; onChange: (m: Meal) => void; className?: string }) {
   return (
@@ -68,12 +105,12 @@ export function MacroGrid({ macros, className, dim }: { macros: Macros; classNam
   return (
     <div className={cn("grid grid-cols-4 gap-2", className)} aria-live="polite">
       <div className="card-inset flex flex-col justify-between px-3 py-2.5">
-        <span className="eyebrow !text-[10px]">Kcal</span>
+        <span className="eyebrow">Kcal</span>
         <span className={cn("num mt-1 text-[24px] font-semibold leading-none", dim && "text-fg-3")}>{formatInt(macros.calories)}</span>
       </div>
       {(["protein", "carbs", "fat"] as const).map((k) => (
         <div key={k} className="card-inset flex flex-col justify-between px-3 py-2.5">
-          <span className="eyebrow flex items-center gap-1.5 !text-[10px]">
+          <span className="eyebrow flex items-center gap-1.5">
             <span className={cn("size-1.5 rounded-full", SERIES[k])} aria-hidden />
             {k === "protein" ? "Prot" : k === "carbs" ? "Carb" : "Fat"}
           </span>

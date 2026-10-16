@@ -10,7 +10,8 @@ import { useSavedFoodMutations, type SavedFood } from "@/lib/data/nutrition";
 import { composeEatenAt, formatAmount, unitLabel } from "@/lib/nutrition-ui/format";
 import { amountBounds, buildEntry, portion, savedFoodFromPortion, stepFor, type FoodCandidate } from "@/lib/nutrition-ui/portion";
 import { fieldText } from "@/lib/nutrition-ui/validate";
-import { formatInt, parseNumber, round } from "@/lib/units";
+import { formatInt, round } from "@/lib/units";
+import { parseFoodNumber } from "@/lib/nutrition-ui/number";
 import { MacroGrid, ProvenanceBadge, StarButton, StickyFooter } from "./bits";
 import { mealLabel, useFuel } from "./context";
 import { BackButton, SaveToFoods, WhenFields, type When } from "./log-shared";
@@ -46,7 +47,7 @@ export function PortionPanel({
 
   const u = c.units[unitIdx] ?? c.units[0];
   const { min, max } = amountBounds(u.unit);
-  const parsed = parseNumber(text);
+  const parsed = parseFoodNumber(text);
   const invalid = parsed == null || parsed <= 0 || parsed > max;
   const p = portion(u, invalid ? 0 : amount);
 
@@ -79,15 +80,13 @@ export function PortionPanel({
     if (busy || invalid) return;
     setBusy(true);
     setErr(null);
-    let savedId = c.savedFoodId;
-    if (saveFood && c.source !== "saved_food") {
-      savedId = newId();
-      saved.create.mutate({ ...savedFoodFromPortion(c, unitIdx, amount, fav), id: savedId });
-    }
-    const row = buildEntry({ ...c, savedFoodId: savedId }, { id: newId(), unitIndex: unitIdx, amount, meal: when.meal, date: when.date, eatenAt: composeEatenAt(when.date, when.time) });
+    // Saved food is created only after the entry lands (no orphans or duplicates on Retry).
+    const newSaved = saveFood && c.source !== "saved_food" ? newId() : null;
+    const row = buildEntry({ ...c, savedFoodId: newSaved ?? c.savedFoodId }, { id: newId(), unitIndex: unitIdx, amount, meal: when.meal, date: when.date, eatenAt: composeEatenAt(when.date, when.time) });
     const ok = await log([row], { meal: when.meal, what: `${c.name} · ${formatAmount(amount, u.unit)} · ${formatInt(row.calories)} kcal` });
     setBusy(false);
     if (ok) {
+      if (newSaved) saved.create.mutate({ ...savedFoodFromPortion(c, unitIdx, amount, fav), id: newSaved });
       if (savedFood) saved.touch(savedFood);
       onDone();
     } else setErr("Couldn't save. Your entry is kept. Retry.");
@@ -137,7 +136,7 @@ export function PortionPanel({
               onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => {
                 setText(e.target.value);
-                const n = parseNumber(e.target.value);
+                const n = parseFoodNumber(e.target.value);
                 if (n != null) setAmount(n);
               }}
               className="num-xl w-full bg-transparent text-center text-fg outline-none"

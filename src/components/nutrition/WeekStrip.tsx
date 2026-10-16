@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/misc";
 import { useDailyNutrition } from "@/lib/data/nutrition";
 import { cn } from "@/lib/cn";
-import { addDays, longDate, type ISODate } from "@/lib/dates";
+import { addDays, longDate, shortDate, type ISODate } from "@/lib/dates";
 import { buildWeek } from "@/lib/nutrition-ui/week";
 import { formatInt } from "@/lib/units";
 import type { Goals } from "./context";
@@ -34,17 +34,18 @@ export function WeekStrip({ date, today, goals, onPick }: { date: ISODate; today
 
   return (
     <section className="card-instrument p-4 sm:p-5" aria-labelledby="week-title">
-      <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 id="week-title" className="eyebrow">
-          {date === today ? "Last 7 days" : `7 days to ${longDate(date).split(", ")[1]}`}
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 id="week-title" className="eyebrow whitespace-nowrap">
+          {date === today ? "Last 7 days" : `7 days to ${shortDate(date, today)}`}
         </h2>
-        <p className="text-[12.5px] font-semibold text-fg-2">
+        <p className="whitespace-nowrap text-[12.5px] font-semibold text-fg-2">
           {w.avgKcal == null ? (
-            "No food logged"
+            w.loggedDays > 0 ? "Today only so far" : "No food logged"
           ) : (
-            <>
+            <span aria-label={`Average ${formatInt(w.avgKcal)} kilocalories over ${w.avgDays} logged ${w.avgDays === 1 ? "day" : "days"}${w.days.some((d) => d.isToday && d.logged) ? ", not counting today" : ""}`}>
               Avg <span className="num text-[15px] text-fg">{formatInt(w.avgKcal)}</span> kcal
-            </>
+              <span className="font-medium text-fg-3"> · {w.avgDays} {w.avgDays === 1 ? "day" : "days"}</span>
+            </span>
           )}
         </p>
       </div>

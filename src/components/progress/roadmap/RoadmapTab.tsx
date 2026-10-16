@@ -68,7 +68,8 @@ export function RoadmapTab() {
             <span className="num text-[15px] text-fg">{wk.week}</span> of {wk.total} · <span className="num text-[15px] text-gold-300">{Math.round(elapsed * 100)}%</span> of the timeline
           </p>
           {w > 0 && (
-            <div className="mt-4" aria-hidden>
+            // ≥1024px the sidebar already carries the screen's one meander (DESIGN §1.8).
+            <div className="mt-4 lg:hidden" aria-hidden>
               <Meander width={w} height={12} progress={elapsed} />
             </div>
           )}
@@ -77,7 +78,7 @@ export function RoadmapTab() {
               <p className="eyebrow">Months logged</p>
               <p className="num-sm mt-1">
                 {loggedMonths}
-                <span className="unit">of {months.length}</span>
+                <span className="unit [font-size:max(12px,0.4em)]!">of {months.length}</span>
               </p>
             </div>
             <div className="card-inset px-3 py-2.5">
@@ -182,12 +183,15 @@ function MilestoneSheet({ entry, total, onClose }: { entry: RoadmapEntry | null;
   const save = useSaveProfile();
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
+  // Keep the last entry while the sheet animates closed; start from the saved text on every open.
   const [shown, setShown] = useState<RoadmapEntry | null>(entry);
-  if (entry && entry !== shown) {
+  const [openFor, setOpenFor] = useState<string | null>(null);
+  if (entry && openFor !== entry.month) {
+    setOpenFor(entry.month);
     setShown(entry);
     setTitle(entry.title);
     setDetail(entry.detail);
-  }
+  } else if (!entry && openFor) setOpenFor(null);
   const e = entry ?? shown;
   if (!e) return null;
   const def = defaultMilestone(e.offset, total);
@@ -196,6 +200,14 @@ function MilestoneSheet({ entry, total, onClose }: { entry: RoadmapEntry | null;
   const commit = (next: ReturnType<typeof parseRoadmap>) => {
     if (save.isPending) return;
     save.mutate({ values: { roadmap: next as unknown as NonNullable<Json> } }, { onSuccess: () => onClose() });
+  };
+  const saveText = () => {
+    const t = title.trim().slice(0, 80);
+    const d = detail.trim().slice(0, 400);
+    // Text identical to the built-in milestone isn't a customisation.
+    if (!e.custom && t === e.title && d === e.detail) return onClose();
+    if (def && t === def.title && d === def.detail) return commit(removeOverride(list, e.offset));
+    commit(upsertOverride(list, { offset: e.offset, title: t, detail: d }));
   };
 
   return (
@@ -211,7 +223,7 @@ function MilestoneSheet({ entry, total, onClose }: { entry: RoadmapEntry | null;
           block
           loading={save.isPending}
           disabled={!title.trim() && !detail.trim()}
-          onClick={() => commit(upsertOverride(list, { offset: e.offset, title: title.trim().slice(0, 80), detail: detail.trim().slice(0, 400) }))}
+          onClick={saveText}
         >
           Save milestone
         </Button>

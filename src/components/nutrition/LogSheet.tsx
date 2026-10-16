@@ -9,7 +9,7 @@ import { timeValue } from "@/lib/nutrition-ui/format";
 import { fromEntry, fromSavedFood, fromSearchResult, type FoodCandidate } from "@/lib/nutrition-ui/portion";
 import type { SearchResult } from "@/lib/nutrition-ui/search";
 import { useFuel } from "./context";
-import { readPref, writePref } from "./hooks";
+import { readPref, useFocusIntoSheet, writePref } from "./hooks";
 import { scrollSheetTop, type When } from "./log-shared";
 import { ManualPanel } from "./ManualPanel";
 import { PortionPanel } from "./PortionPanel";
@@ -47,6 +47,7 @@ type Step =
 function LogBody({ meal, tab: initialTab, close }: { meal?: Meal; tab?: LogTab; close: () => void }) {
   const { date } = useFuel();
   const root = useRef<HTMLDivElement>(null);
+  useFocusIntoSheet(root);
   const [tab, setTab] = useState<LogTab>(() => {
     if (initialTab) return initialTab;
     const saved = readPref(TAB_KEY) as LogTab | null;

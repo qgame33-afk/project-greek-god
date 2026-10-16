@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowLeftRight, BedDouble, CalendarClock, Check, ChevronLeft, ChevronRight, RotateCcw, Trash, Volleyball as VolleyballIcon } from "lucide-react";
+import { ArrowLeftRight, BedDouble, CalendarClock, Check, ChevronLeft, ChevronRight, RotateCcw, Volleyball as VolleyballIcon } from "lucide-react";
 import { OptionalBadge, SuggestedBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Segmented, Switch } from "@/components/ui/controls";
@@ -13,10 +13,13 @@ import { scheduleOf, type Session } from "@/lib/data/training";
 import { useStartWorkout } from "@/lib/data/workout";
 import { SUNDAY_RECOVERY } from "@/lib/training/program";
 import type { Mode } from "@/lib/training/progression";
-import { describeMove, planMove, rescheduleOptions, type RescheduleOption } from "@/lib/training/schedule";
+import { describeMove, linkedMoveDates, planMove, rescheduleOptions, type RescheduleOption } from "@/lib/training/schedule";
 import { isLegDay, modeTemplate } from "@/lib/training/volume";
 import { fmtSessionMinutes, fmtVolume, targetLabel, templateMeta } from "./format";
-import { useDayPlanWrites, useUnits, useVolleyballLog, vbKindLabel, type useTrainingWeek } from "./hooks";
+import { useDayPlanWrites, useUnits, type useTrainingWeek } from "./hooks";
+import { VolleyballList } from "./VolleyballList";
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 type Week = ReturnType<typeof useTrainingWeek>;
 type View = "main" | "move" | "swap";
@@ -54,6 +57,8 @@ export function DaySheet({
 function describePlan(week: Week, date: ISODate) {
   const p = week.resolve(date);
   if (!p.template) return "Rest day";
+  const trained = week.sessions.filter((s) => s.local_date === date && (s.status === "done" || s.status === "active"));
+  if (trained.length && !trained.some((s) => s.template_key === p.key || s.template_key == null)) return `${p.template.name} was planned`;
   return p.template.subtitle || p.template.focus;
 }
 
@@ -80,6 +85,10 @@ function DayBody({
   const past = date < today;
   const isToday = date === today;
   const missed = !!template && past && !done.length && !active;
+  // A different workout was trained this day: the planned one is still open (move or skip it).
+  const plannedOpen = !!template && (done.length > 0 || !!active) && ![...done, ...(active ? [active] : [])].some((s) => s.template_key === plan.key || s.template_key == null);
+  // Past days frozen by a weekly-schedule change keep the plan they had.
+  const frozen = plan.reason === "custom" && past;
   const todayTaken = week.sessions.some((s) => s.local_date === today && (s.status === "done" || s.status === "active"));
 
   const [view, setView] = useState<View>("main");
@@ -88,7 +97,6 @@ function DayBody({
   const { unit } = useUnits();
   const { start, starting } = useStartWorkout();
   const { apply, pending } = useDayPlanWrites();
-  const vbLog = useVolleyballLog();
 
   const legDay = !!template && isLegDay(template);
   const suggestLighter = legDay && week.vbAdvice.heavy;
@@ -102,24 +110,50 @@ function DayBody({
     await start({ template, date, mode, lighterLegs: lighter });
   };
 
+  const dayLabel = (d: ISODate) => (d === today ? "today" : dayName(d));
+  /** Back to the weekly plan — together with the other side of a reschedule, so nothing is orphaned. */
+  const resetToPlan = async () => {
+    const linked = linkedMoveDates(date, week.plansRows);
+    const dates = [date, ...linked];
+    const message =
+      linked.length === 0
+        ? `${relativeDay(date, today)} is back to the weekly plan.`
+        : `${cap(dates.sort().map(dayLabel).join(" and "))} are back to the weekly plan.`;
+    return apply({ deletes: dates, message });
+  };
+
   const setKey = async (key: string) => {
-    if (key === plan.key && !plan.overridden) return close();
+    if (key === plan.key && !plan.overridden) return setView("main");
     const ok =
       key === defaultKey
-        ? await apply({ deletes: [date], message: `${relativeDay(date, today)} is back to the weekly plan.` })
+        ? await resetToPlan()
         : await apply({
             writes: [{ plan_date: date, template_key: key, reason: key === "rest" ? "rest" : "swap", moved_from: null }],
-            message: key === "rest" ? `${relativeDay(date, today)} is now a rest day.` : `${names[key] ?? key} on ${relativeDay(date, today).toLowerCase() === "today" ? "today" : dayName(date)}.`,
+            message: key === "rest" ? `${relativeDay(date, today)} is now a rest day.` : `${names[key] ?? key} on ${dayLabel(date)}.`,
           });
-    if (ok) close();
+    if (!ok) return;
+    // Rest closes the sheet; a chosen workout returns to the day so it can be started right away.
+    if (key === "rest") close();
+    else setView("main");
   };
 
   if (view === "move" && template) {
-    return <MoveView date={date} fromKey={plan.key} week={week} names={names} back={() => setView("main")} pending={pending} onApply={async (opt) => {
-      const m = planMove({ from: date, to: opt.date, fromKey: plan.key, toKey: opt.key, today });
-      const ok = await apply({ writes: m.writes, message: describeMove(m, names, today) });
-      if (ok) close();
-    }} />;
+    return (
+      <MoveView
+        date={date}
+        fromKey={plan.key}
+        closed={plannedOpen}
+        week={week}
+        names={names}
+        back={() => setView("main")}
+        pending={pending}
+        onApply={async (opt) => {
+          const m = planMove({ from: date, to: opt.date, fromKey: plan.key, toKey: opt.key, today, closed: plannedOpen });
+          const ok = await apply({ writes: m.writes, message: describeMove(m, names, today) });
+          if (ok) close();
+        }}
+      />
+    );
   }
 
   if (view === "swap") {
@@ -174,7 +208,7 @@ function DayBody({
   return (
     <div className="space-y-5 pt-1">
       {/* status */}
-      {(done.length > 0 || active || missed || plan.movedFrom || plan.reason === "swap") && (
+      {(done.length > 0 || active || missed || plan.movedFrom || plan.reason === "swap" || frozen) && (
         <div className="space-y-2">
           {done.map((s) => (
             <button
@@ -207,8 +241,15 @@ function DayBody({
             </div>
           )}
           {missed && <p className="rounded-[14px] bg-s3 px-3.5 py-3 text-[13px] text-fg-2">Not logged. Move it to another day, log it now if you trained, or leave it.</p>}
+          {plannedOpen && template && (
+            <div className="rounded-[14px] bg-s3 px-3.5 py-3">
+              <p className="text-[14px] font-bold">{template.name} is still open</p>
+              <p className="mt-0.5 text-[13px] text-fg-2">It was planned {isToday ? "today" : `for ${dayName(date)}`}. Move it to another day or skip it.</p>
+            </div>
+          )}
           {plan.movedFrom && <p className="text-[13px] text-fg-3">Moved here from {dayName(plan.movedFrom)}, {shortDate(plan.movedFrom)}.</p>}
           {plan.reason === "swap" && !plan.movedFrom && <p className="text-[13px] text-fg-3">Swapped in for this day only. Your weekly plan is unchanged.</p>}
+          {frozen && <p className="text-[13px] text-fg-3">Planned under your previous weekly schedule.</p>}
         </div>
       )}
 
@@ -254,7 +295,7 @@ function DayBody({
                     <div className="min-w-0 flex-1">
                       {suggestLighter && <SuggestedBadge className="mb-2" />}
                       <p className="text-[14px] font-bold">Lighter legs</p>
-                      <p className="mt-0.5 text-[13px] text-fg-2">Skip the optional jumps and one set from leg accessories.</p>
+                      <p className="mt-0.5 text-[13px] text-fg-2">Skip the optional jumps and take one set off each leg lift, never below 2.</p>
                       {suggestLighter && (
                         <ul className="mt-2 space-y-0.5 text-[12px] text-lapis-text">
                           {week.vbAdvice.reasons.map((r) => (
@@ -292,8 +333,12 @@ function DayBody({
 
       {/* actions */}
       <ul className="overflow-hidden rounded-[14px] border border-line">
-        {template && !done.length && !active && (
-          <ActionRow icon={CalendarClock} onClick={() => setView("move")} label={date > today ? "Reschedule" : isToday ? "Move to another day" : "Move to today or later"} />
+        {template && ((!done.length && !active) || plannedOpen) && (
+          <ActionRow
+            icon={CalendarClock}
+            onClick={() => setView("move")}
+            label={plannedOpen ? `Move ${template.name}` : date > today ? "Reschedule" : isToday ? "Move to another day" : "Move to today or later"}
+          />
         )}
         {date > today && template && !done.length && !todayTaken && (
           <ActionRow
@@ -308,42 +353,29 @@ function DayBody({
           />
         )}
         {!done.length && !active && <ActionRow icon={ArrowLeftRight} onClick={() => setView("swap")} label={template ? "Swap workout" : "Add a workout"} />}
-        {template && !done.length && !active && <ActionRow icon={BedDouble} disabled={pending} onClick={() => setKey("rest")} label={missed ? "Skip it (mark as rest)" : "Make rest day"} />}
-        {plan.overridden && !done.length && (
+        {template && ((!done.length && !active) || plannedOpen) && (
+          <ActionRow
+            icon={BedDouble}
+            disabled={pending}
+            onClick={() => setKey("rest")}
+            label={plannedOpen ? `Skip ${template.name}` : missed ? "Skip it (mark as rest)" : "Make rest day"}
+          />
+        )}
+        {plan.overridden && !done.length && !frozen && (
           <ActionRow
             icon={RotateCcw}
             disabled={pending}
             onClick={async () => {
-              if (await apply({ deletes: [date], message: `${relativeDay(date, today)} is back to the weekly plan.` })) close();
+              if (await resetToPlan()) close();
             }}
             label="Reset to weekly plan"
-            hint={defaultKey === "rest" ? "Rest" : names[defaultKey]}
+            hint={linkedMoveDates(date, week.plansRows).length ? "Both days" : defaultKey === "rest" ? "Rest" : names[defaultKey]}
           />
         )}
         {date <= today && <ActionRow icon={VolleyballIcon} onClick={() => onLogVolleyball(date)} label="Log volleyball" />}
       </ul>
 
-      {vb.length > 0 && (
-        <div>
-          <p className="eyebrow mb-2">Volleyball</p>
-          <ul className="divide-y divide-line-hair overflow-hidden rounded-[14px] bg-s3">
-            {vb.map((v) => (
-              <li key={v.id} className="flex min-h-14 items-center gap-3 pl-3.5">
-                <span className="size-2 rounded-full bg-lapis" aria-hidden />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[14px] font-semibold">{vbKindLabel(v.kind)}</span>
-                  <span className="block text-[12px] text-fg-3">
-                    {[v.duration_min ? `${v.duration_min} min` : null, v.intensity ? `Intensity ${v.intensity}/5` : null].filter(Boolean).join(" · ") || "No details"}
-                  </span>
-                </span>
-                <button type="button" onClick={() => vbLog.del(v)} aria-label={`Delete ${vbKindLabel(v.kind)}`} className="grid size-11 place-items-center text-fg-3 hover:text-danger">
-                  <Trash className="size-[18px]" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <VolleyballList rows={vb} today={today} title="Volleyball" />
     </div>
   );
 }
@@ -375,6 +407,7 @@ function BackRow({ onClick, label }: { onClick: () => void; label: string }) {
 function MoveView({
   date,
   fromKey,
+  closed,
   week,
   names,
   back,
@@ -383,6 +416,7 @@ function MoveView({
 }: {
   date: ISODate;
   fromKey: string;
+  closed: boolean;
   week: Week;
   names: Record<string, string>;
   back: () => void;
@@ -391,9 +425,9 @@ function MoveView({
 }) {
   const { today } = week;
   const todayTaken = week.sessions.some((s) => s.local_date === today && (s.status === "done" || s.status === "active"));
-  const options = rescheduleOptions({ from: date, fromKey, today, plans: week.planLikes }).filter((o) => !(todayTaken && o.date === today));
+  const options = rescheduleOptions({ from: date, fromKey, today, plans: week.planLikes, closed }).filter((o) => !(todayTaken && o.date === today));
   const [picked, setPicked] = useState<RescheduleOption | null>(null);
-  const move = picked ? planMove({ from: date, to: picked.date, fromKey, toKey: picked.key, today }) : null;
+  const move = picked ? planMove({ from: date, to: picked.date, fromKey, toKey: picked.key, today, closed }) : null;
   return (
     <div className="space-y-4 pt-1">
       <BackRow onClick={back} label={`Move ${names[fromKey] ?? fromKey} to…`} />
@@ -417,9 +451,9 @@ function MoveView({
                   <span className="block text-[12px] text-fg-3">{shortDate(o.date, today)}</span>
                 </span>
                 <span className="min-w-0 flex-1 text-[13px] text-fg-2">
-                  {o.key === "rest" ? "Rest day · free" : o.kind === "swap" ? `${o.name} · swap days` : `${o.name} · replaced`}
+                  {o.key === "rest" ? "Rest day" : o.kind === "swap" ? `${o.name} · swap days` : `${o.name} · replaced`}
                 </span>
-                {o.recommended && o.key === "rest" && <span className="text-[11px] font-bold uppercase tracking-[.12em] text-fg-3">Free</span>}
+                {o.key === "rest" && !sel && <span className="text-[11px] font-bold uppercase tracking-[.12em] text-fg-3">Free</span>}
                 {sel && <Check className="size-5 text-gold-300" />}
               </button>
             </li>

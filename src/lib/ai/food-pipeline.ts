@@ -140,6 +140,21 @@ export function stripResearchClaims(text: string): string {
     .trim();
 }
 
+/**
+ * The model states its own total ("About **1,000 kcal**"), but the card shows totals
+ * recomputed from database values. Rewrite a mention of the model's whole-meal total so
+ * the sentence and the card agree; per-item numbers and anything else are left alone.
+ */
+export function alignReplyKcal(reply: string, modelTotal: number, total: number): string {
+  if (!reply || !(modelTotal > 0) || !(total > 0) || Math.abs(modelTotal - total) < 1) return reply;
+  const tolerance = Math.max(25, modelTotal * 0.06);
+  return reply.replace(/\b(\d{1,2},\d{3}|\d{2,5})(\s*)(kcal|calories)\b/gi, (match, n: string, space: string, unit: string) => {
+    const v = Number(n.replace(/,/g, ""));
+    if (Math.abs(v - modelTotal) > tolerance) return match;
+    return `${Math.round(total).toLocaleString("en-US")}${space}${unit}`;
+  });
+}
+
 export function sanitizeReply(raw: unknown): string {
   const md = cleanMarkdown(raw, 1600);
   return stripResearchClaims(md) || "";

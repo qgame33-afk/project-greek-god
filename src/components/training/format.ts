@@ -22,10 +22,14 @@ export function fmtSessionMinutes(sec: number | null | undefined) {
   return `${Math.max(1, Math.round(sec / 60))} min`;
 }
 
-/** "6 exercises · 17 sets · ~70 min" */
-export function templateMeta(t: DayTemplate) {
+/**
+ * "6 exercises · 17 sets · ~50 min" (estimate), or "· usually 72 min" when `typicalMin` comes
+ * from the user's own logged sessions of this template.
+ */
+export function templateMeta(t: DayTemplate, typicalMin?: number | null) {
   const s = templateSummary(t);
-  return `${s.exercises} ${s.exercises === 1 ? "exercise" : "exercises"} · ${s.sets} sets · ~${estimateDurationMin(t)} min`;
+  const time = typicalMin ? `usually ${typicalMin} min` : `~${estimateDurationMin(t)} min`;
+  return `${s.exercises} ${s.exercises === 1 ? "exercise" : "exercises"} · ${plural(s.sets, "set")} · ${time}`;
 }
 
 const PLURAL = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];

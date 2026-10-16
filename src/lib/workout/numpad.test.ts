@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkSuggestion } from "./fixtures";
 import { autoAdvances, nextCell, nudgeStep, padNudge, padPress, type PadBuffer, type PadKey } from "./numpad";
 import { platesFor, platesLabel } from "./plates";
-import { demoUrl, localizeLb, repRange, suggestionHeadline, targetChips } from "./copy";
+import { demoUrl, localizeLb, repRange, suggestionHeadline, suggestionReason, targetChips } from "./copy";
 import { parsePrefs } from "./prefs";
 
 const type = (start: PadBuffer, keys: PadKey[], field: "weight" | "work" | "rir") => keys.reduce((b, k) => padPress(b, k, field), start);
@@ -65,6 +65,8 @@ describe("plates", () => {
     expect(platesLabel(30, "lb")).toBeNull();
     expect(platesLabel(100, "kg")).toBe("20 bar + 25 · 15 per side");
     expect(platesLabel(186, "lb")).toBe("45 bar + 45 · 25 per side (+0.5 not loadable)");
+    expect(platesLabel(405, "lb")).toBe("45 bar + 45×4 per side");
+    expect(platesLabel(1999, "lb")).toBeNull(); // a typo, not a load
   });
 });
 
@@ -93,5 +95,12 @@ describe("copy", () => {
   it("parses stored prefs with safe defaults", () => {
     expect(parsePrefs(null)).toEqual({ tapLogsGhost: true, systemKeyboard: false, restFocus: false, haptics: true, restChime: false });
     expect(parsePrefs({ systemKeyboard: true, restChime: "yes" })).toMatchObject({ systemKeyboard: true, restChime: false });
+  });
+
+  it("words a first bodyweight movement without talking about choosing a weight", () => {
+    const first = { ...mkSuggestion("first", null), target: { low: 10, high: 15, unit: "reps" as const }, reason: "First time: choose a weight you can lift for 15 reps." };
+    expect(suggestionReason(first, "bodyweight_reps", "lb")).toMatch(/^First time: bodyweight only, clean reps up to 10–15\./);
+    expect(suggestionReason(first, "weight_reps", "lb")).toBe(first.reason);
+    expect(suggestionReason({ ...mkSuggestion("hold", 180), reason: "Stay at 180 lb." }, "weight_reps", "kg")).toBe("Stay at 81.6 kg.");
   });
 });

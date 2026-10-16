@@ -1,6 +1,6 @@
 // What applying a coach suggestion would change, computed before the confirm sheet opens.
-// Pure so it's unit-tested; the actual write goes through useSaveProfile (which records
-// goal_changes with source "suggestion").
+// Pure so it's unit-tested; the write goes through useApplyProfileChange (which records
+// goal_changes with source "suggestion") and Undo through useRevertProfileChange.
 
 import { carbsForGoal } from "@/lib/nutrition";
 import { formatInt, formatLiters } from "@/lib/units";

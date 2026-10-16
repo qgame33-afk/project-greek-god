@@ -14,7 +14,9 @@ import { useProfile } from "@/lib/data/profile";
 import { planFor, useDayPlans, useTemplates } from "@/lib/data/training";
 import type { PastSet } from "@/lib/training/progression";
 import type { PriorBest } from "@/lib/workout/pr";
+import { diffSets, isEmptyDiff, isNetworkError, setPayload } from "@/lib/workout/sync";
 import type { WSession, WSet } from "@/lib/workout/types";
+import { getDeviceCopy, setDeviceCopy } from "./stores";
 
 export interface LiveData {
   session: WSession;
@@ -26,14 +28,50 @@ export const isUuid = (id: string) => UUID.test(id);
 
 export const liveKey = (id: string, userId: string | null) => ["workout-live", id, userId] as const;
 
-export async function fetchLive(id: string): Promise<LiveData | null> {
+const online = () => typeof navigator === "undefined" || navigator.onLine !== false;
+
+export async function fetchLive(id: string, opts: { serverWins?: boolean } = {}): Promise<LiveData | null> {
   if (!isUuid(id)) return null;
+  const copy = getDeviceCopy<LiveData>(id);
   // Push anything still queued first so the read reflects every tap made on this device.
-  await drained(4000);
-  const session = must(await sb().from("workout_sessions").select("*").eq("id", id).maybeSingle());
-  if (!session) return null;
-  const sets = must(await sb().from("exercise_sets").select("*").eq("session_id", id).order("exercise_order").order("set_index"));
-  return { session, sets };
+  if (online()) await drained(4000);
+  let server: LiveData;
+  try {
+    const session = must(await sb().from("workout_sessions").select("*").eq("id", id).maybeSingle());
+    if (!session) return null;
+    const sets = must(await sb().from("exercise_sets").select("*").eq("session_id", id).order("exercise_order").order("set_index"));
+    server = { session, sets };
+  } catch (e) {
+    // No signal (a reload in a basement gym): keep training from the copy on this device.
+    if (copy && (!online() || isNetworkError(e instanceof Error ? e.message : String(e)))) return copy.data;
+    throw e;
+  }
+  if (server.session.status !== "active") return server;
+  // This device has changes the server may not hold (a write the outbox gave up on): the
+  // device copy wins, and the workout screen re-sends the difference.
+  if (copy?.dirty && !opts.serverWins && copy.data.session.id === id) {
+    return { session: { ...server.session, notes: copy.data.session.notes }, sets: copy.data.sets };
+  }
+  setDeviceCopy(id, server, false);
+  return server;
+}
+
+/**
+ * Bring the server in line with this device's copy of the session. The difference is queued
+ * through the outbox (so it stays ordered behind any newer tap) and "clean" is returned only
+ * once the server already matches.
+ */
+export async function resyncSession(id: string, local: LiveData): Promise<"clean" | "queued"> {
+  const server = must(await sb().from("exercise_sets").select("*").eq("session_id", id));
+  const ses: WSession | null = must(await sb().from("workout_sessions").select("*").eq("id", id).maybeSingle());
+  if (!ses) return "clean";
+  const d = diffSets(local.sets, server);
+  const notesDiffer = (local.session.notes ?? null) !== (ses.notes ?? null) && ses.status === local.session.status;
+  if (isEmptyDiff(d) && !notesDiffer) return "clean";
+  for (const s of d.upserts) enqueue({ kind: "insert", table: "exercise_sets", values: setPayload(s) });
+  for (const x of d.deletes) enqueue({ kind: "delete", table: "exercise_sets", id: x });
+  if (notesDiffer) enqueue({ kind: "update", table: "workout_sessions", id, values: { notes: local.session.notes } });
+  return "queued";
 }
 
 export function useLiveSession(id: string | null | undefined) {
@@ -59,7 +97,14 @@ export function useSessionOps(id: string) {
   const { userId } = useUser();
 
   const patch = useCallback(
-    (fn: (d: LiveData) => LiveData) => qc.setQueryData<LiveData | null>(liveKey(id, userId), (d) => (d ? fn(d) : d)),
+    (fn: (d: LiveData) => LiveData) =>
+      qc.setQueryData<LiveData | null>(liveKey(id, userId), (d) => {
+        if (!d) return d;
+        const next = fn(d);
+        // Every tap also lands in this device's copy, so nothing depends on the network.
+        setDeviceCopy(id, next, true);
+        return next;
+      }),
     [qc, id, userId],
   );
 
@@ -94,9 +139,9 @@ export function useSessionOps(id: string) {
         patch((d) => ({ ...d, session: { ...d.session, ...values } }));
         enqueue({ kind: "update", table: "workout_sessions", id, values });
       },
-      /** Replace the cache with server truth (after finish, or when a write was rejected). */
+      /** Replace the cache with server truth (when the server rejected a write). */
       async reload() {
-        const fresh = await fetchLive(id);
+        const fresh = await fetchLive(id, { serverWins: true });
         qc.setQueryData(liveKey(id, userId), fresh);
         return fresh;
       },

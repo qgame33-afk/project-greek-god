@@ -50,6 +50,8 @@ export interface GroupInfo {
   meal: string;
   date: string;
   ids: string[];
+  /** kcal of the rows actually in the diary (may differ from the draft after a hand-off). */
+  kcal: number;
 }
 
 export function MealDraftCard({
@@ -101,7 +103,8 @@ export function MealDraftCard({
   const [meal, setMeal] = useState<Meal>(() => (payload.meal_hint !== "unknown" ? payload.meal_hint : mealForTime()));
   const [date, setDate] = useState(todayDate);
   const [handoff, setHandoff] = useState<AIFoodItem[] | null>(null);
-  const [starred, setStarred] = useState<Set<string>>(new Set());
+  /** item id → saved_foods id (or "" while the insert is in flight) */
+  const [starred, setStarred] = useState<Map<string, string>>(new Map());
   const [session, setSession] = useState<{
     groupId: string;
     ids: string[];
@@ -231,9 +234,26 @@ export function MealDraftCard({
     }
   };
 
+  const unstar = (itemId: string) =>
+    setStarred((m) => {
+      const n = new Map(m);
+      n.delete(itemId);
+      return n;
+    });
+
+  const removeSaved = (i: AIFoodItem, savedId: string) => {
+    unstar(i.id);
+    saved.remove.mutate(savedId, {
+      onSuccess: () => toast(`Removed ${i.name} from your foods`),
+      onError: () => setStarred((m) => new Map(m).set(i.id, savedId)),
+    });
+  };
+
   const star = (i: AIFoodItem) => {
-    if (starred.has(i.id)) return;
-    setStarred((s) => new Set(s).add(i.id));
+    const current = starred.get(i.id);
+    if (current === "") return; // still saving
+    if (current) return removeSaved(i, current);
+    setStarred((m) => new Map(m).set(i.id, ""));
     saved.create.mutate(
       {
         name: i.name.slice(0, 120),
@@ -251,13 +271,17 @@ export function MealDraftCard({
         source_url: i.source?.url ?? null,
       },
       {
-        onSuccess: () => toast(`Saved ${i.name} to your foods`),
-        onError: () =>
-          setStarred((s) => {
-            const n = new Set(s);
-            n.delete(i.id);
-            return n;
-          }),
+        onSuccess: (data) => {
+          // the shared hook's return type infers as null; it is the inserted saved_foods row
+          const row = data as unknown as { id: string } | null;
+          if (!row?.id) return unstar(i.id);
+          setStarred((m) => new Map(m).set(i.id, row.id));
+          toast(`Saved ${i.name} to your foods`, {
+            duration: 6000,
+            action: { label: "Undo", onClick: () => removeSaved(i, row.id) },
+          });
+        },
+        onError: () => unstar(i.id),
       },
     );
   };
@@ -274,7 +298,7 @@ export function MealDraftCard({
         </div>
         <p className="leading-none">
           <span className="num-sm">{fmtKcal(totals.calories)}</span>
-          <span className="unit">kcal</span>
+          <span className="unit !text-[12px]">kcal</span>
         </p>
       </div>
 
@@ -296,21 +320,28 @@ export function MealDraftCard({
               </div>
               <p className="shrink-0 pt-0.5 text-right leading-none">
                 <span className="num text-[18px] text-fg">{fmtKcal(i.macros.calories)}</span>
-                <span className="ml-0.5 text-[11px] font-semibold text-fg-3">kcal</span>
+                <span className="ml-[3px] text-[12px] font-medium text-fg-2">kcal</span>
               </p>
             </div>
             <div className="mt-2 flex items-center gap-x-2.5">
               <ItemBadge item={i} />
               <MacroTrio m={i.macros} className="min-w-0 flex-1" />
-              <button
-                type="button"
-                onClick={() => star(i)}
-                aria-label={starred.has(i.id) ? `${i.name} saved to your foods` : `Save ${i.name} to your foods`}
-                aria-pressed={starred.has(i.id)}
-                className="-my-2 -mr-2.5 grid size-11 shrink-0 place-items-center rounded-full text-fg-3 hover:text-gold-300"
-              >
-                <Star className={cn("size-4", starred.has(i.id) && "fill-gold-400 text-gold-400")} />
-              </button>
+              {i.provenance === "saved" ? (
+                <span className="-my-2 -mr-2.5 grid size-11 shrink-0 place-items-center" title="Already in your saved foods">
+                  <Star className="size-4 fill-gold-400 text-gold-400" aria-hidden />
+                  <span className="sr-only">Already in your saved foods</span>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => star(i)}
+                  aria-label={starred.has(i.id) ? `Remove ${i.name} from your foods` : `Save ${i.name} to your foods`}
+                  aria-pressed={starred.has(i.id)}
+                  className="-my-2 -mr-2.5 grid size-11 shrink-0 place-items-center rounded-full text-fg-3 hover:text-gold-300"
+                >
+                  <Star className={cn("size-4", starred.has(i.id) && "fill-gold-400 text-gold-400")} />
+                </button>
+              )}
             </div>
             {i.note && (
               <p className="mt-1.5 text-[12px] leading-snug text-fg-3">
@@ -357,24 +388,45 @@ export function MealDraftCard({
                 Undo
               </button>
             </div>
-            {session?.via && <p className="mt-1.5 text-[12px] text-fg-3">Published numbers as reported by {session.via}.</p>}
+            {(() => {
+              const diaryKcal = group?.kcal;
+              const differs = diaryKcal != null && Math.abs(diaryKcal - totals.calories) >= 1;
+              if (!differs && !session?.via) return null;
+              return (
+                <p className="mt-1.5 text-[12px] leading-snug text-fg-3">
+                  {differs ? (
+                    <>
+                      Your diary has <span className="num text-[13px] text-fg-2">{fmtKcal(diaryKcal)}</span> kcal for this meal
+                      {session?.via ? `, using published numbers as reported by ${session.via}.` : ", not the draft above."}
+                    </>
+                  ) : (
+                    `Published numbers as reported by ${session?.via}.`
+                  )}
+                </p>
+              );
+            })()}
           </>
         ) : confirming ? (
           <div ref={confirmRef} className="mt-3 scroll-mb-28 space-y-3">
             <MealDatePicker onInset meal={meal} onMeal={setMeal} date={date} onDate={setDate} />
-            <p className="text-[13px] text-fg-2">
-              {items.length} {items.length === 1 ? "item" : "items"} · <span className="num text-[15px] text-fg">{fmtKcal(totals.calories)}</span> kcal →{" "}
-              {mealLabel(meal)}
-              {replacesGroup ? " · replaces the earlier logged version" : ""}
-            </p>
-            <div className="grid grid-cols-[auto_1fr] gap-2">
-              <Button variant="ghost" onClick={() => setConfirming(false)}>
+            <div className="flex items-center justify-between gap-3">
+              <p className="min-w-0 text-[13px] leading-snug text-fg-2">
+                {items.length} {items.length === 1 ? "item" : "items"} · <span className="num text-[15px] text-fg">{fmtKcal(totals.calories)}</span> kcal →{" "}
+                {mealLabel(meal)}
+                {date !== todayDate ? `, ${relativeDay(date, todayDate)}` : ""}
+                {replacesGroup ? " · replaces the earlier logged version" : ""}
+              </p>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="-my-1.5 -mr-2 h-11 shrink-0 rounded-[12px] px-3 text-[13px] font-bold text-fg-2 hover:text-fg"
+              >
                 Cancel
-              </Button>
-              <Button variant="primary" onClick={add} loading={log.isPending}>
-                {replacesGroup ? "Update logged meal" : `Add to ${mealLabel(meal)}`}
-              </Button>
+              </button>
             </div>
+            <Button variant="primary" block onClick={add} loading={log.isPending} className="px-3">
+              {replacesGroup ? "Update logged meal" : `Add to ${mealLabel(meal)}`}
+            </Button>
           </div>
         ) : (
           <div className="mt-3 space-y-2">

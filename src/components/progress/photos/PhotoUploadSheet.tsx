@@ -74,7 +74,7 @@ export function PhotoUploadSheet({ open, onOpenChange }: { open: boolean; onOpen
       { main: prepared.main, thumb: prepared.thumb, width: prepared.width, height: prepared.height, date, pose },
       {
         onSuccess: () => {
-          const done = [...saved, pose];
+          const done = saved.includes(pose) ? saved : [...saved, pose];
           setSaved(done);
           setPrepared(null);
           const next = POSES.find((p) => !done.includes(p.key));
@@ -155,10 +155,10 @@ export function PhotoUploadSheet({ open, onOpenChange }: { open: boolean; onOpen
 
         <div>
           <p className="mb-2 text-[13px] font-semibold text-fg-2">Pose</p>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Pose">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Pose">
             {POSES.map((p) => (
-              <Chip key={p.key} selected={pose === p.key} onClick={() => setPose(p.key)} className="h-11 px-4">
-                {saved.includes(p.key) && <Check className="size-3.5" aria-label="saved" />}
+              <Chip key={p.key} selected={pose === p.key} onClick={() => setPose(p.key)} className="h-11 px-4" ariaLabel={saved.includes(p.key) ? `${p.label}, saved` : undefined}>
+                {saved.includes(p.key) && <Check className="size-3.5" aria-hidden />}
                 {p.label}
               </Chip>
             ))}

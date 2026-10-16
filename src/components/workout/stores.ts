@@ -99,9 +99,70 @@ export function markMoment(sessionId: string, slug: string): boolean {
   return true;
 }
 
+/* ------------------------------------------------- device copy (offline) */
+
+// The live session as this device last showed it. `dirty` stays true from the first local
+// change until a resync has confirmed the server holds exactly the same sets, so a write the
+// outbox gave up on, or a reload with no signal, never loses a logged set.
+
+export interface DeviceCopy<T> {
+  data: T;
+  dirty: boolean;
+}
+
+const copyKey = (sessionId: string) => `pgg.live.${sessionId}`;
+
+export function getDeviceCopy<T>(sessionId: string): DeviceCopy<T> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(copyKey(sessionId));
+    return raw ? (JSON.parse(raw) as DeviceCopy<T>) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setDeviceCopy<T>(sessionId: string, data: T, dirty: boolean) {
+  try {
+    localStorage.setItem(copyKey(sessionId), JSON.stringify({ data, dirty } satisfies DeviceCopy<T>));
+  } catch {
+    /* storage full / private mode — the outbox still carries the writes */
+  }
+}
+
+export function markDeviceCopyClean(sessionId: string) {
+  const c = getDeviceCopy(sessionId);
+  if (c?.dirty) setDeviceCopy(sessionId, c.data, false);
+}
+
 /** Forget everything kept for a session once it is finished or discarded. */
 export function clearSessionStores(sessionId: string) {
   write(restKey(sessionId), null);
   write(skipKey(sessionId), null);
   write(prKey(sessionId), null);
+  try {
+    localStorage.removeItem(copyKey(sessionId));
+  } catch {
+    /* ignore */
+  }
+}
+
+/* ---------------------------------------------------------------- online */
+
+function subscribeOnline(cb: () => void) {
+  window.addEventListener("online", cb);
+  window.addEventListener("offline", cb);
+  return () => {
+    window.removeEventListener("online", cb);
+    window.removeEventListener("offline", cb);
+  };
+}
+
+/** navigator.onLine as state (true on the server and when unknown). */
+export function useOnline(): boolean {
+  return useSyncExternalStore(
+    subscribeOnline,
+    () => navigator.onLine !== false,
+    () => true,
+  );
 }

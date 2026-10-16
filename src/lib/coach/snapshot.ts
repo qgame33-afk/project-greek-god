@@ -89,6 +89,8 @@ export interface RawCoachData {
   today: ISODate;
   /** "HH:MM" on the user's device, when known */
   localTime: string | null;
+  /** IANA time zone of the user's device (else their profile), for timestamptz → local date */
+  timeZone?: string | null;
   profile: RawProfile;
   access: CoachAccess;
   goalChanges: { field: string; old_value: number | null; new_value: number | null; changed_at: string; source: string }[];
@@ -143,6 +145,17 @@ const GOAL_FIELD_LABEL: Record<string, string> = {
 
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
+/** The user's calendar date of a timestamptz (never a UTC slice: 9 pm in Toronto is tomorrow in UTC). */
+export function dateInZone(ts: string, timeZone: string | null | undefined): ISODate {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts.slice(0, 10);
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: timeZone || "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  } catch {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  }
+}
+
 /** "8 h" / "7.25 h" */
 const hours = (h: number) => `${round(h, 2)} h`;
 /** Averages to the nearest quarter hour (DESIGN: sleep precision 0.25 h). */
@@ -184,7 +197,8 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
   const lastCalChange = raw.goalChanges
     .filter((g) => g.field === "calorie_goal")
     .sort((a, b) => b.changed_at.localeCompare(a.changed_at))[0];
-  const lastCalorieChange = lastCalChange ? lastCalChange.changed_at.slice(0, 10) : null;
+  const changedOn = (ts: string) => dateInZone(ts, raw.timeZone);
+  const lastCalorieChange = lastCalChange ? changedOn(lastCalChange.changed_at) : null;
 
   /* ------------------------------------------------------------ profile */
   if (access.profile) {
@@ -196,7 +210,7 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
     if (p.height_cm) fact("profile", "logged", "prof.height", "Height", formatHeight(p.height_cm, lu));
     fact("profile", "logged", "prof.experience", "Training experience", cap(p.experience));
     fact("profile", "plan", "prof.volleyball", "Volleyball planned", `${p.volleyball_per_week}× per week`);
-    const recent = raw.goalChanges.filter((g) => g.changed_at.slice(0, 10) >= addDays(today, -90)).slice(0, 6);
+    const recent = raw.goalChanges.filter((g) => changedOn(g.changed_at) >= addDays(today, -90)).slice(0, 6);
     for (const [i, g] of recent.entries()) {
       fact(
         "profile",
@@ -204,7 +218,7 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
         `goal.change.${i + 1}`,
         `${GOAL_FIELD_LABEL[g.field] ?? cap(g.field.replace(/_/g, " "))} changed`,
         `${goalValue(g.field, g.old_value)} → ${goalValue(g.field, g.new_value)}`,
-        `on ${sd(g.changed_at.slice(0, 10))} (${g.source})`,
+        `on ${sd(changedOn(g.changed_at))} (${g.source})`,
       );
     }
   }
@@ -299,21 +313,33 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
     fact("training", "plan", "plan.yesterday", "Yesterday's plan", yPlan.name, yPlan.detail);
     const tPlan = planLine(addDays(today, 1));
     fact("training", "plan", "plan.tomorrow", "Tomorrow's plan", tPlan.name, tPlan.detail);
+    // Planned days before the user's start date were never part of the plan: they are not
+    // "missed" (a new user must not hear 0% adherence for days before they began).
+    const started = (from: ISODate) => (p.start_date > from ? p.start_date : from);
+    const sinceStart = (from: ISODate) => (p.start_date > from ? ` (counting from the start date, ${sd(p.start_date)})` : "");
     const week = weekDates(today);
     const weekDetail = week
       .map((d) => {
         const k = planOf(d);
         const done = sessionsOn(d).some((s) => s.status === "done");
-        return `${dayName(d, true)} ${tplName(k)}${d === today ? " (today)" : ""}${done ? " — done" : d < today && k !== "rest" ? " — not logged" : ""}`;
+        const status = done ? " — done" : d < p.start_date && d < today ? " — before the start date" : d < today && k !== "rest" ? " — not logged" : "";
+        return `${dayName(d, true)} ${tplName(k)}${d === today ? " (today)" : ""}${status}`;
       })
       .join("; ");
     const weekAd = trainingAdherence(doneDates, week[0], week[6], today, planOf);
     fact("training", "logged", "plan.week", "This week", `${weekAd.done} session${weekAd.done === 1 ? "" : "s"} done`, weekDetail);
 
-    const a7 = trainingAdherence(doneDates, addDays(today, -6), today, today, planOf);
-    const a28 = trainingAdherence(doneDates, addDays(today, -27), today, today, planOf);
-    fact("training", "logged", "tr.count7", "Sessions, last 7 days", String(a7.done), `${a7.plannedDone} of ${a7.planned} planned training days done so far`);
-    fact("training", "logged", "tr.count28", "Sessions, last 28 days", String(a28.done), `${a28.plannedDone} of ${a28.planned} planned training days done (${a28.planned ? Math.round((a28.plannedDone / a28.planned) * 100) : 0}% adherence)${a28.extra > 0 ? `, ${a28.extra} extra` : ""}`);
+    const a7 = trainingAdherence(doneDates, started(addDays(today, -6)), today, today, planOf);
+    const a28 = trainingAdherence(doneDates, started(addDays(today, -27)), today, today, planOf);
+    fact("training", "logged", "tr.count7", "Sessions, last 7 days", String(a7.done), `${a7.plannedDone} of ${a7.planned} planned training days done so far${sinceStart(addDays(today, -6))}`);
+    fact(
+      "training",
+      "logged",
+      "tr.count28",
+      "Sessions, last 28 days",
+      String(a28.done),
+      `${a28.plannedDone} of ${a28.planned} planned training days done${a28.planned ? ` (${Math.round((a28.plannedDone / a28.planned) * 100)}% adherence)` : ""}${a28.extra > 0 ? `, ${a28.extra} extra` : ""}${sinceStart(addDays(today, -27))}`,
+    );
 
     const sessions = [...t.sessions].filter((s) => s.status === "done").sort((a, b) => b.local_date.localeCompare(a.local_date));
     if (!sessions.length) note("No finished workouts in the last 28 days.");

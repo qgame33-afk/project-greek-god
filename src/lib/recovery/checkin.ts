@@ -43,10 +43,7 @@ export const SLEEP_MIN = 0;
 export const SLEEP_MAX = 16;
 export const PAIN_MAX = 500;
 
-/**
- * Snap to the 0.25 h grid. The column is numeric(3,1), so 7.25 is stored as 7.3 and
- * 7.75 as 7.8 — snapping on read recovers the exact quarter the user entered.
- */
+/** Snap typed sleep to the 0.25 h grid the stepper uses (7.1 → 7, 7.4 → 7.5). */
 export function snapSleep(
   h: number | string | null | undefined,
 ): number | null {
@@ -57,6 +54,20 @@ export function snapSleep(
   return Math.min(SLEEP_MAX, Math.max(SLEEP_MIN, s));
 }
 
+/**
+ * A stored sleep value exactly as logged (to 0.01 h). The column is numeric(4,2), so a
+ * quarter hour round-trips; older values off the 0.25 grid (6.6) are shown and kept as-is
+ * rather than silently rewritten when another field of the check-in is edited.
+ */
+export function storedSleep(
+  h: number | string | null | undefined,
+): number | null {
+  if (h == null || h === "") return null;
+  const n = Number(h);
+  if (!Number.isFinite(n) || n < 0 || n > 24) return null;
+  return Math.round(n * 100) / 100;
+}
+
 const scale = (v: number | null | undefined) =>
   v != null && v >= 1 && v <= 5 ? Math.round(v) : null;
 
@@ -65,7 +76,7 @@ export function draftFromRow(
 ): CheckinDraft {
   if (!row) return { ...EMPTY_DRAFT };
   return {
-    sleep: snapSleep(row.sleep_hours),
+    sleep: storedSleep(row.sleep_hours),
     quality: scale(row.sleep_quality),
     energy: scale(row.energy),
     soreness: scale(row.soreness),
@@ -80,7 +91,7 @@ export function draftToPayload(date: ISODate, d: CheckinDraft) {
   const pain = d.pain.trim().slice(0, PAIN_MAX);
   return {
     local_date: date,
-    sleep_hours: d.sleep == null ? null : snapSleep(d.sleep),
+    sleep_hours: storedSleep(d.sleep),
     sleep_quality: scale(d.quality),
     energy: scale(d.energy),
     soreness: scale(d.soreness),
@@ -190,7 +201,7 @@ export function loadStoredDraft(date: ISODate): CheckinDraft | null {
     if (!raw) return null;
     const v = JSON.parse(raw) as Partial<CheckinDraft>;
     return {
-      sleep: snapSleep(v.sleep ?? null),
+      sleep: storedSleep(v.sleep ?? null),
       quality: scale(v.quality ?? null),
       energy: scale(v.energy ?? null),
       soreness: scale(v.soreness ?? null),

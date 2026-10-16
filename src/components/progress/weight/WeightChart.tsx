@@ -18,7 +18,7 @@ export interface WeightChartProps {
   unit: string;
   /** Called with the scrubbed row (null on release). */
   onScrub: (row: WeightRow | null) => void;
-  /** Desktop also shows a small tooltip. */
+  /** Hover-capable pointer (desktop): mouse scrubbing through the tooltip, plus a small tooltip. */
   tooltip: boolean;
 }
 
@@ -33,6 +33,16 @@ export default function WeightChart({ rows, domainX, domainY, ticksX, showPlan, 
   }, []);
   const [active, setActive] = useState(false);
   const picker = useRef<Picker | null>(null);
+  // Last row the tooltip reported; cleared on leave so re-hovering the same point scrubs again.
+  const sinkLast = useRef<string | null>(null);
+  // If the chart re-renders with new data or unmounts mid-scrub (no mouseleave fires), the hero
+  // must not stay on a past weigh-in.
+  useEffect(() => () => onScrub(null), [onScrub]);
+  const leave = () => {
+    sinkLast.current = null;
+    setActive(false);
+    onScrub(null);
+  };
   const svgLeft = (el: HTMLElement) => el.querySelector("svg.recharts-surface")?.getBoundingClientRect().left ?? el.getBoundingClientRect().left;
   const touch = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse") return;
@@ -46,14 +56,8 @@ export default function WeightChart({ rows, domainX, domainY, ticksX, showPlan, 
   return (
     <div
       className="h-full w-full [&_.recharts-surface]:outline-none [&_*:focus]:outline-none"
-      onTouchEnd={() => {
-        setActive(false);
-        onScrub(null);
-      }}
-      onMouseLeave={() => {
-        setActive(false);
-        onScrub(null);
-      }}
+      onTouchEnd={leave}
+      onMouseLeave={leave}
       onTouchStart={() => setActive(true)}
       onMouseEnter={() => setActive(true)}
       onPointerDown={touch}
@@ -86,10 +90,13 @@ export default function WeightChart({ rows, domainX, domainY, ticksX, showPlan, 
           />
           <YAxis orientation="right" domain={[yTicks(domainY)[0], yTicks(domainY).at(-1)!]} ticks={yTicks(domainY)} axisLine={false} tickLine={false} tick={<YTick />} width={36} interval={0} />
           <Tooltip
-            cursor={{ stroke: GOLD, strokeWidth: 1 }}
+            cursor={tooltip ? { stroke: GOLD, strokeWidth: 1 } : false}
             isAnimationActive={false}
-            active={active ? undefined : false}
-            content={<ScrubSink onScrub={onScrub} tooltip={tooltip} unit={unit} />}
+            // Touch screens fire emulated mouse events after a tap, which would leave Recharts'
+            // hover state (and the hero) stuck on a past weigh-in. There, only the pointer-driven
+            // TouchScrubber below scrubs, and it always restores the latest value on release.
+            active={tooltip && active ? undefined : false}
+            content={<ScrubSink onScrub={onScrub} tooltip={tooltip} unit={unit} lastRef={sinkLast} />}
           />
           <Area dataKey="avg" type="monotone" stroke="none" fill="url(#pgg-avg-fill)" connectNulls isAnimationActive={animate} animationDuration={700} activeDot={false} />
           {showPlan && (
@@ -170,18 +177,18 @@ interface SinkProps {
   onScrub: (row: WeightRow | null) => void;
   tooltip: boolean;
   unit: string;
+  lastRef: React.RefObject<string | null>;
 }
 
 /** Tooltip content that reports the scrubbed row upward; renders a tooltip only on desktop. */
-function ScrubSink({ active, payload, onScrub, tooltip, unit }: SinkProps) {
+function ScrubSink({ active, payload, onScrub, tooltip, unit, lastRef }: SinkProps) {
   const row = active ? (payload?.[0]?.payload ?? null) : null;
-  const last = useRef<string | null>(null);
   useEffect(() => {
     const k = row ? row.date : null;
-    if (k === last.current) return;
-    last.current = k;
+    if (k === lastRef.current) return;
+    lastRef.current = k;
     onScrub(row);
-  }, [row, onScrub]);
+  }, [row, onScrub, lastRef]);
   if (!tooltip || !row || (row.weight == null && row.avg == null && row.plan == null)) return null;
   return (
     <div className="rounded-[12px] border border-line-strong bg-s3 px-3 py-2 shadow-[var(--e2)]">
