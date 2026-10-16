@@ -6,8 +6,9 @@ Read this, `DESIGN.md` (the authoritative visual/interaction spec) and the relev
 ## Stack
 - Next.js 16 App Router (**read `node_modules/next/dist/docs/` for anything you're unsure of** —
   `middleware` is now `src/proxy.ts`, request APIs (`params`, `cookies()`) are async, Turbopack is
-  default, `cacheComponents` is on: don't read cookies/headers in server components outside
-  Suspense — feature pages are client components that fetch with TanStack Query).
+  default. `cacheComponents` and partial prefetching are OFF: every app screen is private and
+  renders on the client after mount (the AppShell gates on mount so dates follow the user's
+  timezone) — feature pages are client components that fetch with TanStack Query).
 - React 19.3 (`<ViewTransition>` available from "react"), TypeScript strict, Tailwind v4 (tokens in
   `src/app/globals.css`), `motion` (`motion/react`, always `m.*` under the app's `LazyMotion` —
   never `motion.*`), `radix-ui` unified package (`import { Dialog } from "radix-ui"`), `vaul`,

@@ -21,7 +21,7 @@ export function useFoodEntries(date: ISODate) {
     queryFn: async () => must(await sb().from("food_entries").select("*").eq("local_date", date).order("eaten_at", { ascending: true })),
   });
   const entries = q.data ?? [];
-  return { entries, totals: sumMacros(entries), loading: q.isLoading, error: q.error, refetch: q.refetch };
+  return { entries, totals: sumMacros(entries), loading: q.isLoading, error: q.error, hasData: q.data !== undefined, refetch: q.refetch };
 }
 
 /** Per-day totals for a date range (from the daily_nutrition view). */
@@ -39,7 +39,7 @@ export function useDailyNutrition(from: ISODate, to: ISODate) {
 export function useRecentFoods(limit = 30) {
   const { userId } = useUser();
   return useQuery({
-    queryKey: ["food-recent", userId],
+    queryKey: ["food-recent", userId, limit],
     enabled: !!userId,
     queryFn: async () => {
       const rows = must(await sb().from("food_entries").select("*").order("eaten_at", { ascending: false }).limit(200));
@@ -266,7 +266,7 @@ export function useWater(date: ISODate) {
     queryFn: async () => must(await sb().from("water_logs").select("*").eq("local_date", date).order("logged_at")),
   });
   const logs = q.data ?? [];
-  return { logs, totalMl: logs.reduce((a, l) => a + l.amount_ml, 0), loading: q.isLoading };
+  return { logs, totalMl: logs.reduce((a, l) => a + l.amount_ml, 0), loading: q.isLoading, error: q.error, hasData: q.data !== undefined };
 }
 
 export function useDailyWater(from: ISODate, to: ISODate) {
@@ -290,11 +290,12 @@ export function useWaterMutations(date: ISODate) {
   // one scope: an Undo tapped while its insert is still in flight runs after the insert lands
   const add = useMutation({
     scope: { id: "water-logs" },
-    mutationFn: async ({ id, ml }: { id: string; ml: number }) => must(await sb().from("water_logs").insert({ id, local_date: date, amount_ml: ml }).select("*").single()),
-    onMutate: async ({ id, ml }) => {
+    mutationFn: async ({ id, ml, loggedAt }: { id: string; ml: number; loggedAt?: string }) =>
+      must(await sb().from("water_logs").insert({ id, local_date: date, amount_ml: ml, ...(loggedAt ? { logged_at: loggedAt } : {}) }).select("*").single()),
+    onMutate: async ({ id, ml, loggedAt }) => {
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<WaterLog[]>(key) ?? [];
-      qc.setQueryData<WaterLog[]>(key, [...prev, { id, user_id: userId!, local_date: date, amount_ml: ml, logged_at: new Date().toISOString() }]);
+      qc.setQueryData<WaterLog[]>(key, [...prev, { id, user_id: userId!, local_date: date, amount_ml: ml, logged_at: loggedAt ?? new Date().toISOString() }]);
       return { prev };
     },
     onError: (e: Error, _v, ctx) => {
@@ -319,9 +320,9 @@ export function useWaterMutations(date: ISODate) {
     onSettled: settle,
   });
   /** Logs a tap and returns its row id (for an exact Undo). */
-  const addMl = (ml: number) => {
+  const addMl = (ml: number, opts?: { loggedAt?: string }) => {
     const id = newId();
-    add.mutate({ id, ml });
+    add.mutate({ id, ml, loggedAt: opts?.loggedAt });
     return id;
   };
   return { addMl, remove, adding: add.isPending };

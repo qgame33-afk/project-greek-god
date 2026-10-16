@@ -27,6 +27,9 @@ describe("units", () => {
     expect(parseNumber("72,5")).toBe(72.5);
     expect(parseNumber("  ")).toBeNull();
     expect(parseNumber("abc")).toBeNull();
+    expect(parseNumber("1,200")).toBe(1200);
+    expect(parseNumber("1.234,5")).toBeNull();
+    expect(parseNumber("-2.5")).toBe(-2.5);
   });
 });
 

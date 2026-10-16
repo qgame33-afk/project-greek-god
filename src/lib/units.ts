@@ -96,12 +96,23 @@ export function formatInt(n: number | null | undefined) {
   return Math.round(n).toLocaleString("en-US");
 }
 
-/** Parse user input that may use a comma decimal; returns null for blanks or junk. */
+/**
+ * Parse typed input. A comma grouping digits in threes is a thousands separator ("1,200" →
+ * 1200); a lone comma is a decimal comma ("72,5" → 72.5); anything ambiguous ("1.234,5") or
+ * malformed returns null rather than a guess.
+ */
 export function parseNumber(input: string | number | null | undefined): number | null {
   if (input == null) return null;
   if (typeof input === "number") return Number.isFinite(input) ? input : null;
-  const s = input.trim().replace(",", ".");
+  const s = input.trim().replace(/\s+/g, "");
   if (s === "") return null;
-  const n = Number(s);
+  const neg = s.startsWith("-");
+  const body = neg ? s.slice(1) : s;
+  let t: string;
+  if (/^[1-9]\d{0,2}(,\d{3})+(\.\d+)?$/.test(body)) t = body.replace(/,/g, "");
+  else if (/^\d+,\d+$/.test(body)) t = body.replace(",", ".");
+  else if (/^\d*\.?\d+$|^\d+\.$/.test(body)) t = body;
+  else return null;
+  const n = Number(t) * (neg ? -1 : 1);
   return Number.isFinite(n) ? n : null;
 }

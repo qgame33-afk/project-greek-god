@@ -344,7 +344,7 @@
 @utility unit {
   font-family: var(--font-sans);
   font-weight: 500;
-  font-size: 0.4em;
+  font-size: max(12px, 0.4em);
   color: var(--text-2);
   margin-left: 3px;
   letter-spacing: 0;

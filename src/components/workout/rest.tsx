@@ -319,7 +319,7 @@ export function RestFocus({ sessionId, rest, onClose }: { sessionId: string; res
           </div>
         )}
       </div>
-      <div className="relative grid grid-cols-4 content-end gap-3 px-6 pt-4" style={{ paddingBottom: "calc(var(--safe-bottom) + 36px)", minHeight: "35vh" }}>
+      <div className="relative mx-auto grid w-full max-w-[440px] grid-cols-4 content-end gap-3 px-6 pt-4" style={{ paddingBottom: "calc(var(--safe-bottom) + 36px)", minHeight: "35vh" }}>
         <FocusButton label="Subtract 15 seconds" onClick={() => a.adjust(-15)}>
           <span className="num text-[20px] font-semibold">−15</span>
         </FocusButton>

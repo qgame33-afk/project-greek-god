@@ -6,6 +6,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Drawer } from "vaul";
 import { cn } from "@/lib/cn";
 
+/** Taps on a toast (e.g. its Undo) must never dismiss the sheet underneath. */
+function keepOpenForToasts(e: { target: EventTarget | null; preventDefault: () => void }) {
+  const el = e.target as Element | null;
+  if (el?.closest?.("[data-sonner-toaster]")) e.preventDefault();
+}
+
 export function useMediaQuery(query: string) {
   const [match, setMatch] = useState(false);
   useEffect(() => {
@@ -38,7 +44,7 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
   const header = (Title: typeof Dialog.Title, Desc: typeof Dialog.Description, Close: typeof Dialog.Close) => (
     <div className="flex min-h-14 items-center justify-between gap-3 px-5 pt-1">
       <div className="min-w-0">
-        <Title className="t-h3 truncate">{title}</Title>
+        <Title className="t-h2 truncate">{title}</Title>
         {description ? (
           <Desc className="text-[13px] text-fg-2">{description}</Desc>
         ) : (
@@ -64,6 +70,13 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--scrim)] data-[state=open]:animate-[rise_200ms_var(--ease-out)]" />
           <Dialog.Content
+            onPointerDownOutside={keepOpenForToasts}
+            onInteractOutside={keepOpenForToasts}
+            onOpenAutoFocus={(e) => {
+              e.preventDefault();
+              (e.currentTarget as HTMLElement | null)?.focus();
+            }}
+            tabIndex={-1}
             className={cn(
               "fixed left-1/2 top-1/2 z-[51] flex max-h-[86dvh] w-[calc(100vw-48px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[24px] border border-line bg-s2 shadow-[var(--e3)] outline-none",
               wide ? "max-w-[720px]" : "max-w-[560px]",
@@ -81,7 +94,10 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
     <Drawer.Root open={open} onOpenChange={onOpenChange} repositionInputs={false}>
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 z-50 bg-[var(--scrim)]" />
-        <Drawer.Content className="fixed inset-x-0 bottom-0 z-[51] flex max-h-[92dvh] flex-col rounded-t-[28px] border-t border-line bg-s2 shadow-[var(--e3)] outline-none">
+        <Drawer.Content
+          onPointerDownOutside={keepOpenForToasts}
+          onInteractOutside={keepOpenForToasts}
+          className="fixed inset-x-0 bottom-0 z-[51] flex max-h-[92dvh] flex-col rounded-t-[28px] border-t border-line bg-s2 shadow-[var(--e3)] outline-none">
           <div className="mx-auto mt-2.5 h-[5px] w-9 shrink-0 rounded-full bg-white/20" aria-hidden />
           {header(Drawer.Title as unknown as typeof Dialog.Title, Drawer.Description as unknown as typeof Dialog.Description, Drawer.Close as unknown as typeof Dialog.Close)}
           {body}

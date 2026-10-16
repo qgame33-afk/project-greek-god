@@ -43,7 +43,11 @@ export function useSaveProfile() {
         const changes = tracked
           .filter((k) => values[k as keyof typeof values] != null && Number(values[k as keyof typeof values]) !== Number(before[k]))
           .map((k) => ({ field: k, old_value: before[k] == null ? null : Number(before[k]), new_value: Number(values[k as keyof typeof values]), reason: reason ?? null, source }));
-        if (changes.length) await sb().from("goal_changes").insert(changes);
+        if (changes.length) {
+          const { error } = await sb().from("goal_changes").insert(changes);
+          // the goal itself saved; only the history note failed — say so, don't roll back
+          if (error) toast.error("Goal saved, but its history entry couldn't be recorded", { description: error.message });
+        }
       }
     },
     onMutate: async ({ values }) => {
