@@ -570,6 +570,7 @@ export const INGREDIENTS: IngredientEntry[] = [
     unitGrams: { piece: 200, cup: 124 },
     nouns: { piece: ["zucchini", "zucchini"] },
     pack: { size: 2, unit: "piece", label: "2 zucchini", priceCad: 2.49 },
+    shortcut: "frozen-mixed-veg",
   }),
   I("potatoes", "Russet potatoes", [79, 2.1, 18.1, 0.1], "vegetables", PLANT, {
     unitGrams: { piece: 213 },
