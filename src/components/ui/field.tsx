@@ -1,18 +1,25 @@
 "use client";
 
-import { forwardRef, useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { forwardRef, useEffect, useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const fieldCls =
   "h-[52px] w-full rounded-[12px] border border-line-field bg-s3 px-3.5 text-[16px] font-medium text-fg placeholder:text-fg-3 outline-none transition-[border-color,box-shadow] focus:border-gold-400 focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)] disabled:opacity-50 aria-invalid:border-danger";
 
-export function Label({ htmlFor, children, hint }: { htmlFor?: string; children: ReactNode; hint?: ReactNode }) {
+/** Field label. The hint sits outside <label> so it isn't read as part of the field's name. */
+export function Label({ htmlFor, children, hint, hintId }: { htmlFor?: string; children: ReactNode; hint?: ReactNode; hintId?: string }) {
   return (
-    <label htmlFor={htmlFor} className="mb-1.5 flex items-baseline justify-between gap-2 text-[13px] font-semibold text-fg-2">
-      <span>{children}</span>
-      {hint && <span className="text-[12px] font-medium text-fg-3">{hint}</span>}
-    </label>
+    <div className="mb-1.5 flex items-baseline justify-between gap-2">
+      <label htmlFor={htmlFor} className="text-[13px] font-semibold text-fg-2">
+        {children}
+      </label>
+      {hint && (
+        <span id={hintId} className="text-[12px] font-medium text-fg-3">
+          {hint}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -65,14 +72,32 @@ export function Field({
   className?: string;
 }) {
   const id = useId();
+  const hintId = hint ? `${id}-hint` : undefined;
+  const errId = error ? `${id}-err` : undefined;
+  // Tie the hint and error to whatever control the caller rendered with `id`, and mark it invalid
+  // while an error shows (children are a render prop, so this is set on the element directly).
+  useEffect(() => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const ids = [hintId, errId].filter(Boolean).join(" ");
+    if (ids) el.setAttribute("aria-describedby", ids);
+    else el.removeAttribute("aria-describedby");
+    if (!errId) return;
+    const had = el.getAttribute("aria-invalid");
+    el.setAttribute("aria-invalid", "true");
+    return () => {
+      if (had == null) el.removeAttribute("aria-invalid");
+      else el.setAttribute("aria-invalid", had);
+    };
+  }, [id, hintId, errId]);
   return (
     <div className={className}>
-      <Label htmlFor={id} hint={hint}>
+      <Label htmlFor={id} hint={hint} hintId={hintId}>
         {label}
       </Label>
       {children(id)}
       {error && (
-        <p className="mt-1.5 text-[13px] font-medium text-danger" role="alert">
+        <p id={errId} className="mt-1.5 text-[13px] font-medium text-danger" role="alert">
           {error}
         </p>
       )}

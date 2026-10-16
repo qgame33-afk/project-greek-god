@@ -12,7 +12,7 @@ type Values = Update<"profiles">;
  * goal_changes) with a double-submit guard, an inline error the sheet can show while keeping
  * the user's input, and an Undo toast that restores the previous values.
  */
-export function useCommit() {
+export function useCommit({ inline = true }: { /** the caller renders `error` (e.g. in an EditSheet); else failures toast */ inline?: boolean } = {}) {
   const { profile } = useProfile();
   const save = useSaveProfile();
   const busy = useRef(false);
@@ -28,7 +28,7 @@ export function useCommit() {
     setError(null);
     const prev = snapshot(profile, values);
     save.mutate(
-      { values, reason: opts.reason?.trim() || undefined },
+      { values, reason: opts.reason?.trim() || undefined, quiet: inline },
       {
         onSuccess: () => {
           opts.onDone?.();

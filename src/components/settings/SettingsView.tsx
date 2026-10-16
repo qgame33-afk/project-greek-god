@@ -106,7 +106,7 @@ export function SettingsView() {
   const today = useToday();
   const status = useAppStatus();
   const credits = useCredits();
-  const { commit } = useCommit();
+  const { commit } = useCommit({ inline: false });
   const { signOut, pending: signingOut, dialog: signOutDialog } = useSignOut();
   // Arriving from a password-reset email opens "Set a new password" straight away.
   const [sheet, setSheet] = useState<SheetId | null>(recovery ? "password" : null);

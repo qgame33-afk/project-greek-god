@@ -32,7 +32,8 @@ export function useSaveProfile() {
   const qc = useQueryClient();
   const { userId } = useUser();
   return useMutation({
-    mutationFn: async ({ values, reason, source = "user" }: { values: Update<"profiles">; reason?: string; source?: "user" | "suggestion" | "onboarding" }) => {
+    // `quiet`: the caller shows its own inline error, so skip the generic toast (rollback still runs).
+    mutationFn: async ({ values, reason, source = "user" }: { values: Update<"profiles">; reason?: string; source?: "user" | "suggestion" | "onboarding"; quiet?: boolean }) => {
       // Read the stored values first (the cache already holds the optimistic ones).
       const tracked = TRACKED.filter((k) => k in values);
       const before = tracked.length
@@ -56,9 +57,9 @@ export function useSaveProfile() {
       if (prev) qc.setQueryData(["profile", userId], { ...prev, ...values });
       return { prev };
     },
-    onError: (e: Error, _v, ctx) => {
+    onError: (e: Error, v, ctx) => {
       if (ctx?.prev) qc.setQueryData(["profile", userId], ctx.prev);
-      toast.error("Couldn't save", { description: e.message });
+      if (!v.quiet) toast.error("Couldn't save", { description: e.message });
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["profile"] });

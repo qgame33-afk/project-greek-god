@@ -79,7 +79,7 @@ self.addEventListener("push", (event) => {
   const options = {
     body: typeof data.body === "string" ? data.body : "",
     icon: "/icons/icon-192.png",
-    badge: "/icons/favicon-32.png",
+    badge: "/icons/badge-96.png",
     tag: typeof data.tag === "string" ? data.tag : "pgg",
     renotify: false,
     timestamp: typeof data.ts === "number" ? data.ts : Date.now(),
