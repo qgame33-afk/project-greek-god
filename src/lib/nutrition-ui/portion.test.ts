@@ -46,6 +46,7 @@ const row = (over: Partial<FoodRow> = {}): FoodRow => ({
   meal_group_id: null,
   saved_food_id: null,
   photo_path: null,
+  planned_meal_id: null,
   created_at: "",
   updated_at: "",
   ...over,

@@ -417,6 +417,28 @@ export type Database = {
           },
         ];
       };
+      favourite_recipes: {
+        Row: {
+          created_at: string;
+          recipe_key: string;
+          repeat_ok: boolean;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          recipe_key: string;
+          repeat_ok?: boolean;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          recipe_key?: string;
+          repeat_ok?: boolean;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       food_entries: {
         Row: {
           amount: number;
@@ -439,6 +461,7 @@ export type Database = {
           meal_group_id: string | null;
           name: string;
           photo_path: string | null;
+          planned_meal_id: string | null;
           protein_g: number;
           saved_food_id: string | null;
           source: string;
@@ -470,6 +493,7 @@ export type Database = {
           meal_group_id?: string | null;
           name: string;
           photo_path?: string | null;
+          planned_meal_id?: string | null;
           protein_g?: number;
           saved_food_id?: string | null;
           source?: string;
@@ -500,6 +524,7 @@ export type Database = {
           meal_group_id?: string | null;
           name?: string;
           photo_path?: string | null;
+          planned_meal_id?: string | null;
           protein_g?: number;
           saved_food_id?: string | null;
           source?: string;
@@ -509,7 +534,15 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "food_entries_planned_meal_id_fkey";
+            columns: ["planned_meal_id"];
+            isOneToOne: false;
+            referencedRelation: "planned_meals";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       goal_changes: {
         Row: {
@@ -544,6 +577,75 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
+      };
+      grocery_items: {
+        Row: {
+          category: string;
+          checked: boolean;
+          created_at: string;
+          custom: boolean;
+          est_cost_cad: number | null;
+          have: boolean;
+          id: string;
+          key: string;
+          label: string | null;
+          name: string;
+          plan_id: string;
+          position: number;
+          qty: number | null;
+          removed: boolean;
+          unit: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          category?: string;
+          checked?: boolean;
+          created_at?: string;
+          custom?: boolean;
+          est_cost_cad?: number | null;
+          have?: boolean;
+          id?: string;
+          key: string;
+          label?: string | null;
+          name: string;
+          plan_id: string;
+          position?: number;
+          qty?: number | null;
+          removed?: boolean;
+          unit?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          category?: string;
+          checked?: boolean;
+          created_at?: string;
+          custom?: boolean;
+          est_cost_cad?: number | null;
+          have?: boolean;
+          id?: string;
+          key?: string;
+          label?: string | null;
+          name?: string;
+          plan_id?: string;
+          position?: number;
+          qty?: number | null;
+          removed?: boolean;
+          unit?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "grocery_items_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "meal_plans";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       habit_definitions: {
         Row: {
@@ -616,6 +718,140 @@ export type Database = {
         };
         Relationships: [];
       };
+      meal_feedback: {
+        Row: {
+          created_at: string;
+          event: string;
+          features: string[];
+          id: string;
+          ingredient: string | null;
+          reason: string | null;
+          recipe_key: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          event: string;
+          features?: string[];
+          id?: string;
+          ingredient?: string | null;
+          reason?: string | null;
+          recipe_key: string;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          event?: string;
+          features?: string[];
+          id?: string;
+          ingredient?: string | null;
+          reason?: string | null;
+          recipe_key?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      meal_plans: {
+        Row: {
+          created_at: string;
+          grocery_budget_cad: number | null;
+          grocery_generated_at: string | null;
+          id: string;
+          settings: NonNullable<Json>;
+          updated_at: string;
+          user_id: string;
+          week_start: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          grocery_budget_cad?: number | null;
+          grocery_generated_at?: string | null;
+          id?: string;
+          settings?: NonNullable<Json>;
+          updated_at?: string;
+          user_id?: string;
+          week_start: string;
+        };
+        Update: {
+          created_at?: string;
+          grocery_budget_cad?: number | null;
+          grocery_generated_at?: string | null;
+          id?: string;
+          settings?: NonNullable<Json>;
+          updated_at?: string;
+          user_id?: string;
+          week_start?: string;
+        };
+        Relationships: [];
+      };
+      meal_prefs: {
+        Row: {
+          allergies: string[];
+          budget: string;
+          created_at: string;
+          diets: string[];
+          difficulty: string;
+          disliked_cuisines: string[];
+          disliked_ingredients: string[];
+          equipment: string[];
+          liked_cuisines: string[];
+          liked_ingredients: string[];
+          max_minutes: number | null;
+          pantry: string[];
+          snacks_per_day: number;
+          updated_at: string;
+          user_id: string;
+          weekly_budget_cad: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          allergies?: string[];
+          budget?: string;
+          created_at?: string;
+          diets?: string[];
+          difficulty?: string;
+          disliked_cuisines?: string[];
+          disliked_ingredients?: string[];
+          equipment?: string[];
+          liked_cuisines?: string[];
+          liked_ingredients?: string[];
+          max_minutes?: number | null;
+          pantry?: string[];
+          snacks_per_day?: number;
+          updated_at?: string;
+          user_id?: string;
+          weekly_budget_cad?: number | null;
+        };
+        Update: {
+          allergies?: string[];
+          budget?: string;
+          created_at?: string;
+          diets?: string[];
+          difficulty?: string;
+          disliked_cuisines?: string[];
+          disliked_ingredients?: string[];
+          equipment?: string[];
+          liked_cuisines?: string[];
+          liked_ingredients?: string[];
+          max_minutes?: number | null;
+          pantry?: string[];
+          snacks_per_day?: number;
+          updated_at?: string;
+          user_id?: string;
+          weekly_budget_cad?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "meal_prefs_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       monthly_reviews: {
         Row: {
           generated_at: string;
@@ -646,6 +882,63 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
+      };
+      planned_meals: {
+        Row: {
+          created_at: string;
+          history: NonNullable<Json>;
+          id: string;
+          local_date: string;
+          locked: boolean;
+          plan_id: string;
+          position: number;
+          reason: Json | null;
+          recipe_key: string;
+          servings: number;
+          slot: string;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          history?: NonNullable<Json>;
+          id?: string;
+          local_date: string;
+          locked?: boolean;
+          plan_id: string;
+          position?: number;
+          reason?: Json | null;
+          recipe_key: string;
+          servings?: number;
+          slot: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          history?: NonNullable<Json>;
+          id?: string;
+          local_date?: string;
+          locked?: boolean;
+          plan_id?: string;
+          position?: number;
+          reason?: Json | null;
+          recipe_key?: string;
+          servings?: number;
+          slot?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "planned_meals_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "meal_plans";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       profiles: {
         Row: {
@@ -851,6 +1144,37 @@ export type Database = {
           id?: string;
           p256dh?: string;
           user_agent?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      recipes: {
+        Row: {
+          base_key: string | null;
+          created_at: string;
+          data: NonNullable<Json>;
+          id: string;
+          name: string;
+          origin: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          base_key?: string | null;
+          created_at?: string;
+          data: NonNullable<Json>;
+          id?: string;
+          name: string;
+          origin: string;
+          user_id?: string;
+        };
+        Update: {
+          base_key?: string | null;
+          created_at?: string;
+          data?: NonNullable<Json>;
+          id?: string;
+          name?: string;
+          origin?: string;
           user_id?: string;
         };
         Relationships: [];
@@ -1312,6 +1636,20 @@ export type Database = {
       pgg_unschedule_reminders: {
         Args: Record<PropertyKey, never>;
         Returns: string;
+      };
+      replace_meal_plan: {
+        Args: {
+          p_keep_locked?: boolean;
+          p_keep_logged?: boolean;
+          p_meals: Json;
+          p_settings?: Json;
+          p_week_start: string;
+        };
+        Returns: string;
+      };
+      sync_grocery_items: {
+        Args: { p_items: Json; p_plan_id: string };
+        Returns: number;
       };
     };
     Enums: {
