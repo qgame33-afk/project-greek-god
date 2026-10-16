@@ -46,6 +46,7 @@ const DAIRY: IngredientKind[] = ["dairy"];
 export const INGREDIENTS: IngredientEntry[] = [
   /* ------------------------------------------------------------ meat, poultry, fish */
   I("chicken-breast-raw", "Boneless skinless chicken breasts", [120, 22.5, 0, 2.6], "meat", CHICKEN, {
+    inline: "boneless skinless chicken breast",
     unitGrams: { piece: 225 },
     nouns: { piece: ["chicken breast", "chicken breasts"] },
     pack: { size: 900, unit: "g", label: "900 g pack (about 4 breasts)", priceCad: 14.99 },
@@ -427,6 +428,16 @@ export const INGREDIENTS: IngredientEntry[] = [
     unitGrams: { cup: 108, tbsp: 7 },
     pack: { size: 425, unit: "g", label: "425 g canister", priceCad: 3.49 },
   }),
+  I("corn-tortillas", "Corn tortillas (6 inch)", [218, 5.7, 44.6, 2.9], "bread_grains", GRAIN, {
+    unitGrams: { piece: 26 },
+    nouns: { piece: ["corn tortilla", "corn tortillas"] },
+    pack: { size: 12, unit: "piece", label: "12 tortillas", priceCad: 3.49 },
+  }),
+  I("quinoa-dry", "Quinoa", [368, 14.1, 64.2, 6.1], "bread_grains", GRAIN, {
+    inline: "quinoa (uncooked)",
+    unitGrams: { cup: 170 },
+    pack: { size: 900, unit: "g", label: "900 g bag", priceCad: 8.99 },
+  }),
   I("tortilla-chips", "Tortilla chips", [489, 7, 64, 23], "pantry", GRAIN, {
     pack: { size: 300, unit: "g", label: "300 g bag", priceCad: 3.99 },
   }),
@@ -469,13 +480,14 @@ export const INGREDIENTS: IngredientEntry[] = [
     nouns: { piece: ["avocado", "avocados"] },
     pack: { size: 4, unit: "piece", label: "bag of 4", priceCad: 4.99 },
   }),
-  I("lime", "Limes", [30, 0.7, 10.5, 0.2], "fruit", PLANT, {
-    unitGrams: { piece: 67 },
+  // Limes and lemons are used for their juice: macros are for the juice, a "piece" is one fruit's juice.
+  I("lime", "Limes", [25, 0.4, 8.4, 0.1], "fruit", PLANT, {
+    unitGrams: { piece: 30 },
     nouns: { piece: ["lime", "limes"] },
     pack: { size: 1, unit: "piece", label: "1 lime", priceCad: 0.5 },
   }),
-  I("lemon", "Lemons", [29, 1.1, 9.3, 0.3], "fruit", PLANT, {
-    unitGrams: { piece: 58 },
+  I("lemon", "Lemons", [22, 0.4, 6.9, 0.2], "fruit", PLANT, {
+    unitGrams: { piece: 45 },
     nouns: { piece: ["lemon", "lemons"] },
     pack: { size: 1, unit: "piece", label: "1 lemon", priceCad: 0.79 },
   }),
@@ -515,6 +527,7 @@ export const INGREDIENTS: IngredientEntry[] = [
     shortcutFactor: 0.13,
   }),
   I("tomato", "Tomatoes", [18, 0.9, 3.9, 0.2], "vegetables", PLANT, {
+    inline: "tomato",
     unitGrams: { piece: 123, cup: 180, slice: 20 },
     nouns: { piece: ["tomato", "tomatoes"] },
     pack: { size: 500, unit: "g", label: "about 4 tomatoes (500 g)", priceCad: 2.99 },
@@ -583,6 +596,7 @@ export const INGREDIENTS: IngredientEntry[] = [
     pack: { size: 397, unit: "g", label: "397 g bag", priceCad: 2.99 },
   }),
   I("pickles", "Dill pickles", [12, 0.3, 2.4, 0.2], "pantry", PLANT, {
+    inline: "dill pickle",
     unitGrams: { slice: 7, piece: 35 },
     nouns: { piece: ["pickle spear", "pickle spears"] },
     pack: { size: 1000, unit: "ml", label: "1 L jar", priceCad: 3.99 },
@@ -615,6 +629,11 @@ export const INGREDIENTS: IngredientEntry[] = [
     source: "label",
     unitGrams: { cup: 110 },
     pack: { size: 600, unit: "g", label: "600 g bag", priceCad: 3.99 },
+  }),
+  I("frozen-green-beans", "Frozen cut green beans", [33, 1.8, 7.5, 0.2], "frozen", PLANT, {
+    inline: "frozen green beans",
+    unitGrams: { cup: 110 },
+    pack: { size: 750, unit: "g", label: "750 g bag", priceCad: 3.49 },
   }),
   I("fries-frozen", "Frozen oven fries", [145, 2.3, 22, 5.3], "frozen", PLANT, {
     source: "label",
@@ -696,6 +715,7 @@ export const INGREDIENTS: IngredientEntry[] = [
     pack: { size: 500, unit: "g", label: "500 mL jar", priceCad: 4.49 },
   }),
   I("caesar-dressing", "Caesar dressing", [542, 2.2, 3.3, 57.9], "pantry", ["egg", "dairy", "fish"], {
+    inline: "Caesar dressing",
     allergens: ["egg", "dairy", "fish"],
     unitGrams: { tbsp: 15 },
     pack: { size: 475, unit: "g", label: "475 mL bottle", priceCad: 4.49 },
@@ -735,6 +755,20 @@ export const INGREDIENTS: IngredientEntry[] = [
     inline: "kidney beans, drained",
     unitGrams: { can: 280, cup: 177 },
     pack: { size: 280, unit: "g", label: "540 mL can (about 280 g drained)", priceCad: 1.69 },
+  }),
+  I("lentils", "Canned lentils", [116, 9, 20.1, 0.4], "pantry", PLANT, {
+    inline: "lentils, drained",
+    unitGrams: { can: 280, cup: 198 },
+    pack: { size: 280, unit: "g", label: "540 mL can (about 280 g drained)", priceCad: 1.79 },
+  }),
+  I("pineapple-canned", "Canned pineapple tidbits", [60, 0.5, 15.7, 0.1], "pantry", PLANT, {
+    inline: "pineapple, drained",
+    unitGrams: { can: 225, cup: 165 },
+    pack: { size: 225, unit: "g", label: "398 mL can (about 225 g drained)", priceCad: 2.29 },
+  }),
+  I("brown-sugar", "Brown sugar", [380, 0.1, 98.1, 0], "pantry", PLANT, {
+    unitGrams: { tsp: 4.6, tbsp: 13.8 },
+    pack: { size: 1000, unit: "g", label: "1 kg bag", priceCad: 3.49 },
   }),
   I("diced-tomatoes", "Canned diced tomatoes", [16, 0.8, 3.5, 0.3], "pantry", PLANT, {
     inline: "canned diced tomatoes",
@@ -813,6 +847,7 @@ export const INGREDIENTS: IngredientEntry[] = [
     staple: true,
   }),
   I("italian-seasoning", "Italian seasoning", [265, 9, 68.9, 4.3], "pantry", PLANT, {
+    inline: "Italian seasoning",
     unitGrams: { tsp: 1 },
     pack: { size: 50, unit: "g", label: "50 g jar", priceCad: 3.49 },
     staple: true,

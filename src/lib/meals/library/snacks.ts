@@ -24,7 +24,7 @@ export const SNACKS = [
     ingredients: [i("whey-protein", 1, "scoop"), i("milk-2", 1.25, "cup")],
     steps: [s("Pour the milk into a shaker bottle and add the protein powder."), s("Shake hard for 20 seconds.")],
     equipment: [],
-    tags: ["protein:whey", "base:none", "style:shake", "dish:protein-shake"],
+    tags: ["protein:whey", "style:shake", "dish:protein-shake"],
     blurb: "The easiest 35 g of protein you'll have all day.",
   }),
   lib({
@@ -96,7 +96,7 @@ export const SNACKS = [
     ingredients: [i("ham-deli", 75, "g"), i("mozzarella", 2, "piece"), opt("mustard", 1, "tsp")],
     steps: [s("Lay out the ham slices and add a thin line of mustard if you like."), s("Roll each string cheese in a few slices of ham.")],
     equipment: [],
-    tags: ["protein:pork", "protein:dairy", "base:none", "style:snack-plate", "dish:roll-ups"],
+    tags: ["protein:pork", "protein:dairy", "style:snack-plate", "dish:roll-ups"],
     blurb: "No bread, all protein. 23 g.",
   }),
   lib({
@@ -184,7 +184,7 @@ export const SNACKS = [
     ingredients: [i("beef-jerky", 40, "g"), i("mozzarella", 1, "piece")],
     steps: [s("Pack the jerky and string cheese. No fridge needed for a few hours.")],
     equipment: [],
-    tags: ["protein:beef", "base:none", "style:snack-plate", "dish:jerky"],
+    tags: ["protein:beef", "style:snack-plate", "dish:jerky"],
     blurb: "High protein, fits in a pocket.",
   }),
   lib({

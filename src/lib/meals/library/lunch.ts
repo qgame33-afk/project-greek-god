@@ -64,7 +64,7 @@ export const LUNCH = [
     ],
     steps: [
       s("Spread the mayo and mustard on the bread."),
-      s("Layer the ham, cheese and lettuce to make two sandwiches."),
+      s("Layer the ham, cheese and lettuce to make the sandwiches."),
       s("Cut in half. Pack them cold if you're taking lunch to school."),
     ],
     equipment: [],
@@ -472,7 +472,7 @@ export const LUNCH = [
       s("Turn off the heat, cover and let them sit 12 minutes.", { timer: min(12) }),
       s("Move the eggs to cold water for 5 minutes, then peel.", { timer: min(5) }),
       s("Mash the eggs with the mayo, mustard, salt and a pinch of pepper."),
-      s("Spread on the bread with lettuce to make two sandwiches."),
+      s("Spread on the bread with lettuce to make the sandwiches."),
     ],
     equipment: ["stovetop"],
     tags: ["cuisine:american", "protein:egg", "base:bread", "style:sandwich", "dish:egg-salad"],
@@ -487,7 +487,7 @@ export const LUNCH = [
     ingredients: [i("bread-white", 4, "slice"), i("cheddar", 3, "slice"), i("ham-deli", 100, "g"), i("butter", 1, "tbsp")],
     steps: [
       s("Butter one side of each slice of bread."),
-      s("Build two sandwiches, butter side out: bread, cheese, ham, cheese, bread."),
+      s("Build the sandwiches, butter side out: bread, cheese, ham, cheese, bread."),
       s("Cook in a pan over medium-low 3–4 minutes per side until golden and melted.", { timer: min(3.5) }),
     ],
     equipment: ["stovetop"],

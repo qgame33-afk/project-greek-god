@@ -197,7 +197,7 @@ const COUNT_UNITS: Unit[] = ["piece", "slice", "scoop", "can", "pouch"];
 
 /**
  * Rounds a quantity to something a person can measure: grams/mL to 1/5/10, cups to ¼ and ⅓,
- * tbsp to ½, tsp to ⅛, counts to ½ (whole for eggs, and above 4). Large tbsp/tsp amounts move up
+ * tbsp to ½, tsp to ⅛, counts to ¼ below one and ½ above (whole for eggs, and above 4). Large tbsp/tsp amounts move up
  * to cups/tbsp. Never rounds a positive amount down to zero.
  */
 export function friendlyQty(qty: number, unit: Unit, key?: string): { qty: number; unit: Unit } {
@@ -219,7 +219,8 @@ export function friendlyQty(qty: number, unit: Unit, key?: string): { qty: numbe
   if (COUNT_UNITS.includes(unit)) {
     const whole = key ? getIngredient(key)?.whole : false;
     if (whole || qty > 4) return { qty: Math.max(1, Math.round(qty)), unit };
-    return { qty: Math.max(0.5, Math.round(qty * 2) / 2), unit };
+    if (qty < 0.875) return { qty: Math.max(0.25, Math.round(qty * 4) / 4), unit };
+    return { qty: Math.round(qty * 2) / 2, unit };
   }
   return { qty: round(qty, 2), unit };
 }
