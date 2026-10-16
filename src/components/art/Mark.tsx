@@ -11,7 +11,13 @@ const ALPHA =
 const STEMS =
   "M36.2 57.36Q31.37 56.14 28.95 54.86A25 25 0 0 1 18.75 8.85M27.8 57.36Q32.63 56.14 35.05 54.86A25 25 0 0 0 45.25 8.85";
 
-export function Mark({ size = 28, className }: { size?: number; className?: string }) {
+export function Mark({
+  size = 28,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
   const gid = `mark-gold-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   return (
     <svg
@@ -25,7 +31,14 @@ export function Mark({ size = 28, className }: { size?: number; className?: stri
       aria-label="The Ascent"
     >
       <defs>
-        <linearGradient id={gid} x1="10" y1="6" x2="54" y2="60" gradientUnits="userSpaceOnUse">
+        <linearGradient
+          id={gid}
+          x1="10"
+          y1="6"
+          x2="54"
+          y2="60"
+          gradientUnits="userSpaceOnUse"
+        >
           <stop offset="0" stopColor="#F3DDA8" />
           <stop offset="0.42" stopColor="#D5AC67" />
           <stop offset="0.78" stopColor="#A97E40" />
@@ -34,7 +47,12 @@ export function Mark({ size = 28, className }: { size?: number; className?: stri
       </defs>
       <path d={LEAVES} fill={`url(#${gid})`} />
       <path d={ALPHA} fill={`url(#${gid})`} />
-      <path d={STEMS} stroke={`url(#${gid})`} strokeWidth={0.9} strokeLinecap="round" />
+      <path
+        d={STEMS}
+        stroke={`url(#${gid})`}
+        strokeWidth={0.9}
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
