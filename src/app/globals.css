@@ -573,3 +573,14 @@
   letter-spacing: 0.1em !important;
   text-transform: uppercase !important;
 }
+
+[data-sonner-toaster] [data-sonner-toast][data-visible="true"] {
+  pointer-events: auto;
+}
+
+/* make room for the Live Session Dock above the tab bar */
+@media (max-width: 767px) {
+  body:has([data-live-dock]) .pb-tabbar {
+    padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 84px + var(--dock-h) + 8px);
+  }
+}

@@ -54,8 +54,8 @@ export function QuickLog({ open, onOpenChange }: { open: boolean; onOpenChange: 
                   key={ml}
                   type="button"
                   onClick={() => {
-                    water.addMl(ml);
-                    toast.success(`+${ml} mL water`);
+                    const id = water.addMl(ml);
+                    toast.success(`+${ml} mL water`, { duration: 6000, action: { label: "Undo", onClick: () => water.remove.mutate(id) } });
                   }}
                   className="press num h-9 rounded-[10px] bg-s4 text-[15px] font-semibold text-fg"
                 >

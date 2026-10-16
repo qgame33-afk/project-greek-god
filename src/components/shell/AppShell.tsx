@@ -8,18 +8,38 @@ import { HeartPulse, Plus } from "lucide-react";
 import { Mark } from "@/components/art/Mark";
 import { Meander } from "@/components/art/Motifs";
 import { QuickLog } from "@/components/shell/QuickLog";
+import { LiveDock } from "@/components/workout/LiveDock";
 import { useProfile } from "@/lib/data/profile";
 import { useUser } from "@/lib/data/core";
 import { cn } from "@/lib/cn";
 import { PRIMARY_NAV, SECONDARY_NAV, hidesFab, isActive, isFocusRoute } from "./nav";
 
 export function AppShell({ children }: { children: ReactNode }) {
+  // Everything inside the app is per-user and per-timezone, so it renders on the client only.
+  // (Server-rendered dates would be in UTC, and the shell never blocks on data anyway.)
+  const mounted = useMounted();
+  if (!mounted) return <ShellFallback />;
+  return <AppShellInner>{children}</AppShellInner>;
+}
+
+function AppShellInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { profile, loading } = useProfile();
   const focus = isFocusRoute(pathname);
   const [quickOpen, setQuickOpen] = useState(false);
   const keyboard = useKeyboardOpen();
+
+  // Keep the device-level haptics switch in step with the synced preference.
+  useEffect(() => {
+    const prefs = (profile?.prefs ?? {}) as { haptics?: boolean };
+    if (prefs.haptics === undefined) return;
+    try {
+      localStorage.setItem("pgg.haptics", prefs.haptics ? "on" : "off");
+    } catch {
+      /* private mode */
+    }
+  }, [profile?.prefs]);
 
   // First-time users go through onboarding before anything else.
   useEffect(() => {
@@ -35,20 +55,23 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Sidebar pathname={pathname} onQuickLog={() => setQuickOpen(true)} />
       <TopBar pathname={pathname} />
 
-      <main className="pb-tabbar mx-auto w-full max-w-[1180px] px-4 pt-4 md:pl-[100px] md:pr-6 lg:pb-16 lg:pl-[280px] lg:pr-8 lg:pt-8">
-        <ViewTransition key={pathname} enter="page" exit="page" default="none">
-          <div>{children}</div>
-        </ViewTransition>
+      <main className="pb-tabbar w-full pt-4 md:pl-[76px] md:pb-16 lg:pl-[248px] lg:pt-8">
+        <div className="mx-auto w-full max-w-[1180px] px-4 md:px-6 lg:px-8">
+          <ViewTransition key={pathname} enter="page" exit="page" default="none">
+            <div>{children}</div>
+          </ViewTransition>
+        </div>
       </main>
 
       <TabBar pathname={pathname} />
+      <LiveDock />
 
       {showFab && (
         <button
           type="button"
           onClick={() => setQuickOpen(true)}
           aria-label="Quick log"
-          className="press fixed right-4 z-[35] grid size-[54px] place-items-center rounded-full border border-line-gold bg-s3 text-gold-300 shadow-[var(--e2)] lg:hidden"
+          className="press fixed right-4 z-[35] grid size-[54px] place-items-center rounded-full border border-line-gold bg-s3 text-gold-300 shadow-[var(--e2)] md:hidden"
           style={{ bottom: "calc(var(--tabbar-h) + var(--safe-bottom) + 14px)" }}
         >
           <Plus className="size-6" strokeWidth={2.2} />
@@ -189,6 +212,30 @@ function Sidebar({ pathname, onQuickLog }: { pathname: string; onQuickLog: () =>
         <p className="hidden truncate px-1 text-[12px] text-fg-3 lg:block">{user?.email}</p>
       </div>
     </aside>
+  );
+}
+
+function useMounted() {
+  const [m, setM] = useState(false);
+  useEffect(() => setM(true), []);
+  return m;
+}
+
+/** Static first paint: the chrome without any data, so there's no blank flash. */
+export function ShellFallback() {
+  return (
+    <div className="min-h-dvh" aria-busy="true">
+      <aside className="fixed inset-y-0 left-0 hidden w-[76px] border-r border-line-hair bg-[#0B0C10] md:block lg:w-[248px]" />
+      <header className="chrome sticky top-0 z-20 md:hidden" style={{ paddingTop: "var(--safe-top)" }}>
+        <div className="flex h-[52px] items-center gap-2 px-4">
+          <Mark size={24} />
+          <span className="font-serif text-[13px] font-semibold tracking-[0.14em] text-gold">PROJECT GREEK GOD</span>
+        </div>
+      </header>
+      <nav className="chrome fixed inset-x-0 bottom-0 z-30 border-t border-line-hair md:hidden" style={{ paddingBottom: "var(--safe-bottom)" }}>
+        <div className="h-[var(--tabbar-h)]" />
+      </nav>
+    </div>
   );
 }
 

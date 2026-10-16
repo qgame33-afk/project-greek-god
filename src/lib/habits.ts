@@ -126,7 +126,7 @@ export function evaluate(defs: HabitDefLite[], f: DayFacts, g: Goals): HabitStat
             done: f.weighedIn,
             progress: f.weighedIn ? 1 : 0,
             caption: f.weighedIn ? "Logged" : "Morning weigh-in",
-            href: "/progress?log=weight",
+            href: "/progress?tab=weight&log=1",
           };
         case "sleep":
           return {

@@ -16,7 +16,7 @@ export const buttonVariants = cva(
         "outline-gold": "border border-line-gold text-gold-300 font-bold text-[15px] hover:bg-gold-tint disabled:text-fg-dis disabled:border-line",
         ghost: "text-fg-2 font-bold text-[15px] hover:text-fg active:bg-white/5 disabled:text-fg-dis",
         destructive: "bg-danger-tint border border-danger/35 text-danger font-bold text-[15px] hover:bg-danger/15",
-        "destructive-solid": "bg-danger text-ink font-extrabold text-[15px]",
+        "destructive-solid": "bg-danger text-ink font-extrabold text-[15px] disabled:bg-s3 disabled:text-fg-dis",
         link: "text-gold-300 font-bold text-[13px] h-auto px-0 hover:text-gold-200",
       },
       size: {

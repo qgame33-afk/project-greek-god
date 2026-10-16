@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "vercel-build": "node scripts/migrate.mjs && next build",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "seed:dev": "node scripts/dev/setup-users.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",

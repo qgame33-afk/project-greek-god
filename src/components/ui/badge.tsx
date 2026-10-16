@@ -87,3 +87,13 @@ export function OptionalBadge({ className, children }: { className?: string; chi
 export function AutoBadge({ className }: { className?: string }) {
   return <span className={cn(base, "h-4 px-1 text-[9.5px] text-fg-3 ring-1 ring-line", className)}>Auto</span>;
 }
+
+/** Planned / illustrative value — never data. */
+export function PlanBadge({ className, children }: { className?: string; children?: ReactNode }) {
+  return <span className={cn(base, "border border-dashed border-line-strong text-fg-3", className)}>{children ?? "Plan"}</span>;
+}
+
+/** First-ever log of an exercise: a baseline, not a record (never gold). */
+export function FirstBenchmarkBadge({ className }: { className?: string }) {
+  return <span className={cn(base, "border border-marble/60 text-marble", className)}>First benchmark</span>;
+}

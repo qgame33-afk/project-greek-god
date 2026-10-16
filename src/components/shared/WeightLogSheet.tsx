@@ -18,7 +18,7 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
   const { profile } = useProfile();
   const unit = (profile?.weight_unit ?? "lb") as "lb" | "kg";
   const { weights } = useWeights();
-  const { save } = useWeightMutations();
+  const { save, remove } = useWeightMutations();
   const last = weights.at(-1);
   const [date, setDate] = useState(initialDate ?? today);
   const [value, setValue] = useState<number>(0);
@@ -52,11 +52,19 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
       toast.error("That date is in the future.");
       return;
     }
+    const previous = existing ? { local_date: existing.local_date, weight_lb: Number(existing.weight_lb), notes: existing.notes } : null;
     save.mutate(
       { local_date: date, weight_lb: round(fromDisplayWeight(parsed, unit), 1), notes: notes.trim() || null },
       {
-        onSuccess: () => {
-          toast.success(`Weigh-in saved · ${formatBodyweight(fromDisplayWeight(parsed, unit), unit)}`);
+        onSuccess: (row) => {
+          toast.success(`Weigh-in saved · ${formatBodyweight(fromDisplayWeight(parsed, unit), unit)}`, {
+            duration: 6000,
+            action: {
+              label: "Undo",
+              // restore the earlier reading for that day, or remove the new one
+              onClick: () => (previous ? save.mutate(previous) : row && remove.mutate(row)),
+            },
+          });
           onOpenChange(false);
         },
       },

@@ -2,7 +2,7 @@
 
 import { m } from "motion/react";
 import { Switch as RSwitch } from "radix-ui";
-import { useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -136,6 +136,7 @@ export function Stepper({
   className,
   size = "md",
   children,
+  buttonClassName,
 }: {
   value: number;
   onChange: (v: number) => void;
@@ -147,12 +148,20 @@ export function Stepper({
   className?: string;
   size?: "md" | "lg";
   children?: ReactNode;
+  /** e.g. "bg-s4" when the stepper sits on a surface-3 card */
+  buttonClassName?: string;
 }) {
   const timer = useRef<number | null>(null);
   const valueRef = useRef(value);
-  valueRef.current = value;
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
   const clamp = (v: number) => Math.min(max, Math.max(min, Math.round(v / step) * step));
-  const bump = (dir: 1 | -1) => onChange(clamp(Number((valueRef.current + dir * step).toFixed(4))));
+  const bump = (dir: 1 | -1) => {
+    const next = clamp(Number((valueRef.current + dir * step).toFixed(4)));
+    valueRef.current = next;
+    onChange(next);
+  };
   const start = (dir: 1 | -1) => {
     bump(dir);
     const repeat = () => {
@@ -168,6 +177,7 @@ export function Stepper({
   const btn = cn(
     "press grid shrink-0 place-items-center rounded-[12px] bg-s3 text-fg-2 hover:text-fg active:bg-s4 disabled:opacity-30",
     size === "lg" ? "size-14" : "size-[52px]",
+    buttonClassName,
   );
   return (
     <div className={cn("flex items-center gap-3", className)} role="group" aria-label={label}>

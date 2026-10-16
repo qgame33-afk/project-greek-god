@@ -33,11 +33,16 @@ export function useSaveProfile() {
   const { userId } = useUser();
   return useMutation({
     mutationFn: async ({ values, reason, source = "user" }: { values: Update<"profiles">; reason?: string; source?: "user" | "suggestion" | "onboarding" }) => {
-      const prev = qc.getQueryData<Profile>(["profile", userId]);
+      // Read the stored values first (the cache already holds the optimistic ones).
+      const tracked = TRACKED.filter((k) => k in values);
+      const before = tracked.length
+        ? (await sb().from("profiles").select(tracked.join(",")).eq("id", userId!).single()).data as Record<string, unknown> | null
+        : null;
       must(await sb().from("profiles").update(values).eq("id", userId!).select("id").single());
-      if (prev) {
-        const changes = TRACKED.filter((k) => k in values && values[k as keyof typeof values] != null && Number(values[k as keyof typeof values]) !== Number(prev[k]))
-          .map((k) => ({ field: k, old_value: Number(prev[k]), new_value: Number(values[k as keyof typeof values]), reason: reason ?? null, source }));
+      if (before) {
+        const changes = tracked
+          .filter((k) => values[k as keyof typeof values] != null && Number(values[k as keyof typeof values]) !== Number(before[k]))
+          .map((k) => ({ field: k, old_value: before[k] == null ? null : Number(before[k]), new_value: Number(values[k as keyof typeof values]), reason: reason ?? null, source }));
         if (changes.length) await sb().from("goal_changes").insert(changes);
       }
     },

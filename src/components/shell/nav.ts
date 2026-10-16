@@ -1,4 +1,4 @@
-import { Dumbbell, HeartPulse, LayoutDashboard, MessagesSquare, Settings, TrendingUp, UtensilsCrossed, type LucideIcon } from "lucide-react";
+import { CalendarDays, Dumbbell, HeartPulse, LayoutDashboard, MessagesSquare, Settings, TrendingUp, UtensilsCrossed, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -17,6 +17,7 @@ export const PRIMARY_NAV: NavItem[] = [
 
 export const SECONDARY_NAV: NavItem[] = [
   { href: "/recovery", label: "Recovery & Habits", icon: HeartPulse },
+  { href: "/reviews", label: "Monthly reviews", icon: CalendarDays },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

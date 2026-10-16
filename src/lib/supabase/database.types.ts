@@ -129,6 +129,22 @@ export type Database = {
         };
         Relationships: [];
       };
+      app_migrations: {
+        Row: {
+          applied_at: string;
+          name: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          applied_at?: string;
+          name: string;
+        };
+        Update: {
+          applied_at?: string;
+          name?: string;
+        };
+        Relationships: [];
+      };
       app_secrets: {
         Row: {
           created_at: string;
@@ -1290,6 +1306,12 @@ export type Database = {
       bump_ai_usage: {
         Args: { p_day: string; p_feature: string; p_limit: number };
         Returns: number;
+      };
+      pgg_reminders_status: { Args: Record<PropertyKey, never>; Returns: Json };
+      pgg_schedule_reminders: { Args: { app_url: string }; Returns: string };
+      pgg_unschedule_reminders: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
       };
     };
     Enums: {

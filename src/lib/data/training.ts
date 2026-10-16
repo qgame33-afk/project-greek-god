@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { toast } from "sonner";
 import { addDays, weekday, type ISODate } from "@/lib/dates";
 import { DEFAULT_SCHEDULE, PROGRAM, PROGRAM_BY_KEY } from "@/lib/training/program";
@@ -58,8 +59,8 @@ export function useTemplates() {
       return rows.map(fromRow);
     },
   });
-  const templates: StoredTemplate[] = q.data?.length ? q.data : PROGRAM;
-  const byKey = Object.fromEntries(templates.map((t) => [t.key, t])) as Record<TemplateKey, StoredTemplate>;
+  const templates: StoredTemplate[] = useMemo(() => (q.data?.length ? q.data : PROGRAM), [q.data]);
+  const byKey = useMemo(() => Object.fromEntries(templates.map((t) => [t.key, t])) as Record<TemplateKey, StoredTemplate>, [templates]);
   return { templates, byKey, loading: q.isLoading };
 }
 

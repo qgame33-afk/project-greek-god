@@ -130,13 +130,22 @@ export function useUpdateFood() {
       must(await sb().from("food_entries").update(values).eq("id", id).select("*").single()),
     onMutate: async ({ id, date, values }) => {
       const key = ["food", date, userId];
-      await qc.cancelQueries({ queryKey: key });
+      await qc.cancelQueries({ queryKey: ["food"] });
       const prev = qc.getQueryData<FoodEntry[]>(key);
-      if (prev) qc.setQueryData<FoodEntry[]>(key, prev.map((r) => (r.id === id ? ({ ...r, ...values } as FoodEntry) : r)));
-      return { key, prev };
+      const row = prev?.find((r) => r.id === id);
+      const moved = values.local_date && values.local_date !== date ? values.local_date : null;
+      const toKey = moved ? ["food", moved, userId] : null;
+      const prevTo = toKey ? qc.getQueryData<FoodEntry[]>(toKey) : undefined;
+      if (prev) {
+        if (moved) qc.setQueryData<FoodEntry[]>(key, prev.filter((r) => r.id !== id));
+        else qc.setQueryData<FoodEntry[]>(key, prev.map((r) => (r.id === id ? ({ ...r, ...values } as FoodEntry) : r)));
+      }
+      if (toKey && row && prevTo) qc.setQueryData<FoodEntry[]>(toKey, [...prevTo, { ...row, ...values } as FoodEntry]);
+      return { key, prev, toKey, prevTo };
     },
     onError: (e: Error, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(ctx.key, ctx.prev);
+      if (ctx?.toKey && ctx.prevTo) qc.setQueryData(ctx.toKey, ctx.prevTo);
       toast.error("Couldn't save the change", { description: e.message });
     },
     onSettled: () => invalidateFood(qc),
@@ -306,6 +315,11 @@ export function useWaterMutations(date: ISODate) {
     },
     onSettled: settle,
   });
-  const addMl = (ml: number) => add.mutate({ id: newId(), ml });
+  /** Logs a tap and returns its row id (for an exact Undo). */
+  const addMl = (ml: number) => {
+    const id = newId();
+    add.mutate({ id, ml });
+    return id;
+  };
   return { addMl, remove, adding: add.isPending };
 }

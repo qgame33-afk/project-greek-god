@@ -146,11 +146,11 @@ export const DEFAULT_ROADMAP: { offset: number; title: string; detail: string }[
   { offset: 1, title: "Build the habits", detail: "Establish consistent training and nutrition." },
   { offset: 2, title: "First progress review", detail: "Compare trend weight, lifts and photos to October." },
   { offset: 3, title: "Strength and size", detail: "Strength and hypertrophy progression." },
-  { offset: 4, title: "Fuel check", detail: "Reassess calorie intake and recovery." },
+  { offset: 4, title: "Fuel check", detail: "Reassess caloric intake and recovery." },
   { offset: 5, title: "Midpoint", detail: "Midpoint physique evaluation." },
   { offset: 6, title: "Keep climbing", detail: "Continue progressive muscle gain." },
   { offset: 7, title: "Composition check", detail: "Evaluate current body composition." },
   { offset: 8, title: "Decide the path", detail: "Determine whether to continue gaining or maintain." },
-  { offset: 9, title: "Refine", detail: "Optional maintenance or modest fat-loss phase, only if appropriate." },
+  { offset: 9, title: "Refine", detail: "Optional maintenance or modest fat-loss phase if appropriate." },
   { offset: 10, title: "Final review", detail: "Final transformation review." },
 ];
