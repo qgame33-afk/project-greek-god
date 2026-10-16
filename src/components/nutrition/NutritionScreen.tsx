@@ -20,6 +20,7 @@ import { FuelRings, FuelRingsSkeleton, NoTargets } from "./FuelRings";
 import { keepOpenOnToast, useDelayedFlag, useQueryHealth } from "./hooks";
 import { LOG_TABS, LogSheet, type LogRequestState, type LogTab } from "./LogSheet";
 import { MealCard, MealCardSkeleton } from "./MealCard";
+import { MealPlanCard } from "./MealPlanCard";
 import { RecentRail } from "./RecentRail";
 import { SaveMealSheet, type SaveMealState } from "./SaveMealSheet";
 import { WaterCard } from "./WaterCard";
@@ -172,6 +173,7 @@ function Screen() {
               )}
             </div>
             <Actions className="order-2 lg:order-none" />
+            <MealPlanCard className="order-5 lg:order-none" />
             {goals && (
               <div className="order-5 lg:order-none">
                 <WaterCard date={date} today={today} goalMl={goals.waterMl} unknown={waterUnknown} />
