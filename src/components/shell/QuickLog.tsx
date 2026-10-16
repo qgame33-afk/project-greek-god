@@ -57,7 +57,7 @@ export function QuickLog({ open, onOpenChange }: { open: boolean; onOpenChange: 
                     const id = water.addMl(ml);
                     toast.success(`+${ml} mL water`, { duration: 6000, action: { label: "Undo", onClick: () => water.remove.mutate(id) } });
                   }}
-                  className="press num h-9 rounded-[10px] bg-s4 text-[15px] font-semibold text-fg"
+                  className="press num h-11 rounded-[10px] bg-s4 text-[15px] font-semibold text-fg active:bg-s5"
                 >
                   +{ml}
                 </button>
@@ -74,7 +74,7 @@ export function QuickLog({ open, onOpenChange }: { open: boolean; onOpenChange: 
 
 function Tile({ icon, label, onClick }: { icon: ReactNode; label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="card-inset press flex h-24 flex-col justify-between p-3 text-left hover:bg-s4">
+    <button type="button" onClick={onClick} className="card-inset press flex h-24 flex-col justify-between p-3 text-left hover:bg-s4 active:bg-s4">
       <span className="text-gold-300">{icon}</span>
       <span className="text-[14px] font-bold text-fg">{label}</span>
     </button>

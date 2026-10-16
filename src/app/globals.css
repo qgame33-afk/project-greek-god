@@ -203,6 +203,20 @@
     cursor: pointer;
     touch-action: manipulation;
   }
+  /* Native feel: long-pressing a control never selects its label or pops the iOS link callout. */
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="radio"],
+  [role="switch"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  a[href],
+  button,
+  img {
+    -webkit-touch-callout: none;
+  }
   /* Press feedback for every pressable that doesn't opt into the `press` / `press-soft` scale:
      an instant iOS-style dim on touch-down that fades back on release. Zero specificity, so any
      component's own opacity or transition wins. `press-none` opts out entirely. */
@@ -449,8 +463,9 @@
 /* Shared press feedback. Presses down in 90 ms and springs back on release. Uses the
    independent `scale` property, so it composes with translate/transform animations (a dock
    sliding up, a check popping) instead of being overridden by them, and the `:not(:disabled)`
-   bump lets it win over a plain `transition-colors` on the same element while still fading
-   colours. `press` for buttons, chips and icons; `press-soft` for cards and rows. */
+   bump lets it win over a plain `transition-colors` on the same element. Pressed colours
+   (active:bg-*) land instantly and fade back on release, like UIKit highlights. `press` for
+   buttons, chips and icons; `press-soft` for cards and rows. */
 @utility press {
   &:not(:disabled) {
     transition-property: scale, color, background-color, border-color, opacity, box-shadow;
@@ -459,7 +474,7 @@
   }
   &:not(:disabled, [aria-disabled="true"]):active {
     scale: 0.97;
-    transition-duration: var(--dur-press), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast);
+    transition-duration: var(--dur-press), 0s, 0s, 0s, 0s, 0s;
     transition-timing-function: var(--ease-out);
   }
 }
@@ -471,7 +486,7 @@
   }
   &:not(:disabled, [aria-disabled="true"]):active {
     scale: 0.985;
-    transition-duration: var(--dur-press), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast);
+    transition-duration: var(--dur-press), 0s, 0s, 0s, 0s, 0s;
     transition-timing-function: var(--ease-out);
   }
 }
