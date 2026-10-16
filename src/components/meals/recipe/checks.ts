@@ -14,10 +14,12 @@ export interface CheckState {
   ingredients: string[];
   /** Step indexes marked done. */
   steps: number[];
+  /** The step cooking mode is on (0-based), so leaving and coming back resumes there. */
+  current: number;
   at: number;
 }
 
-const EMPTY: CheckState = { ingredients: [], steps: [], at: 0 };
+const EMPTY: CheckState = { ingredients: [], steps: [], current: 0, at: 0 };
 
 /** The storage scope: one checklist per planned meal, or per recipe outside a plan. */
 export function checkScope(recipeKey: string, plannedMealId?: string | null) {
@@ -30,7 +32,8 @@ export function parseChecks(raw: string | null): CheckState {
     const v = JSON.parse(raw) as Partial<CheckState>;
     const ingredients = Array.isArray(v.ingredients) ? v.ingredients.filter((x): x is string => typeof x === "string").slice(0, 100) : [];
     const steps = Array.isArray(v.steps) ? v.steps.filter((x): x is number => Number.isInteger(x) && x >= 0 && x < 100) : [];
-    return { ingredients: [...new Set(ingredients)], steps: [...new Set(steps)].sort((a, b) => a - b), at: typeof v.at === "number" ? v.at : 0 };
+    const current = Number.isInteger(v.current) && (v.current as number) >= 0 && (v.current as number) < 100 ? (v.current as number) : 0;
+    return { ingredients: [...new Set(ingredients)], steps: [...new Set(steps)].sort((a, b) => a - b), current, at: typeof v.at === "number" ? v.at : 0 };
   } catch {
     return EMPTY;
   }
@@ -116,7 +119,11 @@ export function useChecks(scope: string) {
   }, [scope]);
   const clearSteps = useCallback(() => {
     const cur = read(scope);
-    write(scope, { ...cur, steps: [], at: Date.now() });
+    write(scope, { ...cur, steps: [], current: 0, at: Date.now() });
   }, [scope]);
-  return { ...state, toggleIngredient, toggleStep, clearIngredients, clearSteps };
+  const setCurrent = useCallback((i: number) => {
+    const cur = read(scope);
+    if (cur.current !== i) write(scope, { ...cur, current: Math.max(0, Math.min(99, Math.round(i))), at: Date.now() });
+  }, [scope]);
+  return { ...state, toggleIngredient, toggleStep, clearIngredients, clearSteps, setCurrent };
 }

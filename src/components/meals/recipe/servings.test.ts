@@ -57,13 +57,16 @@ describe("ingredient and step checklist storage", () => {
   });
 
   it("reads stored state defensively", () => {
-    expect(parseChecks(null)).toEqual({ ingredients: [], steps: [], at: 0 });
-    expect(parseChecks("not json")).toEqual({ ingredients: [], steps: [], at: 0 });
-    expect(parseChecks(JSON.stringify({ ingredients: ["egg", "egg", 3, "bread"], steps: [2, 0, "x", -1, 2.5, 1], at: 5 }))).toEqual({
+    expect(parseChecks(null)).toEqual({ ingredients: [], steps: [], current: 0, at: 0 });
+    expect(parseChecks("not json")).toEqual({ ingredients: [], steps: [], current: 0, at: 0 });
+    expect(parseChecks(JSON.stringify({ ingredients: ["egg", "egg", 3, "bread"], steps: [2, 0, "x", -1, 2.5, 1], current: 2, at: 5 }))).toEqual({
       ingredients: ["egg", "bread"],
       steps: [0, 1, 2],
+      current: 2,
       at: 5,
     });
+    expect(parseChecks(JSON.stringify({ current: -1 })).current).toBe(0);
+    expect(parseChecks(JSON.stringify({ current: 1.5 })).current).toBe(0);
   });
 
   it("toggles items in and out", () => {
