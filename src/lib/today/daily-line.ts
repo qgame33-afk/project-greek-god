@@ -2,6 +2,7 @@
 // "Push A today. Protein is the lever: 185 g." · "Legs A today. Jumps first, while you're fresh."
 // Deterministic and built only from real data the caller passes in — no AI, no invented numbers.
 
+import { readinessLine, type Guidance } from "@/lib/recovery/guidance";
 import { formatInt } from "@/lib/units";
 
 export interface CheckinFacts {
@@ -28,6 +29,11 @@ export interface DailyLineInput {
   protein: { eaten: number; goal: number };
   calories: { eaten: number; goal: number };
   sleepGoalH: number;
+  /**
+   * The Recovery screen's guidance for today. When it rests on a real check-in it decides the
+   * training advice, so Today, Training and Recovery always say the same thing (SPEC §25).
+   */
+  readiness?: Pick<Guidance, "level" | "score" | "adjustments" | "hasCheckin" | "pain"> | null;
 }
 
 /** Sleep shown to the nearest quarter hour: 7.25 → "7.25", 8 → "8". */
@@ -61,8 +67,12 @@ export function dailyLine(i: DailyLineInput): string {
     return `${name} done and fuelled. Sleep ${goalH} h to lock it in.`;
   }
 
+  const guided = i.readiness?.hasCheckin ? i.readiness : null;
+
   if (i.plan.kind === "train") {
     const n = i.plan.name;
+    const r = guided ? readinessLine(guided, n) : null;
+    if (r) return guided!.pain && guided!.level !== "recover" ? `${r} Skip anything that hurts.` : r;
     if (pain) return `${n} today. You noted pain, so skip anything that aggravates it.`;
     if (i.volleyballToday && (i.plan.legs || i.plan.explosiveFirst)) return `${n} today. Volleyball too, so the jumps are optional.`;
     if (i.volleyballToday) return `${n} today, volleyball later. Fuel both: ${formatInt(i.calories.goal)} kcal.`;
@@ -76,6 +86,8 @@ export function dailyLine(i: DailyLineInput): string {
   }
 
   // Rest day
+  const r = guided ? readinessLine(guided, null) : null;
+  if (r) return r;
   if (pain) return "Rest day. You noted pain, so keep it to gentle movement.";
   if (shortNight != null) return `Rest day. Last night was ${fmtHours(shortNight)} h, so aim for ${goalH} h tonight.`;
   if (sore != null) return `Rest day. Soreness is ${sore}/5: walk, stretch, nothing heavy.`;

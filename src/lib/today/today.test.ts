@@ -186,6 +186,30 @@ describe("dailyLine", () => {
     expect(fmtHours(7.5)).toBe("7.5");
     expect(fmtHours(7.3)).toBe("7.25");
   });
+
+  it("says what the Recovery screen says once a check-in exists", () => {
+    const adj = { dropSets: 0, rir: null, loadPct: null, skipJumps: false, rest: false };
+    const tired = { sleepHours: 5.75, energy: 3, soreness: 2, fatigue: 2, pain: false };
+    const trim = { level: "trim" as const, score: 2, adjustments: { ...adj, dropSets: 1, rir: "2–3" }, hasCheckin: true, pain: null };
+    expect(dailyLine({ ...base, checkin: tired, readiness: trim })).toBe("Push A today, trimmed: one set fewer per exercise, RIR 2–3.");
+    expect(dailyLine({ ...base, checkin: tired, readiness: { ...trim, level: "ease", score: 4 } })).toBe(
+      "Push A today, lighter: about 10% off the load, one set fewer per exercise, RIR 3.",
+    );
+    expect(dailyLine({ ...base, readiness: { ...trim, level: "go", score: 0 } })).toBe("Push A today as planned. Recovery markers look fine.");
+    expect(dailyLine({ ...base, readiness: { ...trim, level: "go", score: 1, pain: "left knee" } })).toBe(
+      "Push A today as planned. Recovery markers look fine. Skip anything that hurts.",
+    );
+    expect(dailyLine({ ...base, readiness: { ...trim, level: "recover", score: 7, pain: "left knee" } })).toBe(
+      "Recovery day suggested. Move Push A to tomorrow: walk, mobility, sleep.",
+    );
+    // no check-in yet → the guidance has nothing to say and the usual line stands
+    expect(dailyLine({ ...base, readiness: { ...trim, level: "unknown", hasCheckin: false } })).toBe("Push A today. Protein is the lever: 185 g.");
+    // the session state still wins once training has started
+    expect(dailyLine({ ...base, session: "active", readiness: trim })).toBe("Push A is underway. Log every set, then refuel.");
+    const rest = { ...base, plan: { kind: "rest" as const } };
+    expect(dailyLine({ ...rest, readiness: { ...trim, level: "rest", score: 5 } })).toBe("Rest fully today. An easy walk at most, then sleep.");
+    expect(dailyLine({ ...rest, readiness: { ...trim, level: "rest", score: 1 } })).toBe("Rest day. Walk, stretch, sleep 8 h.");
+  });
 });
 
 describe("weeklyOverview", () => {

@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { WeightLogSheet } from "@/components/shared/WeightLogSheet";
 import { ErrorNote } from "@/components/ui/misc";
+import { useReadiness } from "@/lib/recovery/hooks";
 import { dailyLine } from "@/lib/today/daily-line";
 import { DawnProvider, Reveal, useDawn } from "./dawn";
 import { FuelCard } from "./FuelCard";
@@ -56,6 +57,8 @@ function TodayContent({ t, m }: { t: ReturnType<typeof useTodayModel>; m: TodayM
   const { play } = useDawn();
   const [weightOpen, setWeightOpen] = useState(false);
   const { startToday, starting } = t.workout;
+  // The same readiness call the Recovery screen and Training's start card make.
+  const { guidance } = useReadiness(m.today);
 
   const line = dailyLine({
     plan: m.facts,
@@ -67,6 +70,7 @@ function TodayContent({ t, m }: { t: ReturnType<typeof useTodayModel>; m: TodayM
     protein: { eaten: m.food.protein, goal: m.profile.protein_goal },
     calories: { eaten: m.food.calories, goal: m.profile.calorie_goal },
     sleepGoalH: Number(m.profile.sleep_goal_h),
+    readiness: guidance,
   });
 
   return (
@@ -101,9 +105,9 @@ function TodayContent({ t, m }: { t: ReturnType<typeof useTodayModel>; m: TodayM
           <WeekCard m={m} loading={t.pending.week} error={t.errors.week} onRetry={t.refetch.week} />
         </Reveal>
 
-        <Reveal index={5} className="grid content-start gap-3 @min-[760px]:col-span-12 @min-[760px]:gap-4 @min-[1100px]:col-span-4">
+        <Reveal index={5} className="grid grid-cols-1 content-start gap-3 @min-[760px]:col-span-12 @min-[760px]:gap-4 @min-[1100px]:col-span-4">
           <RecordsCard m={m} loading={t.pending.records} />
-          <RecoveryRow m={m} />
+          <RecoveryRow m={m} guidance={guidance} />
         </Reveal>
       </div>
 

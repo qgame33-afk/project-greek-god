@@ -4,11 +4,12 @@ import Link from "next/link";
 import { ChevronRight, HeartPulse } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { relativeDay } from "@/lib/dates";
+import type { Guidance } from "@/lib/recovery/guidance";
 import { fmtHours } from "@/lib/today/daily-line";
 import type { TodayModel } from "./useTodayModel";
 
 /** Recovery link row: today's check-in in one line, or the prompt to log one. */
-export function RecoveryRow({ m, className }: { m: TodayModel; className?: string }) {
+export function RecoveryRow({ m, guidance, className }: { m: TodayModel; guidance?: Guidance | null; className?: string }) {
   const r = m.todayRec;
   const parts: string[] = [];
   if (r?.sleep_hours != null) parts.push(`Sleep ${fmtHours(Number(r.sleep_hours))} h`);
@@ -34,6 +35,7 @@ export function RecoveryRow({ m, className }: { m: TodayModel; className?: strin
             {last.energy != null ? ` · Energy ${last.energy}/5` : ""}
           </span>
         )}
+        {r && guidance?.hasCheckin && <span className="mt-0.5 block truncate text-[12.5px] font-semibold text-lapis-text">{guidance.title}</span>}
         {r?.pain_notes?.trim() && <span className="mt-0.5 block truncate text-[12.5px] font-medium text-fg-2">Pain noted: {r.pain_notes.trim()}</span>}
       </span>
       <ChevronRight className="size-4 shrink-0 text-fg-3 transition-transform group-hover:translate-x-0.5" aria-hidden />

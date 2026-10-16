@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Check, ChevronRight, Volleyball as VolleyballIcon } from "lucide-react";
+import { ReadinessNote } from "@/components/recovery/ReadinessNote";
 import { Colonnade, colonnadeSlot } from "@/components/signature/Colonnade";
 import { OptionalBadge, SuggestedBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -176,6 +177,7 @@ export function NextWorkoutCard({ week, onDay, className }: { week: Week; onDay:
             </li>
           ))}
         </ul>
+        <ReadinessNote date={today} session={null} checkinPrompt={false} className="mt-4" />
         <div className="mt-4 flex gap-2">
           <Button variant="secondary" size="md" className="flex-1" asChild>
             <Link href="/recovery?checkin=1">Recovery check-in</Link>
@@ -209,7 +211,8 @@ export function NextWorkoutCard({ week, onDay, className }: { week: Week; onDay:
           <span className="mt-0.5 shrink-0 rounded-full border border-line-strong px-2.5 py-1 text-[11px] font-bold uppercase tracking-[.1em] text-fg-2">{MODE_LABEL[week.mode]}</span>
         )}
       </div>
-      <Button variant="primary" size="lg" block shine className="mt-5" loading={starting} onClick={() => start({ template: t, date: today, mode: week.mode })}>
+      <ReadinessNote date={today} session={t.name} className="mt-4" />
+      <Button variant="primary" size="lg" block shine className="mt-4" loading={starting} onClick={() => start({ template: t, date: today, mode: week.mode })}>
         Start workout
       </Button>
       <ul className="mt-4 divide-y divide-line-hair">

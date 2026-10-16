@@ -88,7 +88,9 @@ for (const p of paths) {
   }
   const file = path.join(out, `${name || (p.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "") || "home")}${desktop ? "-desktop" : ""}${full ? "-full" : ""}.png`);
   await page.screenshot({ path: file, fullPage: full });
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+  // Mobile Chrome widens the layout viewport (zooming out) instead of scrolling, so also compare
+  // innerWidth with the device width — otherwise a too-wide element never shows as overflow.
+  const overflow = await page.evaluate((vw) => document.documentElement.scrollWidth > window.innerWidth + 1 || window.innerWidth > vw + 1, ctxOpts.viewport.width);
   results.push({ file, url: page.url(), overflowX: overflow, errors: [...new Set(errors)].slice(0, 15) });
   await page.close();
 }
