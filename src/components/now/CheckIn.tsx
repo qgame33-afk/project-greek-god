@@ -280,7 +280,7 @@ function SleepQuestion({
   return (
     <div role="group" aria-label="How long did you sleep?">
       <p className="t-title-3 pr-14 text-ivory">How long did you sleep?</p>
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         <button type="button" className={btn} aria-label="15 minutes less" onClick={() => bump(-1)} disabled={draft === 0}>
           <Minus className="size-5" strokeWidth={1.8} />
         </button>
@@ -293,7 +293,7 @@ function SleepQuestion({
           aria-valuemax={SLEEP_MAX}
           aria-valuetext={draft == null ? `Not set. Goal ${sleepSpoken(goal)}` : sleepSpoken(draft)}
           onKeyDown={onKey}
-          className="min-w-0 flex-1 text-center outline-offset-4"
+          className="min-w-24 flex-1 text-center outline-offset-4 @max-[19rem]:order-first @max-[19rem]:basis-full"
         >
           <p className={cn("t-num-l tnum", draft == null ? "text-ash" : "text-ivory")}>{draft == null ? "—" : sleepShort(draft)}</p>
           <p className="t-meta whitespace-nowrap text-ash">{draft == null ? `Goal ${sleepShort(goal)}` : prefill != null && value == null && draft === prefill ? "your usual" : " "}</p>
@@ -307,7 +307,7 @@ function SleepQuestion({
           onClick={() => draft != null && onConfirm(draft)}
           aria-label={draft == null ? "Confirm: set your hours first" : `Confirm ${sleepSpoken(draft)}`}
           className={cn(
-            "press inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-[length:max(14px,0.875rem)] font-semibold disabled:opacity-40",
+            "press inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-[length:max(14px,0.875rem)] font-semibold disabled:opacity-40 @max-[19rem]:min-h-11 @max-[19rem]:h-auto @max-[19rem]:basis-full",
             confirmed ? "text-leaf-300 shadow-[inset_0_0_0_1px_var(--leaf-line)]" : "bg-m4 text-ivory shadow-[inset_0_0_0_1.5px_var(--ivory)]",
           )}
         >

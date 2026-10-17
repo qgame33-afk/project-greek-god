@@ -259,17 +259,19 @@ function SleepBars({ r }: { r: WeeklyReview }) {
           </span>
         ))}
       </div>
-      <table className="sr-only">
-        <caption>Hours slept each night this week</caption>
-        <tbody>
-          {byDay.map((h, i) => (
-            <tr key={i}>
-              <th scope="row">{r.dates[i]}</th>
-              <td>{h == null ? "not logged" : sleepSpoken(h)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="sr-only">
+        <table>
+          <caption>Hours slept each night this week</caption>
+          <tbody>
+            {byDay.map((h, i) => (
+              <tr key={i}>
+                <th scope="row">{r.dates[i]}</th>
+                <td>{h == null ? "not logged" : sleepSpoken(h)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </figure>
   );
 }

@@ -130,27 +130,29 @@ export function ReadinessHistory({ today, selected, sleepGoal, onOpenDay, classN
               Legs (soreness)
             </span>
           </div>
-          <table className="sr-only">
-            <caption>Last 14 nights</caption>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Sleep</th>
-                <th>Energy</th>
-                <th>Legs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {days.map((n) => (
-                <tr key={n.date}>
-                  <td>{n.date}</td>
-                  <td>{sleepShort(n.sleep)}</td>
-                  <td>{chipFor(ENERGY_CHIPS, n.energy) ?? "—"}</td>
-                  <td>{chipFor(LEGS_CHIPS, n.soreness) ?? "—"}</td>
+          <div className="sr-only">
+            <table>
+              <caption>Last 14 nights</caption>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Sleep</th>
+                  <th>Energy</th>
+                  <th>Legs</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {days.map((n) => (
+                  <tr key={n.date}>
+                    <td>{n.date}</td>
+                    <td>{sleepShort(n.sleep)}</td>
+                    <td>{chipFor(ENERGY_CHIPS, n.energy) ?? "—"}</td>
+                    <td>{chipFor(LEGS_CHIPS, n.soreness) ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </section>

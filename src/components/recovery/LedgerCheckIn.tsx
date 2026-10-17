@@ -81,7 +81,7 @@ export const LedgerCheckIn = forwardRef<CheckInHandle, { date: ISODate; today: I
       </div>
       <p className="t-meta mt-1 text-stone">Each answer saves as you tap it. Tap a chosen answer again to clear it.</p>
 
-      <div className="mt-4 rounded-card bg-m1 px-4 py-4 shadow-(--e1)">
+      <div className="@container mt-4 rounded-card bg-m1 px-4 py-4 shadow-(--e1)">
         <CheckIn date={date} sleepGoal={sleepGoal} variant="ledger" />
         <button
           type="button"

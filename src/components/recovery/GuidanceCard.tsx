@@ -111,7 +111,7 @@ function GuidanceBody({ g, id, onCheckin, compact, isToday }: { g: Guidance; id:
         </Button>
       )}
 
-      <div className="mt-2 flex items-center justify-between gap-3">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3">
         <p className="t-meta text-ash">{DISCLAIMER}</p>
         {!compact && g.factors.length > 0 && (
           <button
@@ -130,8 +130,13 @@ function GuidanceBody({ g, id, onCheckin, compact, isToday }: { g: Guidance; id:
       {!compact && g.factors.length > 0 && (
         <Collapse open={open} id={`${id}-how`}>
           <div className="mt-2 rounded-field bg-m1 p-3.5 shadow-(--e1)">
-            <table className="t-meta w-full">
+            <table className="t-meta w-full table-fixed">
               <caption className="sr-only">What the call is based on</caption>
+              <colgroup>
+                <col className="w-[38%]" />
+                <col />
+                <col className="w-[22%]" />
+              </colgroup>
               <thead>
                 <tr className="text-left">
                   <th className="t-eyebrow pb-2">Signal</th>
@@ -142,9 +147,9 @@ function GuidanceBody({ g, id, onCheckin, compact, isToday }: { g: Guidance; id:
               <tbody>
                 {g.factors.map((f) => (
                   <tr key={f.key} className="border-t border-vein">
-                    <td className="py-2 pr-2 font-semibold text-stone">{f.label}</td>
-                    <td className="max-w-36 truncate py-2 pr-2 text-stone">{f.value}</td>
-                    <td className={cn("t-num-s py-2 text-right", f.points ? "text-ivory" : "text-ash")}>{f.points ? `+${f.points}` : "0"}</td>
+                    <td className="py-2 pr-2 align-top font-semibold wrap-break-word text-stone">{f.label}</td>
+                    <td className="py-2 pr-2 align-top wrap-break-word text-stone">{f.value}</td>
+                    <td className={cn("t-num-s py-2 text-right align-top", f.points ? "text-ivory" : "text-ash")}>{f.points ? `+${f.points}` : "0"}</td>
                   </tr>
                 ))}
                 <tr className="border-t border-vein-2">

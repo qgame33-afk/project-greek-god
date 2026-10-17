@@ -146,19 +146,19 @@ function Ledger() {
 
       <DateStrip value={date} onChange={selectDay} today={today} startDate={startDate} className="mt-6" />
 
-      <div ref={dayRef} className="mt-6 grid gap-10 lg:grid-cols-2 lg:items-start lg:gap-12">
-        <div className="space-y-10">
+      <div ref={dayRef} className="mt-6 grid grid-cols-1 gap-10 lg:grid-cols-2 lg:items-start lg:gap-12">
+        <div className="min-w-0 space-y-10">
           <GuidanceCard date={date} today={today} onCheckin={goToCheckin} />
           <LedgerCheckIn ref={checkin} date={date} today={today} sleepGoal={sleepGoal} />
         </div>
-        <div className="space-y-10">
+        <div className="min-w-0 space-y-10">
           <ReadinessHistory today={today} selected={date} sleepGoal={sleepGoal} onOpenDay={openDay} />
           <HabitsCard date={date} today={today} onCheckin={goToCheckin} />
           <WaterCard date={date} today={today} goalMl={profile.water_goal_ml} startDate={startDate} onPickDay={selectDay} />
         </div>
       </div>
 
-      <div className="mt-12 grid gap-10 lg:grid-cols-2 lg:gap-12">
+      <div className="mt-12 grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-12">
         <WeeklyReviewCard today={today} startDate={startDate} />
         <HistoryCard today={today} startDate={startDate} onOpenDay={openDay} />
       </div>

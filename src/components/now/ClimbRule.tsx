@@ -43,7 +43,7 @@ export function ClimbRule({ m, className, thumb, dense }: { m: NowModel; classNa
     .join(" ");
 
   return (
-    <div className={cn("flex items-center gap-3", className)}>
+    <div className={cn("@container flex items-center gap-3", className)}>
       {thumb}
       <Link href="/progress" aria-label={spoken} className="press-soft group block min-h-11 min-w-0 flex-1 py-1.5">
         {/* the track */}
@@ -74,9 +74,9 @@ export function ClimbRule({ m, className, thumb, dense }: { m: NowModel; classNa
             />
           )}
         </span>
-        <span aria-hidden className="t-meta tnum mt-1.5 flex items-baseline justify-between gap-2 text-ash">
+        <span aria-hidden className="t-meta tnum mt-1.5 flex flex-wrap items-baseline justify-between gap-x-2 text-ash">
           <span>{plain(start)}</span>
-          <span className="min-w-0 truncate text-center text-stone">
+          <span className="min-w-0 truncate text-center text-stone @max-[18rem]:order-last @max-[18rem]:basis-full @max-[18rem]:whitespace-normal">
             {gilded && (
               <>
                 <span className="text-leaf-300">{pct}%</span> of the climb
@@ -85,7 +85,7 @@ export function ClimbRule({ m, className, thumb, dense }: { m: NowModel; classNa
             {gilded && days != null && " · "}
             {days != null && `${days} days`}
           </span>
-          <span>{bandText}</span>
+          <span className="whitespace-nowrap">{bandText}</span>
         </span>
         {gilded && next?.eta && !dense && (
           <span aria-hidden className="t-meta tnum mt-1 flex items-center justify-center gap-1.5 text-ash">
