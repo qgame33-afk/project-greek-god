@@ -12,14 +12,19 @@
 //     meals: usePlan(weekStart).meals,                        // locked ones are kept
 //     fixedIds: ids already in the food log,                  // kept too
 //     seed: `${weekStart}:${Date.now()}` for "regenerate week" (same seed → same plan)
+//     today: useToday(),                                      // plans from today mid-week; no make-ahead on today
+//     wholeWeek: false,                                       // true = also replan the days already past
 //   }
-//   generateWeek(ctx).meals            → useSavePlan({ weekStart, meals })
+//   generateWeek(ctx).save             → useSavePlan({ weekStart, meals })  (new picks + past days kept as they were)
+//   generateWeek(ctx).unfilled / .from → honest notes; the first day planned
 //   regenerateMeal(ctx, meal, shown)   → useUpdatePlannedMeal({ id, patch }) + useAddFeedback(feedback)
 //   undoRegenerate(meal)               → patch
 //   moveMeal / repeatMeal / lockMeal / setServings → patches (+ feedback for repeat)
 //   regenerateReasonFeedback(...)      → replaces the plain "regenerated" row when a reason is picked
 //   simplifyRecipe(recipe, { prefs })  → easier library version | new "simplified" recipe (useSaveUserRecipe) | unchanged + reason
-//   buildGroceryList(meals, lookup, prefs) → toGroceryInput(items) → useSyncGroceryList
+//   buildGroceryList(meals, lookup, prefs, { from: planFrom(weekStart, today) }) → toGroceryInput(items) → useSyncGroceryList
+//     totals.overBudgetCad = checkout − budget; totals.weekOverBudgetCad = food used − budget
+//   makeAheadOf(recipe) (from "@/lib/meals/recipe") → { label, hours } for a "Make the night before" badge
 //   summarizeLearning(learnPrefs(feedback), { nameOf }) → "What the planner has learned"
 
 export * from "./prefs";
