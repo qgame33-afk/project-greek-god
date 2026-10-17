@@ -17,7 +17,8 @@ const wd = (d: ISODate) => new Date(`${d}T12:00:00`).getDay();
  * The Colonnade draws its own one-letter day initials and a tiny ball; both are hidden here
  * because the labels below say the same thing at a readable size.
  */
-export function Temple({ days, onDay, className }: { days: ColonnadeDay[]; onDay: (d: ISODate) => void; className?: string }) {
+export function Temple({ days, onDay, startDate, className }: { days: ColonnadeDay[]; onDay: (d: ISODate) => void; startDate?: ISODate | null; className?: string }) {
+  const before = (d: ColonnadeDay) => !!startDate && d.date < startDate && !d.done;
   return (
     <div className={cn("@container", className)}>
       <div className="@max-[19rem]:hidden">
@@ -35,7 +36,7 @@ export function Temple({ days, onDay, className }: { days: ColonnadeDay[]; onDay
         <div aria-hidden className="relative mx-auto -mt-3 h-14 w-full" style={{ maxWidth: (132 * 320) / 96 }}>
           {days.map((d, i) => {
             const slot = colonnadeSlot(i);
-            const label = d.kind === "rest" ? (d.volleyball ? "Volley" : "Rest") : d.label;
+            const label = d.kind === "rest" ? (d.volleyball ? "Volley" : before(d) ? "—" : "Rest") : d.label;
             return (
               <span key={d.date} className="absolute top-0 flex flex-col items-center text-center" style={{ left: `${slot.left}%`, width: `${slot.width}%` }}>
                 <span className={cn("t-eyebrow", d.today ? "text-leaf-300" : "text-ash")}>{SHORT[wd(d.date)]}</span>
@@ -54,7 +55,7 @@ export function Temple({ days, onDay, className }: { days: ColonnadeDay[]; onDay
             <button type="button" onClick={() => onDay(d.date)} className="press-soft flex min-h-14 w-full items-center gap-3 py-2 text-left">
               <span className={cn("t-title-3 w-[3.2em] shrink-0", d.today ? "text-leaf-300" : "text-ivory")}>{dayName(d.date, true)}</span>
               <span className="min-w-0 flex-1">
-                <span className={cn("t-callout block", d.kind === "rest" ? "text-stone" : "text-ivory")}>{d.kind === "rest" ? "Rest" : d.label}</span>
+                <span className={cn("t-callout block", d.kind === "rest" ? "text-stone" : "text-ivory")}>{d.kind === "rest" ? (before(d) ? "Before your start" : "Rest") : d.label}</span>
                 <span className="t-meta block text-stone">{stateWord(d)}</span>
               </span>
               {d.volleyball && <Volleyball className="size-5 text-stone" />}

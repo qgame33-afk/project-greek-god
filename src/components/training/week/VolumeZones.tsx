@@ -52,7 +52,8 @@ export function VolumeZones({ week, className }: { week: Week; className?: strin
           " "
         ) : v.plannedTotal > 0 ? (
           <>
-            Planned sessions left this week add ~<span className="tnum text-ivory">{v.plannedTotal}</span> sets <Tag kind="CALC" explain={plannedExplain} className="ml-1" />
+            {empty ? "Bars fill as you log sets. " : ""}Planned sessions left this week add ~<span className="tnum text-ivory">{v.plannedTotal}</span> sets{" "}
+            <Tag kind="CALC" explain={plannedExplain} className="ml-1" />
           </>
         ) : empty ? (
           "Bars fill as you log sets."
@@ -67,7 +68,7 @@ export function VolumeZones({ week, className }: { week: Week; className?: strin
         </ErrorNote>
       ) : (
         <ul className="mt-3 divide-y divide-vein border-y border-vein">
-          {v.rows.map((r) => (v.loading ? <SkeletonRow key={r.zone} /> : <ZoneLine key={r.zone} r={r} />))}
+          {v.rows.map((r) => (v.loading ? <SkeletonRow key={r.zone} /> : <ZoneLine key={r.zone} r={r} quiet={empty} />))}
         </ul>
       )}
       {!v.loading && v.other > 0 && (
@@ -79,7 +80,8 @@ export function VolumeZones({ week, className }: { week: Week; className?: strin
   );
 }
 
-function ZoneLine({ r }: { r: ZoneRow }) {
+/** `quiet`: nothing logged this week yet — the empty bars and their zones, no "under" on every row. */
+function ZoneLine({ r, quiet }: { r: ZoneRow; quiet: boolean }) {
   const [lo, hi] = r.range;
   const glyph = r.status === "in" ? <Check className="size-3.5" strokeWidth={2.2} aria-hidden /> : <span aria-hidden>{r.status === "under" ? "▽" : "△"}</span>;
   return (
@@ -92,14 +94,15 @@ function ZoneLine({ r }: { r: ZoneRow }) {
         <span className="absolute inset-y-0 bg-(--corridor) shadow-[inset_1px_0_0_var(--ui-line),inset_-1px_0_0_var(--ui-line)]" style={{ left: pct(lo), width: `calc(${pct(hi)} - ${pct(lo)})` }} />
         {/* the track and the logged fill */}
         <span className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-vein-2">
-          {r.status === "under" && <span className="hatch absolute inset-y-0" style={{ left: pct(r.sets), width: `calc(${pct(lo)} - ${pct(r.sets)})` }} />}
+          {r.status === "under" && !quiet && <span className="hatch absolute inset-y-0" style={{ left: pct(r.sets), width: `calc(${pct(lo)} - ${pct(r.sets)})` }} />}
           <span className="absolute inset-0 origin-left rounded-full bg-ivory transition-transform duration-(--dur-gild) ease-(--ease-gold)" style={{ transform: `scaleX(${Math.min(r.sets, ZONE_SCALE_MAX) / ZONE_SCALE_MAX})` }} />
         </span>
       </span>
       <span aria-hidden className={cn("t-meta flex items-center justify-end gap-1.5 whitespace-nowrap", r.status === "under" ? "text-stone" : "text-ivory")}>
-        <span className="t-num-s text-ivory">{r.sets}</span>
-        {glyph}
-        <span>{zoneStatusWord(r.status)}</span>
+        <span className={cn("t-num-s", quiet ? "text-stone" : "text-ivory")}>{r.sets}</span>
+        {!quiet && glyph}
+        {!quiet && <span>{zoneStatusWord(r.status)}</span>}
+        {quiet && <span className="tnum text-ash">of {lo}–{hi}</span>}
       </span>
     </li>
   );

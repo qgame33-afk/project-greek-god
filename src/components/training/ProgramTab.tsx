@@ -79,7 +79,7 @@ function Split({ week }: { week: Week }) {
   const restDays = DAYS.filter((d) => (schedule[String(d.wd)] ?? "rest") === "rest");
 
   return (
-    <section aria-labelledby="split-h" className="min-w-0">
+    <section aria-labelledby="split-h" className="@container min-w-0">
       <div className="mb-1 flex min-h-8 items-baseline justify-between gap-3">
         <h2 id="split-h" className="t-eyebrow">
           The split
@@ -96,13 +96,14 @@ function Split({ week }: { week: Week }) {
           return (
             <li key={t.key}>
               <Link href={`/training/program/${t.key}`} className="press-soft flex min-h-20 items-center gap-3 py-3">
-                <span className={cn("t-eyebrow w-10 shrink-0", !days.length && "text-ash")}>{days.length ? days.map((d) => SHORT[d]).join(" ") : "—"}</span>
+                <span className={cn("t-eyebrow w-10 shrink-0 @max-[19rem]:hidden", !days.length && "text-ash")}>{days.length ? days.map((d) => SHORT[d]).join(" ") : "—"}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="t-title-2 block truncate text-ivory">{t.name}</span>
-                  <span className="t-meta tnum mt-0.5 block truncate text-stone">
+                  <span className="t-eyebrow hidden @max-[19rem]:block">{days.length ? days.map((d) => SHORT[d]).join(" ") : "Not scheduled"}</span>
+                  <span className="t-title-2 block text-ivory">{t.name}</span>
+                  <span className="t-meta tnum mt-0.5 block text-stone">
                     {plural(s.exercises, "lift")} · {plural(s.sets, "set")} · ~{min} min
                   </span>
-                  <span className="t-meta block truncate text-ash">{all.isLoading ? " " : last ? `${t.subtitle || t.focus} · last ${shortDate(last, week.today)}` : `${t.subtitle || t.focus} · not done yet`}</span>
+                  <span className="t-meta line-clamp-2 block text-ash">{all.isLoading ? " " : last ? `${t.subtitle || t.focus} · last ${shortDate(last, week.today)}` : `${t.subtitle || t.focus} · not done yet`}</span>
                 </span>
                 <ChevronRight className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
               </Link>
@@ -111,14 +112,14 @@ function Split({ week }: { week: Week }) {
         })}
         <li>
           <button type="button" aria-expanded={sundayOpen} aria-controls={sundayId} onClick={() => setSundayOpen((o) => !o)} className="press-soft flex min-h-20 w-full items-center gap-3 py-3 text-left">
-            <span className="t-eyebrow w-10 shrink-0">{restDays.length ? restDays.map((d) => d.short).join(" ") : "—"}</span>
+            <span className="t-eyebrow w-10 shrink-0 @max-[19rem]:hidden">{restDays.length ? restDays.map((d) => d.short).join(" ") : "—"}</span>
             <span className="min-w-0 flex-1">
               <span className="t-title-2 block text-ivory">Recovery</span>
               <span className="t-meta block text-stone">No compulsory lifting. Everything is optional.</span>
             </span>
             <ChevronDown className={cn("size-4 shrink-0 text-ash transition-transform duration-(--dur-base)", sundayOpen && "rotate-180")} strokeWidth={1.6} aria-hidden />
           </button>
-          <Collapse open={sundayOpen} id={sundayId} className="pb-4 pl-13">
+          <Collapse open={sundayOpen} id={sundayId} className="pb-4 pl-13 @max-[19rem]:pl-0">
             <ul className="space-y-2">
               {SUNDAY_RECOVERY.items.map((i) => (
                 <li key={i.label} className="t-callout text-stone">

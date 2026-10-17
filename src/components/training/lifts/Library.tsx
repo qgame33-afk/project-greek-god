@@ -87,7 +87,7 @@ export function Library({ today }: { today: string }) {
   const B = library.filter(match);
 
   return (
-    <div>
+    <div className="@container">
       <div className="relative">
         <Search className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-ash" strokeWidth={1.6} />
         <Input
@@ -192,9 +192,9 @@ function LiftRow({ r, unit, today, values }: { r: Row; unit: "lb" | "kg"; today:
             {r.last ? ` · ${relativeDay(r.last, today)}` : ""}
           </span>
         </span>
-        {values && <Sparkline values={values} className="shrink-0" />}
+        {values && <Sparkline values={values} className="shrink-0 @max-[19rem]:hidden" />}
         {value && (
-          <span className="w-16 shrink-0 text-right">
+          <span className="min-w-16 shrink-0 text-right">
             <span className="t-num-s block text-ivory">
               {value}
               {valueUnit && <span className="t-meta text-stone"> {valueUnit}</span>}

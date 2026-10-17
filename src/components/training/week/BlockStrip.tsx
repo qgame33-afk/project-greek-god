@@ -5,6 +5,8 @@ import { cn } from "@/lib/cn";
 import { shortDate } from "@/lib/dates";
 import { DELOAD_WINDOW, HARD_WEEK_SESSIONS, type Block } from "@/lib/training/block";
 
+const MIN_SLOTS = 6;
+
 /**
  * The block strip (§3.4.1 item 2): one segment per week since the last deload (or the programme
  * start), hard weeks filled ivory, this week outlined, and a marker where the deload RULE falls
@@ -22,12 +24,12 @@ export function BlockStrip({ block, today, className }: { block: Block; today: s
 
   return (
     <section aria-label={aria} className={cn("min-w-0", className)}>
-      <div className="flex min-h-6 items-center justify-between gap-3" aria-hidden>
-        <p className="t-eyebrow truncate">
+      <div className="flex min-h-6 flex-wrap items-center justify-between gap-x-3 gap-y-1" aria-hidden>
+        <p className="t-eyebrow">
           {head}
           {hidden > 0 && <span className="text-ash"> · last {n}</span>}
         </p>
-        <p className="t-meta flex shrink-0 items-center gap-1.5 text-stone">
+        <p className="t-meta flex flex-wrap items-center gap-1.5 text-stone">
           {right}
           <Tag
             kind="RULE"
@@ -40,7 +42,8 @@ export function BlockStrip({ block, today, className }: { block: Block; today: s
           />
         </p>
       </div>
-      <div className="relative mt-2 flex h-4 items-center gap-1 pr-2" aria-hidden>
+      {/* at least six slots wide, so a new block reads as one short segment, not a full-width bar */}
+      <div className="relative mt-2 flex h-4 items-center gap-1 pr-2" aria-hidden style={{ width: n < MIN_SLOTS ? `${(n / MIN_SLOTS) * 100}%` : undefined }}>
         {weeks.map((w) => {
           const fill = w.state === "open" ? Math.min(1, w.sessions / HARD_WEEK_SESSIONS) : 0;
           return (

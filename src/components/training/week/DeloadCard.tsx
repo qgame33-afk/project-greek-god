@@ -48,7 +48,7 @@ export function DeloadCard({ advice, today, className }: { advice: DeloadAdvice;
   return (
     <section aria-labelledby="deload-h" className={cn("slab p-4", className)}>
       <div className="flex gap-3">
-        <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)]">
+        <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)] @max-[19rem]:hidden">
           <Moon className="size-5" />
         </span>
         <div className="min-w-0 flex-1">

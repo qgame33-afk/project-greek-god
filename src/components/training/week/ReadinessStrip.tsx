@@ -67,7 +67,7 @@ export function ReadinessStrip({ week, onLogVolleyball, className }: { week: Wee
           <span className="t-title-3 tnum mt-1.5 block truncate text-ivory">{unknown ? "—" : `${vbCount} this week`}</span>
         </Link>
         <span className="mt-0.5 flex min-w-0 items-center justify-between gap-2">
-          <span className="t-meta min-w-0 truncate text-stone">{unknown ? "Not loaded" : vbWhen || (week.vbAdvice.heavy ? "Heavy load lately" : "None logged yet")}</span>
+          <span className="t-meta min-w-0 truncate text-stone">{unknown ? "Not loaded" : vbWhen || (week.vbAdvice.heavy ? "Heavy load lately" : "None yet")}</span>
           <button type="button" onClick={onLogVolleyball} className="press hit-44 t-meta relative z-10 -my-1 inline-flex shrink-0 items-center gap-1 font-semibold text-ivory">
             <Plus className="size-4" strokeWidth={1.8} aria-hidden />
             Log

@@ -147,12 +147,12 @@ export function TodaySession({ week, onDay, className }: { week: Week; onDay: (d
       </div>
       {key?.target && (
         <div className="mt-3 border-t border-vein pt-3">
-          <p className="flex items-baseline justify-between gap-3">
-            <span className="t-callout min-w-0 truncate text-ivory">{key.name}</span>
+          <p className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <span className="t-callout min-w-0 text-ivory">{key.name}</span>
             <span className="t-num-s shrink-0 text-ivory">{key.target}</span>
           </p>
-          <p className="t-meta tnum mt-1 flex items-center justify-between gap-3 text-stone">
-            <span className="min-w-0 truncate">{key.from ? `Last time ${key.from}` : "First time on this lift"}</span>
+          <p className="t-meta tnum mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-stone">
+            <span className="min-w-0">{key.from ? `Last time ${key.from}` : "First time on this lift"}</span>
             <Tag kind="RULE" explain={key.reason} />
           </p>
         </div>

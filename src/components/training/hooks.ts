@@ -85,7 +85,10 @@ export function useTrainingWeek() {
     // readiness and Progress use, so the week strip never says "no volleyball" beside them
     const volleyballDays = volleyballEntries(volleyball, recovery);
     const dates = weekDates(today);
-    const days = weekDays({ dates, plans: planLikes, sessions, volleyball: volleyballDays, today });
+    // days before the programme started were never planned: no columns, nothing "missed"
+    const start = profile?.start_date ?? null;
+    const weekPlans = start ? planLikes.map((p) => (p.date < start ? { ...p, key: "rest", name: null } : p)) : planLikes;
+    const days = weekDays({ dates, plans: weekPlans, sessions, volleyball: volleyballDays, today });
     const missed = missedWorkouts({ today, plans: planLikes, sessions, since: profile?.start_date ?? null });
     const load7d = volleyballSessions7d(volleyballDays, today);
     const vbAdvice = volleyballAdvice({ load7d, perWeek: profile?.volleyball_per_week ?? 2, recovery: latestRecovery(recovery), today });

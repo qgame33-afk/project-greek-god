@@ -506,10 +506,10 @@ function ExerciseItem({
         <span className="t-num-s w-5 shrink-0 text-ash">{index + 1}</span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <span className="t-title-3 truncate text-ivory">{e.name}</span>
+            <span className="t-title-3 line-clamp-2 text-ivory">{e.name}</span>
             {e.optional && <span className="t-tag shrink-0 text-ash">Optional</span>}
           </span>
-          <span className="t-meta tnum block truncate text-stone">
+          <span className="t-meta tnum block text-stone">
             {targetLabel(e)} · {e.rir === "Fresh" ? "Fresh" : `RIR ${e.rir}`} · {fmtRest(e.rest)} rest
           </span>
         </span>

@@ -91,7 +91,7 @@ function Detail({ slug }: { slug: string }) {
   const timed = lib?.tracking === "weight_time" || (!!best?.best_duration_sec && !best?.best_reps);
 
   return (
-    <div className="pb-6">
+    <div className="@container pb-6">
       <Back />
       <header className="mt-3">
         <p className="t-eyebrow">{lib ? `${CATEGORY[lib.category] ?? lib.category} · ${equipmentLabel(lib.equipment)}` : "Custom exercise"}</p>
@@ -318,15 +318,15 @@ function StatSheet({ unit, timed, best, daily, today }: { unit: WeightUnit; time
     },
   ];
   return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-card bg-vein shadow-[inset_0_0_0_1px_var(--vein)] sm:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-card bg-vein shadow-[inset_0_0_0_1px_var(--vein)] sm:grid-cols-4 @max-[19rem]:grid-cols-1">
       {cells.map((c) => (
         <div key={c.label} className="min-h-21 min-w-0 bg-night px-4 py-3.5">
-          <dt className="t-eyebrow truncate">{c.label}</dt>
-          <dd className="t-num-m mt-2 truncate text-ivory">
+          <dt className="t-eyebrow">{c.label}</dt>
+          <dd className="t-num-m mt-2 text-ivory">
             {c.value}
             {c.unit && <span className="t-meta text-stone"> {c.unit}</span>}
           </dd>
-          <dd className="t-meta mt-1 truncate text-ash">{c.caption ?? " "}</dd>
+          <dd className="t-meta mt-1 text-ash">{c.caption ?? " "}</dd>
         </div>
       ))}
     </dl>
@@ -392,7 +392,7 @@ function ChartBlock({
 
   return (
     <section aria-labelledby="chart-h">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 @max-[19rem]:flex-col-reverse">
         <div className="min-w-0">
           <h2 id="chart-h" className="t-eyebrow">
             {loading ? " " : label}
