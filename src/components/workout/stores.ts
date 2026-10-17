@@ -5,6 +5,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { RestState } from "@/lib/workout/rest";
+import type { Journal } from "@/lib/workout/sync";
 
 const listeners = new Set<() => void>();
 const cache = new Map<string, unknown>();
@@ -101,13 +102,16 @@ export function markMoment(sessionId: string, slug: string): boolean {
 
 /* ------------------------------------------------- device copy (offline) */
 
-// The live session as this device last showed it. `dirty` stays true from the first local
-// change until a resync has confirmed the server holds exactly the same sets, so a write the
-// outbox gave up on, or a reload with no signal, never loses a logged set.
+// The live session as this device last showed it, plus the journal of changes made on this
+// device that the server hasn't been seen to hold yet. Entries leave the journal only once a
+// sync confirms them, so a write the outbox gave up on, or a reload with no signal, never
+// loses a logged set — and only this device's own changes are ever re-sent.
 
 export interface DeviceCopy<T> {
   data: T;
-  dirty: boolean;
+  journal?: Journal;
+  /** Copies saved before the journal existed: true = holds changes the server may lack. */
+  dirty?: boolean;
 }
 
 const copyKey = (sessionId: string) => `pgg.live.${sessionId}`;
@@ -122,17 +126,12 @@ export function getDeviceCopy<T>(sessionId: string): DeviceCopy<T> | null {
   }
 }
 
-export function setDeviceCopy<T>(sessionId: string, data: T, dirty: boolean) {
+export function setDeviceCopy<T>(sessionId: string, data: T, journal: Journal) {
   try {
-    localStorage.setItem(copyKey(sessionId), JSON.stringify({ data, dirty } satisfies DeviceCopy<T>));
+    localStorage.setItem(copyKey(sessionId), JSON.stringify({ data, journal } satisfies DeviceCopy<T>));
   } catch {
     /* storage full / private mode — the outbox still carries the writes */
   }
-}
-
-export function markDeviceCopyClean(sessionId: string) {
-  const c = getDeviceCopy(sessionId);
-  if (c?.dirty) setDeviceCopy(sessionId, c.data, false);
 }
 
 /** Forget everything kept for a session once it is finished or discarded. */

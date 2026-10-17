@@ -57,16 +57,16 @@ import {
   type Ghost,
 } from "@/lib/workout/session";
 import { durationSec, effectiveEnd, lastCompletedAt, sessionTotals } from "@/lib/workout/summary";
-import { diffSets, isNetworkError, setPayload } from "@/lib/workout/sync";
+import { emptyJournal, isNetworkError } from "@/lib/workout/sync";
 import type { CellField, Tracking, WSession, WSet } from "@/lib/workout/types";
 import { unlockAudio } from "./audio";
-import { fetchPriorBests, fetchPriorHistory, invalidateTraining, liveKey, newSetRow, resyncSession, usePriorBests, usePriorHistory, useSessionOps, type LiveData } from "./data";
+import { applyPush, fetchPriorBests, fetchPriorHistory, invalidateTraining, liveKey, mergeLive, newSetRow, usePriorBests, usePriorHistory, useSessionOps, useSessionSync, type LiveData } from "./data";
 import { CollapsedExercise, OpenExercise } from "./ExerciseBlock";
 import { NumberPad } from "./NumberPad";
 import { RestDock, RestFocus, RestPanel, RestWatcher, useClockSec } from "./rest";
 import type { RowView } from "./SetGrid";
 import { DiscardSheet, ExerciseMenuSheet, FinishSheet, HowToSheet, NoteSheet, PickExerciseSheet, SetSheetActions } from "./sheets";
-import { clearSessionStores, getDeviceCopy, getRest, markDeviceCopyClean, markMoment, setRest, setSkipped, useOnline, useRest, useSkipped } from "./stores";
+import { clearSessionStores, getDeviceCopy, getRest, markMoment, setRest, setSkipped, useOnline, useRest, useSkipped } from "./stores";
 import { WorkoutTopBar } from "./TopBar";
 
 const NO_GHOST: Ghost = { weight: null, work: null, weightSource: null, workSource: null };
@@ -170,7 +170,12 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     if (!historyQ.data) return m;
     for (const g of groups) {
       const inf = info.get(g.key)!;
-      m.set(g.key, suggest(inf.tEx, inf.lib, historyQ.data[g.slug] ?? [], sessionMode));
+      const s = suggest(inf.tEx, inf.lib, historyQ.data[g.slug] ?? [], sessionMode);
+      // The headline shows the session's own targets (a deload's are already trimmed when
+      // the session is built — trimming them again would read "× 5" beside "2 × 5–6").
+      const first = g.working[0];
+      const stored = first?.target_rep_low != null && first.target_rep_high != null;
+      m.set(g.key, stored ? { ...s, target: { ...s.target, low: first.target_rep_low!, high: first.target_rep_high! } } : s);
     }
     return m;
   }, [groups, info, historyQ.data, sessionMode]);
@@ -758,6 +763,13 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   /* ------------------------------------------------------- session notes */
 
   const [notes, setNotes] = useState(session.notes ?? "");
+  // A note changed on another device (merged in by a sync) replaces the text here unless
+  // this device has unsaved typing of its own.
+  const [notesSeen, setNotesSeen] = useState(session.notes ?? null);
+  if ((session.notes ?? null) !== notesSeen) {
+    setNotesSeen(session.notes ?? null);
+    if ((notes.trim() || null) === notesSeen) setNotes(session.notes ?? "");
+  }
   useEffect(() => {
     const want = notes.trim() || null;
     if (want === (session.notes ?? null)) return;
@@ -781,6 +793,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const openFinish = () => {
     setFinishError(null);
     setFinishOpen(true);
+    void ops.sync(); // the sheet's count includes sets logged on another device
   };
   const busy = useRef(false);
 
@@ -792,20 +805,35 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     setFinishError(null);
     setPad(null);
     try {
-      const cur = qc.getQueryData<LiveData | null>(liveKey(id, userId)) ?? data;
-      const { moves, sessionLines } = relocateNotes(groupSets(cur.sets));
-      if (moves.length) ops.updateSets(moves.map((m) => ({ id: m.id, values: { notes: m.notes } })));
-      const baseNotes = notes.trim() || null;
-      const finalNotes = sessionLines.length ? [baseNotes, ...sessionLines].filter(Boolean).join("\n").slice(0, 2000) : baseNotes;
       if (typeof navigator !== "undefined" && navigator.onLine === false) throw new Error("offline");
       if (!(await drained(10000))) throw new Error("offline");
-      // The server ends up holding exactly the sets logged on this device: anything the
-      // outbox couldn't deliver is re-sent, unlogged and removed sets are deleted.
-      const logged = (qc.getQueryData<LiveData | null>(liveKey(id, userId)) ?? cur).sets.filter((s) => s.completed);
-      const before = must(await sb().from("exercise_sets").select("*").eq("session_id", id));
-      const fix = diffSets(logged, before);
-      if (fix.upserts.length) must(await sb().from("exercise_sets").upsert(fix.upserts.map(setPayload) as never, { onConflict: "id" }).select("id"));
-      if (fix.deletes.length) must(await sb().from("exercise_sets").delete().in("id", fix.deletes).select("id"));
+      // Merge with the server first: sets logged on another device are kept, and only what
+      // this device changed (and the server doesn't hold yet) is written.
+      const cur = qc.getQueryData<LiveData | null>(liveKey(id, userId)) ?? data;
+      const serverSession = must(await sb().from("workout_sessions").select("*").eq("id", id).single()) as WSession;
+      const serverSets = must(await sb().from("exercise_sets").select("*").eq("session_id", id).order("exercise_order").order("set_index"));
+      if (serverSession.status === "discarded") {
+        clearSessionStores(id);
+        ops.setData({ session: serverSession, sets: serverSets });
+        setFinishOpen(false);
+        return;
+      }
+      // Finished on another device meanwhile: this device's sets still go in and the totals
+      // are recounted, but the end time stays the one already saved.
+      const endedElsewhere = live && serverSession.status === "done";
+      const m = mergeLive({ session: { ...serverSession, status: cur.session.status }, sets: serverSets }, cur, getDeviceCopy<LiveData>(id)?.journal ?? emptyJournal());
+      await applyPush(
+        id,
+        m.push.filter((p) => p.kind !== "notes"),
+      );
+      // Notes on sets that are about to be dropped move onto a logged set (or the session note).
+      const { moves, sessionLines } = relocateNotes(groupSets(m.data.sets));
+      for (const mv of moves) must(await sb().from("exercise_sets").update({ notes: mv.notes }).eq("id", mv.id).select("id"));
+      const baseNotes = notes.trim() || null;
+      const finalNotes = sessionLines.length ? [baseNotes, ...sessionLines].filter(Boolean).join("\n").slice(0, 2000) : baseNotes;
+      // Unlogged sets are dropped — decided by the server's own copy, so a set logged on
+      // another device a moment ago is never deleted.
+      must(await sb().from("exercise_sets").delete().eq("session_id", id).eq("completed", false).select("id"));
       const fresh = must(await sb().from("exercise_sets").select("*").eq("session_id", id).order("exercise_order").order("set_index"));
       const totals = sessionTotals(fresh);
       const priors: Record<string, PriorBest> | null =
@@ -817,19 +845,10 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
         ).catch(() => null));
       const prCount = priors ? sessionRecords(groupSets(fresh), priors).length : session.pr_count;
       const endMs = effectiveEnd(session.started_at, Date.now(), lastCompletedAt(fresh));
-      const values = live
-        ? {
-            status: "done",
-            ended_at: new Date(endMs).toISOString(),
-            duration_sec: durationSec(session.started_at, endMs),
-            total_volume_lb: totals.volumeLb,
-            sets_completed: totals.setsCompleted,
-            pr_count: prCount,
-            notes: finalNotes,
-          }
-        : { total_volume_lb: totals.volumeLb, sets_completed: totals.setsCompleted, pr_count: prCount, notes: finalNotes };
+      const counts = { total_volume_lb: totals.volumeLb, sets_completed: totals.setsCompleted, pr_count: prCount, notes: finalNotes };
+      const values = live && !endedElsewhere ? { status: "done", ended_at: new Date(endMs).toISOString(), duration_sec: durationSec(session.started_at, endMs), ...counts } : counts;
       let q = sb().from("workout_sessions").update(values).eq("id", id);
-      if (live) q = q.eq("status", "active"); // a second tap or another device can't finish twice
+      if (live && !endedElsewhere) q = q.eq("status", "active"); // a second tap can't finish twice
       const updated = must(await q.select("*").maybeSingle());
       const finalSession: WSession = updated ?? (must(await sb().from("workout_sessions").select("*").eq("id", id).single()) as WSession);
       clearSessionStores(id);
@@ -925,45 +944,10 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     void ops.reload();
   }, [outbox.error, ops]);
 
-  // Safety net under the outbox: whenever it goes idle while this device holds changes the
-  // server hasn't confirmed (including a write it gave up on after a long dead spell), compare
-  // with the server and re-send the difference. Retries every 15 s while there is no signal.
-  const outboxRef = useRef(outbox);
-  useEffect(() => {
-    outboxRef.current = outbox;
-  });
-  const resyncs = useRef(0);
-  useEffect(() => {
-    if (outbox.pending > 0) return;
-    let cancelled = false;
-    const run = async () => {
-      const ob = outboxRef.current;
-      if (cancelled || ob.pending > 0 || !getDeviceCopy(id)?.dirty || resyncs.current > 8) return;
-      if (ob.error && !isNetworkError(ob.error)) return;
-      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
-      const cur = qc.getQueryData<LiveData | null>(liveKey(id, userId));
-      if (!cur) return;
-      try {
-        const r = await resyncSession(id, cur);
-        // Only call it clean if nothing was tapped while the server was being checked.
-        if (r === "clean" && qc.getQueryData(liveKey(id, userId)) === cur) {
-          markDeviceCopyClean(id);
-          resyncs.current = 0;
-        } else if (r === "queued") resyncs.current++;
-      } catch {
-        /* still no signal — the interval tries again */
-      }
-    };
-    const first = window.setTimeout(run, 1500);
-    const every = window.setInterval(run, 15000);
-    window.addEventListener("online", run);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(first);
-      window.clearInterval(every);
-      window.removeEventListener("online", run);
-    };
-  }, [outbox.pending, outbox.error, id, qc, userId]);
+  // Safety net under the outbox and the multi-device merge: whenever the outbox goes idle,
+  // on focus and every 20 s, the server's copy is merged in (sets logged on another device
+  // appear) and only this device's own unconfirmed changes are re-sent.
+  useSessionSync(ops, live);
 
   /* -------------------------------------------------------------- render */
 
