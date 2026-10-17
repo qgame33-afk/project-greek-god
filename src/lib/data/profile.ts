@@ -2,6 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { mergePrefs, type PrefsPatch } from "@/lib/prefs";
+import type { Json } from "@/lib/supabase/database.types";
 import { friendlyError, must, sb, useUser, type Row, type Update } from "./core";
 
 export type Profile = Row<"profiles">;
@@ -74,5 +76,50 @@ export function useGoalChanges() {
     queryKey: ["goal-changes", userId],
     enabled: !!userId,
     queryFn: async () => must(await sb().from("goal_changes").select("*").order("changed_at", { ascending: false }).limit(200)),
+  });
+}
+
+/**
+ * Save part of profiles.prefs (DESIGN-V2 §4.4). Every prefs writer goes through this: it
+ * reads the stored prefs fresh, deep-merges the patch with mergePrefs() (unknown keys and
+ * the rest of `day` are kept), writes, and patches the cached profile optimistically with
+ * rollback. Writes run one at a time (a mutation scope), so two quick toggles can't race
+ * each other into dropping a key, and the cache is only refreshed from the server once the
+ * last queued write is done (no flicker back). `quiet` skips the error toast.
+ */
+const PREFS_KEY = ["profile-prefs"];
+
+export function useSavePrefs({ quiet = false }: { quiet?: boolean } = {}) {
+  const qc = useQueryClient();
+  const { userId } = useUser();
+  const othersPending = () => qc.isMutating({ mutationKey: PREFS_KEY }) > 1;
+  return useMutation({
+    mutationKey: PREFS_KEY,
+    scope: { id: "profile-prefs" },
+    mutationFn: async (patch: PrefsPatch) => {
+      const stored = await sb().from("profiles").select("prefs").eq("id", userId!).single();
+      if (stored.error) throw new Error(friendlyError(stored.error.message));
+      const next = mergePrefs(stored.data.prefs, patch) as NonNullable<Json>;
+      must(await sb().from("profiles").update({ prefs: next }).eq("id", userId!).select("id").single());
+      return next;
+    },
+    onMutate: async (patch) => {
+      await qc.cancelQueries({ queryKey: ["profile", userId] });
+      const prev = qc.getQueryData<Profile>(["profile", userId]);
+      if (prev) qc.setQueryData<Profile>(["profile", userId], { ...prev, prefs: mergePrefs(prev.prefs, patch) as NonNullable<Json> });
+      return { prev };
+    },
+    onError: (e: Error, _patch, ctx) => {
+      if (ctx?.prev && !othersPending()) qc.setQueryData(["profile", userId], ctx.prev);
+      if (!quiet) toast.error("Couldn't save", { description: e.message });
+    },
+    onSuccess: (next) => {
+      if (othersPending()) return;
+      const cur = qc.getQueryData<Profile>(["profile", userId]);
+      if (cur) qc.setQueryData<Profile>(["profile", userId], { ...cur, prefs: next });
+    },
+    onSettled: () => {
+      if (!othersPending()) qc.invalidateQueries({ queryKey: ["profile"] });
+    },
   });
 }

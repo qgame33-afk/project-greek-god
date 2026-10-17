@@ -1,8 +1,9 @@
-// The one source of truth for "how far up the climb am I": the hero TARGET %, the Gilded
-// Bust and the fluted meter all read `p` from ascentProgress().
+// "How far up the climb am I": the hero TARGET %, the Gilded Bust and the fluted meter all
+// read from ascentProgress(), which is built on the one trend in lib/progress/pace.ts.
 
-import { weightStats, type WeighIn } from "@/lib/bodyweight";
+import { avgWindow, type WeighIn } from "@/lib/bodyweight";
 import { addDays, daysBetween, type ISODate } from "@/lib/dates";
+import { gildFraction, MIN_WEIGHINS, trendAt, type Pace, type PaceVerdict } from "@/lib/progress/pace";
 import { round, toDisplayWeight, type WeightUnit } from "@/lib/units";
 
 const clamp01 = (n: number) => (Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0);
@@ -11,58 +12,66 @@ export interface Ascent {
   /** Latest logged weigh-in, or null when nothing has been logged. */
   latest: number | null;
   latestDate: ISODate | null;
-  /** 7-day average ending today (or at the last weigh-in when it's older than a week). */
+  /** The 7-day trend (pace.trendAt): ending today, or at the last weigh-in when that is older. */
   avg7: number | null;
-  /** Weigh-ins inside the 7-day average's window (same window as weightStats). */
+  /** Weigh-ins inside the trend's window. */
   avgCount: number;
   /** Last day of that window: today, or the last weigh-in when it's more than a week old. */
   avgEnd: ISODate;
-  /** avg7 ?? latest — the number p is computed from. */
+  /** The trend weight p is computed from (null only before the first weigh-in). */
   trend: number | null;
-  /** avg7 now vs one week earlier, lb. */
+  /**
+   * @deprecated The 7-day-vs-previous-7-day change. Not a rate: show pace().rate instead
+   * (DESIGN-V2 §4.1.1). Kept for the exported shape only.
+   */
   weeklyChange: number | null;
   /** goal − trend (or goal − start before any weigh-in). */
   toGo: number | null;
   start: number | null;
   goal: number | null;
-  /** 0–1, clamped. 0 when there is no weigh-in. */
+  /** 0–1, clamped. 0 when there is no weigh-in. The climb, not the statue (see `gild`). */
   p: number;
+  /** 0–1 statue gild: like p, but 0 until MIN_WEIGHINS (4) weigh-ins exist (pace.gildFraction). */
+  gild: number;
+  /** Weigh-ins still needed before the gilding begins (0 once it has). */
+  weighInsToGild: number;
   /** True once at least one weigh-in exists. */
   hasData: boolean;
   count: number;
 }
 
 /**
- * p = clamp(((avg7 ?? latest) − start) / (goal − start), 0, 1).
+ * p = clamp((trend − start) / (goal − start), 0, 1), with the trend from pace.trendAt.
  * With no weigh-ins p is 0 and the start weight is reported as the start — never as a reading.
  */
 export function ascentProgress(startLb: number | null | undefined, goalLb: number | null | undefined, weights: WeighIn[], ref: ISODate): Ascent {
   const start = startLb == null || !Number.isFinite(Number(startLb)) ? null : Number(startLb);
   const goal = goalLb == null || !Number.isFinite(Number(goalLb)) ? null : Number(goalLb);
-  const valid = weights.filter((w) => Number.isFinite(Number(w.weight_lb)) && w.local_date <= ref);
-  const s = weightStats(valid, start ?? 0, goal ?? 0, ref);
-  const trend = s.avg7 ?? s.current;
-  const avgEnd = s.currentDate && daysBetween(s.currentDate, ref) > 7 ? s.currentDate : ref;
-  const avgFrom = addDays(avgEnd, -6);
-  const avgCount = valid.filter((w) => w.local_date >= avgFrom && w.local_date <= avgEnd).length;
+  const valid = weights.filter((w) => Number.isFinite(Number(w.weight_lb)) && Number(w.weight_lb) > 0 && w.local_date <= ref);
+  const t = trendAt(valid, ref);
+  const trend = t.lb;
+  const prevWeek = t.lb != null ? avgWindow(valid, addDays(t.end, -7)) : null;
   let p = 0;
   if (trend != null && start != null && goal != null) {
     p = goal === start ? 1 : clamp01((trend - start) / (goal - start));
   }
+  const gild = start != null && goal != null ? gildFraction(trend, start, goal, valid.length) : 0;
   return {
-    latest: s.current,
-    latestDate: s.currentDate,
-    avg7: s.avg7,
-    avgCount,
-    avgEnd,
+    latest: t.latest?.lb ?? null,
+    latestDate: t.latest?.date ?? null,
+    avg7: trend,
+    avgCount: t.n,
+    avgEnd: t.end,
     trend,
-    weeklyChange: s.weeklyChange,
+    weeklyChange: trend != null && prevWeek != null ? round(trend - prevWeek, 2) : null,
     toGo: goal == null ? null : trend != null ? round1(goal - trend) : start != null ? round1(goal - start) : null,
     start,
     goal,
     p,
+    gild,
+    weighInsToGild: Math.max(0, MIN_WEIGHINS - valid.length),
     hasData: valid.length > 0,
-    count: s.count,
+    count: valid.length,
   };
 }
 
@@ -77,9 +86,8 @@ export function planRatePerWeek(startLb: number | null, goalLb: number | null, s
 export type TrendTone = "good" | "warn" | "neutral";
 
 /**
- * Delta colour follows the plan, not the sign (DESIGN §5.3): a weekly change between 0.5r
- * and 1.6r is success, above 2r is warning ("Faster than plan"), everything else is neutral.
- * Works for cutting plans too (r < 0) by comparing in the direction of the goal.
+ * @deprecated Colours the old 7-day-vs-7-day change against the plan rate. Screens show the
+ * pace verdict now (paceTone); kept until the last caller is rebuilt.
  */
 export function trendTone(weeklyChange: number | null, r: number | null): TrendTone {
   if (weeklyChange == null || r == null || r === 0) return "neutral";
@@ -91,12 +99,39 @@ export function trendTone(weeklyChange: number | null, r: number | null): TrendT
   return "neutral";
 }
 
-/** Caption under the weekly weight trend. `planLabel` is the formatted plan rate ("+0.5 lb"). */
+/** @deprecated See trendTone. `planLabel` is the formatted plan rate ("+0.5 lb"). */
 export function trendCaption(tone: TrendTone, weeklyChange: number | null, planLabel: string | null): string {
   if (weeklyChange == null) return "Needs 2 weeks of data";
   if (tone === "warn") return "Faster than plan";
   if (tone === "good") return "On plan";
   return planLabel ? `Plan ${planLabel}/wk` : "No plan rate set";
+}
+
+/** The old screens' tone for a pace verdict: on pace or arrived reads good, faster than the corridor reads warn. */
+export function paceTone(verdict: PaceVerdict): TrendTone {
+  if (verdict === "on_pace" || verdict === "top" || verdict === "arrived") return "good";
+  if (verdict === "above") return "warn";
+  return "neutral";
+}
+
+/** A short caption for the rate on the old screens, from the pace verdict and rate status. */
+export function paceCaption(p: Pick<Pace, "verdict" | "rate">): string {
+  switch (p.verdict) {
+    case "needs_data":
+      if (p.rate.status === "needs_weighins") return `${p.rate.n} of 4 weigh-ins · last 4 weeks`;
+      if (p.rate.status === "needs_span") return `Needs 10 days of weigh-ins`;
+      return "Set a goal band";
+    case "below":
+      return "Under your corridor";
+    case "on_pace":
+      return "On pace · last 4 weeks";
+    case "top":
+      return "Top of your corridor";
+    case "above":
+      return "Faster than your corridor";
+    case "arrived":
+      return "Inside the goal band";
+  }
 }
 
 function round1(n: number) {

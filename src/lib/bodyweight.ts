@@ -94,45 +94,81 @@ export function plannedWeight(date: ISODate, start: ISODate, target: ISODate, st
 
 export type CalorieSuggestion =
   | { kind: "insufficient"; daysOfData: number; weighIns: number }
-  | { kind: "on_track"; ratePerWeek: number; targetRate: number }
-  | { kind: "increase"; ratePerWeek: number; targetRate: number; delta: number }
-  | { kind: "reassess"; ratePerWeek: number; targetRate: number; delta: number }
+  | { kind: "on_track"; ratePerWeek: number; targetRate: number; earlyWater?: boolean }
+  | { kind: "increase"; ratePerWeek: number; targetRate: number; delta: number; earlyWater?: boolean }
+  | { kind: "reassess"; ratePerWeek: number; targetRate: number; delta: number; earlyWater?: boolean }
   | { kind: "cooldown"; lastChange: ISODate; nextCheck: ISODate };
 
-/**
- * Two-week trend check. Compares the average of the last 7 days to the 7 days before.
- * Needs ≥14 days spanned and ≥8 weigh-ins. Never applies anything — the UI asks first.
- * After a goal change, waits 14 days so the same data can't trigger a second change.
- */
-export function calorieSuggestion(
-  w: WeighIn[],
-  ref: ISODate,
-  targetRatePerWeek: number,
-  lastCalorieChange: ISODate | null,
-): CalorieSuggestion {
-  if (lastCalorieChange && daysBetween(lastCalorieChange, ref) < 14) {
-    return { kind: "cooldown", lastChange: lastCalorieChange, nextCheck: addDays(lastCalorieChange, 14) };
-  }
-  const since = lastCalorieChange && lastCalorieChange > addDays(ref, -27) ? lastCalorieChange : addDays(ref, -27);
-  const recent = sortWeighIns(w).filter((x) => x.local_date >= since && x.local_date <= ref);
-  const span = recent.length ? daysBetween(recent[0].local_date, recent.at(-1)!.local_date) : 0;
-  if (span < 13 || recent.length < 8) return { kind: "insufficient", daysOfData: span + (recent.length ? 1 : 0), weighIns: recent.length };
-  const a = avgWindow(recent, ref);
-  const b = avgWindow(recent, addDays(ref, -7));
-  if (a == null || b == null) return { kind: "insufficient", daysOfData: span + 1, weighIns: recent.length };
-  const rate = round(a - b, 2);
+/** The rate reading the calorie rule needs (pace.rateAt's RateReading satisfies it). */
+export interface CalorieRate {
+  lbPerWeek: number | null;
+  n: number;
+  spanDays: number;
+  status: "ok" | "needs_weighins" | "needs_span";
+  includesEarlyWater?: boolean;
+}
+
+/** The calorie rule asks for more evidence than the pace line: ≥ 8 weigh-ins spanning ≥ 13 days. */
+export const CALORIE_RULE_MIN_WEIGHINS = 8;
+export const CALORIE_RULE_MIN_SPAN = 13;
+export const CALORIE_COOLDOWN_DAYS = 14;
+
+function calorieCall(rate: number, targetRatePerWeek: number, earlyWater?: boolean): CalorieSuggestion {
   const target = Math.max(0.1, targetRatePerWeek);
+  const ew = earlyWater ? { earlyWater: true } : {};
   // A slow-gain phase: anything below half the target pace means intake is likely short.
   if (rate < target * 0.5) {
     // ~3500 kcal ≈ 1 lb is a rough rule; cap the change at a modest 100–250 kcal step.
     const delta = Math.min(250, Math.max(100, Math.round((((target - rate) * 3500) / 7) / 50) * 50));
-    return { kind: "increase", ratePerWeek: rate, targetRate: target, delta };
+    return { kind: "increase", ratePerWeek: rate, targetRate: target, delta, ...ew };
   }
   if (rate > Math.max(target * 2, target + 0.5)) {
     const delta = -Math.min(250, Math.max(100, Math.round((((rate - target) * 3500) / 7) / 50) * 50));
-    return { kind: "reassess", ratePerWeek: rate, targetRate: target, delta };
+    return { kind: "reassess", ratePerWeek: rate, targetRate: target, delta, ...ew };
   }
-  return { kind: "on_track", ratePerWeek: rate, targetRate: target };
+  return { kind: "on_track", ratePerWeek: rate, targetRate: target, ...ew };
+}
+
+/**
+ * The calorie rule (SPEC §12). Never applies anything — the UI asks first. After a goal
+ * change it waits 14 days so the same data can't trigger a second change.
+ *
+ * Preferred form: pass THE rate (pace.rateAt, the 28-day least-squares slope used on every
+ * screen), so the rule and the pace line can never disagree. It needs ≥ 8 weigh-ins
+ * spanning ≥ 13 days. `earlyWater` is set when the rate window overlaps the programme's
+ * first 14 days (water and glycogen), so a "too fast" call can say why.
+ *
+ * Legacy form (weigh-ins array): compares the last 7-day average with the 7 days before.
+ * Kept only for old callers; no screen should show its number (DESIGN-V2 §4.1.1).
+ */
+export function calorieSuggestion(rate: CalorieRate, ref: ISODate, targetRatePerWeek: number, lastCalorieChange: ISODate | null): CalorieSuggestion;
+/** @deprecated Pass pace.rateAt(...) instead of the weigh-ins. */
+export function calorieSuggestion(w: WeighIn[], ref: ISODate, targetRatePerWeek: number, lastCalorieChange: ISODate | null): CalorieSuggestion;
+export function calorieSuggestion(
+  src: CalorieRate | WeighIn[],
+  ref: ISODate,
+  targetRatePerWeek: number,
+  lastCalorieChange: ISODate | null,
+): CalorieSuggestion {
+  if (lastCalorieChange && daysBetween(lastCalorieChange, ref) < CALORIE_COOLDOWN_DAYS) {
+    return { kind: "cooldown", lastChange: lastCalorieChange, nextCheck: addDays(lastCalorieChange, CALORIE_COOLDOWN_DAYS) };
+  }
+  if (!Array.isArray(src)) {
+    const days = src.spanDays + (src.n ? 1 : 0);
+    if (src.status !== "ok" || src.lbPerWeek == null || src.n < CALORIE_RULE_MIN_WEIGHINS || src.spanDays < CALORIE_RULE_MIN_SPAN) {
+      return { kind: "insufficient", daysOfData: days, weighIns: src.n };
+    }
+    return calorieCall(src.lbPerWeek, targetRatePerWeek, src.includesEarlyWater);
+  }
+  const w = src;
+  const since = lastCalorieChange && lastCalorieChange > addDays(ref, -27) ? lastCalorieChange : addDays(ref, -27);
+  const recent = sortWeighIns(w).filter((x) => x.local_date >= since && x.local_date <= ref);
+  const span = recent.length ? daysBetween(recent[0].local_date, recent.at(-1)!.local_date) : 0;
+  if (span < CALORIE_RULE_MIN_SPAN || recent.length < CALORIE_RULE_MIN_WEIGHINS) return { kind: "insufficient", daysOfData: span + (recent.length ? 1 : 0), weighIns: recent.length };
+  const a = avgWindow(recent, ref);
+  const b = avgWindow(recent, addDays(ref, -7));
+  if (a == null || b == null) return { kind: "insufficient", daysOfData: span + 1, weighIns: recent.length };
+  return calorieCall(round(a - b, 2), targetRatePerWeek);
 }
 
 export interface RoadmapMonth {
