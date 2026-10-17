@@ -113,10 +113,10 @@ export function PhotoUploadSheet({ open, onOpenChange }: { open: boolean; onOpen
     >
       <div className="grid grid-cols-1 gap-4 py-2">
         {saved.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-fg-2" aria-live="polite">
+          <div className="flex flex-wrap items-center gap-2 t-meta font-semibold text-stone" aria-live="polite">
             <span>Saved:</span>
             {saved.map((p) => (
-              <span key={p} className="inline-flex h-7 items-center gap-1 rounded-full bg-success-tint px-2.5 text-[12px] font-bold text-success">
+              <span key={p} className="inline-flex h-7 items-center gap-1 rounded-full bg-leaf-tint px-2.5 t-meta font-bold text-leaf-300">
                 <Check className="size-3.5" /> {POSE_LABEL[p]}
               </span>
             ))}
@@ -128,39 +128,39 @@ export function PhotoUploadSheet({ open, onOpenChange }: { open: boolean; onOpen
 
         {prepared ? (
           <div className="relative mx-auto w-full max-w-[220px] sm:max-w-[260px]">
-            <div className="relative aspect-[3/4] overflow-hidden rounded-[16px] bg-bg-deep">
+            <div className="relative aspect-[3/4] overflow-hidden rounded-btn bg-obsidian">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={prepared.url} alt={`Preview, ${POSE_LABEL[pose]} pose`} width={prepared.width} height={prepared.height} className="size-full object-contain" />
-              <span className="pointer-events-none absolute inset-0 rounded-[16px] shadow-[inset_0_0_0_1px_var(--gold-800)]" aria-hidden />
+              <span className="pointer-events-none absolute inset-0 rounded-btn shadow-[inset_0_0_0_1px_var(--leaf-700)]" aria-hidden />
             </div>
             <button
               type="button"
               onClick={() => setPrepared(null)}
-              className="press absolute right-2 top-2 inline-flex h-11 items-center gap-1.5 rounded-full bg-[rgb(8_9_12/.72)] px-3.5 text-[13px] font-bold text-fg backdrop-blur"
+              className="press absolute right-2 top-2 inline-flex h-11 items-center gap-1.5 rounded-full bg-obsidian/85 px-3.5 t-meta font-bold text-ivory"
             >
               <RotateCcw className="size-4" /> Retake
             </button>
-            <p className="mt-2 text-center text-[12px] font-medium text-fg-3">
+            <p className="mt-2 text-center t-meta font-medium text-stone">
               {prepared.width} × {prepared.height} · {prepared.main.size >= 1024 * 1024 ? `${(prepared.main.size / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(prepared.main.size / 1024))} KB`}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => camRef.current?.click()} disabled={preparing} className="card-inset press flex h-32 flex-col items-center justify-center gap-2.5 text-center hover:bg-s4 disabled:opacity-50">
-              <Camera className="size-7 text-gold-300" />
-              <span className="text-[15px] font-bold text-fg">Take photo</span>
+            <button type="button" onClick={() => camRef.current?.click()} disabled={preparing} className="card-inset press flex h-32 flex-col items-center justify-center gap-2.5 text-center hover:bg-m4 disabled:opacity-50">
+              <Camera className="size-7 text-leaf-300" />
+              <span className="t-callout font-bold text-ivory">Take photo</span>
             </button>
-            <button type="button" onClick={() => libRef.current?.click()} disabled={preparing} className="card-inset press flex h-32 flex-col items-center justify-center gap-2.5 text-center hover:bg-s4 disabled:opacity-50">
-              <ImagePlus className="size-7 text-gold-300" />
-              <span className="text-[15px] font-bold text-fg">Choose from library</span>
+            <button type="button" onClick={() => libRef.current?.click()} disabled={preparing} className="card-inset press flex h-32 flex-col items-center justify-center gap-2.5 text-center hover:bg-m4 disabled:opacity-50">
+              <ImagePlus className="size-7 text-leaf-300" />
+              <span className="t-callout font-bold text-ivory">Choose from library</span>
             </button>
           </div>
         )}
-        {preparing && <p className="text-center text-[13px] font-medium text-fg-2">Preparing photo…</p>}
+        {preparing && <p className="text-center t-meta font-medium text-stone">Preparing photo…</p>}
         {error && <ErrorNote onRetry={prepared ? save : undefined}>{error}</ErrorNote>}
 
         <div>
-          <p className="mb-2 text-[13px] font-semibold text-fg-2">Pose</p>
+          <p className="mb-2 t-meta font-semibold text-stone">Pose</p>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Pose">
             {POSES.map((p) => (
               <Chip key={p.key} selected={pose === p.key} onClick={() => setPose(p.key)} className="h-11 px-4" ariaLabel={saved.includes(p.key) ? `${p.label}, saved` : undefined}>
@@ -173,7 +173,7 @@ export function PhotoUploadSheet({ open, onOpenChange }: { open: boolean; onOpen
 
         <Field label="Date">{(id) => <Input id={id} type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)} />}</Field>
 
-        <p className="flex items-start gap-2 text-[12px] leading-relaxed text-fg-3">
+        <p className="flex items-start gap-2 t-meta leading-relaxed text-stone">
           <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           Private to your account. Never shared. Photos are resized on this phone and location data is removed before upload.
         </p>

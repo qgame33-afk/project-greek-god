@@ -173,10 +173,10 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
       description={description}
       footer={
         <div className="grid grid-cols-1 gap-2">
-          {submitted && empty && <p className="text-center text-[13px] font-medium text-danger">Enter at least one measurement.</p>}
-          {future && <p className="text-center text-[13px] font-medium text-danger">That date is in the future.</p>}
+          {submitted && empty && <p className="text-center t-meta font-medium text-cinnabar">Enter at least one measurement.</p>}
+          {future && <p className="text-center t-meta font-medium text-cinnabar">That date is in the future.</p>}
           {collides && sameDay && (
-            <p className="text-center text-[13px] font-medium text-danger">{shortDate(sameDay.local_date, today)} already has an entry. Pick another date or edit that one.</p>
+            <p className="text-center t-meta font-medium text-cinnabar">{shortDate(sameDay.local_date, today)} already has an entry. Pick another date or edit that one.</p>
           )}
           <Button variant="primary" size="lg" block onClick={submit} loading={pending} disabled={invalid || collides}>
             {editing ? "Save changes" : "Save measurements"}
@@ -187,7 +187,7 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
       <div className="grid grid-cols-1 gap-4 py-2">
         <Field label="Date">{(id) => <Input id={id} type="date" value={date} max={today} onChange={(e) => changeDate(e.target.value || today)} />}</Field>
 
-        <div className="card-inset divide-y divide-line-hair px-3.5">
+        <div className="card-inset divide-y divide-vein px-3.5">
           {MEASURE_FIELDS.map((f) => {
             const last = lastOf(f.key);
             return (
@@ -225,7 +225,7 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
         {editing && (
           <Button
             variant="ghost"
-            className="h-11 justify-self-center text-danger hover:text-danger"
+            className="h-11 justify-self-center text-cinnabar hover:text-cinnabar"
             onClick={() => {
               del(editing, () => onOpenChange(false));
             }}
@@ -259,13 +259,13 @@ function MeasureRow({
   onStep: (dir: 1 | -1) => void;
   inputRef: (el: HTMLInputElement | null) => void;
 }) {
-  const btn = "press grid size-[52px] shrink-0 place-items-center rounded-[12px] bg-s4 text-fg-2 hover:text-fg active:bg-s5";
+  const btn = "press grid size-[52px] shrink-0 place-items-center rounded-field bg-m4 text-stone hover:text-ivory active:bg-m5";
   return (
     <div className="py-3">
       <div className="flex items-center gap-3">
         <label htmlFor={id} className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-semibold text-fg">{label}</span>
-          <span className="block truncate text-[12px] font-medium text-fg-3">{hint}</span>
+          <span className="block truncate t-callout font-semibold text-ivory">{label}</span>
+          <span className="block truncate t-meta font-medium text-stone">{hint}</span>
         </label>
         <div className="flex shrink-0 items-center gap-2" role="group" aria-label={label}>
           <button type="button" className={btn} onClick={() => onStep(-1)} aria-label={`Decrease ${label}`}>
@@ -285,11 +285,11 @@ function MeasureRow({
               aria-invalid={!!error}
               aria-describedby={error ? `${id}-err` : undefined}
               className={cn(
-                "num h-[52px] w-[78px] rounded-[12px] border bg-s2 pr-6 text-center text-[19px] font-semibold text-fg outline-none transition-[border-color,box-shadow] placeholder:text-fg-3 focus:border-gold-400 focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)]",
-                error ? "border-danger" : "border-line-field",
+                "tnum h-[52px] w-[78px] rounded-field border bg-m2 pr-6 text-center t-num-s text-ivory outline-none transition-[border-color,box-shadow] placeholder:text-ash focus:border-leaf-400 focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)]",
+                error ? "border-cinnabar" : "border-ui-line",
               )}
             />
-            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[12px] font-semibold text-fg-3">{unit}</span>
+            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center t-meta font-semibold text-stone">{unit}</span>
           </div>
           <button type="button" className={btn} onClick={() => onStep(1)} aria-label={`Increase ${label}`}>
             <Plus className="size-[18px]" />
@@ -297,7 +297,7 @@ function MeasureRow({
         </div>
       </div>
       {error && (
-        <p id={`${id}-err`} className="mt-1.5 text-right text-[12px] font-medium text-danger" role="alert">
+        <p id={`${id}-err`} className="mt-1.5 text-right t-meta font-medium text-cinnabar" role="alert">
           {error}
         </p>
       )}

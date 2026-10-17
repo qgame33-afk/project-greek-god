@@ -15,6 +15,7 @@ import { formatBodyweight, formatLength, type LengthUnit, type WeightUnit } from
 import { cn } from "@/lib/cn";
 import { MEASURE_BY_KEY, MEASURE_FIELDS, type MeasureKey } from "@/lib/progress/measurements";
 import { monthUpper } from "@/lib/progress/months";
+import { dayMonth } from "@/lib/progress/pace";
 import { POSES, POSE_LABEL, clampPct, defaultComparePair, groupPhotosByMonth, nearestByDate } from "@/lib/progress/photos";
 
 interface Urls {
@@ -77,9 +78,9 @@ export function PhotoCompare({ photos, urls, seedId }: { photos: ProgressPhoto[]
             { value: "side", label: "Side by side" },
             { value: "wipe", label: "Wipe" },
           ]}
-          className="min-w-0 flex-1 sm:max-w-[240px]"
+          className="min-w-0 flex-1 sm:max-w-60"
         />
-        <Select aria-label="Placard label" value={label} onChange={(e) => setLabel(e.target.value as MeasureKey | "none")} className="h-11 w-[152px] text-[16px] sm:w-[172px]">
+        <Select aria-label="Placard label" value={label} onChange={(e) => setLabel(e.target.value as MeasureKey | "none")} className="h-11 w-38 t-body sm:w-44">
           <option value="none">Weight only</option>
           {MEASURE_FIELDS.map((f) => (
             <option key={f.key} value={f.key}>
@@ -95,7 +96,7 @@ export function PhotoCompare({ photos, urls, seedId }: { photos: ProgressPhoto[]
       </div>
 
       {mode === "side" ? (
-        <div className="mx-auto grid w-full max-w-[640px] grid-cols-2 gap-3 lg:gap-6">
+        <div className="mx-auto grid w-full max-w-col grid-cols-2 gap-3 lg:gap-6">
           {[a, b].map((p, i) => (
             <figure key={`${p.id}-${i}`} className="min-w-0">
               <Frame photo={p} src={urls.full(p) ?? urls.thumb(p)} />
@@ -104,7 +105,7 @@ export function PhotoCompare({ photos, urls, seedId }: { photos: ProgressPhoto[]
           ))}
         </div>
       ) : (
-        <div className="mx-auto w-full max-w-[420px]">
+        <div className="mx-auto w-full max-w-md">
           <Wipe a={a} b={b} srcA={urls.full(a) ?? urls.thumb(a)} srcB={urls.full(b) ?? urls.thumb(b)} />
           <div className="mt-0 grid grid-cols-2 gap-3">
             <Placard photo={a} label={label} />
@@ -133,34 +134,49 @@ export function PhotoCompare({ photos, urls, seedId }: { photos: ProgressPhoto[]
 function PickButton({ which, photo, onClick }: { which: string; photo: ProgressPhoto; onClick: () => void }) {
   const today = useToday();
   return (
-    <button type="button" onClick={onClick} className="card-inset press-soft flex min-h-[52px] items-center justify-between gap-2 px-3 py-2 text-left hover:bg-s4">
+    <button type="button" onClick={onClick} className="card-inset press-soft flex min-h-[52px] items-center justify-between gap-2 px-3 py-2 text-left hover:bg-m4">
       <span className="min-w-0">
-        <span className="eyebrow block">{which}</span>
-        <span className="block truncate text-[14px] font-semibold text-fg">
+        <span className="t-eyebrow block">{which}</span>
+        <span className="block truncate t-callout font-semibold text-ivory">
           {shortDate(photo.local_date, today)} · {POSE_LABEL[photo.pose] ?? photo.pose}
         </span>
       </span>
-      <ChevronDown className="size-4 shrink-0 text-fg-3" aria-hidden />
+      <ChevronDown className="size-4 shrink-0 text-stone" aria-hidden />
     </button>
   );
 }
 
-function Frame({ photo, src }: { photo: ProgressPhoto; src: string | null }) {
+/**
+ * A museum frame: a thin leaf-line moulding, a dark mat, then the photo. Private images only
+ * (signed URLs); nothing here is decorative except the frame.
+ */
+export function Frame({ photo, src, className }: { photo: ProgressPhoto; src: string | null; className?: string }) {
   return (
-    <div className="relative aspect-[3/4] overflow-hidden rounded-[16px] bg-bg-deep">
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={`${POSE_LABEL[photo.pose] ?? photo.pose}, ${monthLabel(photo.local_date)}`} width={photo.width ?? 1500} height={photo.height ?? 2000} decoding="async" className="size-full object-cover" />
-      ) : (
-        <span className="skeleton absolute inset-0" />
-      )}
-      <span className="pointer-events-none absolute inset-[6px] rounded-[11px] shadow-[inset_0_0_0_1px_var(--gold-800)]" aria-hidden />
+    <div className={cn("rounded-tag bg-m1 p-1.5 shadow-[inset_0_0_0_1px_var(--leaf-line),0_18px_36px_-18px_rgb(0_0_0/.9)]", className)}>
+      <div className="relative aspect-[3/4] overflow-hidden rounded-xs bg-obsidian shadow-[0_0_0_1px_var(--vein-2)]">
+        {src ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src}
+            alt={`${POSE_LABEL[photo.pose] ?? photo.pose}, ${monthLabel(photo.local_date)}`}
+            width={photo.width ?? 1500}
+            height={photo.height ?? 2000}
+            decoding="async"
+            className="size-full object-cover"
+          />
+        ) : (
+          <span className="skeleton absolute inset-0" />
+        )}
+      </div>
     </div>
   );
 }
 
-/** Museum placard: Cinzel month + year, the date and pose, weight on/nearest the date, optional measurement. */
-function Placard({ photo, label }: { photo: ProgressPhoto; label: MeasureKey | "none" }) {
+/**
+ * The date placard under a frame: the month in small capitals, the day and pose, and the weight
+ * logged on (or nearest) that day. With `label`, one tape measurement too.
+ */
+export function Placard({ photo, label = "none" }: { photo: ProgressPhoto; label?: MeasureKey | "none" }) {
   const today = useToday();
   const { weights } = useWeights();
   const { data: measures = [] } = useMeasurements();
@@ -168,19 +184,26 @@ function Placard({ photo, label }: { photo: ProgressPhoto; label: MeasureKey | "
   const wu = (profile?.weight_unit ?? "lb") as WeightUnit;
   const lu = (profile?.length_unit ?? "in") as LengthUnit;
   const w = nearestByDate(weights, photo.local_date, 7);
-  const m = label !== "none" ? nearestByDate(measures.filter((r) => r[label] != null), photo.local_date, 21) : null;
+  const m =
+    label !== "none"
+      ? nearestByDate(
+          measures.filter((r) => r[label] != null),
+          photo.local_date,
+          21,
+        )
+      : null;
   return (
-    <figcaption className="relative mx-auto mt-3 w-full max-w-[260px] rounded-[12px] border border-line bg-s2 px-3 pb-3 pt-3.5 text-center">
-      <span className="absolute inset-x-6 top-0 h-px bg-gold-800" aria-hidden />
-      <p className="t-plaque text-[12px] leading-tight tracking-[0.16em] sm:text-[13px] sm:tracking-[0.2em]">{monthUpper(photo.local_date, true)}</p>
-      <p className="mt-1 text-[12px] font-medium text-fg-3">
-        {shortDate(photo.local_date, today)} · {POSE_LABEL[photo.pose] ?? photo.pose}
+    <figcaption className="mx-auto mt-3 w-full max-w-64 text-center">
+      <span aria-hidden className="mx-auto mb-2.5 block h-px w-10 bg-leaf-line" />
+      <p className="t-eyebrow text-ivory">{monthUpper(photo.local_date, true)}</p>
+      <p className="t-meta mt-0.5 text-stone">
+        {dayMonth(photo.local_date, today)} · {POSE_LABEL[photo.pose] ?? photo.pose}
       </p>
-      <p className="num-sm mt-2">{w ? formatBodyweight(w.row.weight_lb, wu) : "—"}</p>
-      <p className="text-[11px] font-medium text-fg-3">{w ? (w.days === 0 ? "weighed that day" : `weighed ${shortDate(w.row.local_date, today)}`) : "no weigh-in near this date"}</p>
+      <p className="t-num-s tnum mt-1.5 text-ivory">{w ? formatBodyweight(w.row.weight_lb, wu) : "—"}</p>
+      <p className="t-meta text-stone">{w ? (w.days === 0 ? "weighed that day" : `weighed ${dayMonth(w.row.local_date, today)}`) : "no weigh-in near this date"}</p>
       {label !== "none" && (
-        <p className="mt-2 border-t border-line-hair pt-2 text-[13px] font-semibold text-fg-2">
-          {MEASURE_BY_KEY[label].label} <span className="num text-[15px] text-fg">{m ? formatLength(Number(m.row[label]), lu) : "—"}</span>
+        <p className="t-meta mt-2 border-t border-vein pt-2 font-semibold text-stone">
+          {MEASURE_BY_KEY[label].label} <span className="t-callout tnum text-ivory">{m ? formatLength(Number(m.row[label]), lu) : "—"}</span>
         </p>
       )}
     </figcaption>
@@ -223,7 +246,7 @@ function Wipe({ a, b, srcA, srcB }: { a: ProgressPhoto; b: ProgressPhoto; srcA: 
   return (
     <div
       ref={box}
-      className="relative aspect-[3/4] touch-none select-none overflow-hidden rounded-[16px] bg-bg-deep"
+      className="relative aspect-[3/4] touch-none select-none overflow-hidden rounded-btn bg-obsidian"
       onPointerDown={(e) => {
         dragging.current = true;
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -243,12 +266,8 @@ function Wipe({ a, b, srcA, srcB }: { a: ProgressPhoto; b: ProgressPhoto; srcA: 
           <img src={srcA} alt={`Before: ${monthLabel(a.local_date)}`} draggable={false} className="absolute inset-0 size-full object-cover" />
         )}
       </div>
-      <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-[rgb(8_9_12/.7)] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-fg backdrop-blur">
-        {monthLabel(a.local_date).replace(/(\w{3})\w* (\d{4})/, "$1 $2")}
-      </span>
-      <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-[rgb(8_9_12/.7)] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-fg backdrop-blur">
-        {monthLabel(b.local_date).replace(/(\w{3})\w* (\d{4})/, "$1 $2")}
-      </span>
+      <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-obsidian/85 px-2.5 py-1 t-tag text-ivory">{monthLabel(a.local_date).replace(/(\w{3})\w* (\d{4})/, "$1 $2")}</span>
+      <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-obsidian/85 px-2.5 py-1 t-tag text-ivory">{monthLabel(b.local_date).replace(/(\w{3})\w* (\d{4})/, "$1 $2")}</span>
       <div
         ref={handle}
         role="slider"
@@ -259,15 +278,15 @@ function Wipe({ a, b, srcA, srcB }: { a: ProgressPhoto; b: ProgressPhoto; srcA: 
         aria-valuenow={50}
         aria-valuetext="50% before photo"
         onKeyDown={onKey}
-        className="absolute inset-y-0 w-11 -translate-x-1/2 cursor-ew-resize outline-none focus-visible:[&>span:last-child]:outline focus-visible:[&>span:last-child]:outline-2 focus-visible:[&>span:last-child]:outline-gold-400"
+        className="absolute inset-y-0 w-11 -translate-x-1/2 cursor-ew-resize outline-none focus-visible:[&>span:last-child]:outline focus-visible:[&>span:last-child]:outline-2 focus-visible:[&>span:last-child]:outline-leaf-400"
         style={{ left: "50%" }}
       >
-        <span className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 bg-gold-200 shadow-[0_0_0_1px_rgb(0_0_0/.25)]" aria-hidden />
-        <span className="absolute left-1/2 top-1/2 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-line-gold bg-s3 text-gold-200 shadow-[var(--e2)]" aria-hidden>
+        <span className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 bg-ivory" aria-hidden />
+        <span className="absolute left-1/2 top-1/2 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-vein-3 bg-m3 text-ivory shadow-[var(--e2)]" aria-hidden>
           <MoveHorizontal className="size-5" />
         </span>
       </div>
-      <span className="pointer-events-none absolute inset-[6px] rounded-[11px] shadow-[inset_0_0_0_1px_var(--gold-800)]" aria-hidden />
+      <span className="pointer-events-none absolute inset-1.5 rounded-xs shadow-[inset_0_0_0_1px_var(--leaf-line)]" aria-hidden />
     </div>
   );
 }
@@ -308,7 +327,7 @@ function PhotoPicker({
         </div>
         {groupPhotosByMonth(list).map((g) => (
           <section key={g.month}>
-            <h3 className="eyebrow mb-2">{monthLabel(g.month as ISODate)}</h3>
+            <h3 className="t-eyebrow mb-2">{monthLabel(g.month as ISODate)}</h3>
             <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {g.photos.map((p) => {
                 const src = urls.thumb(p);
@@ -319,13 +338,13 @@ function PhotoPicker({
                       type="button"
                       onClick={() => onPick(p.id)}
                       aria-pressed={sel}
-                      className={cn("press-soft relative block aspect-[3/4] w-full overflow-hidden rounded-[12px] bg-s3", sel && "ring-2 ring-gold-400 ring-offset-2 ring-offset-s2")}
+                      className={cn("press-soft relative block aspect-[3/4] w-full overflow-hidden rounded-field bg-m3", sel && "ring-2 ring-ivory ring-offset-2 ring-offset-m2")}
                       aria-label={`${POSE_LABEL[p.pose] ?? p.pose}, ${shortDate(p.local_date, today)}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       {src && <img src={src} alt="" loading="lazy" decoding="async" className="size-full object-cover" />}
                       <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-2 pb-1.5 pt-5 text-left">
-                        <span className="num block text-[12px] text-fg">{shortDate(p.local_date, today)}</span>
+                        <span className="tnum block t-meta text-ivory">{shortDate(p.local_date, today)}</span>
                       </span>
                     </button>
                   </li>

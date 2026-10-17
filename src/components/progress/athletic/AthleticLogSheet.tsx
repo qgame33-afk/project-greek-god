@@ -98,7 +98,7 @@ export function AthleticLogSheet({ open, onOpenChange, type: initial }: { open: 
     >
       <div className="grid grid-cols-1 gap-4 py-2">
         <div>
-          <p className="mb-2 text-[13px] font-semibold text-fg-2">Test</p>
+          <p className="mb-2 t-meta font-semibold text-stone">Test</p>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Test">
             {TESTS.map((t) => (
               <Chip key={t.key} selected={type === t.key} onClick={() => setType(t.key)} className="h-11 px-4">
@@ -106,7 +106,7 @@ export function AthleticLogSheet({ open, onOpenChange, type: initial }: { open: 
               </Chip>
             ))}
           </div>
-          <p className="mt-2 text-[12px] leading-relaxed text-fg-3">{def.how}</p>
+          <p className="mt-2 t-meta leading-relaxed text-stone">{def.how}</p>
         </div>
 
         <Field label={isTime ? "Time" : "Result"} error={error} hint={isTime ? "seconds" : unit === "in" ? "inches" : "centimetres"}>
@@ -115,7 +115,7 @@ export function AthleticLogSheet({ open, onOpenChange, type: initial }: { open: 
 
         {isTime && (
           <div>
-            <p className="mb-2 text-[13px] font-semibold text-fg-2">Distance</p>
+            <p className="mb-2 t-meta font-semibold text-stone">Distance</p>
             <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Sprint distance">
               {DISTANCES.map((d) => (
                 <Chip key={d} selected={distance === String(d)} onClick={() => setDistance(String(d))} className="h-11 px-4">
@@ -124,7 +124,7 @@ export function AthleticLogSheet({ open, onOpenChange, type: initial }: { open: 
               ))}
               <Input value={DISTANCES.map(String).includes(distance) ? "" : distance} onChange={(e) => setDistance(e.target.value)} inputMode="decimal" placeholder="Other" suffix="m" className="h-11 w-28" aria-label="Other distance in metres" />
             </div>
-            {distError && <p className="mt-1.5 text-[13px] font-medium text-danger">{distError}</p>}
+            {distError && <p className="mt-1.5 t-meta font-medium text-cinnabar">{distError}</p>}
           </div>
         )}
 

@@ -40,27 +40,6 @@ export function planRatePerWeek(plan: PlanInput): number | null {
   return round(((plan.goalLb - plan.startLb) / days) * 7, 3);
 }
 
-export type Tone = "success" | "warning" | "neutral";
-
-/**
- * Delta colour follows the plan, not the sign (DESIGN §5.3): a weekly change between 0.5r
- * and 1.6r is success, above 2r is a warning ("Faster than plan"), anything else is neutral.
- * Works for a losing plan too because it compares the ratio to r.
- */
-export function rateTone(ratePerWeek: number | null | undefined, planRate: number | null | undefined): Tone {
-  if (ratePerWeek == null || planRate == null || !Number.isFinite(ratePerWeek) || planRate === 0) return "neutral";
-  const q = ratePerWeek / planRate;
-  if (q >= 0.5 && q <= 1.6) return "success";
-  if (q > 2) return "warning";
-  return "neutral";
-}
-
-/** Same rule for a change over `days` days (e.g. a 30-day change), scaled to weekly. */
-export function changeTone(change: number | null | undefined, days: number, planRate: number | null | undefined): Tone {
-  if (change == null || days <= 0) return "neutral";
-  return rateTone((change / days) * 7, planRate);
-}
-
 /** Programme week number (1-based) and total weeks. */
 export function programmeWeek(plan: PlanInput, today: ISODate) {
   const total = Math.max(1, Math.ceil(daysBetween(plan.startDate, plan.targetDate) / 7));

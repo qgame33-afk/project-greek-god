@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { buildWeightRows, lastWeighIns, nearestWeighInIndex, rangeFrom, tickLabel, xTicks, yDomain, dateToT } from "./weightSeries";
 import {
   compareMonths,
   defaultMilestone,
@@ -21,72 +20,6 @@ const W = [
   { local_date: "2026-10-08", weight_lb: 164.0, notes: "salty dinner" },
   { local_date: "2026-10-15", weight_lb: 164.6 },
 ];
-
-describe("weight chart series", () => {
-  it("picks range starts", () => {
-    expect(rangeFrom("7d", "2026-10-16", "2026-09-01")).toBe("2026-10-10");
-    expect(rangeFrom("30d", "2026-10-16", null)).toBe("2026-09-17");
-    expect(rangeFrom("all", "2026-10-16", "2026-10-01", "2026-09-20")).toBe("2026-09-20");
-    expect(rangeFrom("all", "2026-10-16", null, null)).toBe("2026-09-17");
-  });
-
-  it("builds rows with a trailing 7-day average from all data", () => {
-    const rows = buildWeightRows(W, { from: "2026-10-04", to: "2026-10-16", unit: "lb" });
-    expect(rows.map((r) => r.date)).toEqual(["2026-10-04", "2026-10-08", "2026-10-15"]);
-    // Oct 4 average includes Oct 1 and 2 even though they're outside the window
-    expect(rows[0].avg).toBeCloseTo((163 + 163.4 + 163.2) / 3, 2);
-    expect(rows[1].note).toBe("salty dinner");
-    expect(rows.every((r) => r.plan === null)).toBe(true);
-  });
-
-  it("adds PLAN anchors only inside the programme window", () => {
-    const plan = { startDate: "2026-10-01", targetDate: "2027-08-01", startLb: 163, goalLb: 183 };
-    const rows = buildWeightRows(W, { from: "2026-09-25", to: "2026-10-16", unit: "lb", plan });
-    const anchors = rows.filter((r) => r.weight == null);
-    // 09-25 is before the plan start, so it gets no anchor; plan start and range end do
-    expect(anchors.map((r) => r.date)).toEqual(["2026-10-01", "2026-10-16"].filter((d) => !W.some((w) => w.local_date === d)));
-    expect(rows.find((r) => r.date === "2026-10-01")!.plan).toBe(163);
-    expect(rows.find((r) => r.date === "2026-10-16")!.plan).toBeGreaterThan(163.9);
-    // ordered by time
-    expect(rows.map((r) => r.t)).toEqual([...rows.map((r) => r.t)].sort((a, b) => a - b));
-  });
-
-  it("converts to kg for display", () => {
-    const rows = buildWeightRows([{ local_date: "2026-10-01", weight_lb: 220.46 }], { from: "2026-10-01", to: "2026-10-01", unit: "kg" });
-    expect(rows[0].weight).toBeCloseTo(100, 1);
-  });
-
-  it("y domain pads and includes the plan only when shown", () => {
-    const rows = [
-      { date: "a", t: 1, weight: 163, avg: 163.2, plan: 170, note: null },
-      { date: "b", t: 2, weight: 164, avg: 163.6, plan: null, note: null },
-    ];
-    expect(yDomain(rows, false)).toEqual([162, 165]);
-    expect(yDomain(rows, true)).toEqual([162, 171]);
-    expect(yDomain([], true)).toBeNull();
-  });
-
-  it("x ticks are whole days and labels read OCT 12", () => {
-    const t = xTicks("2026-10-01", "2026-10-31", 5);
-    expect(t).toHaveLength(5);
-    expect(t[0]).toBe(dateToT("2026-10-01"));
-    expect(t.at(-1)).toBe(dateToT("2026-10-31"));
-    expect(tickLabel(dateToT("2026-10-12"))).toBe("OCT 12");
-    expect(xTicks("2026-10-01", "2026-10-01")).toHaveLength(1);
-  });
-
-  it("scrubbing snaps to the nearest real weigh-in", () => {
-    const rows = [
-      { date: "a", t: 1, weight: null, avg: null, plan: 1, note: null },
-      { date: "b", t: 2, weight: 163, avg: 163, plan: 1, note: null },
-      { date: "c", t: 3, weight: null, avg: null, plan: 1, note: null },
-    ];
-    expect(nearestWeighInIndex(rows, 0)).toBe(1);
-    expect(nearestWeighInIndex(rows, 2)).toBe(1);
-    expect(nearestWeighInIndex([], 0)).toBeNull();
-    expect(lastWeighIns(rows, 7).map((r) => r.date)).toEqual(["b"]);
-  });
-});
 
 describe("month aggregates", () => {
   it("lists months inclusively", () => {

@@ -5,13 +5,13 @@ import { Ellipsis, Pencil, Trash } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { RISE_IN_PLACE, useSwapIn } from "@/lib/motion";
-import type { Tone } from "@/lib/progress/plan";
 
 /* ------------------------------------------------------------- stat tile */
 
-const TONE_CLS: Record<Tone, string> = { success: "text-success", warning: "text-warning", neutral: "text-fg-2" };
-
-/** DESIGN §5.3 stat tile: eyebrow → value + unit → delta (tone follows the plan) → caption. */
+/**
+ * A placard stat: eyebrow → value + unit → delta → caption. `tone="earned"` puts the delta in
+ * leaf (something he did); everything else stays stone. There is no red or green.
+ */
 export function StatTile({
   label,
   value,
@@ -27,7 +27,7 @@ export function StatTile({
   value: ReactNode;
   unit?: ReactNode;
   delta?: ReactNode;
-  tone?: Tone;
+  tone?: "earned" | "neutral";
   caption?: ReactNode;
   badge?: ReactNode;
   size?: "lg" | "md" | "sm";
@@ -36,44 +36,47 @@ export function StatTile({
   return (
     <div className={cn("min-w-0", className)}>
       <div className="flex min-h-5 items-center gap-1.5">
-        <p className="eyebrow truncate">{label}</p>
+        <p className="t-eyebrow truncate">{label}</p>
         {badge}
       </div>
-      <p className={cn("mt-1.5 truncate", size === "lg" ? "num-lg" : size === "md" ? "num-md" : "num-sm")}>
+      <p className={cn("tnum mt-1.5 truncate text-ivory", size === "lg" ? "t-num-l" : size === "md" ? "t-num-m" : "t-num-s")}>
         {value}
-        {unit && <span className="unit [font-size:max(12px,0.4em)]!">{unit}</span>}
+        {unit && <span className="t-meta ml-1 font-medium text-stone">{unit}</span>}
       </p>
-      {delta != null && <p className={cn("mt-1 truncate text-[12px] font-semibold", TONE_CLS[tone])}>{delta}</p>}
-      {caption != null && <p className="mt-0.5 line-clamp-2 text-[12px] font-medium leading-snug text-fg-3">{caption}</p>}
+      {delta != null && <p className={cn("t-meta mt-1 truncate font-semibold", tone === "earned" ? "text-leaf-300" : "text-stone")}>{delta}</p>}
+      {caption != null && <p className="t-meta mt-0.5 line-clamp-2 text-stone">{caption}</p>}
     </div>
   );
 }
 
 /* --------------------------------------------------------------- badges */
 
-// Provenance badges come from the shared kit so PLAN / FIRST BENCHMARK look the same app-wide.
+// Provenance marks come from the shared kit so PLAN / FIRST BENCHMARK look the same app-wide.
 export { PlanBadge, FirstBenchmarkBadge as BenchmarkBadge } from "@/components/ui/badge";
 
 /* ------------------------------------------------------------ sparkline */
 
-/** 24px trend line (pure SVG). Needs ≥2 points; one point renders a dot. */
+/**
+ * A small trend line (pure SVG). Needs ≥ 2 points; one point renders a dot. Leaf is for his own
+ * results (lifts, jumps); ivory for neutral measurements. Colours are CSS variables.
+ */
 export function Sparkline({
   values,
   width = 64,
   height = 24,
-  tone = "gold",
+  tone = "leaf",
   className,
   label,
 }: {
   values: number[];
   width?: number;
   height?: number;
-  tone?: "gold" | "marble" | "verdigris" | "lapis";
+  tone?: "leaf" | "ivory";
   className?: string;
   label?: string;
 }) {
-  const color = tone === "gold" ? "var(--gold-400)" : tone === "marble" ? "var(--s-marble)" : tone === "verdigris" ? "var(--s-verdigris)" : "var(--s-lapis)";
-  if (!values.length) return <span className={cn("block", className)} style={{ width, height }} aria-hidden />;
+  const color = tone === "leaf" ? "var(--leaf-300)" : "var(--ivory)";
+  if (!values.length) return <span className={cn("block shrink-0", className)} style={{ width, height }} aria-hidden />;
   const pad = 3;
   const lo = Math.min(...values);
   const hi = Math.max(...values);
@@ -86,9 +89,17 @@ export function Sparkline({
   const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join("");
   const last = pts.at(-1)!;
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className={cn("shrink-0 overflow-visible", className)} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
-      {values.length > 1 && <path d={d} fill="none" stroke={color} strokeOpacity={0.9} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />}
-      <circle cx={last[0]} cy={last[1]} r={2.25} fill={color} />
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className={cn("shrink-0 overflow-visible", className)}
+      role={label ? "img" : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      {values.length > 1 && <path d={d} fill="none" style={{ stroke: color, strokeOpacity: tone === "leaf" ? 0.9 : 0.7 }} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />}
+      <circle cx={last[0]} cy={last[1]} r={2.25} style={{ fill: color }} />
     </svg>
   );
 }
@@ -111,7 +122,15 @@ export function SrTable({ caption, head, rows }: { caption: string; head: string
       <tbody>
         {rows.map((r, i) => (
           <tr key={i}>
-            {r.map((c, j) => (j === 0 ? <th key={j} scope="row">{c}</th> : <td key={j}>{c}</td>))}
+            {r.map((c, j) =>
+              j === 0 ? (
+                <th key={j} scope="row">
+                  {c}
+                </th>
+              ) : (
+                <td key={j}>{c}</td>
+              ),
+            )}
           </tr>
         ))}
       </tbody>
@@ -121,25 +140,20 @@ export function SrTable({ caption, head, rows }: { caption: string; head: string
 
 /* --------------------------------------------------------- chart frame */
 
-/** Fixed-height frame so lazy charts never shift layout (220px mobile, 300px desktop). */
-/** Fixed-height chart box. `swapKey` (e.g. the range) fades the new chart in when it changes. */
+/** Fixed-height chart box so lazy charts never shift layout. `swapKey` fades the new chart in. */
 export function ChartFrame({ children, className, tall = true, swapKey = "" }: { children: ReactNode; className?: string; tall?: boolean; swapKey?: string }) {
-  const ref = useSwapIn<HTMLDivElement, string>(swapKey, { direction: RISE_IN_PLACE });
+  const ref = useSwapIn<HTMLDivElement, string>(swapKey, {
+    direction: RISE_IN_PLACE,
+  });
   return (
-    <div ref={ref} className={cn("relative w-full touch-pan-y select-none", tall ? "h-[220px] lg:h-[300px]" : "h-[180px] lg:h-[220px]", className)}>
+    <div ref={ref} className={cn("relative w-full touch-pan-y select-none", tall ? "h-56 lg:h-72" : "h-44 lg:h-56", className)}>
       {children}
     </div>
   );
 }
 
 export function ChartSkeleton() {
-  return <DelayedSkeleton className="absolute inset-0 rounded-[14px]" />;
-}
-
-/** Skeleton that only appears after 150ms (DESIGN §5.10), so quick loads never flash. The
- *  delay now lives in the shared `skeleton` utility, so this is a plain skeleton. */
-export function DelayedSkeleton({ className }: { className?: string }) {
-  return <div className={cn("skeleton", className)} aria-hidden />;
+  return <div className="skeleton absolute inset-0 rounded-field" aria-hidden />;
 }
 
 /* ------------------------------------------------------------- row menu */
@@ -149,27 +163,30 @@ export function RowMenu({ label, onEdit, onDelete, deleteLabel = "Delete" }: { l
   return (
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger
-        className="-mr-2 grid size-11 shrink-0 place-items-center rounded-[12px] text-fg-3 transition-colors hover:text-fg data-[state=open]:bg-white/5 data-[state=open]:text-fg"
+        className="press -mr-2 grid size-11 shrink-0 place-items-center rounded-field text-ash transition-colors hover:text-ivory data-[state=open]:bg-m3 data-[state=open]:text-ivory"
         aria-label={`More actions for ${label}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <Ellipsis className="size-5" />
+        <Ellipsis className="size-5" strokeWidth={1.6} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="end"
           sideOffset={4}
-          className="z-[55] min-w-44 rounded-[14px] border border-line-strong bg-s3 p-1.5 shadow-[var(--e3)] data-[state=open]:animate-[rise_160ms_var(--ease-out)]"
+          className="z-(--z-confirm) min-w-44 rounded-btn bg-m3 p-1.5 shadow-[inset_0_0_0_1px_var(--vein-3),0_20px_40px_-12px_rgb(0_0_0/.8)] data-[state=open]:animate-[rise_160ms_var(--ease-out)]"
           onClick={(e) => e.stopPropagation()}
         >
           {onEdit && (
-            <DropdownMenu.Item onSelect={onEdit} className="flex h-11 cursor-pointer items-center gap-2.5 rounded-[10px] px-3 text-[14px] font-semibold text-fg outline-none data-[highlighted]:bg-white/6">
-              <Pencil className="size-4 text-fg-2" /> Edit
+            <DropdownMenu.Item onSelect={onEdit} className="t-callout flex h-11 cursor-pointer items-center gap-2.5 rounded-field px-3 font-semibold text-ivory outline-none data-[highlighted]:bg-m4">
+              <Pencil className="size-4 text-stone" strokeWidth={1.6} /> Edit
             </DropdownMenu.Item>
           )}
           {onDelete && (
-            <DropdownMenu.Item onSelect={onDelete} className="flex h-11 cursor-pointer items-center gap-2.5 rounded-[10px] px-3 text-[14px] font-semibold text-danger outline-none data-[highlighted]:bg-danger-tint">
-              <Trash className="size-4" /> {deleteLabel}
+            <DropdownMenu.Item
+              onSelect={onDelete}
+              className="t-callout flex h-11 cursor-pointer items-center gap-2.5 rounded-field px-3 font-semibold text-cinnabar outline-none data-[highlighted]:bg-cinnabar-tint"
+            >
+              <Trash className="size-4" strokeWidth={1.6} /> {deleteLabel}
             </DropdownMenu.Item>
           )}
         </DropdownMenu.Content>
@@ -189,10 +206,27 @@ export function signed(v: number | null | undefined, dp = 1) {
 }
 
 /** Section eyebrow with an optional trailing control. */
-export function SectionHead({ title, children, className }: { title: ReactNode; children?: ReactNode; className?: string }) {
+export function SectionHead({ title, children, className, id }: { title: ReactNode; children?: ReactNode; className?: string; id?: string }) {
   return (
-    <div className={cn("mb-3 flex min-h-11 items-center justify-between gap-3", className)}>
-      <h2 className="eyebrow">{title}</h2>
+    <div className={cn("mb-1 flex min-h-11 items-center justify-between gap-3", className)}>
+      <h2 id={id} className="t-eyebrow">
+        {title}
+      </h2>
+      {children}
+    </div>
+  );
+}
+
+/** A section title in the voice (Cormorant) with an optional eyebrow above and a control beside. */
+export function SectionTitle({ eyebrow, title, children, id, className }: { eyebrow?: ReactNode; title: ReactNode; children?: ReactNode; id?: string; className?: string }) {
+  return (
+    <div className={cn("mb-2 flex items-end justify-between gap-3", className)}>
+      <div className="min-w-0">
+        {eyebrow && <p className="t-eyebrow">{eyebrow}</p>}
+        <h2 id={id} className="t-title-2 mt-0.5 text-ivory">
+          {title}
+        </h2>
+      </div>
       {children}
     </div>
   );
