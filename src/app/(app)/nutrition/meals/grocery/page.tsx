@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { GroceryScreen, GrocerySkeleton } from "@/components/meals/grocery/GroceryScreen";
+import { NutritionScreen } from "@/components/nutrition/NutritionScreen";
 
-export const metadata: Metadata = { title: "Grocery list" };
+export const metadata: Metadata = { title: "Fuel · Market" };
 
-/** Client-rendered (reads ?week); data comes from TanStack Query under RLS. */
+/** The old grocery-list URL: Fuel → Market (?week= keeps working). Client-rendered under RLS. */
 export default function GroceryPage() {
   return (
-    <Suspense fallback={<GrocerySkeleton />}>
-      <GroceryScreen />
+    <Suspense fallback={<div className="min-h-[60dvh]" aria-busy="true" />}>
+      <NutritionScreen tab="market" />
     </Suspense>
   );
 }

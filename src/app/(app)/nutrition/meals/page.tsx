@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { WeekPlanner } from "@/components/meals/week/WeekPlanner";
+import { NutritionScreen } from "@/components/nutrition/NutritionScreen";
 
-export const metadata: Metadata = { title: "Meals" };
+export const metadata: Metadata = { title: "Fuel · Week" };
 
-/** Client-rendered (reads ?week / ?day / ?generate=1); data comes from TanStack Query under RLS. */
+/**
+ * The old meal-planner URL: Fuel → Week with the same params (?week=next, ?day=, ?generate=1).
+ * Client-rendered; data comes from TanStack Query under RLS.
+ */
 export default function MealsPage() {
   return (
     <Suspense fallback={<div className="min-h-[60dvh]" aria-busy="true" />}>
-      <WeekPlanner />
+      <NutritionScreen tab="week" />
     </Suspense>
   );
 }

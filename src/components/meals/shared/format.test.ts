@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LIBRARY, getLibraryRecipe } from "@/lib/meals/library";
-import { glyphFor, GLYPH_TONE, kcalText, macroSummary, originLabel, servingsLabel, servingsMultiplier, slotTitle } from "./format";
+import { glyphFor, glyphForName, GLYPH_TONE, kcalText, macroSummary, originLabel, servingsLabel, servingsMultiplier, slotTitle } from "./format";
 
 describe("meal display helpers", () => {
   it("names slots, numbering snacks only when a day has several", () => {
@@ -37,6 +37,18 @@ describe("meal display helpers", () => {
     expect(glyphFor({ tags: ["protein:whey"] })).toBe("shake");
     expect(glyphFor({ tags: [] })).toBe("bowl");
     expect(glyphFor(getLibraryRecipe("lib:spaghetti-bolognese")!)).toBe("beef");
+  });
+
+  it("guesses a decorative glyph for a logged food from its name", () => {
+    expect(glyphForName("Greek yogurt 0%")).toBe("dairy");
+    expect(glyphForName("Peameal bacon & egg bun")).toBe("sandwich");
+    expect(glyphForName("Salmon fillet")).toBe("fish");
+    expect(glyphForName("Lean ground beef bolognese")).toBe("beef");
+    expect(glyphForName("Bagel with peanut butter")).toBe("nut");
+    expect(glyphForName("White rice, cooked")).toBe("grain");
+    expect(glyphForName("Eggs, scrambled")).toBe("egg");
+    expect(glyphForName("")).toBe("bowl");
+    expect(glyphForName(null)).toBe("bowl");
   });
 
   it("gives every library recipe a glyph with a tone", () => {

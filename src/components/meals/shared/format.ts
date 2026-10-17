@@ -139,6 +139,34 @@ export function glyphFor(recipe: Pick<Recipe, "tags">): GlyphKind {
   return "bowl";
 }
 
+// Name words → glyph, for logged foods with no recipe (a coin in Fuel's timeline). Decorative only:
+// the row's name says what it is. First match wins, so dishes come before their ingredients.
+const NAME_GLYPH: [RegExp, GlyphKind][] = [
+  [/\bburgers?\b/, "burger"],
+  [/\bpizza/, "pizza"],
+  [/\b(shake|smoothie|whey|protein (drink|powder))/, "shake"],
+  [/\b(sandwich|wrap|sub|quesadilla|burrito|taco|bun)\b/, "sandwich"],
+  [/\bsalad/, "salad"],
+  [/\b(salmon|tuna|fish|cod|tilapia|sardine)/, "fish"],
+  [/\b(shrimp|prawn)/, "shrimp"],
+  [/\b(chicken|turkey)/, "poultry"],
+  [/\b(beef|steak|bolognese|chili|meatball)/, "beef"],
+  [/\b(pork|ham|bacon|peameal|sausage)/, "pork"],
+  [/\beggs?\b|omelet/, "egg"],
+  [/\b(yogurt|yoghurt|milk|cheese|skyr|cottage|kefir)/, "dairy"],
+  [/\b(peanut|almond|cashew|walnut|nuts?)\b/, "nut"],
+  [/\b(beans?|tofu|lentils?|chickpeas?|edamame)\b/, "plant"],
+  [/\b(apple|banana|berr(y|ies)|orange|grapes?|fruit|mango|pear)/, "fruit"],
+  [/\b(rice|bagel|bread|toast|oats?|oatmeal|pasta|cereal|granola|crackers?|noodles?|tortilla|muffin|pancakes?)\b/, "grain"],
+];
+
+/** A glyph for a logged food from its name ("Greek yogurt 0%" → dairy); a bowl when nothing matches. */
+export function glyphForName(name: string | null | undefined): GlyphKind {
+  const n = (name ?? "").toLowerCase();
+  for (const [re, kind] of NAME_GLYPH) if (re.test(n)) return kind;
+  return "bowl";
+}
+
 /** Glyph tint per family: meats terracotta, seafood lapis, plants verdigris, dairy/eggs marble, shakes porphyry. */
 export type GlyphTone = "terracotta" | "lapis" | "verdigris" | "marble" | "porphyry";
 
