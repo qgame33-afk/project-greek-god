@@ -3,12 +3,16 @@
 import { animate, useInView } from "motion/react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { DURATION, EASE, prefersReducedMotion } from "@/lib/motion";
 
-/** Animated number for Monument surfaces. Writes textContent directly — no per-frame renders. */
+/**
+ * Count (docs/DESIGN-V2.md §1.8.2): a hero number counting to its value over 700 ms ease-out.
+ * Writes textContent directly — no per-frame renders. Reduced motion: the final value.
+ */
 export function CountUp({
   value,
   decimals = 0,
-  duration = 0.7,
+  duration = DURATION.count / 1000,
   className,
   format,
 }: {
@@ -25,15 +29,14 @@ export function CountUp({
   useEffect(() => {
     const el = ref.current;
     if (!el || !inView) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
+    if (prefersReducedMotion()) {
       el.textContent = fmt(value);
       from.current = value;
       return;
     }
     const ctl = animate(from.current, value, {
       duration,
-      ease: [0.16, 1, 0.3, 1],
+      ease: [...EASE.out],
       onUpdate: (v) => {
         el.textContent = fmt(v);
       },
@@ -65,8 +68,8 @@ export function PageHeader({
   return (
     <header className={cn("mb-6 flex items-end justify-between gap-4", className)}>
       <div className="min-w-0">
-        {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
-        <h1 className="t-title">{title}</h1>
+        {eyebrow && <p className="t-eyebrow mb-2">{eyebrow}</p>}
+        <h1 className="t-title-1 text-ivory">{title}</h1>
         {children}
       </div>
       {action && <div className="shrink-0">{action}</div>}
@@ -95,15 +98,15 @@ export function Stat({
 }) {
   return (
     <div className={cn("min-w-0", className)}>
-      <p className="eyebrow truncate">{label}</p>
-      <p className={cn("mt-1.5 truncate", size === "lg" ? "num-lg" : size === "md" ? "num-md" : "num-sm")}>
+      <p className="t-eyebrow truncate">{label}</p>
+      <p className={cn("mt-1.5 truncate", size === "lg" ? "t-num-l" : size === "md" ? "t-num-m" : "t-num-s")}>
         {value}
         {unit && <span className="unit">{unit}</span>}
       </p>
       {delta != null && (
-        <p className={cn("mt-1 truncate text-[12px] font-semibold", deltaTone === "good" ? "text-success" : "text-fg-2")}>{delta}</p>
+        <p className={cn("t-meta mt-1 truncate font-semibold", deltaTone === "good" ? "text-leaf-300" : "text-stone")}>{delta}</p>
       )}
-      {caption && <p className="mt-1 truncate text-[12px] font-medium text-fg-3">{caption}</p>}
+      {caption && <p className="t-meta mt-1 truncate text-ash">{caption}</p>}
     </div>
   );
 }
@@ -126,22 +129,22 @@ export function Empty({
   className?: string;
 }) {
   return (
-    <div className={cn("card-inset flex flex-col items-center px-5 py-7 text-center", className)}>
+    <div className={cn("flex flex-col items-center rounded-card border border-dashed border-vein-3 px-5 py-7 text-center", className)}>
       {art && <div className="mb-3 opacity-90">{art}</div>}
-      <p className="text-[15px] font-bold text-fg">{title}</p>
-      {children && <div className="mt-1 max-w-[34ch] text-[13px] leading-relaxed text-fg-2">{children}</div>}
+      <p className="t-title-3 text-ivory">{title}</p>
+      {children && <div className="t-callout mt-1 max-w-[34ch] text-stone">{children}</div>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }
 
-/** Small "error with retry" block; never loses the user's input. */
+/** Small "error with retry" block inside the affected block only; never loses the user's input. */
 export function ErrorNote({ children, onRetry, className }: { children: ReactNode; onRetry?: () => void; className?: string }) {
   return (
-    <div className={cn("flex items-center justify-between gap-3 rounded-[12px] border border-danger/30 bg-danger-tint px-3.5 py-3 text-[13px] text-fg", className)} role="alert">
+    <div className={cn("t-callout flex items-center justify-between gap-3 rounded-field border border-cinnabar-line bg-cinnabar-tint px-3.5 py-3 text-ivory", className)} role="alert">
       <span>{children}</span>
       {onRetry && (
-        <button type="button" onClick={onRetry} className="press -my-2 inline-flex h-11 shrink-0 items-center rounded-[10px] px-3 font-bold text-gold-300">
+        <button type="button" onClick={onRetry} className="press -my-2 inline-flex h-11 shrink-0 items-center rounded-field px-3 font-semibold text-ivory underline decoration-ui-line underline-offset-4">
           Retry
         </button>
       )}
@@ -164,5 +167,5 @@ export function Collapse({ open, id, className, children }: { open: boolean; id?
 }
 
 export function Divider({ className }: { className?: string }) {
-  return <hr className={cn("border-0 border-t border-line-hair", className)} />;
+  return <hr className={cn("border-0 border-t border-vein", className)} />;
 }

@@ -5,6 +5,9 @@ import { cn } from "@/lib/cn";
 
 type Variant = "card" | "monument" | "instrument" | "inset" | "accent";
 
+// Surfaces (docs/DESIGN-V2.md §1.3–1.4): `card` is the m2 slab; `monument` is for the hero,
+// summary and moment surfaces only (marble veins under the spotlight). New screens prefer fewer,
+// larger slabs and hairline-ruled placards (<Placard>) on night.
 const VARIANT: Record<Variant, string> = {
   card: "card p-4 sm:p-5 lg:p-6",
   monument: "card-monument p-5 sm:p-6 lg:p-7",
@@ -30,15 +33,15 @@ export function CardHeader({
 }) {
   return (
     <div className={cn("mb-3 flex min-h-6 items-center justify-between gap-3", className)}>
-      <h2 className={cn("eyebrow", gold && "text-gold-400")}>{title}</h2>
+      <h2 className={cn("t-eyebrow", gold && "text-leaf-300")}>{title}</h2>
       {action}
     </div>
   );
 }
 
-/** Text action for card headers: gold, 44px hit area. */
+/** Text action for card headers: leaf text, 44px hit area. */
 export function CardAction({ href, onClick, children }: { href?: string; onClick?: () => void; children: ReactNode }) {
-  const cls = "press -my-3 -mr-2 inline-flex h-11 items-center rounded-[10px] px-2 text-[13px] font-bold text-gold-300 hover:text-gold-200";
+  const cls = "press -my-3 -mr-2 inline-flex h-11 items-center rounded-field px-2 text-[length:max(13px,0.8125rem)] font-semibold text-leaf-300 hover:text-leaf-200";
   if (href)
     return (
       <Link href={href} className={cls}>
@@ -56,10 +59,10 @@ export function LinkCard({ href, className, children }: { href: string; classNam
   return (
     <Link
       href={href}
-      className={cn("card press-soft group flex items-center gap-3 p-4 hover:border-line-strong", className)}
+      className={cn("card press-soft group flex items-center gap-3 p-4 hover:border-vein-3", className)}
     >
       <div className="min-w-0 flex-1">{children}</div>
-      <ChevronRight className="size-4 shrink-0 text-fg-3 transition-[translate] duration-(--dur-fast) group-hover:translate-x-0.5" />
+      <ChevronRight className="size-4 shrink-0 text-ash transition-[translate] duration-(--dur-fast) group-hover:translate-x-0.5" strokeWidth={1.6} />
     </Link>
   );
 }

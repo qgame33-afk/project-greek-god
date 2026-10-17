@@ -32,3 +32,13 @@ These were drawn from scratch for this project:
 - The laurel-and-"A" brand mark and every icon in `/public/icons`, plus `src/app/icon.png` and `src/app/apple-icon.png`
 - `marble-veins.svg`
 - All SVG motifs in `src/components/art/` (`Mark.tsx`, `Motifs.tsx`)
+
+## Olympus grades (UI v2)
+
+Made by `scripts/dev/grade-statue.mjs` (deterministic; sharp) from `statue-hero.webp`, so they share its CC0 source above:
+
+- `statue-marble.webp` (900×1200 RGBA): the marble grade (#09090B → #F3EDE1) with an alpha channel cut from the photo itself (a closed silhouette plus a luminance ramp, fading toward the base).
+- `statue-gold.webp` (900×1200 RGBA): the gold-leaf grade (#120B04 → #CF9A3A → #FFF4D6, an S-curve, local contrast, fine leaf grain baked in) on the same alpha, so the two stack pixel for pixel with identical blacks.
+- `grain.png` (256×256): a seeded monochrome noise tile, used at 6% over leaf surfaces.
+
+Original artwork (no third-party source): `ridge.svg` (the decorative Ascent ridge), `coin-rim.svg` (the beaded coin rim) and the Olympus icon set in `src/components/art/icons.tsx`.

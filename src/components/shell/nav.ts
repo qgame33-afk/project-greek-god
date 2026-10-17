@@ -1,23 +1,26 @@
-import { CalendarDays, Dumbbell, HeartPulse, LayoutDashboard, MessagesSquare, Settings, TrendingUp, UtensilsCrossed, type LucideIcon } from "lucide-react";
+import type { ComponentType } from "react";
+import { BookOpen, HeartPulse, Settings } from "lucide-react";
+import { AscentPeak, FuelAmphora, NowSunrise, OracleSparkles, TrainColumn } from "@/components/art/icons";
 
 export interface NavItem {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: ComponentType<{ className?: string; strokeWidth?: number }>;
 }
 
-/** The five primary sections (mobile tab bar + desktop sidebar). */
+/** The four tabs of the floating capsule (and the top of the desktop rail): docs/DESIGN-V2.md §2.3. */
 export const PRIMARY_NAV: NavItem[] = [
-  { href: "/", label: "Today", icon: LayoutDashboard },
-  { href: "/training", label: "Training", icon: Dumbbell },
-  { href: "/nutrition", label: "Nutrition", icon: UtensilsCrossed },
-  { href: "/progress", label: "Progress", icon: TrendingUp },
-  { href: "/coach", label: "Coach", icon: MessagesSquare },
+  { href: "/", label: "Now", icon: NowSunrise },
+  { href: "/training", label: "Train", icon: TrainColumn },
+  { href: "/nutrition", label: "Fuel", icon: FuelAmphora },
+  { href: "/progress", label: "Ascent", icon: AscentPeak },
 ];
 
+/** The rail's second group and Settings' links. The Oracle also opens from ✦ in every header. */
 export const SECONDARY_NAV: NavItem[] = [
-  { href: "/recovery", label: "Recovery & Habits", icon: HeartPulse },
-  { href: "/reviews", label: "Monthly reviews", icon: CalendarDays },
+  { href: "/coach", label: "Oracle", icon: OracleSparkles },
+  { href: "/reviews", label: "Chronicle", icon: BookOpen },
+  { href: "/recovery", label: "Recovery", icon: HeartPulse },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -26,21 +29,30 @@ export function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-/** Routes that take over the full screen (no tab bar / FAB). Cooking mode is one: a kitchen screen. */
+/** Routes that take over the full screen (no chrome at all): the live workout, onboarding, cooking mode. */
 export function isFocusRoute(pathname: string) {
   return pathname.startsWith("/workout/") || pathname.startsWith("/onboarding") || pathname.startsWith("/nutrition/meals/cook/");
 }
 
-/** Routes that own the bottom edge (focus screens, chat composers): no live-workout dock there. */
+/**
+ * Routes where the floating capsule and the Offering button hide: focus routes, plus the scanner
+ * (focus-like: it owns the bottom edge, but keeps the top bar as its way back until Fuel adds one).
+ */
+export function hidesCapsule(pathname: string) {
+  return isFocusRoute(pathname) || pathname.startsWith("/nutrition/scan");
+}
+
+/** Routes where the live slot never shows: the workout itself and the other full-screen routes. */
+export function hidesLiveSlot(pathname: string) {
+  return hidesCapsule(pathname) || pathname.startsWith("/sign-in");
+}
+
+/** @deprecated compat for the old LiveDock (Gym removes it): routes that own the bottom edge. */
 export function hidesLiveDock(pathname: string) {
   return isFocusRoute(pathname) || pathname.startsWith("/coach") || pathname.startsWith("/nutrition/coach") || pathname.startsWith("/nutrition/scan");
 }
 
-/**
- * Routes where the quick-log FAB would cover a composer or primary action: the above, plus the
- * recipe screen's START COOKING dock and the grocery list's row menus. (The live-workout dock
- * stays on those two: the cooking dock lifts above it.)
- */
+/** @deprecated compat for the old LiveDock: the FAB is gone (the Offering button replaced it). */
 export function hidesFab(pathname: string) {
   return hidesLiveDock(pathname) || pathname.startsWith("/nutrition/meals/recipe/") || pathname.startsWith("/nutrition/meals/grocery");
 }
@@ -52,4 +64,11 @@ export function hidesFab(pathname: string) {
  */
 export function headingUnderBar(entry: { isIntersecting: boolean; top: number; height: number }, scrollY: number) {
   return !entry.isIntersecting && entry.height > 0 && entry.top < 60 && scrollY > 0;
+}
+
+/** The avatar initial: the first letter of the display name, never the email's. "·" when unknown. */
+export function avatarInitial(displayName: string | null | undefined) {
+  const n = (displayName ?? "").trim();
+  if (!n || n.includes("@")) return "·";
+  return n.slice(0, 1).toUpperCase();
 }

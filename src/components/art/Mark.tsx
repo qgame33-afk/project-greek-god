@@ -39,10 +39,10 @@ export function Mark({
           y2="60"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0" stopColor="#F3DDA8" />
-          <stop offset="0.42" stopColor="#D5AC67" />
-          <stop offset="0.78" stopColor="#A97E40" />
-          <stop offset="1" stopColor="#E2C185" />
+          <stop offset="0" style={{ stopColor: "var(--leaf-100)" }} />
+          <stop offset="0.42" style={{ stopColor: "var(--leaf-300)" }} />
+          <stop offset="0.78" style={{ stopColor: "var(--leaf-500)" }} />
+          <stop offset="1" style={{ stopColor: "var(--leaf-200)" }} />
         </linearGradient>
       </defs>
       <path d={LEAVES} fill={`url(#${gid})`} />

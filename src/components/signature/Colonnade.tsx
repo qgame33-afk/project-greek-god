@@ -6,10 +6,10 @@ import { cn } from "@/lib/cn";
 import { dayName, shortDate } from "@/lib/dates";
 
 /**
- * The Colonnade — the training week as a temple (DESIGN §6.2).
+ * The Temple (Colonnade) — the training week as a temple (docs/DESIGN-V2.md §3.4.1, §3.3).
  * Seven 44-unit slots under a pediment: fluted columns for training days, low plinths for
- * rest days. Done columns fill with gold leaf from the base; missed and future days stay as
- * quiet outlines (never red). When every training day of the week is done the pediment gilds
+ * rest days. Sealed columns Gild from the base; today is a dashed leaf outline, future days
+ * --ui-line outlines (3:1), missed days a quieter hairline (never red). When every training day of the week is done the pediment gilds
  * and a meander draws beneath it — the draw plays once per week.
  */
 export interface ColonnadeProps {
@@ -140,20 +140,20 @@ export function Colonnade({ days, height = 112, interactive = false, onDayClick,
       <svg viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="xMidYMid meet" className="absolute inset-0 size-full overflow-visible" aria-hidden>
         <defs>
           <linearGradient id={`leaf-${uid}`} x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0" stopColor="#A97E40" />
-            <stop offset="0.45" stopColor="#D5AC67" />
-            <stop offset="0.85" stopColor="#F3DDA8" />
-            <stop offset="1" stopColor="#E2C185" />
+            <stop offset="0" style={{ stopColor: "var(--leaf-500)" }} />
+            <stop offset="0.45" style={{ stopColor: "var(--leaf-300)" }} />
+            <stop offset="0.85" style={{ stopColor: "var(--leaf-100)" }} />
+            <stop offset="1" style={{ stopColor: "var(--leaf-200)" }} />
           </linearGradient>
           <linearGradient id={`ped-${uid}`} x1="8" y1="0" x2="312" y2="0" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#A97E40" />
-            <stop offset="0.5" stopColor="#F3DDA8" />
-            <stop offset="1" stopColor="#A97E40" />
+            <stop offset="0" style={{ stopColor: "var(--leaf-500)" }} />
+            <stop offset="0.5" style={{ stopColor: "var(--leaf-100)" }} />
+            <stop offset="1" style={{ stopColor: "var(--leaf-500)" }} />
           </linearGradient>
         </defs>
 
         {/* Pediment: hairline until the week is complete, then gold leaf at 35%. */}
-        <path d={PEDIMENT} stroke="var(--line-strong)" strokeWidth={1} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
+        <path d={PEDIMENT} style={{ stroke: "var(--vein-3)" }} strokeWidth={1} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
         <path
           d={PEDIMENT}
           fill={`url(#ped-${uid})`}
@@ -169,7 +169,7 @@ export function Colonnade({ days, height = 112, interactive = false, onDayClick,
         />
 
         {/* Entablature: two hairlines; the meander draws between them on a complete week. */}
-        <path d={`M8 ${FRIEZE_Y}H312M8 ${FRIEZE_Y + FRIEZE_H + 1}H312`} stroke="var(--line)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        <path d={`M8 ${FRIEZE_Y}H312M8 ${FRIEZE_Y + FRIEZE_H + 1}H312`} style={{ stroke: "var(--vein-2)" }} strokeWidth={1} vectorEffect="non-scaling-stroke" />
         {complete && (
           <path
             d={frieze.d}
@@ -187,7 +187,7 @@ export function Colonnade({ days, height = 112, interactive = false, onDayClick,
         )}
 
         {/* Stylobate */}
-        <path d={`M8 ${COL_BOTTOM + 1.5}H312`} stroke="var(--line)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        <path d={`M8 ${COL_BOTTOM + 1.5}H312`} style={{ stroke: "var(--vein-3)" }} strokeWidth={1} vectorEffect="non-scaling-stroke" />
 
         {days.map((d, i) => {
           const cx = cxOf(i);
@@ -197,8 +197,7 @@ export function Colonnade({ days, height = 112, interactive = false, onDayClick,
               <g key={d.date}>
                 <path
                   d={plinthPath(cx)}
-                  fill="rgb(255 255 255 / .03)"
-                  stroke={d.today ? "var(--gold-400)" : "var(--line-strong)"}
+                  style={{ fill: "var(--vein)", stroke: d.today ? "var(--leaf-300)" : "var(--ui-line)" }}
                   strokeWidth={1}
                   vectorEffect="non-scaling-stroke"
                   strokeLinejoin="round"
@@ -207,13 +206,13 @@ export function Colonnade({ days, height = 112, interactive = false, onDayClick,
               </g>
             );
           }
-          const outline = d.today ? "var(--gold-400)" : d.done ? "rgb(213 172 103 / .55)" : d.missed ? "var(--line)" : "var(--line-strong)";
+          const outline = d.done ? "var(--leaf-400)" : d.today ? "var(--leaf-300)" : d.missed ? "var(--vein-3)" : "var(--ui-line)";
           return (
             <g key={d.date}>
               <clipPath id={`clip-${uid}-${i}`}>
                 <path d={columnPath(cx)} />
               </clipPath>
-              <path d={columnPath(cx)} fill={d.missed ? "transparent" : "rgb(255 255 255 / .025)"} />
+              <path d={columnPath(cx)} style={{ fill: d.missed ? "transparent" : "var(--vein)" }} />
               {d.done && (
                 <g clipPath={`url(#clip-${uid}-${i})`}>
                   <rect
@@ -233,16 +232,22 @@ export function Colonnade({ days, height = 112, interactive = false, onDayClick,
               )}
               <path
                 d={flutePath(cx)}
-                stroke={d.done ? "rgb(8 9 12 / .35)" : "var(--line-hair)"}
+                style={{
+                  stroke: d.done ? "var(--leaf-700)" : "var(--vein-2)",
+                  ...(d.done ? { opacity: armed || risen.has(d.date) ? 0.55 : 0, transition: risen.has(d.date) ? "none" : `opacity 300ms ease ${300 + i * 60}ms` } : {}),
+                }}
                 strokeWidth={1}
                 vectorEffect="non-scaling-stroke"
-                style={
-                  d.done
-                    ? { opacity: armed || risen.has(d.date) ? 1 : 0, transition: risen.has(d.date) ? "none" : `opacity 300ms ease ${300 + i * 60}ms` }
-                    : undefined
-                }
               />
-              <path d={columnPath(cx)} fill="none" stroke={outline} strokeWidth={1} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+              <path
+                d={columnPath(cx)}
+                fill="none"
+                style={{ stroke: outline }}
+                strokeWidth={d.today && !d.done ? 1.25 : 1}
+                strokeDasharray={d.today && !d.done ? "3 2" : undefined}
+                vectorEffect="non-scaling-stroke"
+                strokeLinejoin="round"
+              />
               <DayLetter cx={cx} letter={LETTERS[wd]} today={d.today} volleyball={d.volleyball} />
             </g>
           );
@@ -257,7 +262,7 @@ export function Colonnade({ days, height = 112, interactive = false, onDayClick,
             onClick={() => onDayClick?.(d.date)}
             aria-current={d.today ? "date" : undefined}
             aria-label={dayAria(d)}
-            className="press absolute top-0 h-full rounded-[10px] transition-colors hover:bg-white/[.03] active:bg-white/[.05]"
+            className="press absolute top-0 h-full rounded-field transition-colors hover:bg-white/[.03] active:bg-white/[.05]"
             style={{ left: `${((X0 + SLOT * i) / VB_W) * 100}%`, width: `${(SLOT / VB_W) * 100}%`, minWidth: 44 }}
           />
         ))}
@@ -272,12 +277,17 @@ function DayLetter({ cx, letter, today, volleyball }: { cx: number; letter: stri
         x={cx}
         y={94.5}
         textAnchor="middle"
-        style={{ fontFamily: "var(--font-num)", fontSize: 11, fontWeight: today ? 700 : 600, letterSpacing: "0.04em" }}
-        fill={today ? "var(--gold-300)" : "var(--text-3)"}
+        style={{ fontFamily: "var(--font-sans-stack)", fontSize: 12.5, fontWeight: today ? 700 : 600, letterSpacing: "0.04em", fill: today ? "var(--leaf-300)" : "var(--ash)" }}
       >
         {letter}
       </text>
-      {volleyball && <circle cx={cx + 8} cy={90.6} r={2} fill="var(--s-lapis)" />}
+      {/* volleyball: a small ball glyph (never a colour code) */}
+      {volleyball && (
+        <g style={{ stroke: "var(--stone)" }} fill="none" strokeWidth={0.9}>
+          <circle cx={cx + 10} cy={90.2} r={2.6} />
+          <path d={`M${cx + 9.2} ${87.7}c-.5 1.4-.3 2.8.6 3.8M${cx + 12.4} ${89.4}c-1.4-.2-2.8.1-3.6 1.4`} />
+        </g>
+      )}
     </>
   );
 }

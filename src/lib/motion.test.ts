@@ -19,6 +19,14 @@ describe("navDirection", () => {
     expect(navDirection("/training/exercise/x", "/progress")).toBe("forward");
   });
 
+  it("orders the secondary sections like the rail: Oracle, Chronicle, Recovery, Settings", () => {
+    expect(navDirection("/progress", "/coach")).toBe("forward");
+    expect(navDirection("/coach", "/reviews")).toBe("forward");
+    expect(navDirection("/reviews", "/recovery")).toBe("forward");
+    expect(navDirection("/recovery", "/reviews")).toBe("back");
+    expect(navDirection("/settings", "/recovery")).toBe("back");
+  });
+
   it("treats a detail page in another section as a push", () => {
     expect(navDirection("/progress", "/reviews/2026-09")).toBe("push");
   });
@@ -53,6 +61,19 @@ describe("motion tokens", () => {
   it("keep UI feedback inside 150–250 ms", () => {
     expect(DURATION.fast).toBeGreaterThanOrEqual(150);
     expect(DURATION.base).toBeLessThanOrEqual(250);
+    expect(DURATION.route).toBeLessThanOrEqual(250);
     expect(DURATION.press).toBeLessThan(DURATION.fast);
+  });
+
+  it("keep the old names as aliases of the new ones", () => {
+    expect(DURATION.slow).toBe(DURATION.lift);
+    expect(DURATION.ring).toBe(DURATION.gild);
+  });
+
+  it("keep signature durations inside their ranges", () => {
+    expect(DURATION.gild).toBeGreaterThanOrEqual(600);
+    expect(DURATION.gild).toBeLessThanOrEqual(1400);
+    expect(DURATION.inscribe).toBeGreaterThanOrEqual(700);
+    expect(DURATION.inscribe).toBeLessThanOrEqual(900);
   });
 });

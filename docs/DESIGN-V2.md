@@ -1682,3 +1682,91 @@ Foundation leads, and every stream fixes its own findings:
 | Living-sky palettes (Ascent concept) | Not adopted | Olympus's single light. Night is the only time variant |
 | Muscle map figure | Later | The volume bars cover the job now |
 | Drag-the-+ to a timeline time | Later | The Offering sheet's slot picker covers it |
+
+---
+
+## 8. How to use the foundation (for screen engineers)
+
+Foundation's F-B layer is in place: the tokens, the type scale, the materials, the shell, the ui kit and the art. Old screens re-theme through the aliases and keep working. This section lists what to reach for when you rebuild a screen. The spec above still wins on behaviour.
+
+### 8.1 Tokens (`src/app/globals.css`)
+
+- **Colours** (Tailwind names, from the `@theme inline` block): `obsidian night m1 m2 m3 m4 m5`, `vein vein-2 vein-3`, `ui-line`, `ivory stone ash disabled ink`, `leaf-50…leaf-700 leaf-tint leaf-line`, `aegean aegean-tint aegean-line` (AI only), `cinnabar cinnabar-tint cinnabar-line` (errors and pain only), `carbs fat water`. Charts and SVG read the same CSS variables (`var(--leaf-300)`, `var(--ui-line)`). Set SVG colours through `style={{ stroke: "var(--…)" }}`; a presentation attribute does not take `var()`. Never hard-code hex.
+- **Aliases** (`bg-s1…s5`, `text-fg/fg-2/fg-3`, `border-line*`, `gold-*`, `success/warning/danger`, `lapis*`, `marble/terracotta/porphyry/lapis/verdigris`, `--grad-*`, `--glow-cta`) point at the new values (§1.1.5). Delete your uses of them as you rebuild.
+- **Radii:** `rounded-tag` 5 · `rounded-field` 12 · `rounded-btn` 16 · `rounded-card` 22 · `rounded-sheet` 30 · `rounded-capsule` 32.
+- **Z:** `z-(--z-sticky)` 20 · `z-(--z-deck)` 40 · `z-(--z-chrome)` 50 · `z-(--z-sheet)` 60 · `z-(--z-confirm)` 65 · `z-(--z-toast)` 70.
+- **Layout:** `px-gutter` (20 px, 16 under 360 px), `max-w-col` (560) and `max-w-wide` (1040), `--topbar-h` (52), `--capsule-h` (64), `--slot-h` (52), `--safe-top` / `--safe-bottom`. The shell already pads `<main>` with `pb-chrome`, which is `--chrome-clear` + 24 px; `--chrome-clear` grows by the live slot while one shows. A fixed bottom bar of your own sits at `bottom: calc(var(--tabbar-h) + var(--safe-bottom))`, just above the capsule.
+- **Spacing** is Tailwind's 4-pt scale (`p-4`, `gap-3`), in rem, so it follows the text size. Size things in px only where they must stay fixed at AX sizes (floating chrome, gym hit areas).
+
+### 8.2 Type (`t-*` utilities; never `text-[Npx]`)
+
+| Class | Use |
+|---|---|
+| `t-monument` | 90 px+ moment numbers (Bodoni Moda, opsz 28), obsidian surfaces only |
+| `t-timer` | the rest timer (700, tabular, 96–120 px) |
+| `t-dial` | daily hero numbers: trend, protein, the scale stepper |
+| `t-num-l` / `t-num-m` / `t-num-s` | deck and tower values / stats / inline numbers |
+| `t-title-1` / `t-title-2` | screen and session titles / section titles (Cormorant 600) |
+| `t-verdict` | the verdict line (Cormorant italic 500) |
+| `t-film` | film titles (SEPTEMBER, OLYMPUS) |
+| `t-title-3` · `t-body` · `t-callout` · `t-meta` | row titles · body · secondary · captions |
+| `t-eyebrow` · `t-tag` · `t-key` | labels (ash; use `text-stone` on m3/m4) · the Tag · labels on gold keys |
+| `tnum` | tabular lining figures on any element |
+
+Font families: `font-sans` (the instrument: SF Pro on the iPhone, Inter Tight elsewhere), `font-voice` (Cormorant), `font-monument` (Bodoni). The retired `t-hero t-title t-card t-h1 t-h2 t-h3 t-plaque t-button eyebrow num num-* unit font-serif font-num` are aliases that render in the new faces. Arbitrary `text-[8px]`…`text-[10.5px]` classes are floored to 11 px.
+
+### 8.3 Materials and variants
+
+- `card` (the m2 slab for old screens) · `slab` (the Now card: m2 + e2) · `card-monument` / `monument` (the spotlight and marble veins: monument surfaces only) · `card-instrument` · `card-inset`.
+- `glass` is only for the capsule, the Offering button and the live slot (at most three per screen). `chrome` is now opaque night, never blurred.
+- `leaf-btn` (gold key material; prefer `<Button variant="primary">`, which also sets `data-gold="fill"`), `leaf` (non-interactive gold leaf surface), `hatch` (the planned or "under" pattern), `grain` (6% grain over leaf surfaces taller than 64 px), `spotlight`, `hit-44` (pads a small visual to a 44 px target).
+- **Gym Mode:** put `data-mode="gym"` on the Gym Mode root. It gives true black, no glass and no spotlight.
+- **Night (Seal):** `<html data-phase="seal">` is applied by `src/lib/appearance.ts`: always, or from 21:00 to 05:00. While Now is mounted it may call `setDayPhase(phase)` with the Day Engine's phase.
+- **Reduce transparency / Motion** come from Settings → Appearance through `saveAppearance({ transparency, motion, night })` and `useAppearance()` in `lib/appearance.ts`. They are applied before first paint by the boot script in `layout.tsx`.
+
+### 8.4 Motion
+
+- JS: `DURATION` (`press fast base route lift gild inscribe count`), `EASE` / `EASE_CSS` (`out gold sheet in pop`), `SPRING`, `prefersReducedMotion()` (system setting or `data-motion`), `useReducedMotionPref()` (hook), `useSwapIn(key)`. Use `m.*` under LazyMotion. `MotionConfig` already follows the Motion setting.
+- CSS: `--dur-*` and `--ease-*`, plus the utilities `press`, `press-soft`, `seal-in` (Seal), `turn-in` (Turn), `spot-in` (Spotlight), `sheen` (one pass), `rise`, `swap-in`, `skeleton`. Under reduced motion every animation collapses except elements marked `motion-keep` (information that moves, like the rest arc).
+- Route transitions are automatic (`data-nav`). A second navigation within 400 ms is instant.
+
+### 8.5 The ui kit (`src/components/ui/*`)
+
+- `Button`: `variant` `primary` (gold, `data-gold="fill"`, at most one per viewport) · `secondary` · `outline` · `outline-gold` · `ghost` · `destructive` · `destructive-solid` · `link`; `size` `sm` 44 · `md` 48 · `lg` 56 · `xl` 64 · `icon` · `icon-sm`; `block`, `loading`, `shine` (one Sheen), `asChild`.
+- `Tag` (`ui/tag.tsx`): `<Tag kind="LOG|PLAN|RULE|CALC|PROJ|AI" detail? explain? />`. With `explain` it becomes a 44 px button that opens the arithmetic. Spoken text comes from `spokenTag()` in `lib/provenance.ts`. Old badges are wrappers: `LoggedBadge`→LOG, `PlanBadge`→PLAN, `EstimateBadge` (AI with a `confidence`, otherwise a neutral "≈ Estimate", so CALC callers must switch), `SuggestedBadge` (RULE, or `kind="AI"` for the coach), `PRBadge`→`RecordMark`. `SourceBadge` and `DatabaseBadge` stay source chips.
+- `RecordMark` (`compact?`, `label?`): the laurel sprig and "record".
+- `Meter`: `{ value, target, planned?, tone: "earned"|"kcal"|"carbs"|"fat"|"water"|"ivory", label, size: sm|md|lg }`. `earned` stays ivory until the target is hit; `planned` draws the hatched extension. It replaces rings. `Ring` and `Bar` remain as legacy.
+- `Stepper`: `{ value, onChange, step, min, max, label, valueText?, format?, size: "sm"|"md"|"lg" (44/56/64), onValueClick?, children? }`. The value is a VoiceOver spinbutton that responds to the arrow keys; − and + repeat while held. When two sit side by side in the gym deck, give each about 170 px or more.
+- `SealKey`: `{ label, detail?, pulse? (bump to play the Final-10 pulse), noTick?, …button props }`. A 64 px gold key.
+- `HoldButton`: `{ label, onConfirm, confirmTitle, confirmLabel, confirmBody?, cancelLabel = "Not yet", holdMs = 600, busy?, disabled? }`. Hold for 600 ms, or tap / VoiceOver / Switch Control / Enter for the two-button confirm.
+- `Coin`: `{ state: eaten|changed|planned|missed|next, glyph (the RecipeGlyph), size ≤ 44, past?, label? }`.
+- `Placard` (`eyebrow`, `action`) with `PlacardRow` (`title`, `detail`, `value`, `lead`, `href` | `onClick`): hairline-ruled rows on night.
+- `EstimateCard`: `{ title, status: unsaved|saving|saved|error, items, consequence?, actions, tag?, note? }`. `ProposalCard`: `{ title, rows: {label, before, after}[], onDismiss, onApply, applying? }`.
+- Restyled with unchanged APIs: `Card` / `CardHeader` / `CardAction` / `LinkCard`, `Chip` (44 px; selected = ivory edge, never gold), `Segmented` (44 px), `Switch` (on = ivory), `Scale`, `Field` / `Input` / `NumberInput` / `Textarea` / `Select`, `Sheet` / `SheetFooterBar` / `Confirm` (new `cancelLabel`), `CountUp`, `PageHeader`, `Stat`, `Skeleton`, `Empty`, `ErrorNote`, `Collapse`, `Divider`.
+
+### 8.6 The shell (`src/components/shell/*`)
+
+- Put `<TabHeader eyebrow="SAT 17 OCT · DAY 41" oracle={{ kind: "now", label: "Push A today" }} />` at the top of a tab page, before its `<h1>`. On phones the shell's header row shows that eyebrow, ✦ and the avatar, and swaps in the `<h1>` text when it scrolls under the bar. From 768 px the row renders in the page. Without a TabHeader, ✦ and the avatar still show.
+- `openOffering({ mode: "log", slot?, panel?, date? })` and `openOffering({ mode: "ask", context?, prompt?, conversationId? })` live in `components/offering/store.ts`. The seeded host opens the old quick-log actions for Log mode and routes Ask mode to `/coach` until Sheets ships the real sheet. Do not map `?add=1` to `openOffering` before Sheets replaces the seed: the seed's "Search food" tile goes to `/nutrition?add=1`, so the two would bounce.
+- The live slot shows `components/workout/LiveSlotContent.tsx` (the Gym stream's seed) and steps aside while an element with `[data-today-resume]` is on screen (Now's Return control).
+- `isFocusRoute` gives no chrome at all. `hidesCapsule` also covers the scanner, which keeps the top bar as its way back until Fuel adds a close control.
+- Deviation from §1.3: the rail still starts at 768 px (76 px wide, 248 px from 1024 px), because existing screens pin their fixed bars to `md:left-[76px]` / `lg:left-[248px]`. Revisit this in the integration pass.
+
+### 8.7 Art (`src/components/art/*`, `signature/*`)
+
+- `Statue`: `{ p (gildFraction), fromP?, mode: now|dawn|unveil|chronicle|oath, height?, label, skip?, spotlight?, priority?, onSettled? }`. Two alpha-cut WebPs, a transform-only Gild of 600–1400 ms by distance, and the molten edge. `GildedBust` is now a wrapper around it.
+- `Laurel` (`size`, `inscribe`, `delay`, `leaves`, `tone`), `Sundial` (`rest: { total, elapsed, paused?, key? } | null`, `final`, `variant: "arc"|"bar"`, `width?`, `label`, children = the digits), `PlateStack` (`plates` per side, `unit`, `changed` index), `Ridge` (decoration, 4%), `Terrace` (`numeral`, `state: reached|next|ahead`, `final`, `label?`). The Temple is `signature/Colonnade` (same API, now on tokens).
+- Icons (`art/icons.tsx`): `NowSunrise TrainColumn FuelAmphora AscentPeak OfferingPlus OracleSparkles LaurelSprig Volleyball PlateStackIcon TempleGlyph SealTick CoinMissed Moon`. They are `aria-hidden` unless given a `title`.
+- Assets: `public/art/statue-marble.webp`, `statue-gold.webp` and `grain.png` come from `node scripts/dev/grade-statue.mjs`, which is deterministic. `ridge.svg` and `coin-rim.svg` are drawn by hand.
+
+### 8.8 Offline
+
+`Providers` restores the persisted query cache (`lib/offline`) before the app shell renders: `useQueryCacheReady()`, at most about 400 ms. `public/sw.js` keeps each page's HTML (network first), the hashed `/_next/static/*` files (cache first) and `/art/*` (stale-while-revalidate). The cache is versioned by `/sw.js?v=<commit>`, and the worker only registers in production builds.
+
+### 8.9 Checks (`scripts/dev/`)
+
+- `type-audit.mjs`: fails on visible text under 11 px or a `t-monument` under 90 px.
+- `gold-audit.mjs`: fails on more than one `[data-gold="fill"]` per viewport at any scroll stop, or more than three `backdrop-filter`s.
+- `ax-shot.mjs --size 28`: AX screenshots and chrome checks.
+
+All three take `--base --user` like `shot.mjs`.

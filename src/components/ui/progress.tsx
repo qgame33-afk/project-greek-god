@@ -4,16 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 
 const TONE: Record<string, string> = {
-  gold: "var(--grad-progress)",
-  marble: "var(--s-marble)",
-  terracotta: "var(--s-terracotta)",
-  porphyry: "var(--s-porphyry)",
-  lapis: "var(--s-lapis)",
-  verdigris: "var(--s-verdigris)",
-  success: "var(--success)",
+  gold: "var(--leaf-h)",
+  marble: "var(--ivory)",
+  terracotta: "var(--series-carbs)",
+  porphyry: "var(--series-fat)",
+  lapis: "var(--series-water)",
+  verdigris: "var(--series-water)",
+  success: "var(--leaf-300)",
 };
 
-/** Linear progress. `fluted` = monument style with column fluting and a leading notch. */
+/**
+ * Linear progress (legacy). `fluted` = monument style with column fluting and a leading notch.
+ * New screens use <Meter> (ui/meter.tsx), which adds the hatched planned extension.
+ */
 export function Bar({
   value,
   tone = "gold",
@@ -40,7 +43,7 @@ export function Bar({
   }, [v, delay]);
   return (
     <div
-      className={cn("relative overflow-hidden rounded-full bg-white/[.07]", fluted ? "h-2.5" : "h-1.5", className)}
+      className={cn("relative overflow-hidden rounded-full bg-vein-2", fluted ? "h-2.5" : "h-1.5", className)}
       role={label ? "progressbar" : undefined}
       aria-label={label}
       aria-valuemin={0}
@@ -52,14 +55,14 @@ export function Bar({
         style={{
           background: TONE[tone],
           transform: `translateX(${(shown - 1) * 100}%)`,
-          transition: "transform 600ms var(--ease-gold)",
+          transition: "transform var(--dur-gild) var(--ease-gold)",
         }}
       />
       {fluted && (
         <>
           <div
             className="pointer-events-none absolute inset-0"
-            style={{ background: "repeating-linear-gradient(90deg, transparent 0 7px, rgb(0 0 0 / .2) 7px 8px)" }}
+            style={{ background: "repeating-linear-gradient(90deg, transparent 0 7px, rgb(0 0 0 / .22) 7px 8px)" }}
           />
           {/* the gold-50 leading edge rides on the same translate as the fill (no `left` animation) */}
           <div
@@ -67,11 +70,11 @@ export function Bar({
             className="pointer-events-none absolute inset-0"
             style={{
               transform: `translateX(${(shown - 1) * 100}%)`,
-              transition: "transform 600ms var(--ease-gold), opacity 200ms var(--ease-out)",
+              transition: "transform var(--dur-gild) var(--ease-gold), opacity 200ms var(--ease-out)",
               opacity: shown > 0.01 && shown < 0.995 ? 1 : 0,
             }}
           >
-            <div className="absolute inset-y-0 right-0 w-1 rounded-full bg-gold-50" />
+            <div className="absolute inset-y-0 right-0 w-1 rounded-full bg-leaf-100" />
           </div>
         </>
       )}

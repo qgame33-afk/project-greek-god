@@ -85,3 +85,6 @@ All app pages live under `src/app/(app)/`. Deep links used across features:
 - Checks before you finish: `npx tsc --noEmit -p .`, `npx eslint <your files>`, `npx vitest run`.
 - Don't run `npm install` (ask the lead), don't run `next build` (it fights the dev server), don't
   commit, don't touch files outside your ownership list.
+
+## UI v2 ("Olympus")
+On branch `ui-v2`, `docs/DESIGN-V2.md` is the authoritative visual and interaction spec and replaces `DESIGN.md` wherever they differ; its §8 lists the foundation's tokens, `t-*` type classes, ui kit (Tag, Meter, Stepper, SealKey, HoldButton, Coin, Placard, EstimateCard, ProposalCard), shell APIs (`TabHeader`, `openOffering`) and art (Statue, Laurel, Sundial, PlateStack). The UI summary above describes the old Pantheon kit, whose class names still work as aliases until each screen is rebuilt; data rules here are unchanged.

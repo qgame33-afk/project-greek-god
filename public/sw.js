@@ -1,27 +1,36 @@
 /* Project Greek God — service worker.
  *
- * Deliberately small: Web Push reminders, notification taps, and a single offline page for
- * navigations. No asset caching — the app always loads fresh code and live data, so a
- * stale copy can never show old numbers.
+ * Web Push reminders, notification taps, and the offline app shell (docs/DESIGN-V2.md §5.2 item 6):
+ * - pages (navigations): network first; a copy of each page's HTML is kept so an offline cold start
+ *   still opens the app (the HTML carries no user data: app screens render on the client), and the
+ *   data comes back from the persisted query cache (src/lib/offline). No copy → the offline page.
+ * - /_next/static/* (content-hashed, immutable): cache first.
+ * - /art/*: stale-while-revalidate.
+ * - Everything else (API routes, Supabase, RSC fetches) passes straight through, never cached:
+ *   live data is never served stale by the worker.
+ * The cache name carries the deploy's version (`/sw.js?v=<build>`), so each deploy starts clean.
  */
+
+const VERSION = new URL(self.location.href).searchParams.get("v") || "1";
+const SHELL_CACHE = "pgg-shell-" + VERSION;
 
 const OFFLINE_HTML = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#08090C"><title>Offline · Project Greek God</title>
+<meta name="theme-color" content="#09090B"><title>Offline · Project Greek God</title>
 <style>
-  html,body{margin:0;height:100%;background:#08090C;color:#F2EFE8;font:500 15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  html,body{margin:0;height:100%;background:#09090B;color:#F2EBDD;font:500 16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
   main{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));text-align:center;box-sizing:border-box}
   .mark{width:56px;height:56px;margin-bottom:20px}
-  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#E2C185;margin:0 0 10px}
-  h1{font:700 28px/1 "Barlow Condensed","Arial Narrow",sans-serif;letter-spacing:.02em;text-transform:uppercase;margin:0}
-  p{color:#A3A9B4;max-width:32ch;margin:12px auto 0}
-  button{margin-top:24px;height:48px;padding:0 24px;border-radius:14px;border:1px solid rgba(213,172,103,.38);background:#1C2026;color:#E2C185;font:inherit;font-weight:700;line-height:1;cursor:pointer}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#A39B8D;margin:0 0 10px}
+  h1{font:600 34px/1.05 "Cormorant Garamond",Georgia,serif;margin:0}
+  p{color:#B9B1A2;max-width:32ch;margin:12px auto 0}
+  button{margin-top:24px;height:48px;padding:0 24px;border-radius:16px;border:0;box-shadow:inset 0 0 0 1px rgba(224,184,102,.38);background:#1E1E23;color:#EED08B;font:inherit;font-weight:600;line-height:1;cursor:pointer}
 </style></head>
 <body><main>
-  <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="#D5AC67" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 9 12 3l10 6M3 11h18M2 21h20M6 13v6M12 13v6M18 13v6"/></svg>
+  <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="#E0B866" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 9 12 3l10 6M3 11h18M2 21h20M6 13v6M12 13v6M18 13v6"/></svg>
   <p class="eyebrow">Project Greek God</p>
-  <h1>You're offline</h1>
+  <h1>You&#39;re offline</h1>
   <p>Your logs are safe in your account. Reconnect and this page will load with your latest numbers.</p>
   <button type="button" onclick="location.reload()">Try again</button>
 </main>
@@ -35,24 +44,79 @@ self.addEventListener("install", () => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      // nothing is cached on purpose; clear anything an older worker may have left
+      // drop every cache but this deploy's shell
       const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k)));
+      await Promise.all(keys.filter((k) => k !== SHELL_CACHE).map((k) => caches.delete(k)));
       await self.clients.claim();
     })(),
   );
 });
 
-// Network only. A page navigation that fails gets the offline page instead of the
-// browser's error screen; everything else passes straight through.
+const offlineResponse = () =>
+  new Response(OFFLINE_HTML, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+
+/** The page's cache key: its path only (query strings like ?add=1 share the copy). */
+const pageKey = (url) => new URL(url.pathname, url.origin).href;
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
-  if (req.mode !== "navigate" || req.method !== "GET") return;
-  event.respondWith(
-    fetch(req).catch(
-      () => new Response(OFFLINE_HTML, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }),
-    ),
-  );
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+
+  if (req.mode === "navigate") {
+    event.respondWith(
+      (async () => {
+        try {
+          const res = await fetch(req);
+          // keep a copy of real pages only (not redirects to sign-in, not errors)
+          if (res.ok && res.type === "basic" && !res.redirected) {
+            const copy = res.clone();
+            event.waitUntil(caches.open(SHELL_CACHE).then((c) => c.put(pageKey(url), copy)));
+          }
+          return res;
+        } catch {
+          const cache = await caches.open(SHELL_CACHE);
+          return (await cache.match(pageKey(url))) || offlineResponse();
+        }
+      })(),
+    );
+    return;
+  }
+
+  if (url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(SHELL_CACHE);
+        const hit = await cache.match(req);
+        if (hit) return hit;
+        const res = await fetch(req);
+        if (res.ok) event.waitUntil(cache.put(req, res.clone()));
+        return res;
+      })(),
+    );
+    return;
+  }
+
+  if (url.pathname.startsWith("/art/")) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(SHELL_CACHE);
+        const hit = await cache.match(req);
+        const refresh = fetch(req)
+          .then((res) => {
+            if (res.ok) return cache.put(req, res.clone()).then(() => res);
+            return res;
+          })
+          .catch(() => null);
+        if (hit) {
+          event.waitUntil(refresh);
+          return hit;
+        }
+        return (await refresh) || new Response("", { status: 504 });
+      })(),
+    );
+  }
 });
 
 /* ------------------------------------------------------------------ push */

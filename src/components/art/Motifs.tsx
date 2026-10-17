@@ -2,7 +2,8 @@ import { useId, type CSSProperties } from "react";
 
 /**
  * Pantheon motif library — pure SVG, no DOM measuring.
- * Gold leaf: #F3DDA8 → #D5AC67 → #A97E40 → #E2C185 · bronze line #7D5C2E · ground #08090C.
+ * Colours come from the Olympus tokens (leaf-100 → leaf-300 → leaf-500 → leaf-200, bronze line
+ * leaf-600, ground night) through CSS variables, so they follow the Seal variant.
  * Every gradient/clip id is derived from useId() so many instances can share a page.
  */
 
@@ -17,10 +18,10 @@ const EASE = "cubic-bezier(.2,.7,.2,1)";
 function GoldStops() {
   return (
     <>
-      <stop offset="0" stopColor="#F3DDA8" />
-      <stop offset="0.4" stopColor="#D5AC67" />
-      <stop offset="0.78" stopColor="#A97E40" />
-      <stop offset="1" stopColor="#E2C185" />
+      <stop offset="0" style={{ stopColor: "var(--leaf-100)" }} />
+      <stop offset="0.4" style={{ stopColor: "var(--leaf-300)" }} />
+      <stop offset="0.78" style={{ stopColor: "var(--leaf-500)" }} />
+      <stop offset="1" style={{ stopColor: "var(--leaf-200)" }} />
     </>
   );
 }
@@ -126,7 +127,7 @@ export function Meander({
         <>
           <path
             d={d}
-            stroke="#D5AC67"
+            style={{ stroke: "var(--leaf-300)" }}
             strokeOpacity={0.16}
             strokeWidth={strokeWidth}
             strokeLinejoin="miter"
@@ -223,9 +224,9 @@ export function LaurelBullet({
           y2="2"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0" stopColor="#A97E40" />
-          <stop offset="0.55" stopColor="#D5AC67" />
-          <stop offset="1" stopColor="#F3DDA8" />
+          <stop offset="0" style={{ stopColor: "var(--leaf-500)" }} />
+          <stop offset="0.55" style={{ stopColor: "var(--leaf-300)" }} />
+          <stop offset="1" style={{ stopColor: "var(--leaf-100)" }} />
         </linearGradient>
       </defs>
       <path d={BULLET_LEAF} fill={`url(#${gid})`} />
@@ -275,19 +276,19 @@ export function ColumnFluted({
           y2="2"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0" stopColor="#A97E40" />
-          <stop offset="0.45" stopColor="#D5AC67" />
-          <stop offset="0.85" stopColor="#F3DDA8" />
-          <stop offset="1" stopColor="#E2C185" />
+          <stop offset="0" style={{ stopColor: "var(--leaf-500)" }} />
+          <stop offset="0.45" style={{ stopColor: "var(--leaf-300)" }} />
+          <stop offset="0.85" style={{ stopColor: "var(--leaf-100)" }} />
+          <stop offset="1" style={{ stopColor: "var(--leaf-200)" }} />
         </linearGradient>
         <clipPath id={cid}>
           <path d={COL_SHAPE} />
         </clipPath>
       </defs>
-      <path d={COL_SHAPE} fill="#D5AC67" fillOpacity={0.05} />
+      <path d={COL_SHAPE} style={{ fill: "var(--leaf-300)" }} fillOpacity={0.05} />
       <path
         d={COL_FLUTES}
-        stroke="#D5AC67"
+        style={{ stroke: "var(--leaf-300)" }}
         strokeOpacity={0.22}
         vectorEffect="non-scaling-stroke"
       />
@@ -307,14 +308,14 @@ export function ColumnFluted({
         />
         <path
           d={COL_FLUTES}
-          stroke="#08090C"
+          style={{ stroke: "var(--night)" }}
           strokeOpacity={0.32}
           vectorEffect="non-scaling-stroke"
         />
       </g>
       <path
         d={COL_SHAPE}
-        stroke="#D5AC67"
+        style={{ stroke: "var(--leaf-300)" }}
         strokeOpacity={f > 0.999 ? 0.95 : 0.5}
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
@@ -339,17 +340,17 @@ export function Plinth({
       style={style}
       aria-hidden="true"
     >
-      <path d={PLINTH_SHAPE} fill="#D5AC67" fillOpacity={0.05} />
+      <path d={PLINTH_SHAPE} style={{ fill: "var(--leaf-300)" }} fillOpacity={0.05} />
       <path
         d={PLINTH_SHAPE}
-        stroke="#D5AC67"
+        style={{ stroke: "var(--leaf-300)" }}
         strokeOpacity={0.42}
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
       />
       <path
         d={PLINTH_TOP}
-        stroke="#E2C185"
+        style={{ stroke: "var(--leaf-200)" }}
         strokeOpacity={0.8}
         vectorEffect="non-scaling-stroke"
       />
@@ -384,9 +385,9 @@ export function Pediment({
           y2="0"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0" stopColor="#A97E40" />
-          <stop offset="0.5" stopColor="#F3DDA8" />
-          <stop offset="1" stopColor="#A97E40" />
+          <stop offset="0" style={{ stopColor: "var(--leaf-500)" }} />
+          <stop offset="0.5" style={{ stopColor: "var(--leaf-100)" }} />
+          <stop offset="1" style={{ stopColor: "var(--leaf-500)" }} />
         </linearGradient>
       </defs>
       <g stroke={stroke} strokeLinejoin="miter">
@@ -473,7 +474,7 @@ const EMPTY: Record<EmptyKind, EmptyPaths> = {
 };
 
 /**
- * 72px line illustrations: bronze (#7D5C2E) hairlines with gold (#D5AC67) highlights.
+ * 72px line illustrations: bronze (leaf-600) hairlines with leaf-300 highlights.
  * Strokes stay `strokeWidth` px at any `size` (e.g. size={56} strokeWidth={1.25}).
  */
 export function EmptyArt({
@@ -505,9 +506,9 @@ export function EmptyArt({
           y2="0"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0" stopColor="#7D5C2E" stopOpacity="0" />
-          <stop offset="0.5" stopColor="#7D5C2E" />
-          <stop offset="1" stopColor="#7D5C2E" stopOpacity="0" />
+          <stop offset="0" style={{ stopColor: "var(--leaf-600)" }} stopOpacity="0" />
+          <stop offset="0.5" style={{ stopColor: "var(--leaf-600)" }} />
+          <stop offset="1" style={{ stopColor: "var(--leaf-600)" }} stopOpacity="0" />
         </linearGradient>
         <radialGradient
           id={`ea-beam-${id}`}
@@ -517,9 +518,9 @@ export function EmptyArt({
           gradientTransform="translate(0 28.5) scale(1 0.78) translate(0 -28.5)"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0" stopColor="#E2C185" stopOpacity="0.26" />
-          <stop offset="0.45" stopColor="#D5AC67" stopOpacity="0.08" />
-          <stop offset="1" stopColor="#D5AC67" stopOpacity="0" />
+          <stop offset="0" style={{ stopColor: "var(--leaf-200)" }} stopOpacity="0.26" />
+          <stop offset="0.45" style={{ stopColor: "var(--leaf-300)" }} stopOpacity="0.08" />
+          <stop offset="1" style={{ stopColor: "var(--leaf-300)" }} stopOpacity="0" />
         </radialGradient>
         <linearGradient
           id={`ea-fade-${id}`}
@@ -529,8 +530,8 @@ export function EmptyArt({
           y2="68"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0" stopColor="#7D5C2E" />
-          <stop offset="1" stopColor="#7D5C2E" stopOpacity="0" />
+          <stop offset="0" style={{ stopColor: "var(--leaf-600)" }} />
+          <stop offset="1" style={{ stopColor: "var(--leaf-600)" }} stopOpacity="0" />
         </linearGradient>
       </defs>
       <g strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
@@ -550,21 +551,21 @@ export function EmptyArt({
         {art.faint && (
           <path
             d={art.faint}
-            stroke="#7D5C2E"
+            style={{ stroke: "var(--leaf-600)" }}
             strokeOpacity={0.6}
             vectorEffect={ns}
           />
         )}
-        <path d={art.dim} stroke="#7D5C2E" vectorEffect={ns} />
+        <path d={art.dim} style={{ stroke: "var(--leaf-600)" }} vectorEffect={ns} />
         {art.dots && (
           <path
             d={art.dots}
-            stroke="#D5AC67"
+            style={{ stroke: "var(--leaf-300)" }}
             strokeWidth={strokeWidth * 1.2}
             vectorEffect={ns}
           />
         )}
-        <path d={art.hl} stroke="#D5AC67" vectorEffect={ns} />
+        <path d={art.hl} style={{ stroke: "var(--leaf-300)" }} vectorEffect={ns} />
       </g>
     </svg>
   );

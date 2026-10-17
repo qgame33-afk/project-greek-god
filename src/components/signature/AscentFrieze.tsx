@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/cn";
+import { prefersReducedMotion } from "@/lib/motion";
 
 /**
  * The Ascent Frieze (DESIGN §6.3): a 14px meander for the whole programme. The hairline base
@@ -43,7 +44,7 @@ function friezePath(units: number) {
 
 function reducedMotion() {
   try {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    return prefersReducedMotion();
   } catch {
     return false;
   }
@@ -88,13 +89,13 @@ export function AscentFrieze({ elapsed, startLabel, endLabel, caption, draw = fa
         aria-label={`Programme timeline: ${pct} percent elapsed, from ${startLabel} to ${endLabel}.`}
       >
         <svg viewBox={vb} preserveAspectRatio="none" className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden>
-          <path d={d} fill="none" stroke="var(--line-strong)" strokeWidth={1} vectorEffect="non-scaling-stroke" strokeLinecap="square" />
+          <path d={d} fill="none" style={{ stroke: "var(--vein-3)" }} strokeWidth={1} vectorEffect="non-scaling-stroke" strokeLinecap="square" />
         </svg>
         {/* Gold copy, revealed left → right by a counter-translated clip (compositor only) */}
         <div aria-hidden className="pointer-events-none absolute inset-y-[-2px] left-0 right-0 overflow-hidden" style={{ transform: `translateX(${(shown - 1) * 100}%)`, transition }}>
           <div className="absolute inset-0" style={{ top: 2, bottom: 2, transform: `translateX(${(1 - shown) * 100}%)`, transition }}>
             <svg viewBox={vb} preserveAspectRatio="none" className="absolute inset-0 size-full overflow-visible">
-              <path d={d} fill="none" stroke="var(--gold-400)" strokeWidth={1.25} vectorEffect="non-scaling-stroke" strokeLinecap="square" />
+              <path d={d} fill="none" style={{ stroke: "var(--leaf-400)" }} strokeWidth={1.25} vectorEffect="non-scaling-stroke" strokeLinecap="square" />
             </svg>
           </div>
         </div>
@@ -102,15 +103,15 @@ export function AscentFrieze({ elapsed, startLabel, endLabel, caption, draw = fa
         <div aria-hidden className="pointer-events-none absolute -inset-x-[8px] -inset-y-[6px] overflow-hidden">
           <div className="absolute inset-y-0 left-[8px] right-[8px]" style={{ transform: `translateX(${shown * 100}%)`, transition }}>
             <span
-              className="absolute left-0 top-1/2 -ml-[3.5px] -mt-[3.5px] size-[7px] rotate-45 bg-gold-300 shadow-[0_0_0_3px_var(--surface-1)]"
+              className="absolute left-0 top-1/2 -ml-[3.5px] -mt-[3.5px] size-[7px] rotate-45 bg-leaf-300 shadow-[0_0_0_3px_var(--m1)]"
               style={{ opacity: animate && shown !== e ? 0 : 1, transition: animate ? "opacity 240ms ease 1150ms" : undefined }}
             />
           </div>
         </div>
       </div>
-      <div className="mt-2 flex items-baseline justify-between gap-2 text-[10.5px] font-bold uppercase tracking-[0.16em] text-fg-3">
+      <div className="t-eyebrow mt-2 flex items-baseline justify-between gap-2">
         <span>{startLabel}</span>
-        <span className="text-[11px] font-semibold normal-case tracking-normal text-fg-2">{caption ?? `${pct}% of timeline`}</span>
+        <span className="t-meta normal-case tracking-normal text-stone">{caption ?? `${pct}% of timeline`}</span>
         <span>{endLabel}</span>
       </div>
     </div>

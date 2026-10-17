@@ -1,8 +1,9 @@
-// Motion tokens — the one place the app's durations, easings and springs are defined.
-// CSS mirrors them as custom properties in src/app/globals.css (`--dur-*`, `--ease-*`), so
-// Tailwind classes, keyframes and view transitions use the same numbers as motion/react and
-// the Web Animations API below. Rules (DESIGN.md §4): 150–250 ms for UI feedback, springs for
-// tactile things, transform/opacity only, and prefers-reduced-motion always respected.
+// Motion tokens — the one place the app's durations, easings and springs are defined
+// (docs/DESIGN-V2.md §1.8). CSS mirrors them as custom properties in src/app/globals.css
+// (`--dur-*`, `--ease-*`), so Tailwind classes, keyframes and view transitions use the same numbers
+// as motion/react and the Web Animations API below. Rules: 150–250 ms for UI feedback, springs for
+// tactile things, transform/opacity/stroke-dashoffset only, and reduced motion always respected
+// (the system setting or Settings → Appearance → Motion, see prefersReducedMotion()).
 
 import { useLayoutEffect, useRef, type RefObject } from "react";
 
@@ -10,15 +11,25 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 export const DURATION = {
   /** Press-down feedback. */
   press: 90,
-  /** Small state changes: fades, colour swaps, chevrons. */
+  /** Small state changes: fades, colour swaps, chevrons, a Seal. */
   fast: 160,
-  /** The default: page and content swaps, dialogs, disclosures. */
+  /** The default: content swaps, dialogs, disclosures. */
   base: 220,
-  /** Larger reveals (route mount, panels). */
+  /** Route view transitions (tab to tab, push/pop). */
+  route: 200,
+  /** Sheets and push routes arriving (Lift). */
+  lift: 320,
+  /** Gold filling: statue, columns, meters, coins (600–1400 by size). */
+  gild: 900,
+  /** Stroke draws: laurel stems, terrace contours, chart lines on first show. */
+  inscribe: 800,
+  /** A hero number counting to its value. */
+  count: 700,
+  /** @deprecated alias of `lift`. */
   slow: 320,
-  /** Bottom sheets (vaul). */
+  /** Bottom sheets (vaul keeps its own 400 ms curve). */
   sheet: 400,
-  /** Rings and meters filling. */
+  /** @deprecated alias of `gild`. */
   ring: 900,
 } as const;
 
@@ -32,6 +43,8 @@ export const EASE = {
   sheet: [0.32, 0.72, 0, 1],
   /** Things leaving. */
   in: [0.55, 0, 1, 0.45],
+  /** A small overshoot: Seal (outline → leaf), the seal key's Final 10 pulse. */
+  pop: [0.34, 1.56, 0.64, 1],
 } as const;
 
 /** …and the same curves as CSS strings (for WAAPI / inline styles). */
@@ -40,6 +53,7 @@ export const EASE_CSS = {
   gold: "cubic-bezier(0.16, 1, 0.3, 1)",
   sheet: "cubic-bezier(0.32, 0.72, 0, 1)",
   in: "cubic-bezier(0.55, 0, 1, 0.45)",
+  pop: "cubic-bezier(0.34, 1.56, 0.64, 1)",
 } as const;
 
 /** Springs for motion/react. CSS has matching `--ease-spring` / `--ease-bounce` linear() curves. */
@@ -52,8 +66,14 @@ export const SPRING = {
   gentle: { type: "spring", stiffness: 320, damping: 34, mass: 1 },
 } as const;
 
+/**
+ * True when motion should be reduced: the system setting, or Settings → Appearance → Motion =
+ * Reduce (which writes <html data-motion="reduce">, see src/lib/appearance.ts).
+ */
 export function prefersReducedMotion() {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (typeof window === "undefined") return false;
+  if (document.documentElement.dataset.motion === "reduce") return true;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 /* ------------------------------------------------------- route direction */
@@ -68,8 +88,11 @@ export function prefersReducedMotion() {
  */
 export type NavDirection = "push" | "pop" | "forward" | "back" | "fade" | "none";
 
-/** Tab bar order, then the secondary sections in sidebar order. */
-const SECTIONS = ["/", "/training", "/nutrition", "/progress", "/coach", "/recovery", "/reviews", "/settings"];
+/** A second navigation within this many ms of the last one skips its route animation. */
+export const ROUTE_SKIP_WITHIN_MS = 400;
+
+/** Capsule order (Now, Train, Fuel, Ascent), then the secondary sections in rail order. */
+const SECTIONS = ["/", "/training", "/nutrition", "/progress", "/coach", "/reviews", "/recovery", "/settings"];
 
 function segments(path: string) {
   return path.split("/").filter(Boolean).length;
@@ -92,8 +115,8 @@ function locate(path: string): { section: string; depth: number; index: number }
   return { section: p, depth: segments(p), index: -1 };
 }
 
-/** Full-screen focus routes that open as a layer over whatever was open: the live workout, cooking mode. */
-const LAYERS = ["/workout", "/nutrition/meals/cook"];
+/** Full-screen focus routes that open as a layer over whatever was open: the live workout, cooking mode, the scanner. */
+const LAYERS = ["/workout", "/nutrition/meals/cook", "/nutrition/scan"];
 
 function layerOf(path: string) {
   const p = clean(path);

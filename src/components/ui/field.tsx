@@ -4,18 +4,20 @@ import { forwardRef, useEffect, useId, type InputHTMLAttributes, type ReactNode,
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 
+// Fields: m1 wells with a 3:1 edge (--ui-line), 16 px+ text (iOS never zooms), a leaf focus ring,
+// cinnabar only when invalid.
 const fieldCls =
-  "h-[52px] w-full rounded-[12px] border border-line-field bg-s3 px-3.5 text-[16px] font-medium text-fg placeholder:text-fg-3 outline-none transition-[border-color,box-shadow] focus:border-gold-400 focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)] disabled:opacity-50 aria-invalid:border-danger";
+  "h-[52px] w-full rounded-field border border-ui-line bg-m1 px-3.5 text-[length:max(16px,1rem)] font-medium text-ivory placeholder:text-ash outline-none transition-[border-color,box-shadow] focus:border-leaf-300 focus:shadow-[0_0_0_3px_var(--leaf-tint)] disabled:opacity-50 aria-invalid:border-cinnabar";
 
 /** Field label. The hint sits outside <label> so it isn't read as part of the field's name. */
 export function Label({ htmlFor, children, hint, hintId }: { htmlFor?: string; children: ReactNode; hint?: ReactNode; hintId?: string }) {
   return (
     <div className="mb-1.5 flex items-baseline justify-between gap-2">
-      <label htmlFor={htmlFor} className="text-[13px] font-semibold text-fg-2">
+      <label htmlFor={htmlFor} className="text-[length:max(13px,0.8125rem)] font-semibold text-stone">
         {children}
       </label>
       {hint && (
-        <span id={hintId} className="text-[12px] font-medium text-fg-3">
+        <span id={hintId} className="t-meta text-ash">
           {hint}
         </span>
       )}
@@ -31,14 +33,14 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   return (
     <div className="relative">
       <input ref={ref} className={cn(fieldCls, "pr-14", className)} {...props} />
-      <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-[13px] font-semibold text-fg-3">{suffix}</span>
+      <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-[length:max(13px,0.8125rem)] font-semibold text-ash">{suffix}</span>
     </div>
   );
 });
 
 export const NumberInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { suffix?: ReactNode; decimal?: boolean }>(
   function NumberInput({ className, decimal = true, ...props }, ref) {
-    return <Input ref={ref} type="text" inputMode={decimal ? "decimal" : "numeric"} autoComplete="off" className={cn("num text-[18px]", className)} {...props} />;
+    return <Input ref={ref} type="text" inputMode={decimal ? "decimal" : "numeric"} autoComplete="off" className={cn("tnum text-[length:max(18px,1.125rem)] font-semibold", className)} {...props} />;
   },
 );
 
@@ -52,7 +54,7 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
       <select className={cn(fieldCls, "appearance-none pr-10", className)} {...props}>
         {children}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-3" />
+      <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-ash" strokeWidth={1.6} />
     </div>
   );
 }
@@ -101,7 +103,7 @@ export function Field({
       </Label>
       {children(id)}
       {error && (
-        <p id={errId} className="mt-1.5 text-[13px] font-medium text-danger" role="alert">
+        <p id={errId} className="mt-1.5 text-[length:max(13px,0.8125rem)] font-medium text-cinnabar" role="alert">
           {error}
         </p>
       )}
