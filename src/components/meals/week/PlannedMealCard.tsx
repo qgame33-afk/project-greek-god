@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { AnimatePresence, m } from "motion/react";
 import { Ellipsis, Lock, LockOpen, Plus, RefreshCw, TriangleAlert } from "lucide-react";
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { LoggedBadge } from "@/components/ui/badge";
 import { Collapse } from "@/components/ui/misc";
 import { cn } from "@/lib/cn";
 import type { PlanMeal } from "@/lib/data/meals";
-import { EASE } from "@/lib/motion";
+import { DURATION, EASE, prefersReducedMotion } from "@/lib/motion";
 import { recipeMacros } from "@/lib/meals/recipe";
 import type { Recipe, Slot } from "@/lib/meals/types";
 import { RecipeCardBody, recipeHref } from "../shared/RecipeCard";
@@ -53,6 +53,28 @@ export function PlannedMealCard({
   const title = slotTitle(meal.slot, meal.position, snacksThatDay);
   const eyebrow = meal.servings !== 1 ? `${title} · ${servingsLabel(meal.servings)}` : title;
   const macros = recipe ? recipeMacros(recipe, meal.servings) : undefined;
+  // A card low on the screen would unfold its strip under the tab bar and quick-log button:
+  // once it has opened, bring it (Undo and the reasons) above the bottom chrome. The clearance is
+  // the wrapper's scroll-margin-bottom. (scrollIntoView can't be used: the card's overflow-hidden
+  // clips that margin away.) Never scrolls the strip's top up under the top bar.
+  const stripRef = useRef<HTMLDivElement>(null);
+  const stripOpen = !!strip;
+  useEffect(() => {
+    if (!stripOpen) return;
+    const reduce = prefersReducedMotion();
+    const t = window.setTimeout(
+      () => {
+        const el = stripRef.current;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const clear = parseFloat(getComputedStyle(el).scrollMarginBottom) || 0;
+        const by = Math.min(r.bottom - (window.innerHeight - clear), r.top - 120);
+        if (by > 0) window.scrollBy({ top: by, behavior: reduce ? "auto" : "smooth" });
+      },
+      reduce ? 0 : DURATION.base + 40,
+    );
+    return () => window.clearTimeout(t);
+  }, [stripOpen]);
   return (
     <article
       className={cn("card-instrument relative overflow-hidden lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center", appear != null && "rise")}
@@ -133,7 +155,10 @@ export function PlannedMealCard({
         </span>
       )}
 
-      <div className="lg:col-span-2 lg:row-start-3">
+      <div
+        ref={stripRef}
+        className="scroll-mb-[calc(var(--tabbar-h)+var(--safe-bottom)+84px)] md:scroll-mb-6 lg:col-span-2 lg:row-start-3"
+      >
         <Collapse open={!!strip}>{strip}</Collapse>
       </div>
     </article>
