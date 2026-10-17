@@ -4,7 +4,7 @@ import { Check, ChevronDown, Ellipsis, House, RotateCcw, Trash, Undo2, X } from 
 import { memo, useRef, useState, type ReactNode } from "react";
 import { SubLabel } from "@/components/nutrition/bits";
 import { useFocusIntoSheet } from "@/components/nutrition/hooks";
-import { EstimateBadge } from "@/components/ui/badge";
+import { Tag } from "@/components/ui/tag";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/controls";
 import { Field, Input, NumberInput } from "@/components/ui/field";
@@ -12,7 +12,6 @@ import { Collapse } from "@/components/ui/misc";
 import { Sheet, SheetFooterBar } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { newId } from "@/lib/data/core";
-import { haptic } from "@/lib/haptics";
 import type { GroceryUse } from "@/lib/meals/engine";
 import { GROCERY_CATEGORY_LABEL, type GroceryCategory } from "@/lib/meals/types";
 import { parseNumber } from "../log/draft";
@@ -21,8 +20,9 @@ import { cad, rowAmount, rowBuy, type GroceryRow } from "./model";
 /* ------------------------------------------------------------------ rows */
 
 /**
- * One line of the list. The whole row ticks it into the cart (52px+, big circle, at arm's
- * length in a store aisle); the ⋯ button holds "I have this", Remove and what it's for.
+ * One line of the list (56 px). The whole row ticks it into the cart with a 44 px check, at arm's
+ * length in a store aisle; ticked lines strike through in ivory (shopping is not an achievement,
+ * so no gold). The ⋯ button holds "I have this", Remove and what it's for.
  */
 export const GroceryLineRow = memo(function GroceryLineRow({
   row,
@@ -46,28 +46,26 @@ export const GroceryLineRow = memo(function GroceryLineRow({
         type="button"
         role="checkbox"
         aria-checked={on}
-        onClick={() => {
-          haptic(6);
-          onToggle(row);
-        }}
-        className={cn("press-soft group flex min-w-0 flex-1 items-center gap-3.5 py-2.5 pl-4 pr-2 text-left", staple ? "min-h-[52px]" : "min-h-[60px]")}
+        onClick={() => onToggle(row)}
+        className="press-soft group flex min-h-14 min-w-0 flex-1 items-center gap-3 py-1.5 text-left"
       >
-        <span
-          aria-hidden
-          className={cn(
-            "grid size-[26px] shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color] duration-(--dur-fast)",
-            on ? "border-transparent bg-success" : "border-line-field group-hover:border-fg-3",
-          )}
-        >
-          <Check className={cn("size-4 text-ink transition-[scale,opacity] duration-(--dur-base) ease-bounce", on ? "scale-100 opacity-100" : "scale-50 opacity-0")} strokeWidth={3} />
+        <span aria-hidden className="grid size-11 shrink-0 place-items-center">
+          <span
+            className={cn(
+              "grid size-[1.625rem] place-items-center rounded-full transition-[background-color,box-shadow] duration-(--dur-fast)",
+              on ? "bg-ivory" : "shadow-[inset_0_0_0_1.5px_var(--ui-line)] group-hover:shadow-[inset_0_0_0_1.5px_var(--stone)]",
+            )}
+          >
+            <Check className={cn("size-4 text-ink transition-[scale,opacity] duration-(--dur-base) ease-pop", on ? "scale-100 opacity-100" : "scale-50 opacity-0")} strokeWidth={2.6} />
+          </span>
         </span>
         <span className="min-w-0 flex-1">
-          <span className={cn("block text-[16px] font-semibold leading-snug transition-colors duration-(--dur-fast) [overflow-wrap:anywhere]", on ? "text-fg-3 line-through decoration-fg-3/60" : "text-fg")}>{row.name}</span>
-          {detail && <span className={cn("mt-0.5 block text-[13px] font-medium leading-snug", on ? "text-fg-3/70" : "text-fg-2")}>{detail}</span>}
+          <span className={cn("t-title-3 block transition-colors duration-(--dur-fast) [overflow-wrap:anywhere]", on ? "text-stone line-through decoration-ivory" : "text-ivory")}>{row.name}</span>
+          {detail && <span className="t-meta mt-0.5 block text-stone">{detail}</span>}
         </span>
       </button>
-      <button type="button" onClick={() => onMore(row.key)} aria-label={`More for ${row.name}`} className="press grid w-12 shrink-0 place-items-center text-fg-3 hover:text-fg">
-        <Ellipsis className="size-5" aria-hidden />
+      <button type="button" onClick={() => onMore(row.key)} aria-label={`More for ${row.name}`} className="press -mr-2 grid w-11 shrink-0 place-items-center text-stone hover:text-ivory">
+        <Ellipsis className="size-5" strokeWidth={1.6} aria-hidden />
       </button>
     </li>
   );
@@ -79,22 +77,22 @@ export function SetAsideGroup({ title, rows, action, actionLabel, icon }: { titl
   if (!rows.length) return null;
   const id = `aside-${title.replace(/\W+/g, "-").toLowerCase()}`;
   return (
-    <section className="card-instrument overflow-hidden p-0">
-      <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)} className="press-soft flex min-h-[56px] w-full items-center gap-3 px-4 text-left">
-        <span className="min-w-0 flex-1 text-[15px] font-semibold text-fg-2">
-          {title} <span className="num text-[15px] text-fg-3">· {rows.length}</span>
+    <section className="border-y border-vein">
+      <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)} className="press-soft flex min-h-14 w-full items-center gap-3 text-left">
+        <span className="t-title-3 min-w-0 flex-1 text-stone">
+          {title} <span className="tnum">· {rows.length}</span>
         </span>
-        <ChevronDown className={cn("size-4 text-fg-3 transition-[rotate] duration-(--dur-base) ease-out", open && "rotate-180")} aria-hidden />
+        <ChevronDown className={cn("size-4 text-ash transition-[rotate] duration-(--dur-base) ease-out", open && "rotate-180")} strokeWidth={1.6} aria-hidden />
       </button>
       <Collapse open={open} id={id}>
-        <ul className="divide-y divide-line-hair border-t border-line-hair">
+        <ul className="divide-y divide-vein border-t border-vein">
           {rows.map((r) => (
-            <li key={r.key} className="flex min-h-[56px] items-center gap-3 py-2 pl-4 pr-2">
+            <li key={r.key} className="flex min-h-14 items-center gap-3 py-2">
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-medium text-fg-2">{r.name}</span>
-                {rowAmount(r) && <span className="block truncate text-[12.5px] text-fg-3">{rowAmount(r)}</span>}
+                <span className="t-callout block truncate text-stone">{r.name}</span>
+                {rowAmount(r) && <span className="t-meta block truncate text-stone">{rowAmount(r)}</span>}
               </span>
-              <button type="button" onClick={() => action(r)} className="press inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[10px] px-3 text-[13.5px] font-bold text-gold-300 hover:text-gold-200">
+              <button type="button" onClick={() => action(r)} className="press t-callout -mr-2 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-field px-3 font-semibold text-ivory">
                 {icon}
                 {actionLabel}
               </button>
@@ -133,11 +131,11 @@ export function LineSheet({
       {row && (
         <div className="space-y-5 pb-2">
           {cost && (
-            <p className="flex flex-wrap items-center gap-2 text-[14px] font-medium text-fg-2">
+            <p className="t-callout flex flex-wrap items-center gap-2 text-stone">
               <span>
-                About <span className="num text-[16px] text-fg">{cost}</span> at the store
+                About <span className="tnum font-semibold text-ivory">{cost}</span> at the store
               </span>
-              <EstimateBadge />
+              <Tag kind="CALC" explain="Built-in rough Canadian shelf price for the pack (not AI)." />
             </p>
           )}
           {uses.length > 0 && (
@@ -145,9 +143,9 @@ export function LineSheet({
               <SubLabel>For this week&apos;s meals</SubLabel>
               <ul className="space-y-1.5">
                 {uses.map((u) => (
-                  <li key={u.recipe_key} className="flex items-baseline justify-between gap-3 text-[14.5px]">
-                    <span className="min-w-0 truncate font-medium text-fg">{u.name}</span>
-                    <span className="num shrink-0 text-[14px] text-fg-3">{Math.round(u.grams)} g</span>
+                  <li key={u.recipe_key} className="t-callout flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 truncate text-ivory">{u.name}</span>
+                    <span className="tnum shrink-0 text-stone">{Math.round(u.grams)} g</span>
                   </li>
                 ))}
               </ul>
@@ -170,11 +168,11 @@ export function LineSheet({
 
 function ActionRow({ icon, label, hint, onClick, tone }: { icon: ReactNode; label: string; hint?: string; onClick: () => void; tone?: "danger" }) {
   return (
-    <button type="button" onClick={onClick} className="press-soft flex min-h-14 w-full items-center gap-3.5 rounded-[14px] border border-line bg-s3 px-4 py-2.5 text-left hover:bg-s4">
-      <span className={cn("shrink-0", tone === "danger" ? "text-danger" : "text-gold-300")}>{icon}</span>
+    <button type="button" onClick={onClick} className="press-soft flex min-h-14 w-full items-center gap-3.5 rounded-btn bg-m3 px-4 py-2.5 text-left shadow-[inset_0_0_0_1px_var(--vein-2)] hover:bg-m4">
+      <span className={cn("shrink-0", tone === "danger" ? "text-cinnabar" : "text-stone")}>{icon}</span>
       <span className="min-w-0 flex-1">
-        <span className={cn("block text-[15px] font-bold", tone === "danger" ? "text-danger" : "text-fg")}>{label}</span>
-        {hint && <span className="block text-[12.5px] font-medium text-fg-3">{hint}</span>}
+        <span className={cn("t-title-3 block", tone === "danger" ? "text-cinnabar" : "text-ivory")}>{label}</span>
+        {hint && <span className="t-meta block text-stone">{hint}</span>}
       </span>
     </button>
   );
