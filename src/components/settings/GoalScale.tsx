@@ -5,8 +5,8 @@ import { formatPlacardWeight } from "@/lib/onboarding/plan";
 import type { WeightUnit } from "@/lib/units";
 
 /**
- * A horizontal scale from the start weight to the goal: the goal range is a gold-tint band,
- * the goal a gold diamond, the start a marble dot. Tracks the steppers live; positions
+ * A horizontal scale from the start weight to the goal: the goal band is the corridor fill
+ * with a 3:1 edge, the goal an ivory diamond (a plan, not yet earned), the start a stone dot. Tracks the steppers live; positions
  * update instantly because nothing should move while a value is being edited.
  */
 export function GoalScale({
@@ -40,30 +40,30 @@ export function GoalScale({
   return (
     <div className={cn("select-none", className)} aria-hidden>
       <div className="relative h-7">
-        <span className={cn("absolute bottom-0 text-[11px] font-bold tracking-[0.14em] text-fg-3 uppercase", apart(startP, goalP, 22))} style={{ left: `${startP}%` }}>
+        <span className={cn("absolute bottom-0 t-tag font-bold tracking-[0.14em] text-ash uppercase", apart(startP, goalP, 22))} style={{ left: `${startP}%` }}>
           Start
         </span>
-        <span className={cn("absolute bottom-0 text-[11px] font-bold tracking-[0.14em] text-gold-300 uppercase", apart(goalP, startP, 22))} style={{ left: `${goalP}%` }}>
+        <span className={cn("absolute bottom-0 t-tag font-bold tracking-[0.14em] text-ivory uppercase", apart(goalP, startP, 22))} style={{ left: `${goalP}%` }}>
           Goal
         </span>
       </div>
-      <div className="relative mt-1.5 h-3 rounded-full bg-[var(--track)]">
-        <div className={cn("absolute inset-y-0 rounded-full border border-line-gold bg-gold-tint")} style={{ left: `${bandL}%`, width: `${bandW}%` }} />
+      <div className="relative mt-1.5 h-3 rounded-full bg-m3">
+        <div className={cn("absolute inset-y-0 rounded-full border border-ui-line bg-[rgb(242_235_221/.06)]")} style={{ left: `${bandL}%`, width: `${bandW}%` }} />
         <div
-          className={cn("absolute inset-y-0 rounded-full bg-[image:var(--grad-progress)] opacity-35")}
+          className={cn("absolute inset-y-0 rounded-full bg-ivory/25")}
           style={{ left: `${Math.min(startP, goalP)}%`, width: `${Math.abs(goalP - startP)}%` }}
         />
-        <span className={cn("absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-marble")} style={{ left: `${startP}%` }} />
+        <span className={cn("absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-stone")} style={{ left: `${startP}%` }} />
         <span
-          className={cn("absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[2px] bg-gold-400 shadow-[0_0_0_3px_var(--bg)]")}
+          className={cn("absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-xs bg-ivory shadow-[0_0_0_3px_var(--night)]")}
           style={{ left: `${goalP}%` }}
         />
       </div>
       <div className="relative mt-2 h-4">
-        <span className={cn("num absolute text-[13px] font-semibold text-fg-2", apart(startP, bandMid, 34))} style={{ left: `${startP}%` }}>
+        <span className={cn("tnum absolute t-meta font-semibold text-stone", apart(startP, bandMid, 34))} style={{ left: `${startP}%` }}>
           {f(startLb)}
         </span>
-        <span className={cn("num absolute text-[13px] font-semibold whitespace-nowrap text-gold-300", apart(bandMid, startP, 34))} style={{ left: `${bandMid}%` }}>
+        <span className={cn("tnum absolute t-meta font-semibold whitespace-nowrap text-ivory", apart(bandMid, startP, 34))} style={{ left: `${bandMid}%` }}>
           {f(Math.min(rangeMinLb, rangeMaxLb))}–{f(Math.max(rangeMinLb, rangeMaxLb))} {unit}
         </span>
       </div>

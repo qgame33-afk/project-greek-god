@@ -104,12 +104,12 @@ export function StepperInput({
           }
         }}
         className={cn(
-          "w-full min-w-0 bg-transparent text-center text-fg outline-none",
-          size === "lg" ? "num-xl" : "num-md",
-          invalid && "text-danger",
+          "w-full min-w-0 bg-transparent text-center text-ivory outline-none",
+          size === "lg" ? "t-num-l" : "t-num-m",
+          invalid && "text-cinnabar",
         )}
       />
-      {unit && <span className={cn("block font-semibold uppercase tracking-[0.16em] text-fg-3", size === "lg" ? "mt-1.5 text-[12px]" : "mt-1 text-[11px]")}>{unit}</span>}
+      {unit && <span className={cn("block font-semibold uppercase tracking-[0.16em] text-ash", size === "lg" ? "mt-1.5 t-meta" : "mt-1 t-tag")}>{unit}</span>}
     </label>
   );
   const bump = (v: number) => {
@@ -132,7 +132,7 @@ export function StepperInput({
     );
   }
   return (
-    <div className="[&_button]:bg-s4 [&_button:active]:bg-s5">
+    <div className="[&_button]:bg-m4 [&_button:active]:bg-m5">
       <Stepper label={label} value={value} step={step} min={min} max={max} size={size} onChange={bump}>
         {input}
       </Stepper>
@@ -161,7 +161,7 @@ function HoldButton({ label, disabled, onStep, children }: { label: string; disa
       type="button"
       aria-label={label}
       disabled={disabled}
-      className="press grid h-11 place-items-center rounded-[12px] bg-s4 text-fg-2 hover:text-fg active:bg-s5 disabled:opacity-30"
+      className="press grid h-11 place-items-center rounded-field bg-m4 text-stone hover:text-ivory active:bg-m5 disabled:opacity-30"
       onPointerDown={(e) => {
         e.preventDefault();
         fn.current();
@@ -201,13 +201,13 @@ export function MiniStepper({
   step?: number;
   format?: (v: number) => string;
 }) {
-  const btn = "press grid size-11 place-items-center rounded-[12px] bg-s3 text-fg-2 hover:text-fg active:bg-s4 disabled:opacity-30";
+  const btn = "press grid size-11 place-items-center rounded-field bg-m3 text-stone hover:text-ivory active:bg-m4 disabled:opacity-30";
   return (
     <div className="flex items-center gap-1.5" role="group" aria-label={label}>
       <button type="button" className={btn} aria-label={`Fewer ${label.toLowerCase()}`} disabled={value <= min} onClick={() => onChange(Math.max(min, value - step))}>
         <Minus className="size-[18px]" />
       </button>
-      <span className="num-sm w-9 text-center" aria-live="polite">
+      <span className="t-num-s w-9 text-center" aria-live="polite">
         {format ? format(value) : value}
       </span>
       <button type="button" className={btn} aria-label={`More ${label.toLowerCase()}`} disabled={value >= max} onClick={() => onChange(Math.min(max, value + step))}>
@@ -250,7 +250,7 @@ export function HeightInput({ cm, onChange, unit, invalid }: { cm: number; onCha
     onChange(v);
   };
   const field =
-    "num h-[52px] w-full rounded-[12px] border border-line-field bg-s3 pl-3.5 pr-11 text-[22px] font-semibold text-fg outline-none transition-[border-color,box-shadow] focus:border-gold-400 focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)] aria-invalid:border-danger";
+    "tnum h-[52px] w-full rounded-field border border-ui-line bg-m3 pl-3.5 pr-11 t-num-m font-semibold text-ivory outline-none transition-[border-color,box-shadow] focus:border-leaf-300 focus:shadow-[0_0_0_3px_var(--leaf-tint)] aria-invalid:border-cinnabar";
   return (
     <div className="grid grid-cols-2 gap-3" role="group" aria-label="Height in feet and inches">
       <div className="relative">
@@ -271,7 +271,7 @@ export function HeightInput({ cm, onChange, unit, invalid }: { cm: number; onCha
             push(e.target.value, inch);
           }}
         />
-        <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-[13px] font-semibold text-fg-3">ft</span>
+        <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center t-meta font-semibold text-ash">ft</span>
       </div>
       <div className="relative">
         <label htmlFor={`${id}-in`} className="sr-only">
@@ -301,7 +301,7 @@ export function HeightInput({ cm, onChange, unit, invalid }: { cm: number; onCha
             setInch(String(r >= 12 ? 0 : r));
           }}
         />
-        <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-[13px] font-semibold text-fg-3">in</span>
+        <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center t-meta font-semibold text-ash">in</span>
       </div>
     </div>
   );
@@ -349,15 +349,15 @@ const SHORT: Record<string, string> = { "0": "Sun", "1": "Mon", "2": "Tue", "3":
 export function ScheduleEditor({ value, onChange }: { value: Schedule; onChange: (s: Schedule) => void }) {
   const id = useId();
   return (
-    <ul className="overflow-hidden rounded-[16px] border border-line bg-s1">
+    <ul className="overflow-hidden rounded-btn border border-vein-2 bg-m1">
       {WEEK_ORDER.map((d, i) => {
         const v = value[d] ?? "rest";
         const rest = v === "rest";
         return (
-          <li key={d} className={cn("flex min-h-[56px] items-center gap-3 pl-4 pr-2", i > 0 && "border-t border-line-hair")}>
+          <li key={d} className={cn("flex min-h-[56px] items-center gap-3 pl-4 pr-2", i > 0 && "border-t border-vein")}>
             <label htmlFor={`${id}-${d}`} className="flex w-[92px] shrink-0 items-center gap-2.5">
-              <span className={cn("size-1.5 rounded-full", rest ? "bg-line-strong" : "bg-gold-400")} aria-hidden />
-              <span className="text-[15px] font-semibold text-fg">
+              <span className={cn("size-1.5 rounded-full", rest ? "bg-vein-3" : "bg-leaf-300")} aria-hidden />
+              <span className="t-callout font-semibold text-ivory">
                 <span className="sm:hidden">{SHORT[d]}</span>
                 <span className="hidden sm:inline">{WEEKDAY_LABEL[d]}</span>
               </span>
@@ -367,7 +367,7 @@ export function ScheduleEditor({ value, onChange }: { value: Schedule; onChange:
                 id={`${id}-${d}`}
                 value={v}
                 onChange={(e) => onChange({ ...value, [d]: e.target.value as PlanKey })}
-                className={cn("h-11 border-transparent bg-s3 text-[16px] font-semibold", rest ? "text-fg-2" : "text-fg")}
+                className={cn("h-11 border-transparent bg-m3 t-body font-semibold", rest ? "text-stone" : "text-ivory")}
                 aria-label={`${WEEKDAY_LABEL[d]} session`}
               >
                 {SCHEDULE_OPTIONS.map((o) => (

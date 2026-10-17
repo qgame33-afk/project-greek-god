@@ -3,10 +3,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { AutoBadge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { avatarInitial } from "@/components/shell/nav";
+import { Tag } from "@/components/ui/tag";
 import { Segmented } from "@/components/ui/controls";
-import { ErrorNote, PageHeader } from "@/components/ui/misc";
+import { ErrorNote } from "@/components/ui/misc";
 import { useToday, useUser } from "@/lib/data/core";
 import { useProfile, useSavePrefs, type Profile } from "@/lib/data/profile";
 import { daysBetween, shortDate, type ISODate } from "@/lib/dates";
@@ -14,16 +14,19 @@ import { requiredWeeklyGain } from "@/lib/bodyweight";
 import { cn } from "@/lib/cn";
 import { balancedCarbs } from "@/lib/onboarding/macros";
 import { formatPlacardWeight, normalizeSchedule, scheduleSummary, weeklyRateText } from "@/lib/onboarding/plan";
+import { parseAppPrefs } from "@/lib/prefs";
 import { formatBodyweight, formatHeight, formatInt, round, type WeightUnit } from "@/lib/units";
 import { AISheet, CreditsSheet, PrivacySheet, aiStatusLabel, useAppStatus, useCredits } from "./AboutSheets";
 import { PasswordSheet, useSignOut } from "./AccountSheets";
+import { AppearanceGroup } from "./AppearanceGroup";
+import { DayScheduleGroup } from "./DayScheduleGroup";
 import { DeleteAccountSheet, ExportSheet, WipeSheet } from "./DataSheets";
 import { GoalWeightSheet, HeightSheet, NameSheet, StartWeightSheet, TargetDateSheet } from "./GoalSheets";
-import { LengthUnitToggle, MiniStepper, WeightUnitToggle } from "./inputs";
-import { ControlRow, Group, GroupSkeleton, InfoRow, NavRow, SwitchRow } from "./List";
+import { LengthUnitToggle, WeightUnitToggle } from "./inputs";
+import { ControlRow, Group, GroupSkeleton, InfoRow, LinkRow, NavRow, SwitchRow } from "./List";
 import { DailyGoalSheet, GoalHistorySheet, MacroCheck, NutritionSheet } from "./NutritionSheets";
 import { ReminderSection } from "./ReminderSection";
-import { ScheduleSheet, TimezoneSheet } from "./TrainingSheets";
+import { TimezoneSheet } from "./TrainingSheets";
 import { useCommit } from "./useCommit";
 
 type SheetId =
@@ -37,7 +40,6 @@ type SheetId =
   | "water"
   | "sleep"
   | "steps"
-  | "schedule"
   | "timezone"
   | "export"
   | "wipe"
@@ -46,15 +48,6 @@ type SheetId =
   | "privacy"
   | "ai"
   | "credits";
-
-export interface Prefs {
-  tapLogsGhost: boolean;
-  systemKeyboard: boolean;
-  restFocus: boolean;
-  haptics: boolean;
-  restChime: boolean;
-}
-const PREF_DEFAULTS: Prefs = { tapLogsGhost: true, systemKeyboard: false, restFocus: false, haptics: true, restChime: false };
 
 type CoachKey = "profile" | "training" | "nutrition" | "bodyweight" | "recovery" | "measurements";
 const COACH: { key: CoachKey; label: string; detail: string }[] = [
@@ -66,37 +59,38 @@ const COACH: { key: CoachKey; label: string; detail: string }[] = [
   { key: "measurements", label: "Measurements", detail: "Tape measurements and athletic tests." },
 ];
 
-const MODE_TEXT: Record<string, string> = {
-  standard: "The full program: every prescribed set at 1–2 reps in reserve.",
-  intro: "Settling in: one fewer set per exercise (never below 2) while you rebuild the habit.",
-  deload: "Recovery week: about half the sets, ~10% lighter, 3–4 reps in reserve.",
+const MODE: Record<string, { label: string; text: string }> = {
+  standard: { label: "Standard", text: "Every prescribed set at 1–2 reps in reserve." },
+  intro: { label: "Intro", text: "One fewer set per exercise while you settle in." },
+  deload: { label: "Deload", text: "About half the sets, ~10% lighter, 3–4 reps in reserve." },
 };
 
 const SECTIONS: { id: string; label: string }[] = [
   { id: "profile", label: "Profile" },
-  { id: "goals", label: "Goals" },
-  { id: "nutrition", label: "Nutrition" },
-  { id: "daily", label: "Daily goals" },
-  { id: "training", label: "Training" },
-  { id: "units", label: "Units and time" },
-  { id: "coach", label: "Coach access" },
+  { id: "goal", label: "Goal" },
+  { id: "program", label: "Program" },
+  { id: "day", label: "Day schedule" },
+  { id: "nutrition", label: "Nutrition targets" },
   { id: "reminders", label: "Reminders" },
-  { id: "data", label: "Your data" },
+  { id: "workout", label: "Workout" },
+  { id: "appearance", label: "Appearance" },
+  { id: "oracle", label: "Oracle" },
+  { id: "data", label: "Data" },
   { id: "account", label: "Account" },
-  { id: "about", label: "About" },
 ];
-
-/** The workout booleans for display. Read-only: writes go through useSavePrefs (which keeps every other key). */
-export function prefsOf(p: Profile | null | undefined): Prefs {
-  const raw = (p?.prefs ?? {}) as Partial<Prefs>;
-  return { ...PREF_DEFAULTS, ...Object.fromEntries(Object.entries(raw).filter(([, v]) => typeof v === "boolean")) };
-}
 
 function coachOf(p: Profile | null | undefined): Record<CoachKey, boolean> {
   const raw = (p?.coach_access ?? {}) as Partial<Record<CoachKey, boolean>>;
   return Object.fromEntries(COACH.map((c) => [c.key, raw[c.key] !== false])) as Record<CoachKey, boolean>;
 }
 
+/**
+ * Settings (docs/DESIGN-V2.md §3.10): one page of plain grouped rows. Profile, Goal, Program (the
+ * schedule and mode are edited in Train → Program; this links there), Day schedule, Nutrition
+ * targets, Reminders, Workout, Appearance, Oracle, Data and Account. Every prefs write goes
+ * through useSavePrefs, which merges into the stored JSON. There is no Haptics row: iPhone web
+ * apps have no vibration.
+ */
 export function SettingsView() {
   const params = useSearchParams();
   const router = useRouter();
@@ -108,7 +102,6 @@ export function SettingsView() {
   const status = useAppStatus();
   const credits = useCredits();
   const { commit } = useCommit({ inline: false });
-  // prefs writes merge into the stored JSON (meal times, training time and unknown keys survive)
   const savePrefs = useSavePrefs();
   const { signOut, pending: signingOut, dialog: signOutDialog } = useSignOut();
   // Arriving from a password-reset email opens "Set a new password" straight away.
@@ -121,17 +114,6 @@ export function SettingsView() {
   };
   const sheetProps = (id: SheetId) => ({ open: sheet === id, onOpenChange: (o: boolean) => setSheet(o ? id : null) });
 
-  // Device haptics follow the synced preference (src/lib/haptics.ts reads this key).
-  const prefs = prefsOf(profile);
-  useEffect(() => {
-    if (!profile) return;
-    try {
-      localStorage.setItem("pgg.haptics", prefs.haptics ? "on" : "off");
-    } catch {
-      /* private mode */
-    }
-  }, [profile, prefs.haptics]);
-
   if (error && !profile) {
     return (
       <Shell>
@@ -143,10 +125,16 @@ export function SettingsView() {
   if (loading || !profile) {
     return (
       <Shell>
-        <div className="grid grid-cols-1 gap-7">
-          <div className="skeleton h-[148px] w-full rounded-[20px]" />
+        <div className="grid grid-cols-1 gap-8" aria-busy="true">
+          <div className="flex items-center gap-4">
+            <div className="skeleton size-16 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <div className="skeleton h-7 w-40 rounded-field" />
+              <div className="skeleton h-3.5 w-56 rounded-full" />
+            </div>
+          </div>
           <GroupSkeleton rows={4} />
-          <GroupSkeleton rows={5} />
+          <GroupSkeleton rows={4} />
           <GroupSkeleton rows={3} />
         </div>
       </Shell>
@@ -156,16 +144,7 @@ export function SettingsView() {
   const u = (profile.weight_unit === "kg" ? "kg" : "lb") as WeightUnit;
   const lu = profile.length_unit === "cm" ? "cm" : "in";
   const coach = coachOf(profile);
-  const setPref = (k: keyof Prefs, v: boolean) => {
-    if (k === "haptics") {
-      try {
-        localStorage.setItem("pgg.haptics", v ? "on" : "off");
-      } catch {
-        /* private mode */
-      }
-    }
-    savePrefs.mutate({ [k]: v });
-  };
+  const prefs = parseAppPrefs(profile.prefs);
   const setCoach = (k: CoachKey, v: boolean) => commit({ coach_access: { ...coach, [k]: v } }, { guard: false });
 
   const startLb = Number(profile.start_weight_lb ?? 163);
@@ -174,52 +153,49 @@ export function SettingsView() {
   const daysLeft = daysBetween(today, profile.target_date);
   const carbsAuto = profile.carb_goal === balancedCarbs(profile.calorie_goal, profile.protein_goal, profile.fat_goal);
   const schedule = normalizeSchedule(profile.weekly_schedule);
+  const mode = MODE[profile.training_mode] ?? MODE.standard;
   const sheetBase = { profile, today };
 
   return (
     <Shell>
-      <div className="lg:grid lg:grid-cols-[188px_minmax(0,680px)] lg:gap-14">
+      <div className="lg:grid lg:grid-cols-[11.75rem_minmax(0,42.5rem)] lg:gap-14">
         <SectionNav />
-        <div className="grid grid-cols-1 gap-7">
-          <ProfileCard profile={profile} email={user?.email ?? null} today={today} onEdit={() => open("name")} />
+        <div className="@container grid grid-cols-1 gap-8">
+          <ProfileHeader profile={profile} email={user?.email ?? null} today={today} onEdit={() => open("name")} />
 
-          <Group
-            id="goals"
-            title="Goals"
-            footer="Goal changes are logged with the date, so suggestions and monthly reviews know when a target moved."
-          >
+          <Group id="profile" title="Profile">
+            <NavRow label="Name" value={profile.display_name?.trim() || "Not set"} onClick={() => open("name")} />
+            <NavRow label="Height" value={formatHeight(Number(profile.height_cm ?? 189.2), lu)} onClick={() => open("height")} />
+            <ControlRow label="Weight unit">
+              <WeightUnitToggle value={u} onChange={(v) => commit({ weight_unit: v }, { guard: false })} />
+            </ControlRow>
+            <ControlRow label="Length unit">
+              <LengthUnitToggle value={lu} onChange={(v) => commit({ length_unit: v }, { guard: false })} />
+            </ControlRow>
+            <NavRow label="Time zone" detail="Decides when a new day starts" value={profile.timezone.split("/").pop()?.replace(/_/g, " ")} onClick={() => open("timezone")} />
+          </Group>
+
+          <Group id="goal" title="Goal" footer="Goal changes are logged with the date, so suggestions and monthly reviews know when a target moved.">
             <NavRow label="Start" detail={fullDate(profile.start_date)} value={formatBodyweight(startLb, u)} onClick={() => open("start")} />
             <NavRow
-              label="Goal weight"
-              detail={`Range ${formatPlacardWeight(Number(profile.goal_range_min_lb ?? 180), u)}–${formatPlacardWeight(Number(profile.goal_range_max_lb ?? 185), u)} ${u}`}
+              label="Goal and band"
+              detail={`Band ${formatPlacardWeight(Number(profile.goal_range_min_lb ?? 180), u)}–${formatPlacardWeight(Number(profile.goal_range_max_lb ?? 185), u)} ${u}`}
               value={formatBodyweight(goalLb, u)}
               onClick={() => open("goal")}
             />
             <NavRow
               label="Target date"
-              detail={daysLeft > 0 ? `${formatInt(daysLeft)} days left · ${weeklyRateText(rate, u)}` : "Target date has passed. Set a new one."}
+              detail={daysLeft > 0 ? `${formatInt(daysLeft)} days left · ${weeklyRateText(rate, u)}` : "The target date has passed. Set a new one."}
               value={fullDate(profile.target_date)}
               onClick={() => open("target")}
             />
-            <NavRow label="Height" value={formatHeight(Number(profile.height_cm ?? 189.2), lu)} onClick={() => open("height")} />
-          </Group>
-
-          <Group id="nutrition" title="Nutrition targets" footer={<MacroCheck calories={profile.calorie_goal} protein={profile.protein_goal} carbs={profile.carb_goal} fat={profile.fat_goal} />}>
-            <NavRow label="Calories" value={`${formatInt(profile.calorie_goal)} kcal`} onClick={() => open("nutrition")} />
-            <NavRow label="Protein" value={`${formatInt(profile.protein_goal)} g`} onClick={() => open("nutrition")} />
-            <NavRow label="Carbs" badge={carbsAuto ? <AutoBadge /> : undefined} value={`${formatInt(profile.carb_goal)} g`} onClick={() => open("nutrition")} />
-            <NavRow label="Fat" value={`${formatInt(profile.fat_goal)} g`} onClick={() => open("nutrition")} />
             <NavRow label="Goal history" detail="Every target change with its date and reason." onClick={() => open("history")} />
           </Group>
 
-          <Group id="daily" title="Daily goals">
-            <NavRow label="Water" value={`${(profile.water_goal_ml / 1000).toFixed(profile.water_goal_ml % 100 === 0 ? 1 : 2)} L`} onClick={() => open("water")} />
-            <NavRow label="Sleep" value={`${round(Number(profile.sleep_goal_h), 2)} h`} onClick={() => open("sleep")} />
-            <NavRow label="Steps" value={formatInt(profile.steps_goal)} onClick={() => open("steps")} />
-          </Group>
-
-          <Group id="training" title="Training">
-            <NavRow label="Weekly schedule" detail={scheduleSummary(schedule)} value={<WeekStrip schedule={schedule} />} onClick={() => open("schedule")} />
+          <Group id="program" title="Program" footer="The weekly schedule, training mode and volleyball are set in Train → Program.">
+            <LinkRow label="Weekly schedule" detail={scheduleSummary(schedule)} value={<WeekPips schedule={schedule} />} href="/training?tab=program" />
+            <LinkRow label="Training mode" detail={mode.text} value={mode.label} href="/training?tab=program" />
+            <LinkRow label="Volleyball" detail="Sessions per week, counted as training load" value={`${profile.volleyball_per_week} a week`} href="/training?tab=program" />
             <ControlRow label="Experience" stack>
               <Segmented
                 ariaLabel="Training experience"
@@ -232,71 +208,52 @@ export function SettingsView() {
                 ]}
               />
             </ControlRow>
-            <ControlRow label="Training mode" detail={MODE_TEXT[profile.training_mode] ?? MODE_TEXT.standard} stack>
-              <Segmented
-                ariaLabel="Training mode"
-                value={(profile.training_mode as "standard" | "intro" | "deload") ?? "standard"}
-                onChange={(v) => commit({ training_mode: v }, { guard: false, message: v === "standard" ? "Back to the full program" : v === "intro" ? "Intro volume on" : "Deload week on" })}
-                options={[
-                  { value: "standard", label: "Standard" },
-                  { value: "intro", label: "Intro" },
-                  { value: "deload", label: "Deload" },
-                ]}
-              />
-            </ControlRow>
-            <ControlRow label="Volleyball" detail="Sessions per week. Counted as training load.">
-              <MiniStepper label="Volleyball sessions" value={profile.volleyball_per_week} min={0} max={14} onChange={(v) => commit({ volleyball_per_week: v }, { guard: false })} />
-            </ControlRow>
           </Group>
 
-          <Group title="Workout">
-            <SwitchRow label="Tap ✓ logs shown values" detail="One tap logs the grey suggested or previous weight and reps." checked={prefs.tapLogsGhost} onChange={(v) => setPref("tapLogsGhost", v)} />
-            <SwitchRow label="Use system keyboard" detail="Type set values with the phone keyboard instead of the number pad." checked={prefs.systemKeyboard} onChange={(v) => setPref("systemKeyboard", v)} />
-            <SwitchRow label="Open rest timer in focus mode" detail="Rests start in the full-screen timer instead of the compact dock." checked={prefs.restFocus} onChange={(v) => setPref("restFocus", v)} />
+          <DayScheduleGroup profile={profile} />
+
+          <Group id="nutrition" title="Nutrition targets" footer={<MacroCheck calories={profile.calorie_goal} protein={profile.protein_goal} carbs={profile.carb_goal} fat={profile.fat_goal} />}>
+            <NavRow label="Calories" value={`${formatInt(profile.calorie_goal)} kcal`} onClick={() => open("nutrition")} />
+            <NavRow label="Protein" value={`${formatInt(profile.protein_goal)} g`} onClick={() => open("nutrition")} />
+            <NavRow label="Carbs" badge={carbsAuto ? <Tag kind="CALC" /> : undefined} detail={carbsAuto ? "Balanced from calories, protein and fat" : undefined} value={`${formatInt(profile.carb_goal)} g`} onClick={() => open("nutrition")} />
+            <NavRow label="Fat" value={`${formatInt(profile.fat_goal)} g`} onClick={() => open("nutrition")} />
+            <NavRow label="Water" value={`${(profile.water_goal_ml / 1000).toFixed(profile.water_goal_ml % 100 === 0 ? 1 : 2)} L`} onClick={() => open("water")} />
+            <NavRow label="Sleep goal" value={`${round(Number(profile.sleep_goal_h), 2)} h`} onClick={() => open("sleep")} />
+            <NavRow label="Steps" value={formatInt(profile.steps_goal)} onClick={() => open("steps")} />
           </Group>
 
-          <Group title="Haptics and sound">
-            <SwitchRow label="Haptics" detail="A light tap when a set logs or a rest ends." checked={prefs.haptics} onChange={(v) => setPref("haptics", v)} />
-            <SwitchRow label="Rest chime" detail="A soft two-note chime when rest is over." checked={prefs.restChime} onChange={(v) => setPref("restChime", v)} />
+          <ReminderSection />
+
+          <Group id="workout" title="Workout">
+            <SwitchRow label="Tap ✓ logs shown values" detail="One tap logs the prefilled weight and reps." checked={prefs.tapLogsGhost} onChange={(v) => savePrefs.mutate({ tapLogsGhost: v })} />
+            <SwitchRow label="Use system keyboard" detail="Type set values with the phone keyboard instead of the number pad." checked={prefs.systemKeyboard} onChange={(v) => savePrefs.mutate({ systemKeyboard: v })} />
+            <SwitchRow label="Rest chime" detail="A soft two-note chime when rest is over." checked={prefs.restChime} onChange={(v) => savePrefs.mutate({ restChime: v })} />
           </Group>
 
-          <Group id="units" title="Units and time" footer="Everything is stored in pounds, inches and millilitres and converted for display, so switching never changes your data.">
-            <ControlRow label="Weight">
-              <WeightUnitToggle value={u} onChange={(v) => commit({ weight_unit: v }, { guard: false })} />
-            </ControlRow>
-            <ControlRow label="Length">
-              <LengthUnitToggle value={lu} onChange={(v) => commit({ length_unit: v }, { guard: false })} />
-            </ControlRow>
-            <NavRow label="Time zone" value={profile.timezone.split("/").pop()?.replace(/_/g, " ")} onClick={() => open("timezone")} />
-          </Group>
+          <AppearanceGroup profile={profile} />
 
-          <Group id="coach" title="Coach data access" footer="The AI Coach only sees what's switched on, and only when you ask it something. Progress photos are never sent.">
+          <Group id="oracle" title="Oracle" footer="The Oracle only sees what is switched on, and only when you ask it something. Progress photos are never sent.">
             {COACH.map((c) => (
               <SwitchRow key={c.key} label={c.label} detail={c.detail} checked={coach[c.key]} onChange={(v) => setCoach(c.key, v)} />
             ))}
           </Group>
 
-          <ReminderSection />
-
-          <Group id="data" title="Your data" footer="Exports include every table as JSON and CSV. Deleting can't be undone.">
+          <Group id="data" title="Data" footer="Exports include every table as JSON and CSV. Deleting can't be undone.">
             <NavRow label="Export data" detail="ZIP with JSON, CSV and optional photos." onClick={() => open("export")} />
+            <LinkRow label="Meal preferences" detail="Dislikes, allergies and what the planner has learned" href="/nutrition/meals/preferences" />
             <NavRow label="Delete all logged data" detail="Keeps your account, profile and goals." danger onClick={() => open("wipe")} />
-            <NavRow label="Delete account" detail="Removes everything, including photos." danger onClick={() => open("delete")} />
-          </Group>
-
-          <Group id="account" title="Account">
-            <InfoRow label="Email" value={user?.email ?? "—"} />
-            <NavRow label="Change password" onClick={() => open("password")} />
-            <NavRow label={signingOut ? "Signing out…" : "Sign out"} chevron={false} disabled={signingOut} onClick={() => void signOut()} />
-          </Group>
-
-          <Group id="about" title="About">
             <InfoRow label="Version" value={status.data?.version ?? "—"} />
             <NavRow label="Privacy" onClick={() => open("privacy")} />
             <NavRow label="AI and your data" detail="Google Gemini" value={status.isError ? "—" : aiStatusLabel(status.data)} onClick={() => open("ai")} />
             {credits.data && <NavRow label="Art credits" detail="Statue of Hermes · The Met, public domain" onClick={() => open("credits")} />}
           </Group>
 
+          <Group id="account" title="Account">
+            <InfoRow label="Email" value={user?.email ?? "—"} />
+            <NavRow label="Change password" onClick={() => open("password")} />
+            <NavRow label={signingOut ? "Signing out…" : "Sign out"} chevron={false} disabled={signingOut} onClick={() => void signOut()} />
+            <NavRow label="Delete account" detail="Removes everything, including photos." danger onClick={() => open("delete")} />
+          </Group>
         </div>
       </div>
 
@@ -311,14 +268,11 @@ export function SettingsView() {
       {mounted.has("water") && <DailyGoalSheet kind="water" {...sheetProps("water")} {...sheetBase} />}
       {mounted.has("sleep") && <DailyGoalSheet kind="sleep" {...sheetProps("sleep")} {...sheetBase} />}
       {mounted.has("steps") && <DailyGoalSheet kind="steps" {...sheetProps("steps")} {...sheetBase} />}
-      {mounted.has("schedule") && <ScheduleSheet {...sheetProps("schedule")} profile={profile} />}
       {mounted.has("timezone") && <TimezoneSheet {...sheetProps("timezone")} profile={profile} />}
       {mounted.has("export") && user && <ExportSheet {...sheetProps("export")} userId={user.id} email={user.email ?? null} today={today} version={status.data?.version} />}
       {mounted.has("wipe") && user && <WipeSheet {...sheetProps("wipe")} userId={user.id} onExport={() => open("export")} />}
       {mounted.has("delete") && <DeleteAccountSheet {...sheetProps("delete")} email={user?.email ?? null} onExport={() => open("export")} />}
-      {mounted.has("password") && (
-        <PasswordSheet {...sheetProps("password")} email={user?.email ?? null} recovery={recovery} onDone={() => recovery && router.replace("/settings")} />
-      )}
+      {mounted.has("password") && <PasswordSheet {...sheetProps("password")} email={user?.email ?? null} recovery={recovery} onDone={() => recovery && router.replace("/settings")} />}
       {mounted.has("privacy") && <PrivacySheet {...sheetProps("privacy")} />}
       {mounted.has("ai") && <AISheet {...sheetProps("ai")} status={status.data} statusError={status.isError} />}
       {mounted.has("credits") && credits.data && <CreditsSheet {...sheetProps("credits")} markdown={credits.data} />}
@@ -333,80 +287,47 @@ function fullDate(d: ISODate) {
 }
 
 function Shell({ children }: { children: ReactNode }) {
-  return (
-    <div className="mx-auto w-full max-w-[920px] pb-6">
-      <PageHeader eyebrow="Profile and preferences" title="Settings" />
-      {children}
-    </div>
-  );
+  return <div className="mx-auto w-full max-w-[57.5rem] pb-6">{children}</div>;
 }
 
-/* --------------------------------------------------------------- profile */
+/* --------------------------------------------------------------- the header */
 
-function ProfileCard({ profile, email, today, onEdit }: { profile: Profile; email: string | null; today: ISODate; onEdit: () => void }) {
+/** The avatar initial (from his display name, never the email), the name and the day of the climb. */
+function ProfileHeader({ profile, email, today, onEdit }: { profile: Profile; email: string | null; today: ISODate; onEdit: () => void }) {
   const name = profile.display_name?.trim();
-  const letter = (name || email || "A").slice(0, 1).toUpperCase();
+  const initial = avatarInitial(name);
   const day = daysBetween(profile.start_date, today) + 1;
-  const left = daysBetween(today, profile.target_date);
   const u = (profile.weight_unit === "kg" ? "kg" : "lb") as WeightUnit;
   return (
-    <section id="profile" className="card scroll-mt-20 p-5 lg:scroll-mt-8" aria-label="Profile">
+    <header className="pt-1">
+      <p className="t-eyebrow mb-4">Settings</p>
       <div className="flex items-center gap-4">
-        <div
-          className="grid size-16 shrink-0 place-items-center rounded-full border border-line-gold bg-[radial-gradient(80%_80%_at_30%_20%,rgb(213_172_103/.18),transparent_70%),var(--surface-2)]"
-          aria-hidden
-        >
-          <span className="font-serif text-[26px] font-semibold leading-none text-gold-300">{letter}</span>
+        <div className="grid size-16 shrink-0 place-items-center rounded-full bg-m2 shadow-[inset_0_0_0_1px_var(--leaf-line)]" aria-hidden>
+          <span className="font-voice text-[length:2rem] font-semibold leading-none text-leaf-200">{initial}</span>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="t-h3 truncate">{name || "Add your name"}</p>
-          <p className="truncate text-[13px] font-medium text-fg-2">{email}</p>
+          <h1 className="t-title-1 truncate text-ivory">{name || "Your name"}</h1>
+          <p className="t-meta mt-1 text-stone">
+            {day >= 1 ? `Day ${formatInt(day)} of the ascent` : `Starts in ${formatInt(1 - day)} ${1 - day === 1 ? "day" : "days"}`} · {formatPlacardWeight(Number(profile.start_weight_lb ?? 163), u)} →{" "}
+            {formatPlacardWeight(Number(profile.goal_weight_lb ?? 183), u)} {u}
+          </p>
+          {email && <p className="t-meta truncate text-ash">{email}</p>}
         </div>
-        <Button variant="ghost" size="icon" className="w-auto px-3 text-[14px] text-gold-300 hover:text-gold-200" onClick={onEdit}>
+        <button type="button" onClick={onEdit} className="press t-callout -mr-2 h-11 shrink-0 px-3 font-semibold text-ivory underline decoration-ui-line underline-offset-4">
           Edit
-        </Button>
+        </button>
       </div>
-      <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-line-hair pt-4">
-        <div>
-          <dt className="eyebrow">{day >= 1 ? "Day" : "Starts in"}</dt>
-          <dd className="mt-1.5">
-            <span className="num-sm">{formatInt(day >= 1 ? day : 1 - day)}</span>
-            <span className="mt-0.5 block text-[12px] font-medium text-fg-3">{day >= 1 ? "of the ascent" : day === 0 ? "day" : "days"}</span>
-          </dd>
-        </div>
-        <div>
-          <dt className="eyebrow">Plan</dt>
-          <dd className="mt-1.5">
-            <span className="num-sm whitespace-nowrap">
-              {formatPlacardWeight(Number(profile.start_weight_lb ?? 163), u)}
-              <span className="px-1 text-[17px] text-fg-3">→</span>
-              {formatPlacardWeight(Number(profile.goal_weight_lb ?? 183), u)}
-            </span>
-            <span className="mt-0.5 block text-[12px] font-medium text-fg-3">{u}</span>
-          </dd>
-        </div>
-        <div>
-          <dt className="eyebrow">Target</dt>
-          <dd className="mt-1.5">
-            <span className="num-sm whitespace-nowrap">{shortDate(profile.target_date, today).replace(/, \d{4}$/, "")}</span>
-            <span className="mt-0.5 block text-[12px] font-medium text-fg-3">{left > 0 ? `${formatInt(left)} days left` : profile.target_date.slice(0, 4)}</span>
-          </dd>
-        </div>
-      </dl>
-    </section>
+    </header>
   );
 }
 
-/** Seven tiny pips for the week, gold for training days. */
-function WeekStrip({ schedule }: { schedule: Record<string, string> }) {
+/** Seven small marks for the week: an ivory pip for a training day, an outline for rest. */
+function WeekPips({ schedule }: { schedule: Record<string, string> }) {
   const order = ["1", "2", "3", "4", "5", "6", "0"];
-  const letters = ["M", "T", "W", "T", "F", "S", "S"];
   return (
-    <span className="hidden items-center gap-1 sm:inline-flex" aria-hidden>
-      {order.map((d, i) => (
-        <span key={d} className={cn("grid size-5 place-items-center rounded-[6px] text-[10px] font-bold", schedule[d] !== "rest" ? "bg-gold-tint text-gold-300" : "bg-s3 text-fg-3")}>
-          {letters[i]}
-        </span>
+    <span className="hidden items-center gap-1 @min-[22rem]:inline-flex" aria-hidden>
+      {order.map((d) => (
+        <span key={d} className={cn("size-2 rounded-full", schedule[d] !== "rest" ? "bg-ivory" : "shadow-[inset_0_0_0_1px_var(--ui-line)]")} />
       ))}
     </span>
   );
@@ -442,13 +363,10 @@ function SectionNav() {
                 document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
                 setActive(s.id);
               }}
-              className={cn(
-                "relative flex h-10 items-center rounded-[10px] px-3 text-[14px] font-semibold transition-colors",
-                active === s.id ? "bg-s2 text-fg" : "text-fg-3 hover:text-fg-2",
-              )}
+              className={cn("t-callout relative flex h-11 items-center rounded-field px-3 font-semibold transition-colors", active === s.id ? "bg-m2 text-ivory" : "text-ash hover:text-stone")}
               aria-current={active === s.id ? "true" : undefined}
             >
-              {active === s.id && <span className="absolute left-0 top-2.5 h-5 w-[2px] rounded-full bg-gold-400" aria-hidden />}
+              {active === s.id && <span className="absolute left-0 top-3 h-5 w-0.5 rounded-full bg-ivory" aria-hidden />}
               {s.label}
             </a>
           </li>

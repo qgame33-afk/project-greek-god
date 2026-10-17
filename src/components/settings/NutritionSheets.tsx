@@ -24,9 +24,9 @@ type SheetProps = { open: boolean; onOpenChange: (o: boolean) => void; profile: 
 export function MacroCheck({ calories, protein, carbs, fat, className }: { calories: number; protein: number; carbs: number; fat: number; className?: string }) {
   const l = macroLine({ calories, protein, carbs, fat });
   return (
-    <p className={cn("flex items-center gap-1.5 text-[13px] font-semibold", l.ok ? "text-success" : "text-warning", className)} role="status" aria-live="polite">
+    <p className={cn("flex items-center gap-1.5 t-meta font-semibold", l.ok ? "text-ivory" : "text-stone", className)} role="status" aria-live="polite">
       {l.ok ? <Check className="size-4 shrink-0" aria-hidden /> : <TriangleAlert className="size-4 shrink-0" aria-hidden />}
-      <span className="num text-[14px]">{l.ok ? l.text.replace(" ✓", "") : l.text}</span>
+      <span className="tnum t-callout">{l.ok ? l.text.replace(" ✓", "") : l.text}</span>
     </p>
   );
 }
@@ -86,35 +86,35 @@ export function NutritionSheet({ open, onOpenChange, profile }: SheetProps) {
       }
     >
       <div className="grid grid-cols-1 gap-4 pb-2">
-        <div className="card-inset p-4">
-          <p className="eyebrow mb-3 text-center">Calories</p>
+        <div className="rounded-card bg-m2 shadow-(--e1) p-4">
+          <p className="t-eyebrow mb-3 text-center">Calories</p>
           <StepperInput label="Calories" value={kcal} onChange={setKcal} step={50} min={1000} max={8000} unit="kcal" size="lg" thousands />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="card-inset p-3">
-            <p className="eyebrow mb-2 text-center">Protein</p>
+          <div className="rounded-card bg-m2 shadow-(--e1) p-3">
+            <p className="t-eyebrow mb-2 text-center">Protein</p>
             <StepperInput layout="stacked" label="Protein" value={protein} onChange={setProtein} step={5} min={0} max={500} unit="g" />
           </div>
-          <div className="card-inset p-3">
-            <p className="eyebrow mb-2 text-center">Fat</p>
+          <div className="rounded-card bg-m2 shadow-(--e1) p-3">
+            <p className="t-eyebrow mb-2 text-center">Fat</p>
             <StepperInput layout="stacked" label="Fat" value={fat} onChange={setFat} step={5} min={0} max={400} unit="g" />
           </div>
         </div>
-        <div className="card-inset p-3">
+        <div className="rounded-card bg-m2 shadow-(--e1) p-3">
           <div className="mb-2 flex items-center justify-center gap-2">
-            <p className="eyebrow">Carbs</p>
+            <p className="t-eyebrow">Carbs</p>
             {auto && <AutoBadge />}
           </div>
           {auto ? (
             <div className="flex h-[52px] flex-col items-center justify-center">
-              <p className="num-md">{formatInt(c)}</p>
-              <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-3">g · balances calories</p>
+              <p className="t-num-m">{formatInt(c)}</p>
+              <p className="mt-1 t-tag font-semibold uppercase tracking-[0.16em] text-ash">g · balances calories</p>
             </div>
           ) : (
             <StepperInput label="Carbs" value={carbs} onChange={setCarbs} step={5} min={0} max={1200} unit="g" />
           )}
         </div>
-        <div className="overflow-hidden rounded-[16px] border border-line bg-s1">
+        <div className="overflow-hidden rounded-btn border border-vein-2 bg-m1">
           <SwitchRow
             label="Auto-balance carbs"
             detail="Carbs fill whatever calories protein and fat leave."
@@ -127,9 +127,9 @@ export function NutritionSheet({ open, onOpenChange, profile }: SheetProps) {
         </div>
         <div className="flex flex-col items-center gap-1 text-center">
           <MacroCheck calories={kcal} protein={protein} carbs={c} fat={fat} />
-          {err && line.ok && <p className="text-[13px] text-danger">{err}</p>}
+          {err && line.ok && <p className="t-meta text-cinnabar">{err}</p>}
           {!line.ok && !auto && (
-            <button type="button" className="h-11 px-2 text-[13px] font-bold text-gold-300" onClick={() => setCarbs(balancedCarbs(kcal, protein, fat))}>
+            <button type="button" className="h-11 px-2 t-meta font-bold text-ivory" onClick={() => setCarbs(balancedCarbs(kcal, protein, fat))}>
               Balance carbs to {formatInt(balancedCarbs(kcal, protein, fat))} g
             </button>
           )}
@@ -183,7 +183,7 @@ export function DailyGoalSheet({ kind, open, onOpenChange, profile }: SheetProps
     >
       <div className="pb-3 pt-2">
         <StepperInput label={DAILY[kind].title} value={v} onChange={setV} step={cfg.step} min={cfg.min} max={cfg.max} decimals={cfg.decimals} minDecimals={kind === "water" ? 1 : kind === "sleep" ? 0 : undefined} unit={cfg.unit} size="lg" thousands={kind === "steps"} invalid={!cfg.ok} />
-        {!cfg.ok && <p className="mt-2 text-center text-[13px] text-danger">{cfg.msg}</p>}
+        {!cfg.ok && <p className="mt-2 text-center t-meta text-cinnabar">{cfg.msg}</p>}
       </div>
     </EditSheet>
   );
@@ -216,13 +216,13 @@ export function GoalHistorySheet({ open, onOpenChange, today, weightUnit = "lb" 
             ))}
           </div>
         ) : q.error ? (
-          <p className="text-[13px] text-danger">Couldn&apos;t load the history. {(q.error as Error).message}</p>
+          <p className="t-meta text-cinnabar">Couldn&apos;t load the history. {(q.error as Error).message}</p>
         ) : rows.length === 0 ? (
           <Empty art={<EmptyArt kind="plinth" size={56} />} title="No changes yet">
             When you change a calorie, macro or weight goal, it shows up here with the date and your reason.
           </Empty>
         ) : (
-          <ul className="overflow-hidden rounded-[16px] border border-line bg-s1">
+          <ul className="overflow-hidden rounded-btn border border-vein-2 bg-m1">
             {rows.map((r, i) => {
               const [name, baseUnit] = FIELD_LABEL[r.field] ?? [r.field, ""];
               const isWeight = r.field === "goal_weight_lb";
@@ -230,14 +230,14 @@ export function GoalHistorySheet({ open, onOpenChange, today, weightUnit = "lb" 
               const fmt = (v: number | null) =>
                 v == null ? "—" : isWeight ? round(toDisplayWeight(Number(v), weightUnit), 1).toFixed(1) : r.field === "sleep_goal_h" ? String(round(Number(v), 2)) : formatInt(Number(v));
               return (
-                <li key={r.id} className={cn("px-4 py-3", i > 0 && "border-t border-line-hair")}>
+                <li key={r.id} className={cn("px-4 py-3", i > 0 && "border-t border-vein")}>
                   <div className="flex items-baseline justify-between gap-3">
-                    <p className="text-[15px] font-semibold text-fg">{name}</p>
-                    <p className="num shrink-0 text-[15px] text-fg-2">
-                      {fmt(r.old_value)} → <span className="text-fg">{fmt(r.new_value)}</span> {unit}
+                    <p className="t-callout font-semibold text-ivory">{name}</p>
+                    <p className="tnum shrink-0 t-callout text-stone">
+                      {fmt(r.old_value)} → <span className="text-ivory">{fmt(r.new_value)}</span> {unit}
                     </p>
                   </div>
-                  <p className="mt-0.5 text-[12.5px] text-fg-3">
+                  <p className="mt-0.5 t-meta text-ash">
                     {shortDate(localDateOf(r.changed_at), today)} · {SOURCE[r.source] ?? r.source}
                     {r.reason ? ` · ${r.reason}` : ""}
                   </p>

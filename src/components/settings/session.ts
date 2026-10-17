@@ -3,7 +3,7 @@
 /**
  * Remove this device's cached app state for the signed-in user: rest timers, the onboarding
  * draft, session-scoped flags and (when safe) the offline outbox. Device preferences such as
- * haptics stay.
+ * the appearance settings stay.
  */
 export function clearLocalCaches({ includeOutbox }: { includeOutbox: boolean }) {
   try {

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Stepper } from "@/components/ui/controls";
+import { Minus, Plus } from "lucide-react";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Sheet } from "@/components/ui/sheet";
 import { useToday } from "@/lib/data/core";
@@ -23,7 +23,11 @@ interface Seed {
 /** A day-to-day change this large is almost always a typo or the wrong unit. */
 const IMPLAUSIBLE_CHANGE = 0.1;
 
-/** Morning weigh-in logger. One entry per day — saving again replaces that day's value. */
+/**
+ * The weigh-in sheet (docs/DESIGN-V2.md §3.9.1 → Weigh-in): the scale stepper with Inscribe. It
+ * starts from that day's weigh-in, else the latest one; ∓0.2 lb (0.1 kg) on 56 px keys, or type
+ * the number. One entry per day: saving again replaces that day's value, with Undo.
+ */
 export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open: boolean; onOpenChange: (o: boolean) => void; date?: string }) {
   const today = useToday();
   const { profile } = useProfile();
@@ -109,7 +113,7 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
       { local_date: date, weight_lb: lb, notes: notes.trim() || null },
       {
         onSuccess: (row) => {
-          toast.success(`Weigh-in saved · ${formatBodyweight(lb, unit)}`, {
+          toast(`Inscribed ${formatBodyweight(lb, unit)}`, {
             duration: 6000,
             action: {
               label: "Undo",
@@ -123,60 +127,73 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
     );
   };
 
+  const prev = ref ? `${dayRef(ref.local_date, today)} was ${round(toDisplayWeight(Number(ref.weight_lb), unit), 1).toFixed(1)}` : null;
+  const btn =
+    "press grid size-14 shrink-0 place-items-center rounded-btn bg-m3 text-ivory shadow-[inset_0_0_0_1px_var(--vein-2)] hover:bg-m4 active:bg-m4 disabled:text-disabled";
+  const bump = (dir: 1 | -1) => {
+    const v = Math.min(max, Math.max(min, round((parsed ?? value) + dir * step, 1)));
+    setValue(v);
+    setText(v.toFixed(1));
+  };
+
   return (
     <Sheet
       open={open}
       onOpenChange={onOpenChange}
-      title="Log weight"
-      description={existing ? `Replaces ${dayRef(date, today)}'s ${formatBodyweight(Number(existing.weight_lb), unit)}` : "Best first thing in the morning, after the bathroom."}
+      title="Weigh-in"
+      description={existing ? `Replaces ${dayRef(date, today)}'s ${formatBodyweight(Number(existing.weight_lb), unit)}` : "Before food, after the bathroom."}
       footer={
         <Button variant="primary" size="lg" block onClick={submit} loading={save.isPending} disabled={invalid}>
-          Save weigh-in
+          {invalid ? "Inscribe" : `Inscribe ${parsed!.toFixed(1)}`}
         </Button>
       }
     >
-      <div className="py-4">
-        <Stepper
-          size="lg"
-          label="Bodyweight"
-          value={value}
-          step={step}
-          min={min}
-          max={max}
-          onChange={(v) => {
-            setValue(v);
-            setText(v.toFixed(1));
-          }}
-        >
-          <label className="block">
+      <div className="pb-2 pt-3">
+        <div className="flex items-center gap-3" role="group" aria-label="Bodyweight">
+          <button type="button" className={btn} aria-label={`${step} ${unit} less`} onClick={() => bump(-1)} disabled={parsed == null || parsed <= min}>
+            <Minus className="size-6" strokeWidth={1.8} />
+          </button>
+          <label className="min-w-0 flex-1 text-center">
             <span className="sr-only">Bodyweight in {unit}</span>
             <input
               value={text}
               inputMode="decimal"
+              enterKeyHint="done"
+              autoComplete="off"
               onChange={(e) => {
-                setText(e.target.value);
-                const n = parseNumber(e.target.value);
+                setText(e.target.value.replace(/[^\d.,]/g, "").slice(0, 6));
+                const n = parseNumber(e.target.value.replace(",", "."));
                 if (n != null) setValue(n);
               }}
               onFocus={(e) => e.currentTarget.select()}
-              className="num-hero w-full bg-transparent text-center text-fg outline-none"
+              className="t-dial tnum w-full bg-transparent text-center text-ivory outline-none aria-invalid:text-cinnabar"
               aria-invalid={invalid}
             />
-            <span className="mt-1 block text-[13px] font-semibold uppercase tracking-[0.18em] text-fg-3">{unit}</span>
+            <span className="t-meta mt-1 block text-ash">
+              {unit}
+              {prev ? ` · ${prev}` : ""}
+            </span>
           </label>
-        </Stepper>
-        {invalid && <p className="mt-2 text-center text-[13px] text-danger">Enter a weight between {min} and {max} {unit}.</p>}
+          <button type="button" className={btn} aria-label={`${step} ${unit} more`} onClick={() => bump(1)} disabled={parsed == null || parsed >= max}>
+            <Plus className="size-6" strokeWidth={1.8} />
+          </button>
+        </div>
+        {invalid && (
+          <p className="t-meta mt-3 text-center text-cinnabar" role="alert">
+            Enter a weight between {min} and {max} {unit}.
+          </p>
+        )}
         {odd && refLb != null && (
-          <p className="mt-2 text-center text-[13px] text-warning" role="status">
+          <p className="t-meta mt-3 rounded-field bg-m2 px-3.5 py-2.5 text-center text-stone shadow-[inset_0_0_0_1px_var(--ui-line)]" role="status">
             {formatBodyweight(Math.abs(lb! - refLb), unit)} {lb! < refLb ? "under" : "over"}{" "}
             {ref ? `${dayRef(ref.local_date, today)}'s ${formatBodyweight(refLb, unit)}` : `your start weight of ${formatBodyweight(refLb, unit)}`}. Check the number and the unit.
           </p>
         )}
       </div>
-      <div className="grid gap-4 pb-2">
+      <div className="grid gap-4 pb-2 pt-4">
         <Field label="Date">{(id) => <Input id={id} type="date" value={date} max={today} onChange={(e) => changeDate(e.target.value || today)} />}</Field>
         <Field label="Notes" hint="Optional">
-          {(id) => <Textarea id={id} rows={2} maxLength={500} placeholder="e.g. late dinner, salty meal, poor sleep" value={notes} onChange={(e) => setNotes(e.target.value)} />}
+          {(id) => <Textarea id={id} rows={2} maxLength={500} placeholder="Late dinner, salty meal, poor sleep" value={notes} onChange={(e) => setNotes(e.target.value)} />}
         </Field>
       </div>
     </Sheet>

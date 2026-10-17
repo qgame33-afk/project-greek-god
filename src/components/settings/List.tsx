@@ -1,11 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { Switch } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
 
-/** Inset grouped list section: eyebrow title, a rounded group of 52px rows, optional footnote. */
+/**
+ * Settings' grouped lists (docs/DESIGN-V2.md §3.10): an eyebrow, then plain rows on one m2 slab
+ * separated by hairlines, then an optional footnote. No ornament.
+ */
 export function Group({
   id,
   title,
@@ -24,32 +28,34 @@ export function Group({
   return (
     <section id={id} className={cn("scroll-mt-20 lg:scroll-mt-8", className)} aria-labelledby={id && title ? `${id}-title` : undefined}>
       {title && (
-        <div className="mb-2 flex min-h-5 items-end justify-between px-1">
-          <h2 id={id ? `${id}-title` : undefined} className="eyebrow">
+        <div className="mb-2 flex min-h-6 items-end justify-between gap-3 px-1">
+          <h2 id={id ? `${id}-title` : undefined} className="t-eyebrow">
             {title}
           </h2>
           {action}
         </div>
       )}
-      <div className="overflow-hidden rounded-[20px] border border-line bg-s1 shadow-[var(--e1)]">{children}</div>
-      {footer && <div className="mt-2 px-1 text-[12px] leading-relaxed font-medium text-fg-3">{footer}</div>}
+      <div className="overflow-hidden rounded-card bg-m2 shadow-(--e1)">{children}</div>
+      {footer && <div className="t-meta mt-2 px-1 text-ash">{footer}</div>}
     </section>
   );
 }
 
-const rowBase =
-  "relative flex min-h-[52px] w-full items-center gap-3 px-4 py-2.5 text-left [&:not(:first-child)]:before:absolute [&:not(:first-child)]:before:left-4 [&:not(:first-child)]:before:right-0 [&:not(:first-child)]:before:top-0 [&:not(:first-child)]:before:h-px [&:not(:first-child)]:before:bg-line-hair";
+export const rowBase =
+  "relative flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left [&:not(:first-child)]:before:absolute [&:not(:first-child)]:before:left-4 [&:not(:first-child)]:before:right-0 [&:not(:first-child)]:before:top-0 [&:not(:first-child)]:before:h-px [&:not(:first-child)]:before:bg-vein";
 
 function Labels({ label, detail, danger }: { label: ReactNode; detail?: ReactNode; danger?: boolean }) {
   return (
     <span className="min-w-0 flex-1">
-      <span className={cn("block text-[15px] font-semibold leading-snug", danger ? "text-danger" : "text-fg")}>{label}</span>
-      {detail && <span className="mt-0.5 block text-[12.5px] leading-snug font-medium text-fg-3">{detail}</span>}
+      <span className={cn("t-title-3 block", danger ? "text-cinnabar" : "text-ivory")}>{label}</span>
+      {detail && <span className="t-meta mt-0.5 block text-stone">{detail}</span>}
     </span>
   );
 }
 
-/** Tappable row that opens a sheet. */
+const Value = ({ children }: { children: ReactNode }) => <span className="t-callout max-w-[55%] shrink-0 truncate text-right text-stone">{children}</span>;
+
+/** A row that opens a sheet. */
 export function NavRow({
   label,
   detail,
@@ -73,36 +79,35 @@ export function NavRow({
     <button type="button" onClick={onClick} disabled={disabled} className={cn(rowBase, "press-soft transition-colors hover:bg-white/[.025] active:bg-white/[.04] disabled:opacity-50")}>
       <Labels label={label} detail={detail} danger={danger} />
       {badge}
-      {value != null && <span className="max-w-[55%] shrink-0 truncate text-right text-[15px] font-medium text-fg-2">{value}</span>}
-      {chevron && <ChevronRight className="-mr-1 size-4 shrink-0 text-fg-3" aria-hidden />}
+      {value != null && <Value>{value}</Value>}
+      {chevron && <ChevronRight className="-mr-1 size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />}
     </button>
   );
 }
 
-/** Static row with any control on the right (segmented, mini stepper...). */
+/** A row that goes to another screen (the schedule lives in Train → Program). */
+export function LinkRow({ label, detail, value, href }: { label: ReactNode; detail?: ReactNode; value?: ReactNode; href: string }) {
+  return (
+    <Link href={href} className={cn(rowBase, "press-soft transition-colors hover:bg-white/[.025] active:bg-white/[.04]")}>
+      <Labels label={label} detail={detail} />
+      {value != null && <Value>{value}</Value>}
+      <ChevronRight className="-mr-1 size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
+    </Link>
+  );
+}
+
+/** A static row with any control on the right (segmented, stepper, time). */
 export function ControlRow({ label, detail, children, stack }: { label: ReactNode; detail?: ReactNode; children: ReactNode; stack?: boolean }) {
   return (
-    <div className={cn(rowBase, stack && "flex-col items-stretch gap-2.5 py-3 lg:flex-row lg:items-center lg:gap-6")}>
+    <div className={cn(rowBase, stack && "flex-col items-stretch gap-2.5 py-3 lg:flex-row lg:items-center lg:gap-6", "@max-[19rem]:flex-col @max-[19rem]:items-stretch")}>
       <Labels label={label} detail={detail} />
-      <div className={cn("shrink-0", stack && "w-full lg:w-[340px]")}>{children}</div>
+      <div className={cn("shrink-0", stack && "w-full lg:w-[21rem]")}>{children}</div>
     </div>
   );
 }
 
-/** Label + gold switch. The whole row toggles. */
-export function SwitchRow({
-  label,
-  detail,
-  checked,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  detail?: ReactNode;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
+/** Label + switch; the whole row toggles. On is ivory: a setting is not an achievement. */
+export function SwitchRow({ label, detail, checked, onChange, disabled }: { label: string; detail?: ReactNode; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <div
       className={cn(rowBase, "cursor-pointer", disabled && "pointer-events-none opacity-50")}
@@ -119,12 +124,12 @@ export function SwitchRow({
   );
 }
 
-/** Read-only value row. */
+/** A read-only value row. */
 export function InfoRow({ label, value, detail }: { label: ReactNode; value: ReactNode; detail?: ReactNode }) {
   return (
     <div className={rowBase}>
       <Labels label={label} detail={detail} />
-      <span className="max-w-[60%] shrink-0 truncate text-right text-[15px] font-medium text-fg-2">{value}</span>
+      <Value>{value}</Value>
     </div>
   );
 }
@@ -134,9 +139,9 @@ export function GroupSkeleton({ rows = 3, title = true }: { rows?: number; title
   return (
     <div aria-hidden>
       {title && <div className="skeleton mb-2 ml-1 h-3 w-24 rounded-full" />}
-      <div className="overflow-hidden rounded-[20px] border border-line bg-s1">
+      <div className="overflow-hidden rounded-card bg-m2 shadow-(--e1)">
         {Array.from({ length: rows }, (_, i) => (
-          <div key={i} className={cn("flex h-[52px] items-center justify-between px-4", i > 0 && "border-t border-line-hair")}>
+          <div key={i} className={cn("flex h-14 items-center justify-between px-4", i > 0 && "border-t border-vein")}>
             <div className="skeleton h-3.5 w-32 rounded-full" />
             <div className="skeleton h-3.5 w-16 rounded-full" />
           </div>

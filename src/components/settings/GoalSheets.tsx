@@ -54,9 +54,9 @@ export function StartWeightSheet({ open, onOpenChange, profile, today }: SheetPr
     >
       <div className="grid grid-cols-1 gap-5 pb-2">
         <div>
-          <p className="mb-2 text-[13px] font-semibold text-fg-2">Start weight</p>
+          <p className="mb-2 t-meta font-semibold text-stone">Start weight</p>
           <StepperInput label="Start weight" value={w} onChange={setW} step={u === "kg" ? 0.1 : 0.2} min={u === "kg" ? 27 : 60} max={u === "kg" ? 272 : 600} decimals={1} unit={u} size="lg" invalid={!!wErr} />
-          {wErr && <p className="mt-2 text-center text-[13px] text-danger">{wErr}</p>}
+          {wErr && <p className="mt-2 text-center t-meta text-cinnabar">{wErr}</p>}
         </div>
         <Field label="Start date" error={dErr}>
           {(id) => <Input id={id} type="date" value={date} max={addDays(profile.target_date, -1)} onChange={(e) => setDate(e.target.value)} aria-invalid={!!dErr || undefined} />}
@@ -142,8 +142,8 @@ export function GoalWeightSheet({ open, onOpenChange, profile, today }: SheetPro
         />
         <GoalScale startLb={startLb} goalLb={goalLb} rangeMinLb={minLb} rangeMaxLb={maxLb} unit={u} className="px-2" />
         <div className="grid grid-cols-2 gap-3">
-          <div className="card-inset p-3">
-            <p className="mb-2 text-center text-[12px] font-semibold text-fg-3">Range low</p>
+          <div className="rounded-card bg-m2 shadow-(--e1) p-3">
+            <p className="mb-2 text-center t-meta font-semibold text-ash">Range low</p>
             <StepperInput
               layout="stacked"
               label="Range low"
@@ -159,8 +159,8 @@ export function GoalWeightSheet({ open, onOpenChange, profile, today }: SheetPro
               minDecimals={0}
             />
           </div>
-          <div className="card-inset p-3">
-            <p className="mb-2 text-center text-[12px] font-semibold text-fg-3">Range high</p>
+          <div className="rounded-card bg-m2 shadow-(--e1) p-3">
+            <p className="mb-2 text-center t-meta font-semibold text-ash">Range high</p>
             <StepperInput
               layout="stacked"
               label="Range high"
@@ -178,13 +178,13 @@ export function GoalWeightSheet({ open, onOpenChange, profile, today }: SheetPro
           </div>
         </div>
         {err ? (
-          <p className="text-center text-[13px] font-medium text-danger" role="alert">
+          <p className="text-center t-meta font-medium text-cinnabar" role="alert">
             {err}
           </p>
         ) : (
-          <p className="text-center text-[13px] font-medium text-fg-2">
+          <p className="text-center t-meta font-medium text-stone">
             {weeklyRateText(rate, u)} from {formatBodyweight(startLb, u)} by {shortDate(profile.target_date, today)}
-            {rate != null && rate > 1 && <span className="mt-1 block text-fg-3">Faster than this mostly adds fat.</span>}
+            {rate != null && rate > 1 && <span className="mt-1 block text-ash">Faster than this mostly adds fat.</span>}
           </p>
         )}
         <Field label="Why the change?" hint="Optional">
@@ -226,16 +226,16 @@ export function TargetDateSheet({ open, onOpenChange, profile, today }: SheetPro
           {(id) => <Input id={id} type="date" value={date} min={addDays(today, 1)} onChange={(e) => setDate(e.target.value)} aria-invalid={!!err || undefined} />}
         </Field>
         {!err && left != null && (
-          <div className="card-inset grid grid-cols-2 gap-3 p-4">
+          <div className="rounded-card bg-m2 shadow-(--e1) grid grid-cols-2 gap-3 p-4">
             <div>
-              <p className="eyebrow">Days left</p>
-              <p className="num-md mt-1.5">{left.toLocaleString("en-US")}</p>
+              <p className="t-eyebrow">Days left</p>
+              <p className="t-num-m mt-1.5">{left.toLocaleString("en-US")}</p>
             </div>
             <div>
-              <p className="eyebrow">Pace needed</p>
-              <p className="mt-1.5 text-[15px] font-semibold text-fg">{weeklyRateText(rate, u).replace(" per week", "/wk")}</p>
+              <p className="t-eyebrow">Pace needed</p>
+              <p className="mt-1.5 t-callout font-semibold text-ivory">{weeklyRateText(rate, u).replace(" per week", "/wk")}</p>
             </div>
-            {rate != null && rate > 1 && <p className="col-span-2 text-[13px] text-fg-2">Faster than this mostly adds fat.</p>}
+            {rate != null && rate > 1 && <p className="col-span-2 t-meta text-stone">Faster than this mostly adds fat.</p>}
           </div>
         )}
       </div>
@@ -266,7 +266,7 @@ export function HeightSheet({ open, onOpenChange, profile }: SheetProps) {
     >
       <div className="grid grid-cols-1 gap-3 pb-2">
         {open && <HeightInput cm={cm} onChange={setCm} unit={lu} invalid={!!err} />}
-        {err ? <p className="text-[13px] text-danger">{err}</p> : <p className="text-[13px] text-fg-3">{formatHeight(cm, lu === "cm" ? "in" : "cm")}</p>}
+        {err ? <p className="t-meta text-cinnabar">{err}</p> : <p className="t-meta text-ash">{formatHeight(cm, lu === "cm" ? "in" : "cm")}</p>}
       </div>
     </EditSheet>
   );
