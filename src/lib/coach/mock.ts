@@ -27,7 +27,8 @@ const TOPICS: { test: RegExp; ids: (s: Snapshot) => string[]; follow: string }[]
 ];
 
 export function buildMockReply(message: string, snap: Snapshot, profile: Pick<RawProfile, "calorie_goal" | "protein_goal" | "water_goal_ml" | "training_mode" | "start_weight_lb">): MockReply {
-  const q = message.toLowerCase();
+  // the Oracle's "[About: …]" prefix names the screen, not the topic
+  const q = message.replace(/^\[About: [^\]\n]*\]\s*/, "").toLowerCase();
   const topic = TOPICS.find((t) => t.test.test(q));
   const wanted = topic ? topic.ids(snap) : ["plan.today", "bw.avg7", "nut.left.kcal", "rec.sleep"];
   const by = new Map(snap.facts.map((f) => [f.id, f]));

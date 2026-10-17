@@ -101,7 +101,8 @@ export function sanitizeFollowUps(xs: unknown[]): string[] {
 
 /** A conversation title from the first question. */
 export function titleFrom(message: string): string {
-  const s = message.replace(/\s+/g, " ").trim();
+  // the Oracle prefixes the screen a question came from ("[About: Push A today]\n…"); the title is the question
+  const s = message.replace(/^\[About: [^\]\n]*\]\s*/, "").replace(/\s+/g, " ").trim();
   if (/^give me my weekly summary\b/i.test(s)) return "Weekly summary";
   if (s.length <= 60) return s;
   const cut = s.slice(0, 60);

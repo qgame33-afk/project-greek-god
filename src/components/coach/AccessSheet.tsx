@@ -23,15 +23,16 @@ export function AccessChip({ profile, className }: { profile: Profile | undefine
         onClick={() => setOpen(true)}
         disabled={!profile}
         aria-haspopup="dialog"
-        aria-label={profile ? `${accessChipLabel(access)}. Change what Coach can see` : "What Coach can see"}
-        className={cn("group -my-1 inline-flex h-11 max-w-full items-center disabled:opacity-50", className)}
+        aria-label={profile ? `${accessChipLabel(access)}. Change what the Oracle can see` : "What the Oracle can see"}
+        className={cn(
+          "press t-meta inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-3.5 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory disabled:opacity-50",
+          className,
+        )}
       >
-        <span className="inline-flex h-9 max-w-full items-center gap-1.5 rounded-full border border-line bg-s2 pl-3 pr-2 text-[12.5px] font-medium text-fg-2 sm:pl-2.5 sm:text-[13px] transition-colors group-hover:border-line-strong group-hover:text-fg">
-          <ShieldCheck className="hidden size-[15px] shrink-0 text-gold-300 sm:block" aria-hidden />
-          <span className="truncate">{profile ? parts.text : "Using: …"}</span>
-          {profile && parts.more > 0 && <span className="shrink-0 rounded-full bg-s4 px-1.5 text-[11.5px] font-bold leading-[18px] text-fg-2">+{parts.more}</span>}
-          <ChevronDown className="size-3.5 shrink-0 text-fg-3" aria-hidden />
-        </span>
+        <ShieldCheck className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
+        <span className="truncate">{profile ? parts.text : "Using: …"}</span>
+        {profile && parts.more > 0 && <span className="tnum shrink-0 rounded-full bg-m4 px-1.5 font-semibold text-ivory">+{parts.more}</span>}
+        <ChevronDown className="size-3.5 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
       </button>
       <AccessSheet open={open} onOpenChange={setOpen} profile={profile} access={access} />
     </>
@@ -49,20 +50,20 @@ function AccessSheet({ open, onOpenChange, profile, access }: { open: boolean; o
   };
   const on = ORDER.filter((k) => access[k]).length;
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title="What Coach can see" description={`${on} of ${ORDER.length} shared. Saved to your account.`}>
-      <ul className="-mx-1 divide-y divide-line-hair">
+    <Sheet open={open} onOpenChange={onOpenChange} title="What the Oracle can see" description={`${on} of ${ORDER.length} shared. Saved to your account.`}>
+      <ul className="divide-y divide-vein border-y border-vein">
         {ORDER.map((k) => (
-          <li key={k} className="flex min-h-[68px] items-center gap-4 px-1 py-2.5">
+          <li key={k} className="flex min-h-[4.25rem] items-center gap-4 py-2.5">
             <label htmlFor={`${id}-${k}`} className="min-w-0 flex-1 cursor-pointer">
-              <span className="block text-[15px] font-semibold text-fg">{CATEGORY_META[k].label}</span>
-              <span className="mt-0.5 block text-[13px] leading-snug text-fg-2">{CATEGORY_META[k].description}</span>
+              <span className="t-title-3 block text-ivory">{CATEGORY_META[k].label}</span>
+              <span className="t-meta mt-0.5 block text-stone">{CATEGORY_META[k].description}</span>
             </label>
-            <Switch id={`${id}-${k}`} checked={access[k]} onCheckedChange={(v) => toggle(k, v)} label={`Share ${CATEGORY_META[k].label.toLowerCase()} with Coach`} />
+            <Switch id={`${id}-${k}`} checked={access[k]} onCheckedChange={(v) => toggle(k, v)} label={`Share ${CATEGORY_META[k].label.toLowerCase()} with the Oracle`} />
           </li>
         ))}
       </ul>
-      <div className="card-inset mt-3 space-y-1.5 px-3.5 py-3 text-[13px] leading-relaxed text-fg-2">
-        <p>Turned-off data is never read or sent to the AI. Coach will say when it can&apos;t see something instead of guessing.</p>
+      <div className="t-meta mt-4 space-y-1.5 text-stone">
+        <p>Turned-off data is never read or sent to the AI. The Oracle says when it can&apos;t see something instead of guessing.</p>
         <p>Your logs stay private either way. Changes apply to your next question.</p>
       </div>
     </Sheet>

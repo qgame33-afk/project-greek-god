@@ -161,6 +161,27 @@ export function mockChat(message: string, draft: AIFoodItem[] | null): Raw {
     };
   }
 
+  // "3 slices of pepperoni pizza (instead of the salmon)": the Offering's one-sentence log
+  const pizzaSlices = /\b(one|two|three|four|five|six|[1-6])\s+slices?\b/.exec(m);
+  if (pizzaSlices && /pizza/.test(m) && !/wing/.test(m)) {
+    const n = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 }[pizzaSlices[1] as "one"] ?? Number(pizzaSlices[1]);
+    return {
+      ...base,
+      intent: "log_meal",
+      reply: `About **${(n * 298).toLocaleString("en-US")} kcal** and ${n * 13} g protein. Slice sizes vary, so check the portion.`,
+      items: [
+        item("Pepperoni pizza", n * 107, n * 298, n * 13, n * 34, n * 12, {
+          quantity: n,
+          unit: "slice",
+          portion_description: `${n} regular ${n === 1 ? "slice" : "slices"}`,
+          search_query: "pizza pepperoni regular crust",
+          confidence: 0.55,
+        }),
+      ],
+      corrections: ["Thin crust", "Large slices", "Cheese only"],
+    };
+  }
+
   if (/egg/.test(m) && /bagel/.test(m)) {
     return {
       ...base,

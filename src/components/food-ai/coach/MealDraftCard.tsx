@@ -3,10 +3,16 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CircleCheck, Search, Star } from "lucide-react";
+import { Search, Star } from "lucide-react";
+import { SealTick } from "@/components/art/icons";
+import { estimateTitle } from "@/components/offering/replaces";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/controls";
+import { EstimateCard } from "@/components/ui/estimate-card";
+import { Tag } from "@/components/ui/tag";
+import { useFoodEntries } from "@/lib/data/nutrition";
+import { ifYouAdd } from "@/lib/fuel/consequence";
 import { cn } from "@/lib/cn";
-import { haptic } from "@/lib/haptics";
 import { MEALS, mealForTime, type Meal } from "@/lib/nutrition";
 import { newId, useToday, useUser } from "@/lib/data/core";
 import { useSavedFoodMutations } from "@/lib/data/nutrition";
@@ -40,11 +46,6 @@ function qtyLabel(i: AIFoodItem) {
   return i.grams && i.unit !== "g" ? `${head} · ~${i.grams} g` : head;
 }
 
-/** "Domino's" → "Domino's", "Chipotle" → "Chipotle's", none → "the restaurant's". */
-function possessive(brand: string | null) {
-  if (!brand) return "the restaurant's";
-  return /['’]s$/i.test(brand) ? brand : `${brand}'s`;
-}
 
 export interface GroupInfo {
   meal: string;
@@ -102,6 +103,7 @@ export function MealDraftCard({
   };
   const [meal, setMeal] = useState<Meal>(() => (payload.meal_hint !== "unknown" ? payload.meal_hint : mealForTime()));
   const [date, setDate] = useState(todayDate);
+  const dayFood = useFoodEntries(date);
   const [handoff, setHandoff] = useState<AIFoodItem[] | null>(null);
   /** item id → saved_foods id (or "" while the insert is in flight) */
   const [starred, setStarred] = useState<Map<string, string>>(new Map());
@@ -143,7 +145,6 @@ export function MealDraftCard({
       replaced: Parameters<typeof undoChatLog>[1]["replaced"];
     },
   ) => {
-    haptic([12, 40, 12]);
     toast(`Added to ${mealLabel(m)} · ${fmtKcal(kcal)} kcal`, {
       description: `${n} ${n === 1 ? "item" : "items"}${res.replaced.length ? " · replaced the earlier version" : ""}`,
       duration: 6000,
@@ -304,191 +305,176 @@ export function MealDraftCard({
 
   const shownMeal = session?.meal ?? group?.meal;
   const shownDate = session?.date ?? group?.date;
+  const status = superseded ? "unsaved" : isLogged ? "saved" : log.isPending ? "saving" : "unsaved";
+  const diaryKcal = group?.kcal;
+  const differs = diaryKcal != null && Math.abs(diaryKcal - totals.calories) >= 1;
+  const consequence = !isLogged && !superseded && dayFood.hasData && date === todayDate ? ifYouAdd({ kcal: dayFood.totals.calories, protein: dayFood.totals.protein }, { kcal: totals.calories, protein: totals.protein }, "add") : null;
+  const addLabel = replacesGroup ? "Update logged meal" : `Add as ${mealLabel(meal).toLowerCase()}${date !== todayDate ? `, ${relativeDay(date, todayDate).toLowerCase()}` : ""}`;
 
   return (
-    <div className={cn("card-inset mt-3 overflow-hidden p-0", superseded && "opacity-60")}>
-      <div className="flex items-center justify-between gap-3 px-3.5 pb-2 pt-3">
-        <div className="flex items-center gap-2">
-          <p className="eyebrow">{payload.revises ? "Updated meal" : "Meal draft"}</p>
-          {payload.mock && <DevMockBadge />}
-        </div>
-        <p className="leading-none">
-          <span className="num-sm">{fmtKcal(totals.calories)}</span>
-          <span className="unit !text-[12px]">kcal</span>
-        </p>
-      </div>
-
-      <ul className="divide-y divide-line-hair border-y border-line-hair">
-        {items.map((i) => (
-          <li key={i.id} className="px-3.5 py-3">
-            <div className="flex items-start gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 text-[14px] font-bold leading-snug text-fg">
-                  {i.brand && i.kind !== "generic" && !i.name.toLowerCase().includes(i.brand.toLowerCase()) ? `${i.brand} ` : ""}
-                  {i.name}
-                </p>
-                <p className="truncate text-[12px] font-medium text-fg-3">{qtyLabel(i)}</p>
-                {i.source && (
-                  <p className="truncate text-[11.5px] font-medium text-fg-3" title={i.source.label}>
-                    Matched: {i.source.label}
-                  </p>
-                )}
-              </div>
-              <p className="shrink-0 pt-0.5 text-right leading-none">
-                <span className="num text-[18px] text-fg">{fmtKcal(i.macros.calories)}</span>
-                <span className="ml-[3px] text-[12px] font-medium text-fg-2">kcal</span>
-              </p>
-            </div>
-            <div className="mt-2 flex items-center gap-x-2.5">
-              <ItemBadge item={i} />
-              <MacroTrio m={i.macros} className="min-w-0 flex-1" />
-              {i.provenance === "saved" ? (
-                <span className="-my-2 -mr-2.5 grid size-11 shrink-0 place-items-center" title="Already in your saved foods">
-                  <Star className="size-4 fill-gold-400 text-gold-400" aria-hidden />
-                  <span className="sr-only">Already in your saved foods</span>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => star(i)}
-                  aria-label={starred.has(i.id) ? `Remove ${i.name} from your foods` : `Save ${i.name} to your foods`}
-                  aria-pressed={starred.has(i.id)}
-                  className="-my-2 -mr-2.5 grid size-11 shrink-0 place-items-center rounded-full text-fg-3 hover:text-gold-300"
-                >
-                  <Star className={cn("size-4", starred.has(i.id) && "fill-gold-400 text-gold-400")} />
-                </button>
-              )}
-            </div>
-            {i.note && (
-              <p className="mt-1.5 text-[12px] leading-snug text-fg-3">
-                {i.note}
-                {i.handoff && !superseded && (
-                  <>
-                    {" "}
-                    <button
-                      type="button"
-                      onClick={() => setHandoff([i])}
-                      // inline in the note, so the 44px hit area comes from an invisible overlay
-                      className="relative font-bold text-lapis-text after:absolute after:-inset-x-2 after:-inset-y-3.5 after:content-[''] hover:underline"
-                    >
-                      Research it
-                    </button>
-                  </>
-                )}
-              </p>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      <div className="px-3.5 pb-3.5 pt-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-[12px] font-semibold text-fg-2">
-            {items.length} {items.length === 1 ? "item" : "items"} · {fmtKcal(totals.calories)} kcal
+    <div className={cn("mt-4", superseded && "opacity-60")}>
+      <EstimateCard
+        status={status}
+        tag={
+          <span className="inline-flex items-center gap-1.5">
+            <Tag kind="AI" detail="Estimate" />
+            {payload.revises && <span className="t-tag text-stone">· Updated</span>}
+            {payload.mock && <DevMockBadge />}
           </span>
-          <MacroTrio m={sumMacroSets(items.map((i) => i.macros))} />
-        </div>
-
-        {superseded ? (
-          <p className="mt-3 text-[12px] font-semibold text-fg-3">Updated below.</p>
-        ) : isLogged ? (
+        }
+        title={estimateTitle(items.map((i) => (i.brand && i.kind !== "generic" && !i.name.toLowerCase().includes(i.brand.toLowerCase()) ? `${i.brand} ${i.name}` : i.name)))}
+        items={
           <>
-            <div className="mt-3 flex items-center justify-between gap-3 rounded-[12px] bg-success-tint px-3 py-2">
-              <span className="flex min-w-0 items-center gap-2 text-[12px] font-bold uppercase tracking-[0.08em] text-success">
-                <CircleCheck className="size-4 shrink-0" />
-                <span className="truncate">
-                  Logged{shownMeal ? ` · ${mealLabel(shownMeal)}` : ""}
-                  {shownDate && shownDate !== todayDate ? ` · ${relativeDay(shownDate, todayDate)}` : ""}
-                </span>
-              </span>
-              <button
-                type="button"
-                onClick={() => void undo()}
-                className="-my-1.5 -mr-2 h-11 shrink-0 px-3 text-[12px] font-extrabold uppercase tracking-[0.1em] text-gold-300"
-              >
-                Undo
-              </button>
+            <ul className="divide-y divide-vein border-y border-vein" aria-label="Items">
+              {items.map((i) => (
+                <li key={i.id} className="py-3">
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="t-title-3 line-clamp-2 text-ivory">
+                        {i.brand && i.kind !== "generic" && !i.name.toLowerCase().includes(i.brand.toLowerCase()) ? `${i.brand} ` : ""}
+                        {i.name}
+                      </p>
+                      <p className="t-meta truncate text-stone">{qtyLabel(i)}</p>
+                      {i.source && (
+                        <p className="t-meta truncate text-ash" title={i.source.label}>
+                          Matched: {i.source.label}
+                        </p>
+                      )}
+                    </div>
+                    <p className="shrink-0 pt-0.5 text-right">
+                      <span className="t-num-s text-ivory">{fmtKcal(i.macros.calories)}</span>
+                      <span className="t-meta ml-1 text-stone">kcal</span>
+                    </p>
+                  </div>
+                  <div className="mt-2 flex items-center gap-x-2.5">
+                    <ItemBadge item={i} />
+                    <MacroTrio m={i.macros} className="min-w-0 flex-1" />
+                    {i.provenance === "saved" ? (
+                      <span className="-my-2 -mr-2.5 grid size-11 shrink-0 place-items-center" title="Already in your saved foods">
+                        <Star className="size-4 fill-ivory text-ivory" strokeWidth={1.6} aria-hidden />
+                        <span className="sr-only">Already in your saved foods</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => star(i)}
+                        aria-label={starred.has(i.id) ? `Remove ${i.name} from your foods` : `Save ${i.name} to your foods`}
+                        aria-pressed={starred.has(i.id)}
+                        className="press -my-2 -mr-2.5 grid size-11 shrink-0 place-items-center rounded-full text-ash hover:text-ivory"
+                      >
+                        <Star className={cn("size-4", starred.has(i.id) && "fill-ivory text-ivory")} strokeWidth={1.6} />
+                      </button>
+                    )}
+                  </div>
+                  {i.note && (
+                    <p className="t-meta mt-1.5 text-stone">
+                      {i.note}
+                      {i.handoff && !superseded && (
+                        <>
+                          {" "}
+                          <button
+                            type="button"
+                            onClick={() => setHandoff([i])}
+                            // inline in the note, so the 44px hit area comes from an invisible overlay
+                            className="relative font-semibold text-ivory underline decoration-ui-line underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-3.5 after:content-['']"
+                          >
+                            Research it
+                          </button>
+                        </>
+                      )}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <p>
+                <span className="t-eyebrow mr-2">Meal</span>
+                <span className="t-num-s text-ivory">{fmtKcal(totals.calories)}</span>
+                <span className="t-meta ml-1 text-stone">kcal</span>
+              </p>
+              <MacroTrio m={sumMacroSets(items.map((i) => i.macros))} />
             </div>
-            {(() => {
-              const diaryKcal = group?.kcal;
-              const differs = diaryKcal != null && Math.abs(diaryKcal - totals.calories) >= 1;
-              if (!differs && !session?.via) return null;
-              return (
-                <p className="mt-1.5 text-[12px] leading-snug text-fg-3">
+          </>
+        }
+        consequence={
+          consequence ? (
+            <>
+              <span className="text-ivory" aria-label={consequence.spoken}>
+                {consequence.text}
+              </span>
+              <Tag kind="CALC" explain={`${consequence.explain}. From your log.`} />
+            </>
+          ) : undefined
+        }
+        actions={
+          superseded ? (
+            <p className="t-meta text-stone">Updated below.</p>
+          ) : isLogged ? (
+            <>
+              <div className="flex items-center gap-3">
+                <p className="t-callout flex min-w-0 flex-1 items-center gap-2 font-semibold text-leaf-300">
+                  <SealTick className="seal-in size-5 shrink-0" />
+                  <span className="truncate">
+                    Added{shownMeal ? ` to ${mealLabel(shownMeal)}` : ""}
+                    {shownDate && shownDate !== todayDate ? ` · ${relativeDay(shownDate, todayDate)}` : ""}
+                  </span>
+                </p>
+                <Button variant="secondary" size="sm" onClick={() => void undo()}>
+                  Undo
+                </Button>
+              </div>
+              {(differs || session?.via) && (
+                <p className="t-meta text-stone">
                   {differs ? (
                     <>
-                      Your diary has <span className="num text-[13px] text-fg-2">{fmtKcal(diaryKcal)}</span> kcal for this meal
+                      Your diary has <span className="tnum font-semibold text-ivory">{fmtKcal(diaryKcal)}</span> kcal for this meal
                       {session?.via ? `, using published numbers as reported by ${session.via}.` : ", not the draft above."}
                     </>
                   ) : (
                     `Published numbers as reported by ${session?.via}.`
                   )}
                 </p>
-              );
-            })()}
-          </>
-        ) : confirming ? (
-          <div ref={confirmRef} className="mt-3 scroll-mb-28 space-y-3">
-            <MealDatePicker onInset meal={meal} onMeal={setMeal} date={date} onDate={setDate} />
-            <div className="flex items-center justify-between gap-3">
-              <p className="min-w-0 text-[13px] leading-snug text-fg-2">
-                {items.length} {items.length === 1 ? "item" : "items"} · <span className="num text-[15px] text-fg">{fmtKcal(totals.calories)}</span> kcal →{" "}
-                {mealLabel(meal)}
-                {date !== todayDate ? `, ${relativeDay(date, todayDate)}` : ""}
-                {replacesGroup ? " · replaces the earlier logged version" : ""}
-              </p>
-              <button
-                type="button"
-                onClick={() => setConfirming(false)}
-                className="-my-1.5 -mr-2 h-11 shrink-0 rounded-[12px] px-3 text-[13px] font-bold text-fg-2 hover:text-fg"
-              >
-                Cancel
-              </button>
-            </div>
-            <Button variant="primary" block onClick={add} loading={log.isPending} className="px-3">
-              {replacesGroup ? "Update logged meal" : `Add to ${mealLabel(meal)}`}
-            </Button>
-          </div>
-        ) : (
-          <div className="mt-3 space-y-2">
-            {removedFromDiary && (
-              <p className="text-[12px] text-fg-3">
-                {unsure
-                  ? "The connection dropped while adding this. Add it again: it can't be added twice."
-                  : "This was logged, then removed from your diary."}
-              </p>
-            )}
-            <Button variant="outline-gold" block onClick={() => setConfirming(true)}>
-              {removedFromDiary ? "Add again" : replacesGroup ? "Update logged meal" : "Confirm & add"}
-            </Button>
-            {handoffItems.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setHandoff(handoffItems)}
-                className="flex h-11 w-full items-center justify-center gap-1.5 rounded-[12px] text-[13px] font-bold text-lapis-text hover:bg-lapis-tint"
-              >
-                <Search className="size-4" />
-                Get {possessive(handoffItems.find((h) => h.brand)?.brand ?? null)} published numbers
-              </button>
-            )}
-          </div>
-        )}
-
-        {latest && !superseded && payload.corrections.length > 0 && (
-          <div className="no-scrollbar -mx-3.5 mt-3 flex gap-2 overflow-x-auto px-3.5" aria-label="Quick corrections">
-            {payload.corrections.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => onSend(`Correction: ${c}`)}
-                className="press relative inline-flex h-9 shrink-0 items-center rounded-full border border-line bg-s2 px-3.5 text-[13px] font-semibold text-fg-2 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:text-fg"
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+              )}
+            </>
+          ) : (
+            <>
+              {removedFromDiary && (
+                <p className="t-meta text-stone">{unsure ? "The connection dropped while adding this. Add it again: it can't be added twice." : "This was logged, then removed from your diary."}</p>
+              )}
+              <Button variant={latest ? "primary" : "outline"} size="lg" block onClick={add} loading={log.isPending}>
+                {removedFromDiary ? "Add again" : addLabel}
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="md" className="flex-1" onClick={() => setConfirming(!confirming)} aria-expanded={confirming}>
+                  {confirming ? "Done" : "Meal or day"}
+                </Button>
+                {handoffItems.length > 0 && (
+                  <Button variant="ghost" size="md" className="flex-1" onClick={() => setHandoff(handoffItems)}>
+                    <Search className="size-4" strokeWidth={1.6} aria-hidden />
+                    Published numbers
+                  </Button>
+                )}
+              </div>
+              {confirming && (
+                <div ref={confirmRef} className="scroll-mb-28 pt-1">
+                  <MealDatePicker onInset meal={meal} onMeal={setMeal} date={date} onDate={setDate} />
+                  {replacesGroup && <p className="t-meta mt-2 text-stone">Replaces the earlier logged version.</p>}
+                </div>
+              )}
+              {latest && payload.corrections.length > 0 && (
+                <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pt-1" aria-label="Quick corrections">
+                  {payload.corrections.map((c) => (
+                    <Chip key={c} onClick={() => onSend(`Correction: ${c}`)}>
+                      {c}
+                    </Chip>
+                  ))}
+                </div>
+              )}
+            </>
+          )
+        }
+      />
 
       {handoff && (
         <HandoffSheet

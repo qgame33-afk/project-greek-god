@@ -1,0 +1,88 @@
+"use client";
+
+import { ArrowUp } from "lucide-react";
+import { forwardRef, useImperativeHandle, useLayoutEffect, useRef } from "react";
+import { Spinner } from "@/components/ui/button";
+import { MAX_MESSAGE_CHARS } from "@/lib/coach/schema";
+import { cn } from "@/lib/cn";
+
+export interface ComposerHandle {
+  focus: () => void;
+}
+
+/**
+ * The Oracle's question field: a 56 px well that grows to five lines, with a 44 px send disc
+ * (ivory when there is something to send — the question is his, so it is never aegean or gold).
+ */
+export const OracleComposer = forwardRef<
+  ComposerHandle,
+  { value: string; onChange: (v: string) => void; onSend: () => void; busy?: boolean; disabled?: boolean; placeholder?: string; id?: string; max?: number }
+>(function OracleComposer({ value, onChange, onSend, busy, disabled, placeholder = "Ask the Oracle", id = "oracle-composer", max = MAX_MESSAGE_CHARS }, ref) {
+  const ta = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle(ref, () => ({ focus: () => ta.current?.focus() }), []);
+
+  useLayoutEffect(() => {
+    const el = ta.current;
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 44), 140)}px`;
+  }, [value]);
+
+  const canSend = value.trim().length > 0 && !busy && !disabled;
+  const near = value.length > max - 200;
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (canSend) onSend();
+      }}
+      onClick={(e) => e.target === e.currentTarget && ta.current?.focus()}
+      className={cn(
+        "flex items-end gap-1.5 rounded-card border bg-m2 py-1.5 pl-4 pr-1.5 transition-[border-color,box-shadow] duration-(--dur-fast)",
+        disabled ? "border-vein-2" : "border-ui-line focus-within:border-aegean-line focus-within:shadow-[0_0_0_3px_var(--aegean-tint)]",
+      )}
+    >
+      <label className="sr-only" htmlFor={id}>
+        Ask the Oracle
+      </label>
+      <textarea
+        id={id}
+        ref={ta}
+        rows={1}
+        value={value}
+        disabled={disabled}
+        maxLength={max}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            if (canSend) onSend();
+          }
+        }}
+        placeholder={placeholder}
+        enterKeyHint="send"
+        autoComplete="off"
+        autoCorrect="on"
+        spellCheck
+        className="min-h-11 flex-1 resize-none bg-transparent py-2.5 text-[length:max(16px,1rem)] leading-snug text-ivory outline-none placeholder:text-ash disabled:cursor-not-allowed"
+      />
+      {near && (
+        <span className="t-meta tnum mb-3 shrink-0 text-ash" aria-live="polite">
+          {value.length}/{max}
+        </span>
+      )}
+      <button
+        type="submit"
+        disabled={!canSend}
+        aria-label={busy ? "Sending" : "Send"}
+        className={cn(
+          "press grid size-11 shrink-0 place-items-center rounded-full transition-[background-color,color] duration-(--dur-fast)",
+          canSend ? "bg-ivory text-ink" : "bg-m3 text-disabled",
+        )}
+      >
+        {busy ? <Spinner className="size-[1.125rem] text-stone" /> : <ArrowUp className="size-5" strokeWidth={2.2} aria-hidden />}
+      </button>
+    </form>
+  );
+});

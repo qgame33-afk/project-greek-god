@@ -152,7 +152,7 @@ export function HandoffSheet({
     </Button>
   ) : (
     <Button variant="secondary" block onClick={read} disabled={pasted.trim().length < 10}>
-      <ClipboardPaste className="size-[18px]" />
+      <ClipboardPaste className="size-[1.125rem]" strokeWidth={1.6} />
       Read pasted result
     </Button>
   );
@@ -168,15 +168,15 @@ export function HandoffSheet({
     >
       {!parsed ? (
         <div className="space-y-5">
-          <ol className="space-y-1.5 text-[13px] leading-relaxed text-fg-2">
+          <ol className="t-callout space-y-1.5 text-stone">
             <li>
-              <span className="num mr-1.5 text-gold-300">1</span>Open an assistant with the request below.
+              <span className="tnum mr-1.5 font-semibold text-ivory">1</span>Open an assistant with the request below.
             </li>
             <li>
-              <span className="num mr-1.5 text-gold-300">2</span>Copy its whole reply, including the <code className="text-fg">```json</code> block.
+              <span className="tnum mr-1.5 font-semibold text-ivory">2</span>Copy its whole reply, including the <code className="text-ivory">```json</code> block.
             </li>
             <li>
-              <span className="num mr-1.5 text-gold-300">3</span>Paste it here and review before anything is logged.
+              <span className="tnum mr-1.5 font-semibold text-ivory">3</span>Paste it here and review before anything is logged.
             </li>
           </ol>
 
@@ -190,7 +190,7 @@ export function HandoffSheet({
                   placeholder="Size, crust, toppings, sauces, how many"
                   autoComplete="off"
                   maxLength={400}
-                  className="min-h-[88px]"
+                  className="min-h-[5.5rem]"
                 />
               )}
             </Field>
@@ -202,33 +202,33 @@ export function HandoffSheet({
           <div className="grid gap-2.5 sm:grid-cols-2">
             <Button variant="secondary" onClick={() => openAssistant("chatgpt")}>
               Research in ChatGPT
-              <ExternalLink className="size-4 text-fg-3" />
+              <ExternalLink className="size-4 text-ash" strokeWidth={1.6} />
             </Button>
             <Button variant="secondary" onClick={() => openAssistant("claude")}>
               Research in Claude
-              <ExternalLink className="size-4 text-fg-3" />
+              <ExternalLink className="size-4 text-ash" strokeWidth={1.6} />
             </Button>
           </div>
 
-          <div className="rounded-[14px] bg-s3">
+          <div className="rounded-field bg-m2 shadow-(--e1)">
             <div className="flex items-center justify-between">
               <button
                 type="button"
                 aria-expanded={showPrompt}
                 aria-controls="handoff-prompt"
                 onClick={() => setShowPrompt((v) => !v)}
-                className="flex h-11 flex-1 items-center gap-1.5 px-3.5 text-left text-[13px] font-semibold text-fg-2 hover:text-fg"
+                className="press t-callout flex h-11 flex-1 items-center gap-1.5 px-3.5 text-left font-semibold text-stone hover:text-ivory"
               >
                 <ChevronDown className={cn("size-4 transition-[rotate] duration-(--dur-base) ease-out", showPrompt && "rotate-180")} />
                 {showPrompt ? "Hide the request" : "Show the request"}
               </button>
-              <button type="button" onClick={() => void copy()} className="inline-flex h-11 items-center gap-1.5 px-3.5 text-[13px] font-bold text-gold-300">
-                <Copy className="size-4" />
+              <button type="button" onClick={() => void copy()} className="press t-callout inline-flex h-11 items-center gap-1.5 px-3.5 font-semibold text-ivory">
+                <Copy className="size-4" strokeWidth={1.6} />
                 Copy prompt
               </button>
             </div>
             <Collapse open={showPrompt} id="handoff-prompt">
-              <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words border-t border-line-hair px-3.5 py-3 text-[12px] leading-relaxed text-fg-2">
+              <pre className="t-meta max-h-56 overflow-auto whitespace-pre-wrap break-words border-t border-vein px-3.5 py-3 text-stone">
                 {prompt}
               </pre>
             </Collapse>
@@ -244,7 +244,7 @@ export function HandoffSheet({
                   setError(null);
                 }}
                 placeholder="Paste the assistant's full reply here"
-                className="min-h-28 font-mono text-[13px]"
+                className="min-h-28 font-mono"
               />
             )}
           </Field>
@@ -253,7 +253,7 @@ export function HandoffSheet({
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[13px] text-fg-2">Answer came from</p>
+            <p className="t-callout text-stone">Answer came from</p>
             <Segmented<HandoffAssistant>
               size="sm"
               className="w-48"
@@ -266,25 +266,25 @@ export function HandoffSheet({
               ]}
             />
           </div>
-          <p className="rounded-[12px] bg-s3 px-3.5 py-2.5 text-[12px] leading-relaxed text-fg-2">
+          <p className="t-meta rounded-field bg-m2 px-3.5 py-2.5 text-stone shadow-(--e1)">
             Reported by {ASSISTANT_LABEL[assistant]}. We didn&apos;t open these pages ourselves, so tap a link to check it before you trust it.
             {parsed.skipped > 0 && ` ${parsed.skipped} item${parsed.skipped > 1 ? "s" : ""} without usable numbers were left out.`}
           </p>
           <ul className="space-y-2.5">
             {parsed.items.map((i) => (
-              <li key={i.key} className="card-instrument p-3.5">
+              <li key={i.key} className="rounded-card bg-m2 p-3.5 shadow-(--e1)">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[15px] font-bold text-fg">{i.name}</p>
-                    <p className="text-[12px] text-fg-3">
+                    <p className="t-title-3 text-ivory">{i.name}</p>
+                    <p className="t-meta text-stone">
                       {fmtKcal(i.perUnit.calories)} kcal per {i.unit}
                       {i.sourceName && i.sourceUrl ? ` · ${i.sourceName}` : ""}
                       {i.notes ? ` · ${i.notes}` : ""}
                     </p>
                   </div>
-                  <p className="shrink-0 text-right leading-none">
-                    <span className="num-sm">{fmtKcal(i.total.calories)}</span>
-                    <span className="unit !text-[12px]">kcal</span>
+                  <p className="shrink-0 text-right">
+                    <span className="t-num-s text-ivory">{fmtKcal(i.total.calories)}</span>
+                    <span className="t-meta ml-1 text-stone">kcal</span>
                   </p>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -295,20 +295,20 @@ export function HandoffSheet({
                   )}
                   <MacroTrio m={i.total} />
                 </div>
-                <div className="mt-3 flex items-center gap-2 border-t border-line-hair pt-3">
-                  <span className="text-[13px] font-semibold text-fg-2">Quantity</span>
+                <div className="mt-3 flex items-center gap-2 border-t border-vein pt-3">
+                  <span className="t-callout font-semibold text-stone">Quantity</span>
                   <div className="ml-auto flex items-center gap-2">
                     <QtyBtn label={`Fewer ${i.name}`} onClick={() => setQty(i.key, i.quantity - 1)} disabled={i.quantity <= 1}>
                       −
                     </QtyBtn>
-                    <span className="num min-w-[4ch] text-center text-[18px]">
-                      {i.quantity} <span className="text-[12px] text-fg-3">{unitLabel(i.quantity, i.unit)}</span>
+                    <span className="t-num-s min-w-[4ch] text-center text-ivory">
+                      {i.quantity} <span className="t-meta text-stone">{unitLabel(i.quantity, i.unit)}</span>
                     </span>
                     <QtyBtn label={`More ${i.name}`} onClick={() => setQty(i.key, i.quantity + 1)}>
                       +
                     </QtyBtn>
                   </div>
-                  <button type="button" onClick={() => removeItem(i.key)} className="h-11 px-2 text-[13px] font-bold text-fg-3 hover:text-fg">
+                  <button type="button" onClick={() => removeItem(i.key)} className="press t-callout h-11 px-2 font-semibold text-stone hover:text-ivory">
                     Remove
                   </button>
                 </div>
@@ -316,19 +316,19 @@ export function HandoffSheet({
             ))}
           </ul>
           {extraItems.length > 0 && (
-            <p className="text-[12px] leading-relaxed text-fg-3">
+            <p className="t-meta text-stone">
               Also logged from the draft: {extraItems.map((e) => `${e.name} (${fmtKcal(e.macros.calories)} kcal)`).join(", ")}.
             </p>
           )}
           <div className="flex items-baseline justify-between">
-            <span className="eyebrow">{parsed.items.length + extraItems.length} items</span>
+            <span className="t-eyebrow">{parsed.items.length + extraItems.length} items</span>
             <span>
-              <span className="num-md">{fmtKcal(total + extraItems.reduce((a, e) => a + e.macros.calories, 0))}</span>
-              <span className="unit !text-[12px]">kcal</span>
+              <span className="t-num-m text-ivory">{fmtKcal(total + extraItems.reduce((a, e) => a + e.macros.calories, 0))}</span>
+              <span className="t-meta ml-1 text-stone">kcal</span>
             </span>
           </div>
           <MealDatePicker meal={meal} onMeal={setMeal} date={date} onDate={setDate} />
-          <button type="button" onClick={() => setParsed(null)} className="h-11 text-[13px] font-bold text-gold-300">
+          <button type="button" onClick={() => setParsed(null)} className="press t-callout h-11 font-semibold text-ivory underline decoration-ui-line underline-offset-4">
             Paste a different result
           </button>
         </div>
@@ -344,7 +344,7 @@ function QtyBtn({ label, onClick, disabled, children }: { label: string; onClick
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className={cn("press grid size-11 place-items-center rounded-[12px] bg-s3 text-[20px] font-semibold text-fg-2 hover:text-fg disabled:opacity-30")}
+      className="press t-num-m grid size-11 place-items-center rounded-field bg-m3 text-ivory shadow-[inset_0_0_0_1px_var(--vein-2)] disabled:opacity-30"
     >
       {children}
     </button>

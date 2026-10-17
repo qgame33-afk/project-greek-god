@@ -172,6 +172,7 @@ describe("schema helpers", () => {
   });
   it("titles conversations from the first question", () => {
     expect(titleFrom("  Am I eating enough?  ")).toBe("Am I eating enough?");
+    expect(titleFrom("[About: Push A today]\nWhat should I focus on?")).toBe("What should I focus on?");
     expect(titleFrom("Give me my weekly summary: training, nutrition, bodyweight and recovery for the last 7 days.")).toBe("Weekly summary");
     expect(titleFrom("Should I reduce leg training because I played volleyball yesterday and my knees hurt?")).toBe("Should I reduce leg training because I played volleyball…");
   });

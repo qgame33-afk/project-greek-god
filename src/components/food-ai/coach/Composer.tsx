@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle, useLayoutEffect, useRef } from "react";
 import { ArrowUp, ImagePlus, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Spinner } from "@/components/ui/button";
@@ -9,7 +9,10 @@ export interface ComposerHandle {
   focus: () => void;
 }
 
-/** 52px pill that grows to 5 lines, photo button, gold-leaf send disc (gold only when sendable). */
+/**
+ * The Food Coach's field: a 56 px well that grows to five lines, a photo button and a 44 px send
+ * disc (ivory when there is something to send).
+ */
 export const Composer = forwardRef<
   ComposerHandle,
   {
@@ -29,11 +32,11 @@ export const Composer = forwardRef<
   const file = useRef<HTMLInputElement>(null);
   useImperativeHandle(ref, () => ({ focus: () => ta.current?.focus() }));
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = ta.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 22 * 5 + 20)}px`;
+    el.style.height = "0px";
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 44), 140)}px`;
   }, [value]);
 
   const canSend = !disabled && !sending && value.trim().length > 0;
@@ -42,24 +45,19 @@ export const Composer = forwardRef<
     <div>
       {(image || preparingImage) && (
         <div className="mb-2 flex items-center gap-2">
-          <div className="relative size-16 overflow-hidden rounded-[12px] border border-line bg-s3">
+          <div className="relative size-16 overflow-hidden rounded-field bg-m3 shadow-[inset_0_0_0_1px_var(--vein-2)]">
             {image ? (
               // eslint-disable-next-line @next/next/no-img-element -- local preview
               <img src={image} alt="Photo to send" className="size-full object-cover" />
             ) : (
-              <span className="grid size-full place-items-center text-fg-3">
+              <span className="grid size-full place-items-center text-stone">
                 <Spinner />
               </span>
             )}
           </div>
           {image && (
-            <button
-              type="button"
-              onClick={onRemoveImage}
-              className="inline-flex h-11 items-center gap-1 px-2 text-[13px] font-bold text-fg-2 hover:text-fg"
-              aria-label="Remove photo"
-            >
-              <X className="size-4" />
+            <button type="button" onClick={onRemoveImage} className="press t-callout inline-flex h-11 items-center gap-1 px-2 font-semibold text-stone hover:text-ivory" aria-label="Remove photo">
+              <X className="size-4" strokeWidth={1.8} />
               Remove
             </button>
           )}
@@ -71,8 +69,8 @@ export const Composer = forwardRef<
           if (canSend) onSend();
         }}
         className={cn(
-          "flex items-end gap-1.5 rounded-[26px] border border-line-strong bg-s2 p-1 transition-colors focus-within:border-gold-400/60",
-          disabled && "opacity-60",
+          "flex items-end gap-1 rounded-card border bg-m2 py-1.5 pl-1 pr-1.5 transition-[border-color,box-shadow] duration-(--dur-fast)",
+          disabled ? "border-vein-2 opacity-70" : "border-ui-line focus-within:border-aegean-line focus-within:shadow-[0_0_0_3px_var(--aegean-tint)]",
         )}
       >
         <input
@@ -93,9 +91,9 @@ export const Composer = forwardRef<
           onClick={() => file.current?.click()}
           disabled={disabled}
           aria-label="Attach a meal photo"
-          className="grid size-11 shrink-0 place-items-center rounded-full text-fg-2 hover:bg-white/5 hover:text-fg disabled:opacity-40"
+          className="press grid size-11 shrink-0 place-items-center rounded-full text-stone hover:text-ivory disabled:opacity-40"
         >
-          <ImagePlus className="size-[21px]" />
+          <ImagePlus className="size-5" strokeWidth={1.6} />
         </button>
         <label htmlFor="food-coach-input" className="sr-only">
           Describe what you ate
@@ -117,18 +115,15 @@ export const Composer = forwardRef<
           placeholder={placeholder ?? "Describe what you ate"}
           enterKeyHint="send"
           autoComplete="off"
-          className="min-h-11 flex-1 resize-none bg-transparent py-[11px] text-[16px] leading-[22px] text-fg outline-none placeholder:text-fg-3"
+          className="min-h-11 flex-1 resize-none bg-transparent py-2.5 text-[length:max(16px,1rem)] leading-snug text-ivory outline-none placeholder:text-ash disabled:cursor-not-allowed"
         />
         <button
           type="submit"
           disabled={!canSend}
-          aria-label="Send"
-          className={cn(
-            "press grid size-11 shrink-0 place-items-center rounded-full transition-colors",
-            canSend ? "bg-[image:var(--grad-leaf)] text-ink shadow-[inset_0_1px_0_rgb(255_255_255/.45)]" : "bg-s4 text-fg-dis",
-          )}
+          aria-label={sending ? "Sending" : "Send"}
+          className={cn("press grid size-11 shrink-0 place-items-center rounded-full transition-[background-color,color] duration-(--dur-fast)", canSend ? "bg-ivory text-ink" : "bg-m3 text-disabled")}
         >
-          {sending ? <Spinner /> : <ArrowUp className="size-5" strokeWidth={2.4} />}
+          {sending ? <Spinner className="size-[1.125rem] text-stone" /> : <ArrowUp className="size-5" strokeWidth={2.2} />}
         </button>
       </form>
     </div>
