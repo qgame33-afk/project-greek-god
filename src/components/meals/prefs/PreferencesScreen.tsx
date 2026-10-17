@@ -1,11 +1,12 @@
 "use client";
 
 import { BackLink } from "@/components/shell/BackLink";
-import { Check, ChevronLeft, Plus, ShieldCheck, X } from "lucide-react";
+import { Check, ChevronLeft, Plus, X } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Chip, Segmented } from "@/components/ui/controls";
 import { ErrorNote, Skeleton } from "@/components/ui/misc";
+import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
 import { useMealFeedback, useMealPrefs, useSaveMealPrefs } from "@/lib/data/meals";
 import type { Budget, Difficulty, MealPrefs } from "@/lib/meals/types";
@@ -47,9 +48,11 @@ const BUDGET_HINT: Record<Budget, string> = {
 const DIFFICULTIES: Difficulty[] = ["super_easy", "everyday", "i_like_cooking"];
 
 /**
- * /nutrition/meals/preferences — how the planner picks (docs/MEALS.md §6). Every change saves as
- * it's made (optimistic, in order). Allergies, diets and "never plan" are hard rules the
- * planner never breaks; the rest only nudge. Ends with what it has learned, with Reset.
+ * /nutrition/meals/preferences — how the planner picks (docs/MEALS.md §6, restyled per
+ * docs/DESIGN-V2.md §3.5.4). Every change saves as it's made (optimistic, in order). Allergies,
+ * diets and "never plan" are hard rules the planner never breaks (Tag RULE); the rest only nudge.
+ * Selections are ivory, never gold: a setting is not an achievement. Ends with what it has
+ * learned, with Reset.
  */
 export function PreferencesScreen() {
   const { prefs, hasData, error, saved } = useMealPrefs();
@@ -92,9 +95,9 @@ export function PreferencesScreen() {
   if (!hasData) {
     return (
       <Frame>
-        <div className="grid gap-4 lg:grid-cols-2" aria-busy="true">
-          {["h-[260px]", "h-[300px]", "h-[220px]", "h-[280px]"].map((h) => (
-            <Skeleton key={h} className={cn("rounded-[16px]", h)} />
+        <div className="grid gap-6 lg:grid-cols-2" aria-busy="true">
+          {["h-64", "h-72", "h-56", "h-64"].map((h, i) => (
+            <Skeleton key={i} className={cn("rounded-card", h)} />
           ))}
         </div>
       </Frame>
@@ -105,11 +108,11 @@ export function PreferencesScreen() {
 
   return (
     <Frame status={status}>
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start lg:gap-5">
-        <div className="flex flex-col gap-4 lg:gap-5">
+      <div className="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-x-10">
+        <div className="flex min-w-0 flex-col gap-8">
           {/* cooking level */}
-          <Section title="Cooking level" hint="Super Easy is the default: short, familiar, hard to get wrong.">
-            <div role="radiogroup" aria-label="Cooking level" className="flex flex-col gap-2">
+          <Section id="pref-level" title="Cooking level" hint="Super Easy is the default: short, familiar, hard to get wrong.">
+            <div role="radiogroup" aria-labelledby="pref-level" className="flex flex-col gap-2">
               {DIFFICULTIES.map((d) => {
                 const on = prefs.difficulty === d;
                 return (
@@ -120,17 +123,17 @@ export function PreferencesScreen() {
                     aria-checked={on}
                     onClick={() => set({ difficulty: d })}
                     className={cn(
-                      "press-soft flex min-h-[64px] items-center gap-3.5 rounded-[14px] border px-4 py-3 text-left transition-colors",
-                      on ? "border-line-gold bg-gold-tint" : "border-line bg-s3/60 hover:bg-s3",
+                      "press-soft flex min-h-16 items-center gap-3.5 rounded-field px-4 py-3 text-left transition-[background-color,box-shadow] duration-(--dur-fast)",
+                      on ? "bg-m4 shadow-[inset_0_0_0_1.5px_var(--ivory)]" : "bg-m2 shadow-[inset_0_0_0_1px_var(--vein-2)] hover:bg-m3",
                     )}
                   >
                     <DifficultyPips difficulty={d} label={false} />
                     <span className="min-w-0 flex-1">
-                      <span className={cn("block text-[15px] font-bold", on ? "text-gold-200" : "text-fg")}>
+                      <span className="t-callout flex flex-wrap items-baseline gap-x-2 font-semibold text-ivory">
                         {DIFFICULTY_LABEL[d]}
-                        {d === "super_easy" && <span className="ml-2 text-[11px] font-bold uppercase tracking-[0.08em] text-fg-3">Default</span>}
+                        {d === "super_easy" && <span className="t-tag text-ash">Default</span>}
                       </span>
-                      <span className="block text-[12.5px] font-medium text-fg-3">{DIFFICULTY_HINT[d]}</span>
+                      <span className="t-meta block text-stone">{DIFFICULTY_HINT[d]}</span>
                     </span>
                     <Radio on={on} />
                   </button>
@@ -149,20 +152,16 @@ export function PreferencesScreen() {
 
           {/* hard rules */}
           <Section
+            id="pref-rules"
             title="Never broken"
-            badge={
-              <span className="inline-flex items-center gap-1 text-[11.5px] font-bold text-fg-2">
-                <ShieldCheck className="size-3.5 text-success" aria-hidden />
-                Hard rules
-              </span>
-            }
+            badge={<Tag kind="RULE" detail="hard" explain="The planner never suggests, swaps to or simplifies into a meal that breaks these." />}
             hint="Every pick, swap and easier version respects these. Planned meals that break a new rule are flagged in your week."
           >
             <SubLabel first>Allergies</SubLabel>
             <div className="flex flex-wrap gap-2" role="group" aria-label="Allergies">
               {ALLERGEN_ORDER.map((a) => (
                 <Chip key={a} selected={prefs.allergies.includes(a)} onClick={() => set({ allergies: toggled(prefs.allergies, a) })}>
-                  {prefs.allergies.includes(a) && <Check className="size-3.5" aria-hidden />}
+                  {prefs.allergies.includes(a) && <Check className="size-3.5" strokeWidth={2} aria-hidden />}
                   {ALLERGEN_LABEL[a]}
                 </Chip>
               ))}
@@ -171,7 +170,7 @@ export function PreferencesScreen() {
             <div className="flex flex-wrap gap-2" role="group" aria-label="Diet">
               {DIET_ORDER.map((d) => (
                 <Chip key={d} selected={prefs.diets.includes(d)} onClick={() => set({ diets: toggled(prefs.diets, d) })}>
-                  {prefs.diets.includes(d) && <Check className="size-3.5" aria-hidden />}
+                  {prefs.diets.includes(d) && <Check className="size-3.5" strokeWidth={2} aria-hidden />}
                   {dietName(d)}
                 </Chip>
               ))}
@@ -181,7 +180,7 @@ export function PreferencesScreen() {
           </Section>
 
           {/* budget + snacks */}
-          <Section title="Budget and snacks">
+          <Section id="pref-budget" title="Budget and snacks">
             <Segmented<Budget>
               value={prefs.budget}
               onChange={(b) => set({ budget: b })}
@@ -192,7 +191,7 @@ export function PreferencesScreen() {
               ]}
               ariaLabel="Budget"
             />
-            <p className="mt-2 text-[12.5px] font-medium text-fg-3" aria-live="polite">
+            <p className="t-meta mt-2 text-stone" aria-live="polite">
               {BUDGET_HINT[prefs.budget]}
             </p>
             <BudgetField key={String(prefs.weeklyBudgetCad)} value={prefs.weeklyBudgetCad} onSave={(v) => set({ weeklyBudgetCad: v })} />
@@ -210,20 +209,20 @@ export function PreferencesScreen() {
           </Section>
         </div>
 
-        <div className="flex flex-col gap-4 lg:gap-5">
+        <div className="flex min-w-0 flex-col gap-8">
           {/* tastes */}
-          <Section title="Tastes" hint="Nudges, never rules. The planner still mixes things up.">
+          <Section id="pref-tastes" title="Tastes" hint="Nudges, never rules. The planner still mixes things up.">
             <SubLabel first>Like more of</SubLabel>
             <Tokens keys={prefs.likedIngredients} empty="Nothing picked yet." onRemove={(k) => removeFrom("likedIngredients", k)} onAdd={() => setPicker("likedIngredients")} addLabel="Add an ingredient" />
             <SubLabel>Cuisines</SubLabel>
-            <ul className="divide-y divide-line-hair">
+            <ul className="@container divide-y divide-vein border-y border-vein">
               {CUISINES.map((c) => {
                 const mood = cuisineMood(prefs, c.key);
                 return (
-                  <li key={c.key} className="flex min-h-[56px] items-center gap-3 py-1.5">
+                  <li key={c.key} className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 py-2">
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-semibold text-fg">{c.label}</span>
-                      <span className="block text-[12px] font-medium text-fg-3">{c.recipes} recipes</span>
+                      <span className="t-callout block font-semibold text-ivory">{c.label}</span>
+                      <span className="t-meta block text-stone">{c.recipes} recipes</span>
                     </span>
                     <Segmented<"less" | "any" | "more">
                       size="sm"
@@ -235,7 +234,7 @@ export function PreferencesScreen() {
                         { value: "more", label: "More" },
                       ]}
                       ariaLabel={`${c.label}: less, any or more`}
-                      className="w-[168px] shrink-0"
+                      className="w-[10.5rem] shrink-0 @max-[19rem]:w-full"
                     />
                   </li>
                 );
@@ -244,14 +243,14 @@ export function PreferencesScreen() {
           </Section>
 
           {/* kitchen */}
-          <Section title="Your kitchen" hint="Recipes that need something you don't have are never planned.">
+          <Section id="pref-kitchen" title="Your kitchen" hint="Recipes that need something you don't have are never planned.">
             <div className="flex flex-wrap gap-2" role="group" aria-label="Equipment">
               {EQUIPMENT_ORDER.map((e) => {
                 const on = prefs.equipment.includes(e);
                 const last = on && prefs.equipment.length === 1;
                 return (
                   <Chip key={e} selected={on} disabled={last} onClick={() => set({ equipment: toggled(prefs.equipment, e) })}>
-                    {on && <Check className="size-3.5" aria-hidden />}
+                    {on && <Check className="size-3.5" strokeWidth={2} aria-hidden />}
                     {EQUIPMENT_LABEL[e]}
                   </Chip>
                 );
@@ -283,16 +282,16 @@ export function PreferencesScreen() {
 
 function Frame({ status, children }: { status?: string; children: ReactNode }) {
   return (
-    <div className="mx-auto max-w-[1040px] pb-4">
-      <BackLink href="/nutrition/meals" className="-ml-2 inline-flex h-11 items-center gap-1 rounded-[12px] pr-3 text-[14px] font-semibold text-fg-2 hover:text-fg">
-        <ChevronLeft className="size-5" aria-hidden />
-        Meals
+    <div className="mx-auto max-w-[65rem] pb-6">
+      <BackLink href="/nutrition?tab=week" className="press t-callout -ml-2 inline-flex h-11 items-center gap-1 rounded-field pr-3 font-semibold text-stone hover:text-ivory">
+        <ChevronLeft className="size-5" strokeWidth={1.6} aria-hidden />
+        Week
       </BackLink>
-      <header className="mt-1 mb-5 lg:mb-7">
-        <p className="eyebrow mb-2">Meals</p>
-        <h1 className="t-title">Preferences</h1>
-        <p className="mt-2 text-[13px] font-medium text-fg-3" aria-live="polite">
-          {status ?? " "}
+      <header className="mb-6 mt-1 lg:mb-8">
+        <p className="t-eyebrow mb-1.5">Fuel · the planner</p>
+        <h1 className="t-title-1 text-ivory">Meal preferences</h1>
+        <p className="t-meta mt-1.5 min-h-[1lh] text-stone" aria-live="polite">
+          {status ?? " "}
           {status && status !== "Saving…" && status.startsWith("Saved") ? " · the next plan or swap uses these" : ""}
         </p>
       </header>
@@ -301,27 +300,30 @@ function Frame({ status, children }: { status?: string; children: ReactNode }) {
   );
 }
 
-function Section({ title, badge, hint, children }: { title: string; badge?: ReactNode; hint?: string; children: ReactNode }) {
+/** A placard-style section: eyebrow + hint on night, a hairline over the controls. */
+function Section({ id, title, badge, hint, children }: { id: string; title: string; badge?: ReactNode; hint?: string; children: ReactNode }) {
   return (
-    <section className="card-instrument p-4 sm:p-5" aria-label={title}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="eyebrow">{title}</h2>
+    <section className="min-w-0" aria-labelledby={id}>
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <h2 id={id} className="t-eyebrow">
+          {title}
+        </h2>
         {badge}
       </div>
-      {hint && <p className="mt-1.5 text-[12.5px] font-medium leading-snug text-fg-3">{hint}</p>}
-      <div className="mt-3.5">{children}</div>
+      {hint && <p className="t-meta text-stone">{hint}</p>}
+      <div className="mt-3 border-t border-vein pt-4">{children}</div>
     </section>
   );
 }
 
 function SubLabel({ children, first }: { children: ReactNode; first?: boolean }) {
-  return <p className={cn("mb-2.5 text-[13px] font-semibold text-fg-2", !first && "mt-5")}>{children}</p>;
+  return <p className={cn("t-callout mb-2.5 font-semibold text-ivory", !first && "mt-6")}>{children}</p>;
 }
 
 function Radio({ on }: { on: boolean }) {
   return (
-    <span aria-hidden className={cn("grid size-[22px] shrink-0 place-items-center rounded-full border-2 transition-colors duration-(--dur-fast)", on ? "border-gold-400" : "border-line-strong")}>
-      <span className={cn("size-2.5 rounded-full bg-gold-400 transition-transform duration-(--dur-base) ease-spring", on ? "scale-100" : "scale-0")} />
+    <span aria-hidden className={cn("grid size-6 shrink-0 place-items-center rounded-full border-2 transition-colors duration-(--dur-fast)", on ? "border-ivory" : "border-ui-line")}>
+      <span className={cn("size-2.5 rounded-full bg-ivory transition-transform duration-(--dur-base) ease-out", on ? "scale-100" : "scale-0")} />
     </span>
   );
 }
@@ -331,26 +333,21 @@ function Tokens({ keys, empty, onRemove, onAdd, addLabel }: { keys: readonly str
   const items = namesOf(keys);
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {items.length === 0 && <span className="mr-1 text-[13px] font-medium text-fg-3">{empty}</span>}
+      {items.length === 0 && <span className="t-meta mr-1 text-stone">{empty}</span>}
       {items.map((i) => (
-        <span key={i.key} className="inline-flex h-9 items-center gap-0.5 rounded-full border border-line-strong bg-s3 pr-0.5 pl-3.5 text-[13px] font-semibold text-fg">
+        <span key={i.key} className="t-callout inline-flex h-11 items-center gap-0.5 rounded-full bg-m3 pl-4 pr-0.5 font-semibold text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)]">
           {i.name}
-          <button
-            type="button"
-            onClick={() => onRemove(i.key)}
-            aria-label={`Remove ${i.name}`}
-            className="press relative grid size-8 place-items-center rounded-full text-fg-3 before:absolute before:-inset-1.5 before:content-[''] hover:text-fg"
-          >
-            <X className="size-3.5" />
+          <button type="button" onClick={() => onRemove(i.key)} aria-label={`Remove ${i.name}`} className="press grid size-10 place-items-center rounded-full text-stone hover:text-ivory">
+            <X className="size-4" strokeWidth={1.6} />
           </button>
         </span>
       ))}
       <button
         type="button"
         onClick={onAdd}
-        className="press relative inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-line-strong px-3.5 text-[13px] font-bold text-fg-2 before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] hover:text-fg"
+        className="press t-callout inline-flex h-11 items-center gap-1.5 rounded-full border border-dashed border-ui-line px-4 font-semibold text-stone hover:text-ivory"
       >
-        <Plus className="size-3.5 text-gold-300" aria-hidden />
+        <Plus className="size-4" strokeWidth={1.6} aria-hidden />
         {addLabel}
       </button>
     </div>
@@ -375,13 +372,13 @@ function BudgetField({ value, onSave }: { value: number | null; onSave: (v: numb
     if (v !== value) onSave(v);
   };
   return (
-    <div className="mt-4">
-      <label htmlFor="weekly-budget" className="mb-1.5 flex items-baseline justify-between gap-2 text-[13px] font-semibold text-fg-2">
+    <div className="mt-5">
+      <label htmlFor="weekly-budget" className="t-callout mb-1.5 flex items-baseline justify-between gap-2 font-semibold text-ivory">
         Weekly grocery budget
-        <span className="text-[12px] font-medium text-fg-3">Optional</span>
+        <span className="t-meta font-normal text-ash">Optional</span>
       </label>
       <div className="relative">
-        <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-[16px] font-semibold text-fg-3">$</span>
+        <span className="t-num-s pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-ash">$</span>
         <input
           id="weekly-budget"
           type="text"
@@ -395,12 +392,12 @@ function BudgetField({ value, onSave }: { value: number | null; onSave: (v: numb
           onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
           aria-invalid={err ? true : undefined}
           aria-describedby={err ? "weekly-budget-err" : undefined}
-          className="num h-[52px] w-full rounded-[12px] border border-line-field bg-s3 pr-20 pl-8 text-[18px] text-fg outline-none placeholder:font-sans placeholder:text-[15px] placeholder:text-fg-3 focus:border-gold-400 focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)] aria-invalid:border-danger"
+          className="tnum h-[3.25rem] w-full rounded-field border border-ui-line bg-m1 pl-8 pr-24 text-[length:max(18px,1.125rem)] font-semibold text-ivory outline-none transition-[border-color,box-shadow] placeholder:text-[length:max(16px,1rem)] placeholder:font-medium placeholder:text-ash focus:border-leaf-300 focus:shadow-[0_0_0_3px_var(--leaf-tint)] aria-invalid:border-cinnabar"
         />
-        <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-[13px] font-semibold text-fg-3">CAD / week</span>
+        <span className="t-meta pointer-events-none absolute inset-y-0 right-3.5 flex items-center font-semibold text-ash">CAD / week</span>
       </div>
       {err && (
-        <p id="weekly-budget-err" className="mt-1.5 text-[12.5px] font-medium text-danger">
+        <p id="weekly-budget-err" className="t-meta mt-1.5 text-cinnabar">
           {err}
         </p>
       )}

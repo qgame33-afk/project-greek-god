@@ -19,11 +19,11 @@ const BLOCK_REASON: Record<"thumbs_down" | "dont_like" | "ate_recently", string>
 
 function Pips({ n, tone }: { n: number; tone: "up" | "down" }) {
   return (
-    <span className="flex shrink-0 items-end gap-[3px]" aria-hidden>
+    <span className="flex shrink-0 items-end gap-0.5" aria-hidden>
       {[0, 1, 2, 3, 4].map((i) => (
         <span
           key={i}
-          className={cn("w-[4px] rounded-full", i < n ? (tone === "up" ? "bg-gold-400" : "bg-fg-2") : "bg-[var(--track)]")}
+          className={cn("w-1 rounded-full", i < n ? (tone === "up" ? "bg-ivory" : "bg-stone") : "bg-vein-3")}
           style={{ height: 6 + i * 2.5 }}
         />
       ))}
@@ -35,10 +35,10 @@ function FeatureRow({ g, tone }: { g: EvidenceGroup<LearnedFeature["recipes"][nu
   const n = strengthPips(g.weight);
   const from = g.recipes.map((r) => `${r.name} (${evidenceText(r.events)})`).join(" · ");
   return (
-    <li className="flex items-start gap-3 py-2.5">
+    <li className="flex min-h-14 items-start gap-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <p className="text-[14.5px] font-semibold leading-snug text-fg">{g.labels.join(" · ")}</p>
-        <p className="mt-0.5 text-[12.5px] font-medium leading-snug text-fg-3">From {from}</p>
+        <p className="t-callout font-semibold text-ivory">{g.labels.join(" · ")}</p>
+        <p className="t-meta mt-0.5 text-stone">From {from}</p>
       </div>
       <span className="mt-1.5" title={`Strength ${n} of 5`}>
         <span className="sr-only">Strength {n} of 5</span>
@@ -50,12 +50,12 @@ function FeatureRow({ g, tone }: { g: EvidenceGroup<LearnedFeature["recipes"][nu
 
 function Group({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
-    <div className="mt-4 first:mt-0">
-      <p className="flex items-center gap-2 text-[13px] font-bold text-fg-2">
+    <div className="mt-5 first:mt-0">
+      <p className="t-callout flex items-center gap-2 font-semibold text-ivory">
         {icon}
         {title}
       </p>
-      <ul className="divide-y divide-line-hair">{children}</ul>
+      <ul className="divide-y divide-vein">{children}</ul>
     </div>
   );
 }
@@ -74,52 +74,53 @@ export function LearnedPanel({ feedback, loading, nameOf }: { feedback: readonly
   const ref = useToday();
 
   return (
-    <section className="card-instrument p-4 sm:p-5" aria-labelledby="learned-title">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 id="learned-title" className="eyebrow">
+    <section className="min-w-0" aria-labelledby="learned-title">
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <h2 id="learned-title" className="t-eyebrow">
           What the planner has learned
         </h2>
-        {!nothing && <span className="shrink-0 whitespace-nowrap text-[12px] font-semibold text-fg-3">From {summary.events} {summary.events === 1 ? "signal" : "signals"}</span>}
+        {!nothing && <span className="t-meta shrink-0 whitespace-nowrap text-stone">From {summary.events} {summary.events === 1 ? "signal" : "signals"}</span>}
       </div>
+      <div className="mt-3 border-t border-vein pt-4">
 
       {loading ? (
-        <p className="text-[13px] text-fg-3">Loading…</p>
+        <p className="t-meta text-stone">Loading…</p>
       ) : nothing || !learnedAnything ? (
-        <p className="text-[13.5px] leading-relaxed text-fg-2">
+        <p className="t-callout text-stone">
           {nothing ? "Nothing yet." : "Nothing strong enough to show yet."} Likes, favourites, swaps and the meals you log teach it what you enjoy. Every lean shows here with the meals behind it.
         </p>
       ) : (
         <>
           {summary.liked.length > 0 && (
-            <Group icon={<ThumbsUp className="size-4 text-gold-300" aria-hidden />} title="More of">
+            <Group icon={<ThumbsUp className="size-4 text-ivory" strokeWidth={1.6} aria-hidden />} title="More of">
               {groupByEvidence(summary.liked).map((g) => (
                 <FeatureRow key={g.key} g={g} tone="up" />
               ))}
             </Group>
           )}
           {summary.disliked.length > 0 && (
-            <Group icon={<ThumbsDown className="size-4 text-fg-3" aria-hidden />} title="Less of">
+            <Group icon={<ThumbsDown className="size-4 text-stone" strokeWidth={1.6} aria-hidden />} title="Less of">
               {groupByEvidence(summary.disliked).map((g) => (
                 <FeatureRow key={g.key} g={g} tone="down" />
               ))}
             </Group>
           )}
           {summary.simpler.active && (
-            <Group icon={<Layers className="size-4 text-fg-3" aria-hidden />} title="Simpler meals">
-              <li className="py-2.5 text-[12.5px] font-medium leading-snug text-fg-3">
+            <Group icon={<Layers className="size-4 text-stone" strokeWidth={1.6} aria-hidden />} title="Simpler meals">
+              <li className="t-meta py-2.5 text-stone">
                 Fewer ingredients and steps, because you said {summary.simpler.recipes.map((r) => r.name).join(", ") || "some meals"} {summary.simpler.recipes.length === 1 ? "was" : "were"} too complicated.
               </li>
             </Group>
           )}
           {summary.blocked.length > 0 && (
-            <Group icon={<Hourglass className="size-4 text-fg-3" aria-hidden />} title="Resting">
+            <Group icon={<Hourglass className="size-4 text-stone" strokeWidth={1.6} aria-hidden />} title="Resting">
               {summary.blocked.slice(0, 6).map((b) => (
-                <li key={b.recipe_key} className="flex items-baseline justify-between gap-3 py-2.5">
+                <li key={b.recipe_key} className="flex min-h-14 flex-wrap items-baseline justify-between gap-x-3 py-2.5">
                   <span className="min-w-0">
-                    <span className="block truncate text-[14.5px] font-semibold text-fg">{b.name}</span>
-                    <span className="block text-[12.5px] font-medium text-fg-3">{BLOCK_REASON[b.reason]}</span>
+                    <span className="t-callout block font-semibold text-ivory">{b.name}</span>
+                    <span className="t-meta block text-stone">{BLOCK_REASON[b.reason]}</span>
                   </span>
-                  <span className="shrink-0 text-[12.5px] font-semibold text-fg-2">until {shortDate(localDateOf(b.until), ref)}</span>
+                  <span className="t-meta shrink-0 text-stone">until {shortDate(localDateOf(b.until), ref)}</span>
                 </li>
               ))}
             </Group>
@@ -132,12 +133,13 @@ export function LearnedPanel({ feedback, loading, nameOf }: { feedback: readonly
           type="button"
           onClick={() => setConfirm(true)}
           disabled={reset.isPending}
-          className="press mt-4 -ml-1 inline-flex h-11 items-center gap-2 rounded-[12px] px-1 text-[14px] font-bold text-fg-2 hover:text-fg disabled:opacity-50"
+          className="press t-callout -ml-1 mt-4 inline-flex h-11 items-center gap-2 rounded-field px-1 font-semibold text-stone hover:text-ivory disabled:opacity-50"
         >
-          <RotateCcw className="size-4" aria-hidden />
+          <RotateCcw className="size-4" strokeWidth={1.6} aria-hidden />
           Reset what it learned
         </button>
       )}
+      </div>
       <Confirm
         open={confirm}
         onOpenChange={setConfirm}
