@@ -264,7 +264,7 @@ export function BudgetSheet({ open, onOpenChange, value, onSave }: { open: boole
     if (open) setNonce((n) => n + 1);
   }
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title="Weekly budget" description="Compared with what this week's meals use">
+    <Sheet open={open} onOpenChange={onOpenChange} title="Weekly budget" description="Compared with what you pay at the checkout">
       <BudgetForm key={nonce} value={value} onSave={(v) => (onSave(v), onOpenChange(false))} />
     </Sheet>
   );

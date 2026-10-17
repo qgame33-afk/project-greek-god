@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildGroceryList, toGroceryInput } from "@/lib/meals/engine/grocery";
 import { getLibraryRecipe } from "@/lib/meals/library";
-import { cad, groceryText, groceryView, isStapleRow, rowAmount, rowBuy, rowTotals, STAPLE_LABEL, type GroceryRow } from "./model";
+import { budgetLines, cad, groceryFrom, groceryText, groceryView, isStapleRow, rowAmount, rowBuy, rowTotals, STAPLE_LABEL, type GroceryRow } from "./model";
 
 /** Stored rows as sync_grocery_items would keep them, from a real generated list. */
 function storedFrom(meals: { recipe_key: string; servings: number }[]): GroceryRow[] {
@@ -102,5 +102,41 @@ describe("grocery list view", () => {
     expect(cad(124.4)).toBe("$124");
     expect(cad(1234.6)).toBe("$1,235");
     expect(cad(-3.25)).toBe("−$3.25");
+  });
+});
+
+describe("budget against the checkout", () => {
+  it("compares the budget with what you pay, and explains the packs that last", () => {
+    // qa-m-sk-d: $150 budget, ≈ $479 at the checkout, the meals use ≈ $173
+    const l = budgetLines({ budgetCad: 150, checkoutCad: 479, weekCad: 173, overBudgetCad: 329 });
+    expect(l).toEqual({ headline: "Budget $150 a week", detail: "≈ $329 over at the checkout", note: "This week's meals use ≈ $173 of it. The rest is packs that last past this week.", over: true });
+  });
+  it("says under when the shop fits", () => {
+    const l = budgetLines({ budgetCad: 200, checkoutCad: 180.4, weekCad: 178, overBudgetCad: -19.6 });
+    expect(l.detail).toBe("≈ $20 under at the checkout");
+    expect(l.over).toBe(false);
+    expect(l.note).toBeNull();
+  });
+  it("without a budget shows what the meals use", () => {
+    const l = budgetLines({ budgetCad: null, checkoutCad: 420, weekCad: 300, overBudgetCad: null });
+    expect(l.headline).toBe("No budget set");
+    expect(l.detail).toBe("This week's meals use ≈ $300");
+    expect(l.note).toMatch(/packs that last/);
+  });
+  it("matches the engine's totals for a stored list", () => {
+    const t = rowTotals(storedFrom(WEEK), 10);
+    expect(budgetLines(t).detail).toBe(`≈ ${cad(Math.round(t.checkoutCad - 10))} over at the checkout`);
+  });
+});
+
+describe("which days the list shops for", () => {
+  const ws = "2026-10-12";
+  it("a list made mid-week starts that day and stays put as days pass", () => {
+    expect(groceryFrom(ws, "2026-10-15", null)).toBe("2026-10-15");
+    expect(groceryFrom(ws, "2026-10-17", "2026-10-15T14:00:00")).toBe("2026-10-15");
+  });
+  it("a list made before the week covers all of it", () => {
+    expect(groceryFrom(ws, "2026-10-10", null)).toBe(ws);
+    expect(groceryFrom(ws, "2026-10-14", "2026-10-10T09:00:00")).toBe(ws);
   });
 });

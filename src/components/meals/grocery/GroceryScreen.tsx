@@ -26,10 +26,10 @@ import {
   type GroceryItem,
 } from "@/lib/data/meals";
 import { addDays, shortDate, weekStart } from "@/lib/dates";
-import { buildGroceryList, mergeGroceryState, toGroceryInput, type GroceryUse } from "@/lib/meals/engine";
+import { buildGroceryList, mergeGroceryState, planFrom, toGroceryInput, type GroceryUse } from "@/lib/meals/engine";
 import { useSwapIn } from "@/lib/motion";
 import { AddItemSheet, BudgetSheet, GroceryLineRow, LineSheet, RestoreIcon, SetAsideGroup } from "./GroceryParts";
-import { cad, groceryText, groceryView, rowTotals, type GroceryRow } from "./model";
+import { budgetLines, cad, groceryFrom, groceryText, groceryView, rowTotals, type GroceryRow } from "./model";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -103,11 +103,18 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
   const updatePlan = useUpdatePlan();
 
   const ready = hasData && pool.hasData && prefsQ.hasData;
-  const generated = useMemo(
-    () => (ready && meals.length ? buildGroceryList(meals, pool.lookup, { pantry: prefsQ.prefs.pantry, weeklyBudgetCad: prefsQ.prefs.weeklyBudgetCad }) : null),
-    [ready, meals, pool.lookup, prefsQ.prefs.pantry, prefsQ.prefs.weeklyBudgetCad],
+  // The stored list covers the plan days from the day it was made (steady while you shop);
+  // "Update list" makes it again from today, leaving the days already past off.
+  const listFrom = groceryFrom(ws, today, plan?.grocery_generated_at);
+  const shopFrom = planFrom(ws, today);
+  const build = useCallback(
+    (from: string) => buildGroceryList(meals, pool.lookup, { pantry: prefsQ.prefs.pantry, weeklyBudgetCad: prefsQ.prefs.weeklyBudgetCad }, { from }),
+    [meals, pool.lookup, prefsQ.prefs.pantry, prefsQ.prefs.weeklyBudgetCad],
   );
+  const generated = useMemo(() => (ready && meals.length ? build(listFrom) : null), [ready, meals.length, build, listFrom]);
+  const fresh = useMemo(() => (!generated ? null : shopFrom === listFrom ? generated : build(shopFrom)), [generated, build, shopFrom, listFrom]);
   const input = useMemo(() => (generated ? toGroceryInput(generated.items) : null), [generated]);
+  const freshInput = useMemo(() => (fresh ? toGroceryInput(fresh.items) : null), [fresh]);
   const uses = useMemo(() => new Map<string, GroceryUse[]>((generated?.items ?? []).map((l) => [l.key, l.uses])), [generated]);
   const rows = grocery.items;
   const view = useMemo(() => groceryView(rows), [rows]);
@@ -191,12 +198,13 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
   };
 
   const regenerate = () => {
-    if (!input) return;
-    sync.mutate({ planId: plan.id, items: input });
+    if (!freshInput) return;
+    sync.mutate({ planId: plan.id, items: freshInput });
     toast("List updated", { description: "Your ticks and your own items were kept." });
   };
 
   const allIn = view.toBuy > 0 && view.inCart === view.toBuy;
+  const money = budgetLines(totals);
 
   const summary = (
     <section className="card p-4 sm:p-5" aria-label="Shopping progress">
@@ -220,24 +228,11 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
       <p className={cn("mt-2.5 text-[13px] font-medium", allIn ? "text-success" : "text-fg-3")}>{allIn ? "Everything's in the cart." : `${view.toBuy - view.inCart} left to buy`}</p>
 
       <div className="mt-4 border-t border-line-hair pt-3.5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            {budget != null && budget > 0 ? (
-              <>
-                <p className="text-[14px] font-semibold text-fg">
-                  Budget {cad(budget)} <span className="font-medium text-fg-3">a week</span>
-                </p>
-                <p className="mt-0.5 text-[12.5px] font-medium leading-snug text-fg-2">
-                  This week&apos;s meals use ≈ {cad(totals.weekCad)}
-                  {totals.overBudgetCad != null && (totals.overBudgetCad > 0 ? ` · ${cad(Math.round(totals.overBudgetCad))} over` : ` · ${cad(Math.round(-totals.overBudgetCad))} under`)}
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-[14px] font-semibold text-fg">No budget set</p>
-                <p className="mt-0.5 text-[12.5px] font-medium text-fg-2">This week&apos;s meals use ≈ {cad(totals.weekCad)}</p>
-              </>
-            )}
+            <p className="text-[14px] font-semibold text-fg">{money.headline}</p>
+            <p className={cn("mt-0.5 text-[13px] font-semibold leading-snug", money.over ? "text-fg" : "text-fg-2")}>{money.detail}</p>
+            {money.note && <p className="mt-1 text-[12.5px] font-medium leading-snug text-fg-3">{money.note}</p>}
           </div>
           <button type="button" onClick={() => setBudgetOpen(true)} className="press -mr-2 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[10px] px-2.5 text-[13.5px] font-bold text-gold-300 hover:text-gold-200">
             <Pencil className="size-3.5" aria-hidden />
@@ -246,7 +241,7 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
         </div>
         <p className="mt-2 flex flex-wrap items-center gap-2 text-[12px] font-medium leading-snug text-fg-3">
           <EstimateBadge />
-          Rough Canadian shelf prices. Some packs last past this week.
+          Rough Canadian shelf prices.
         </p>
       </div>
     </section>
