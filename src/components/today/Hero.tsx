@@ -38,7 +38,8 @@ export function Hero({ m, line, className }: { m: TodayModel; line: string; clas
       <h1 id="today-greeting" className="t-hero mt-2.5 text-fg [text-wrap:balance]">
         {greeting(hour, m.profile.display_name)}
       </h1>
-      <p className="mt-2.5 line-clamp-2 max-w-[44ch] text-[15px] font-medium leading-[1.45] text-fg-2 [text-wrap:pretty]">{line}</p>
+      {/* never clamped: the readiness call and its pain caveat must read in full, as on Training */}
+      <p className="mt-2.5 text-[15px] font-medium leading-[1.45] text-fg-2 [text-wrap:pretty] sm:max-w-[52ch]">{line}</p>
 
       {/* Countdown + week + frieze — centred in any extra height when a grid row stretches the hero */}
       <div className="flex flex-1 flex-col justify-center">

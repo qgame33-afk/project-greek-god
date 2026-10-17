@@ -13,14 +13,16 @@ import { EmptyArt } from "@/components/art/Motifs";
 import { cn } from "@/lib/cn";
 import { haptic } from "@/lib/haptics";
 import { mealForTime, MEALS, type Meal } from "@/lib/nutrition";
-import { newId, useToday, useUser } from "@/lib/data/core";
+import { isOffline, newId, saveErrorKind, useToday, useUser } from "@/lib/data/core";
 import type { AIFoodItem, AIQuestion, PhotoAnalysis } from "@/lib/ai/food-schemas";
-import { entriesFromItems } from "@/lib/ai/food-log";
+import { entriesFromItems, isLoggable } from "@/lib/ai/food-log";
 import { toEditable, type EditableItem } from "@/lib/ai/food-edit";
+import { usdaDownNote } from "@/lib/ai/lookup-note";
 import { sumMacroSets } from "@/lib/food/normalize";
 import { FoodAIRequestError, analysePhoto, getCapability, type PhotoRequest } from "../api";
 import { ImagePrepError, dataUrlToBlob, prepareImage, type PreparedImage } from "../image";
-import { deleteLogged, invalidateFood, uploadMealPhoto, useInsertEntries } from "../hooks";
+import { removeOrphanMealPhotos } from "@/lib/data/nutrition";
+import { deleteLogged, groupRows, invalidateFood, uploadMealPhoto, useInsertEntries } from "../hooks";
 import { DevMockBadge, FocusScreen, MacroTrio, MealDatePicker, fmtKcal } from "../parts";
 import { AddItemSheet } from "../AddItemSheet";
 import { PhotoFrame } from "./PhotoFrame";
@@ -38,6 +40,18 @@ interface Logged {
   meal: Meal;
   kcal: number;
   count: number;
+}
+/**
+ * One save of this review: its group id, a row id per item and the uploaded photo, kept
+ * (also across a reload) until the diary confirms the outcome, so a retry after a dropped
+ * answer finishes the same save and can never log the meal twice.
+ */
+interface Attempt {
+  groupId: string;
+  ids: Record<string, string>;
+  photoPath: string | null;
+  /** A save was sent; its outcome is unknown until the diary is asked. */
+  sent: boolean;
 }
 
 const DRAFT_KEY = "pgg.scan.draft.v1";
@@ -66,6 +80,7 @@ interface Draft {
   savePhoto: boolean;
   orig: [string, { name: string; prep: string }][];
   removed: string[];
+  attempt?: Attempt | null;
   at: number;
 }
 
@@ -104,6 +119,7 @@ export function FoodScanner() {
   const removed = useRef<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const savingRef = useRef(false);
+  const attempt = useRef<Attempt | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
   const leaveTimer = useRef<number | null>(null);
@@ -134,6 +150,7 @@ export function FoodScanner() {
       setMock(!!d.result.mock);
       orig.current = new Map(d.orig ?? []);
       removed.current = d.removed ?? [];
+      attempt.current = d.attempt ?? null;
       setPhase("review");
       toast("Restored your unsaved scan");
     } catch {
@@ -155,6 +172,7 @@ export function FoodScanner() {
           savePhoto,
           orig: [...orig.current],
           removed: removed.current,
+          attempt: attempt.current,
           at: Date.now(),
         };
         sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d));
@@ -276,6 +294,7 @@ export function FoodScanner() {
 
   const retake = () => {
     abortRef.current?.abort();
+    dropAttempt();
     clearDraft();
     setPhoto(null);
     setResult(null);
@@ -339,48 +358,94 @@ export function FoodScanner() {
 
   /* ---------------------------------------------------------- confirm */
 
-  const confirm = async () => {
+  /** Forget the current save attempt; a photo it uploaded is removed unless a diary row uses it. */
+  const dropAttempt = () => {
+    const a = attempt.current;
+    attempt.current = null;
+    if (a?.photoPath) void removeOrphanMealPhotos([a.photoPath]).catch(() => {});
+  };
+
+  const succeed = (ids: string[], kcal: number, photoPath: string | null) => {
+    attempt.current = null;
+    setLogged({ ids, photoPath, meal, kcal, count: ids.length });
+    clearDraft();
+    setPhase("success");
+    haptic([12, 40, 12]);
+  };
+
+  const confirm = async (opts: { withoutPhoto?: boolean } = {}) => {
     if (savingRef.current || !items.length) return;
+    if (isOffline()) {
+      toast.error("You're offline. Nothing was saved.", { description: "Your review is kept. Confirm again once you're back online." });
+      return;
+    }
     savingRef.current = true;
     setPhase("saving");
-    let photoPath: string | null = null;
+    const a = (attempt.current ??= { groupId: newId(), ids: {}, photoPath: null, sent: false });
     try {
-      if (savePhoto && photo && userId) {
-        try {
-          photoPath = await uploadMealPhoto(userId, date, dataUrlToBlob(photo.dataUrl));
-        } catch {
-          toast("The photo couldn't be saved. Logging the meal without it.");
+      // an earlier try whose answer was lost may already be in the diary: never add it twice
+      if (a.sent) {
+        const landed = await groupRows(a.groupId);
+        if (landed === null) throw new Error("You're offline or the connection dropped.");
+        if (landed.length) {
+          succeed(
+            landed.map((r) => r.id),
+            landed.reduce((t, r) => t + r.calories, 0),
+            a.photoPath,
+          );
+          return;
         }
       }
+      if (opts.withoutPhoto && a.photoPath) {
+        await deleteLogged([], a.photoPath).catch(() => {});
+        a.photoPath = null;
+      }
+      if (savePhoto && !opts.withoutPhoto && photo && userId && !a.photoPath) {
+        try {
+          a.photoPath = await uploadMealPhoto(userId, date, dataUrlToBlob(photo.dataUrl));
+        } catch {
+          // the user asked to keep it: ask, never drop it silently
+          setPhase("review");
+          toast.error("The photo couldn't be saved, so nothing was added yet.", {
+            description: "Try Confirm again, or add the meal without the photo.",
+            duration: 10_000,
+            action: { label: "Add without photo", onClick: () => void confirm({ withoutPhoto: true }) },
+          });
+          return;
+        }
+      }
+      const keys = items.filter(isLoggable).map((i) => i.key);
+      let n = 0;
       const rows = entriesFromItems(items, {
         meal,
         localDate: date,
         eatenAt: eatenAtFor(date, todayDate, meal),
-        groupId: newId(),
+        groupId: a.groupId,
         source: "photo_ai",
-        photoPath,
-        newId,
+        photoPath: a.photoPath,
+        newId: () => {
+          const k = keys[n++] ?? `extra-${n}`;
+          return (a.ids[k] ??= newId());
+        },
       });
       if (!rows.length) throw new Error("Every item is at 0 kcal. Adjust a portion or add an item.");
+      a.sent = true;
       const inserted = await insert(rows);
-      setLogged({
-        ids: inserted.map((r) => r.id),
-        photoPath,
-        meal,
-        kcal: totals.calories,
-        count: rows.length,
-      });
-      clearDraft();
-      setPhase("success");
-      haptic([12, 40, 12]);
+      succeed(
+        inserted.map((r) => r.id),
+        inserted.reduce((t, r) => t + (Number(r.calories) || 0), 0),
+        a.photoPath,
+      );
     } catch (e) {
-      if (photoPath) await deleteLogged([], photoPath).catch(() => {});
       setPhase("review");
-      // insert errors are already announced by the shared food hook
-      if (!(e as Error).message.includes("Couldn't"))
-        toast.error("Nothing was saved. Your review is kept.", {
-          description: (e as Error).message,
-        });
+      if (a.sent && saveErrorKind(e) === "offline") {
+        // the diary couldn't be asked whether it saved: keep this attempt for the retry
+        toast.error("The connection dropped. Your review is kept.", { description: "Confirm again once you're online: the meal can't be added twice." });
+      } else {
+        // certainly nothing saved
+        dropAttempt();
+        toast.error("Nothing was saved. Your review is kept.", { description: (e as Error).message });
+      }
     } finally {
       savingRef.current = false;
     }
@@ -442,8 +507,7 @@ export function FoodScanner() {
   /* ----------------------------------------------------------- render */
 
   const showReview = phase === "review" || phase === "saving";
-  const lookupDown =
-    result && ["rate_limited", "error", "timeout"].includes(result.lookup.usda) && items.some((i) => i.provenance === "estimate" && i.kind === "generic");
+  const usdaNote = result ? usdaDownNote(result.lookup.usda, items, "photo") : null;
 
   const logDetails = (
     <div className="space-y-3">
@@ -462,7 +526,7 @@ export function FoodScanner() {
   const footer =
     showReview && result && !result.not_food ? (
       <div className="chrome z-10 shrink-0 border-t border-line-hair px-4 pt-3 md:hidden" style={{ paddingBottom: "calc(12px + var(--safe-bottom))" }}>
-        <ConfirmBar meal={meal} totals={totals} count={items.length} saving={phase === "saving"} onConfirm={confirm} />
+        <ConfirmBar meal={meal} totals={totals} count={items.length} saving={phase === "saving"} onConfirm={() => void confirm()} />
       </div>
     ) : null;
 
@@ -508,7 +572,7 @@ export function FoodScanner() {
               <section className="card mt-4 hidden space-y-4 p-5 lg:block" aria-label="Where to log it">
                 {logDetails}
                 <div className="border-t border-line-hair pt-4">
-                  <ConfirmBar meal={meal} totals={totals} count={items.length} saving={phase === "saving"} onConfirm={confirm} />
+                  <ConfirmBar meal={meal} totals={totals} count={items.length} saving={phase === "saving"} onConfirm={() => void confirm()} />
                 </div>
               </section>
             )}
@@ -585,9 +649,7 @@ export function FoodScanner() {
                         ))}
                       </ul>
                     )}
-                    {lookupDown && (
-                      <p className="mt-2 pl-6 text-[12px] text-fg-3">USDA didn&apos;t answer this time, so generic foods use the photo estimate.</p>
-                    )}
+                    {usdaNote && <p className="mt-2 pl-6 text-[12px] text-fg-3">{usdaNote}</p>}
                   </div>
 
                   {questions.length > 0 && (
@@ -648,7 +710,7 @@ export function FoodScanner() {
 
                   <div className="mt-5 hidden md:block md:sticky md:bottom-4 lg:hidden">
                     <div className="card p-4">
-                      <ConfirmBar meal={meal} totals={totals} count={items.length} saving={phase === "saving"} onConfirm={confirm} />
+                      <ConfirmBar meal={meal} totals={totals} count={items.length} saving={phase === "saving"} onConfirm={() => void confirm()} />
                     </div>
                   </div>
                 </>
@@ -821,7 +883,8 @@ function ConfirmBar({
         loading={saving}
         disabled={!count}
       >
-        Confirm &amp; add to daily nutrition
+        {/* a short label while saving, so the spinner never squeezes the button's padding */}
+        {saving ? "Saving" : "Confirm & add to daily nutrition"}
       </Button>
     </div>
   );

@@ -4,7 +4,7 @@
 // that only become data when ✓ is tapped. Cells are buttons that drive the NumberPad on
 // touch screens, or real inputs on desktop / when the system keyboard is preferred.
 
-import { memo, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { memo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { Check, NotebookPen } from "lucide-react";
 import { PRBadge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
@@ -23,8 +23,8 @@ export interface RowView {
   pulse: boolean;
   flash: boolean;
   error: string | null;
-  /** The cell the error belongs to (only that cell is outlined). */
-  errorField?: CellField | null;
+  /** The cells holding a rejected value (only those are outlined). */
+  errorFields?: CellField[];
   showNote: boolean;
 }
 
@@ -131,7 +131,7 @@ interface RowProps {
 const FIELD_WORD: Record<CellField, string> = { weight: "weight", work: "reps", rir: "reps in reserve" };
 
 const SetRowView = memo(function SetRowView(p: RowProps) {
-  const { set, label, ghost, upNext, pr, sheen, pulse, flash, error, errorField } = p.row;
+  const { set, label, ghost, upNext, pr, sheen, pulse, flash, error, errorFields } = p.row;
   const logged = set.completed;
   // The check pops, draws and sends out one ring only when the set is logged while this row is
   // on screen — sets that were already logged when the screen opened just sit there.
@@ -204,7 +204,7 @@ const SetRowView = memo(function SetRowView(p: RowProps) {
               unit={p.unit}
               ghost={ghostText(f)}
               label={`${name} ${FIELD_WORD[f]}`}
-              invalid={!!error && (errorField == null || errorField === f)}
+              invalid={!!errorFields?.includes(f)}
               onCommit={p.onCommit}
               onEnter={p.onEnter}
             />
@@ -344,6 +344,7 @@ function InlineCell({
   const [text, setText] = useState(stored);
   const [focused, setFocused] = useState(false);
   const [prevStored, setPrevStored] = useState(stored);
+  const reverting = useRef(false);
   if (stored !== prevStored && !focused) {
     setPrevStored(stored);
     setText(stored);
@@ -358,7 +359,10 @@ function InlineCell({
       e.preventDefault();
       if (commit()) onEnter(set, field);
     } else if (e.key === "Escape") {
+      // Back to the saved value, and its error goes with the rejected text.
+      reverting.current = true;
       setText(stored);
+      onCommit(set, field, stored);
       (e.target as HTMLInputElement).blur();
     }
   };
@@ -380,7 +384,8 @@ function InlineCell({
         }}
         onBlur={() => {
           setFocused(false);
-          commit(); // an invalid entry stays in the field with its error, never silently lost
+          if (reverting.current) reverting.current = false;
+          else commit(); // an invalid entry stays in the field with its error, never silently lost
         }}
         onKeyDown={onKeyDown}
         inputMode={field === "weight" ? "decimal" : "numeric"}
@@ -390,7 +395,7 @@ function InlineCell({
         aria-invalid={invalid || undefined}
         className={cn(
           "num-sm h-full w-full min-w-0 rounded-[10px] border border-transparent bg-s3 px-1 text-center text-fg outline-none transition-[border-color,box-shadow] hover:border-line focus:border-gold-400 focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)]",
-          invalid && "border-danger",
+          invalid && "border-danger focus:border-danger focus:shadow-[0_0_0_3px_rgb(229_103_92/.18)]",
           field === "rir" && "text-[19px]",
         )}
       />

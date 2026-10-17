@@ -36,7 +36,7 @@ export function RecentRail() {
     const m = meal;
     const c = fromEntry(e);
     const row = buildEntry(c, { id: newId(), unitIndex: 0, amount: c.defaultAmount, meal: m, date, eatenAt: composeEatenAt(date, timeValue(now)) });
-    await log([row], { meal: m, what: `${e.name} · ${formatAmount(Number(e.amount), e.unit)} · ${formatInt(Number(row.calories))} kcal` });
+    await log([row], { meal: m, name: e.name, detail: `${formatAmount(Number(e.amount), e.unit)} · ${formatInt(Number(row.calories))} kcal` });
     setPending(null);
   };
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PastSet } from "@/lib/training/progression";
+import { getExercise, LIBRARY } from "@/lib/training/library";
 import { mkSet } from "./fixtures";
 import {
   cellText,
@@ -26,6 +27,8 @@ import {
   retarget,
   defaultTargets,
   zeroLoadOk,
+  rowErrorFields,
+  withCellError,
 } from "./session";
 
 const past = (i: number, w: number | null, reps: number | null, dur: number | null = null): PastSet => ({
@@ -217,10 +220,17 @@ describe("validation", () => {
     expect(zeroLoadOk({ equipment: "barbell" }, "weight_reps")).toBe(false);
     expect(zeroLoadOk({ equipment: "cable" }, "weight_reps")).toBe(false);
     expect(zeroLoadOk({ equipment: "machine" }, "weight_reps")).toBe(false);
-    expect(zeroLoadOk({ equipment: "dumbbell" }, "weight_reps")).toBe(true); // bodyweight split squats
+    expect(zeroLoadOk({ equipment: "dumbbell" }, "weight_reps")).toBe(false); // a 0 lb dumbbell press is a typo
+    expect(zeroLoadOk({ equipment: "dumbbell", bodyweightOk: true }, "weight_reps")).toBe(true); // bodyweight split squats
     expect(zeroLoadOk({ equipment: "dumbbell" }, "weight_time")).toBe(false); // a carry needs a load
     expect(zeroLoadOk({ equipment: "bodyweight" }, "bodyweight_reps")).toBe(true);
     expect(zeroLoadOk(undefined, "weight_reps")).toBe(true);
+  });
+
+  it("only the library's bodyweight-version dumbbell lifts take a 0 load", () => {
+    const zero = LIBRARY.filter((e) => e.equipment === "dumbbell" && zeroLoadOk(e, e.tracking)).map((e) => e.slug);
+    expect(zero.sort()).toEqual(["bulgarian-split-squat", "walking-lunge"]);
+    expect(validateCell("weight", "0", "lb", "weight_reps", zeroLoadOk(getExercise("incline-db-press"), "weight_reps"))).toEqual({ ok: false, error: "Weight must be above 0 lb." });
   });
 
   it("converts kg to stored pounds and accepts blanks", () => {
@@ -243,6 +253,24 @@ describe("validation", () => {
   it("infers tracking without a library entry", () => {
     expect(trackingFor(undefined, "sec")).toBe("weight_time");
     expect(trackingFor(undefined, "reps")).toBe("weight_reps");
+  });
+});
+
+describe("cell errors", () => {
+  it("a valid entry in one cell never clears another cell's error", () => {
+    let e = withCellError({}, "s1", "work", "Whole reps only.");
+    e = withCellError(e, "s1", "weight", null); // weight 55 accepted
+    e = withCellError(e, "s1", "rir", "RIR is a whole number.");
+    expect(rowErrorFields(e, "s1")).toEqual(["work", "rir"]);
+    expect(rowErrorFields(e, "s2")).toEqual([]);
+    e = withCellError(e, "s1", "work", null); // reps fixed
+    expect(rowErrorFields(e, "s1")).toEqual(["rir"]);
+  });
+
+  it("returns the same object when nothing changes", () => {
+    const e = withCellError({}, "s1", "work", "Whole reps only.");
+    expect(withCellError(e, "s1", "work", "Whole reps only.")).toBe(e);
+    expect(withCellError(e, "s1", "weight", null)).toBe(e);
   });
 });
 

@@ -26,7 +26,7 @@ type Week = ReturnType<typeof useTrainingWeek>;
 export function WeekCard({ week, onDay, onVolleyball, className }: { week: Week; onDay: (d: ISODate) => void; onVolleyball: () => void; className?: string }) {
   const train = week.days.filter((d) => d.kind === "train");
   const done = train.filter((d) => d.done).length;
-  const vbSessions = week.volleyball.filter((v) => v.local_date >= (week.days[0]?.date ?? week.today) && v.local_date <= (week.days[6]?.date ?? week.today)).length;
+  const vbSessions = week.volleyballDays.filter((v) => v.local_date >= (week.days[0]?.date ?? week.today) && v.local_date <= (week.days[6]?.date ?? week.today)).length;
   // The week failed to load: don't present "0 done" or "no volleyball" as fact.
   const unknown = !!week.error;
   const complete = !unknown && weekComplete(week.days);

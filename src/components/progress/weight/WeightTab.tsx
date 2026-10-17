@@ -130,7 +130,10 @@ function WeightHero({
   const goalDisp = disp(plan.goalLb)!;
   const currentDisp = disp(stats.current);
   const avgDisp = disp(stats.avg7);
-  const sinceLabel = `since ${shortDate(plan.startDate, today)}`;
+  // On day 1, or when the start weight wasn't a weigh-in, "since Oct 16" would read like a
+  // same-day change: the delta is measured against the start weight, so say that.
+  const startWeighed = weights.some((w) => w.local_date === plan.startDate);
+  const sinceLabel = plan.startDate >= today || !startWeighed ? "vs start" : `since ${shortDate(plan.startDate, today)}`;
   const latestEyebrow = stats.currentDate ? `Latest · ${relativeDay(stats.currentDate, today)}` : "Bodyweight";
 
   // Restore the latest values whenever the data changes (and on release).

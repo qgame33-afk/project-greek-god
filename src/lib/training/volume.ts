@@ -299,14 +299,26 @@ export interface StrengthSeries {
 }
 
 /**
- * Chart series for one exercise from the per-day view. The line is e1RM when any day has one
- * (weighted sets of 1–12 reps), else the top weight, else the best reps. Bars are volume, or
- * set counts for unloaded work. Days are returned oldest first; `from` trims the range.
+ * Whether e1RM describes this exercise. It is only estimated for 1–12 rep sets, so for
+ * high-rep work (lateral raises at 12–20) just the odd short set — usually a miss — gets
+ * one, and "best e1RM" would be the weakest set. True when at least half of the loaded
+ * training days carry an e1RM.
+ */
+export function usesE1rm(daily: Pick<DailyLike, "best_e1rm_lb" | "top_weight_lb">[]): boolean {
+  const loaded = daily.filter((d) => Number(d.top_weight_lb) > 0 || Number(d.best_e1rm_lb) > 0);
+  const withE1rm = loaded.filter((d) => Number(d.best_e1rm_lb) > 0).length;
+  return withE1rm > 0 && withE1rm * 2 >= loaded.length;
+}
+
+/**
+ * Chart series for one exercise from the per-day view. The line is e1RM when the exercise is
+ * trained in the 1–12 rep range (usesE1rm), else the top weight, else the best reps. Bars are
+ * volume, or set counts for unloaded work. Days are returned oldest first; `from` trims the range.
  */
 export function strengthSeries(daily: DailyLike[], from?: string | null): StrengthSeries {
   const rows = daily.filter((d): d is DailyLike & { local_date: string } => !!d.local_date && (!from || d.local_date >= from)).sort((a, b) => a.local_date.localeCompare(b.local_date));
   const all = daily;
-  const metric: StrengthSeries["metric"] = all.some((d) => Number(d.best_e1rm_lb) > 0) ? "e1rm" : all.some((d) => Number(d.top_weight_lb) > 0) ? "weight" : "reps";
+  const metric: StrengthSeries["metric"] = usesE1rm(all) ? "e1rm" : all.some((d) => Number(d.top_weight_lb) > 0) ? "weight" : "reps";
   const bars: StrengthSeries["bars"] = all.some((d) => Number(d.volume_lb) > 0) ? "volume" : "sets";
   const pick = (d: DailyLike) => {
     const v = metric === "e1rm" ? d.best_e1rm_lb : metric === "weight" ? d.top_weight_lb : d.max_reps;

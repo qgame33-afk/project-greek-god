@@ -12,9 +12,9 @@ import { newId, useToday, useUser } from "@/lib/data/core";
 import { useSavedFoodMutations } from "@/lib/data/nutrition";
 import { relativeDay } from "@/lib/dates";
 import type { AIFoodItem, FoodChatPayload } from "@/lib/ai/food-schemas";
-import { entriesFromItems, entryFromHandoff } from "@/lib/ai/food-log";
+import { entriesFromItems, entryFromHandoff, isLoggable } from "@/lib/ai/food-log";
 import { sumMacroSets, unitLabel } from "@/lib/food/normalize";
-import { undoChatLog, useLogDraft, type AIMessage } from "../hooks";
+import { UNSURE_SAVE, undoChatLog, useLogDraft, type AIMessage } from "../hooks";
 import { DevMockBadge, ItemBadge, MacroTrio, MealDatePicker, fmtKcal } from "../parts";
 import { HandoffSheet, type HandoffConfirm } from "./HandoffSheet";
 
@@ -116,9 +116,21 @@ export function MealDraftCard({
 
   const items = payload.items;
   const totals = payload.totals;
+  // One group id and one id per row for this draft, kept across retries: if the diary saved
+  // a meal but the answer was lost, trying again finishes that save instead of adding a copy.
+  const attempt = useRef<{ groupId: string; ids: string[] } | null>(null);
+  const [unsure, setUnsure] = useState(false);
+  const idsFor = (n: number) => {
+    if (!attempt.current || attempt.current.ids.length !== n) attempt.current = { groupId: newId(), ids: Array.from({ length: n }, () => newId()) };
+    const ids = [...attempt.current.ids];
+    return { groupId: attempt.current.groupId, next: () => ids.shift() ?? newId() };
+  };
   const loggedGroup = message.logged_group_id;
-  const isLogged = !!loggedGroup && (!!group || !groupsLoaded || session?.groupId === loggedGroup);
-  const removedFromDiary = !!loggedGroup && groupsLoaded && !group && session?.groupId !== loggedGroup;
+  // after a save whose outcome is unknown, "Logged" is never assumed: the card offers Add
+  // again, which finishes that same save (it can't add a second copy)
+  const known = groupsLoaded || unsure;
+  const isLogged = !!loggedGroup && (!!group || !known || session?.groupId === loggedGroup);
+  const removedFromDiary = !!loggedGroup && known && !group && session?.groupId !== loggedGroup;
   const handoffItems = items.filter((i) => i.handoff);
 
   const announce = (
@@ -141,14 +153,14 @@ export function MealDraftCard({
 
   const add = async () => {
     if (log.isPending) return;
-    const groupId = newId();
+    const { groupId, next } = idsFor(items.filter(isLoggable).length);
     const rows = entriesFromItems(items, {
       meal,
       localDate: date,
       eatenAt: eatenAtFor(date, todayDate, meal),
       groupId,
       source: "chat_ai",
-      newId,
+      newId: next,
     });
     if (!rows.length) return toast.error("Nothing to add — every row is at 0 kcal.");
     try {
@@ -159,22 +171,26 @@ export function MealDraftCard({
         replaceGroupId: replacesGroup,
         previousGroupId: removedFromDiary ? loggedGroup : null,
       });
+      attempt.current = null;
+      setUnsure(false);
       setSession({ ...res, meal, date });
       setConfirming(false);
       announce(rows.length, totals.calories, meal, res);
     } catch (e) {
+      setUnsure((e as Error).message === UNSURE_SAVE);
       toast.error("Not added", { description: (e as Error).message });
     }
   };
 
   const addFromHandoff = async (c: HandoffConfirm) => {
-    const groupId = newId();
+    const rest = items.filter((i) => !(handoff ?? []).includes(i));
+    const { groupId, next } = idsFor(c.items.length + rest.filter(isLoggable).length);
     const ctx = {
       meal: c.meal,
       localDate: c.date,
       eatenAt: eatenAtFor(c.date, todayDate, c.meal),
       groupId,
-      newId,
+      newId: next,
     };
     const rows = [
       ...c.items.map((h) =>
@@ -183,10 +199,7 @@ export function MealDraftCard({
           source: "assistant_handoff",
         }),
       ),
-      ...entriesFromItems(
-        items.filter((i) => !(handoff ?? []).includes(i)),
-        { ...ctx, source: "chat_ai" },
-      ),
+      ...entriesFromItems(rest, { ...ctx, source: "chat_ai" }),
     ];
     const replace = isLogged && group ? loggedGroup : replacesGroup;
     try {
@@ -197,6 +210,8 @@ export function MealDraftCard({
         replaceGroupId: replace,
         previousGroupId: loggedGroup ?? null,
       });
+      attempt.current = null;
+      setUnsure(false);
       setSession({
         ...res,
         meal: c.meal,
@@ -210,6 +225,7 @@ export function MealDraftCard({
         res,
       );
     } catch (e) {
+      setUnsure((e as Error).message === UNSURE_SAVE);
       toast.error("Not added", { description: (e as Error).message });
       throw e;
     }
@@ -435,7 +451,13 @@ export function MealDraftCard({
           </div>
         ) : (
           <div className="mt-3 space-y-2">
-            {removedFromDiary && <p className="text-[12px] text-fg-3">This was logged, then removed from your diary.</p>}
+            {removedFromDiary && (
+              <p className="text-[12px] text-fg-3">
+                {unsure
+                  ? "The connection dropped while adding this. Add it again: it can't be added twice."
+                  : "This was logged, then removed from your diary."}
+              </p>
+            )}
             <Button variant="outline-gold" block onClick={() => setConfirming(true)}>
               {removedFromDiary ? "Add again" : replacesGroup ? "Update logged meal" : "Confirm & add"}
             </Button>

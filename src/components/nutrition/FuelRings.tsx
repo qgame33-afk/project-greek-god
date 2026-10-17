@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/misc";
 import { cn } from "@/lib/cn";
 import { caloriesHit, type Macros } from "@/lib/nutrition";
 import { leftLabel } from "@/lib/nutrition-ui/format";
-import { liters, waterCells } from "@/lib/nutrition-ui/water";
+import { liters, waterCells, waterToGo } from "@/lib/nutrition-ui/water";
 import { formatInt } from "@/lib/units";
 import type { Goals } from "./context";
 
@@ -36,6 +36,9 @@ export function FuelRings({
   const ratio = known && goal > 0 ? eaten / goal : 0;
   const hit = known && caloriesHit(eaten, goal);
   const pct = Math.round(ratio * 100);
+  const ringText = !known ? "—" : over ? `+${formatInt(-left)}` : formatInt(Math.max(0, left));
+  // "+19,810" on an extreme day still fits inside the ring at 375 px
+  const ringSize = ringText.length >= 7 ? "text-[26px]" : ringText.length >= 6 ? "text-[30px]" : "text-[35px]";
 
   const caption = !known
     ? "This day didn't load, so nothing is counted yet."
@@ -57,7 +60,7 @@ export function FuelRings({
           value={ratio}
           label={known ? `Calories ${formatInt(eaten)} of ${formatInt(goal)}, ${pct} percent${over ? `, ${formatInt(-left)} over` : ""}` : "Calories not loaded"}
         >
-          <span className="num text-[35px] font-semibold leading-none tracking-[-0.01em] text-fg">{!known ? "—" : over ? `+${formatInt(-left)}` : formatInt(Math.max(0, left))}</span>
+          <span className={cn("num font-semibold leading-none tracking-[-0.01em] text-fg", ringSize)}>{ringText}</span>
           <span className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-fg-3">{over ? "kcal over" : "kcal left"}</span>
         </Ring>
         <dl className="grid min-w-0 flex-1 gap-3">
@@ -133,7 +136,7 @@ function WaterMeter({ ml, goal }: { ml: number | null; goal: number }) {
         <span className="truncate text-right">
           <span className="num text-[16px] font-semibold text-fg">{known ? liters(ml) : "—"}</span>
           <span className="num text-[15px] text-fg-3"> / {goal > 0 ? liters(goal) : "—"} L</span>
-          {known && goal > 0 && <span className={cn("ml-1.5 text-[12px] font-semibold", met ? "text-gold-300" : "text-fg-3")}>· {met ? "Goal met" : `${liters(leftMl)} L left`}</span>}
+          {known && goal > 0 && <span className={cn("ml-1.5 text-[12px] font-semibold", met ? "text-gold-300" : "text-fg-3")}>· {met ? "Goal met" : `${waterToGo(goal, ml ?? 0)} left`}</span>}
         </span>
       </div>
       <div className="flex gap-1" role="img" aria-label={known ? `Water ${liters(ml)} of ${liters(goal)} litres` : "Water not loaded"}>

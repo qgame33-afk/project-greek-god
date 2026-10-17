@@ -19,6 +19,12 @@ export function RecoveryRow({ m, guidance, className }: { m: TodayModel; guidanc
   // A row with only the volleyball switch has no recovery signal yet: same call as Recovery.
   const partial = !!r && !!guidance?.partialCheckin;
   const headline = r ? (parts.length ? parts.join(" · ") : partial ? "Add sleep and soreness" : "Check-in logged") : "Log a recovery check-in";
+  // What drove a call other than "train as planned" (fatigue, volleyball …), as on Recovery.
+  // The pain note has its own line below.
+  const drivers =
+    r && guidance?.hasCheckin && guidance.session !== "done" && guidance.level !== "go"
+      ? guidance.reasons.filter((x) => !x.startsWith("Pain noted")).slice(0, 2)
+      : [];
 
   return (
     <Link
@@ -40,6 +46,7 @@ export function RecoveryRow({ m, guidance, className }: { m: TodayModel; guidanc
           </span>
         )}
         {r && guidance?.hasCheckin && <span className="mt-0.5 block truncate text-[12.5px] font-semibold text-lapis-text">{guidance.title}</span>}
+        {drivers.length > 0 && <span className="mt-0.5 block truncate text-[12.5px] font-medium text-fg-3">{drivers.join(" · ")}</span>}
         {r?.pain_notes?.trim() && <span className="mt-0.5 block truncate text-[12.5px] font-medium text-fg-2">Pain noted: {r.pain_notes.trim()}</span>}
       </span>
       <ChevronRight className="size-4 shrink-0 text-fg-3 transition-transform group-hover:translate-x-0.5" aria-hidden />

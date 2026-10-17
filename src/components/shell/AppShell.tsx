@@ -52,7 +52,8 @@ function AppShellInner({ children }: { children: ReactNode }) {
   const search = useSearchParams().toString();
   useHistoryTrail(search ? `${pathname}?${search}` : pathname);
 
-  const showFab = !focus && !hidesFab(pathname) && !keyboard;
+  // Nutrition has its own Add manually and per-meal +, and the FAB would sit on its content
+  const showFab = !focus && !hidesFab(pathname) && !isActive(pathname, "/nutrition") && !keyboard;
 
   // Every route, focus routes included, enters and exits as one `page` view transition;
   // globals.css turns <html data-nav> into the push / pop / tab-order slide. The transition

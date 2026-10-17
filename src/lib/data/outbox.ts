@@ -124,6 +124,9 @@ export function useOutbox() {
   );
 }
 
+/** Writes still queued (for code outside React). */
+export const outboxPending = () => queue.length;
+
 /** Resolves once the outbox has drained (or after `timeoutMs`). */
 export async function drained(timeoutMs = 8000) {
   const start = Date.now();

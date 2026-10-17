@@ -28,6 +28,8 @@ export function PhotoUploadSheet({ open, onOpenChange }: { open: boolean; onOpen
   const [saved, setSaved] = useState<Pose[]>([]);
   const camRef = useRef<HTMLInputElement>(null);
   const libRef = useRef<HTMLInputElement>(null);
+  // set synchronously, so two taps in the same frame can't both upload
+  const busy = useRef(false);
 
   // fresh state each time it opens
   useEffect(() => {
@@ -67,9 +69,10 @@ export function PhotoUploadSheet({ open, onOpenChange }: { open: boolean; onOpen
   };
 
   const save = () => {
-    if (!prepared || upload.isPending) return;
+    if (!prepared || busy.current || upload.isPending) return;
     if (date > today) return setError("That date is in the future.");
     setError(null);
+    busy.current = true;
     upload.mutate(
       { main: prepared.main, thumb: prepared.thumb, width: prepared.width, height: prepared.height, date, pose },
       {
@@ -81,6 +84,9 @@ export function PhotoUploadSheet({ open, onOpenChange }: { open: boolean; onOpen
           if (next) setPose(next.key);
         },
         onError: (e) => setError(`${e.message} Your photo is still here.`),
+        onSettled: () => {
+          busy.current = false;
+        },
       },
     );
   };

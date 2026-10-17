@@ -1,20 +1,37 @@
 "use client";
 
-// Data hooks for the live workout. The session lives in its own TanStack cache entry that is
-// the source of truth while training: every set edit is applied to it optimistically and
-// written through the outbox (which survives refreshes and dead gym Wi-Fi). Nothing refetches
-// it behind the user's back, so a pending write can never be overwritten by stale server data.
+// Data hooks for the live workout. The session lives in its own TanStack cache entry: every
+// set edit is applied to it optimistically, recorded in this device's journal and written
+// through the outbox (which survives refreshes and dead gym Wi-Fi). The cache is never
+// replaced wholesale behind the user's back — a sync merges the server's sets in (so sets
+// logged on another device appear) while keeping every change this device hasn't seen land.
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { addDays, type ISODate } from "@/lib/dates";
 import { must, sb, useToday, useUser } from "@/lib/data/core";
-import { drained, enqueue } from "@/lib/data/outbox";
+import { drained, enqueue, outboxPending, useOutbox } from "@/lib/data/outbox";
 import { useProfile } from "@/lib/data/profile";
 import { planFor, useDayPlans, useTemplates } from "@/lib/data/training";
+import { HISTORY_SESSIONS, withSessionModes } from "@/lib/data/workout";
 import type { PastSet } from "@/lib/training/progression";
 import type { PriorBest } from "@/lib/workout/pr";
-import { diffSets, isEmptyDiff, isNetworkError, setPayload } from "@/lib/workout/sync";
+import {
+  emptyJournal,
+  isNetworkError,
+  journalEmpty,
+  journalFromDiff,
+  reconcile,
+  reconcileNotes,
+  recordDelete,
+  recordInsert,
+  recordNotes,
+  recordUpdate,
+  sameSets,
+  setPayload,
+  type Journal,
+  type Push,
+} from "@/lib/workout/sync";
 import type { WSession, WSet } from "@/lib/workout/types";
 import { getDeviceCopy, setDeviceCopy } from "./stores";
 
@@ -30,48 +47,87 @@ export const liveKey = (id: string, userId: string | null) => ["workout-live", i
 
 const online = () => typeof navigator === "undefined" || navigator.onLine !== false;
 
+async function fetchServer(id: string): Promise<LiveData | null> {
+  const session = must(await sb().from("workout_sessions").select("*").eq("id", id).maybeSingle());
+  if (!session) return null;
+  const sets = must(await sb().from("exercise_sets").select("*").eq("session_id", id).order("exercise_order").order("set_index"));
+  return { session, sets };
+}
+
+/** This device's journal for a session (a copy saved before journals existed is converted). */
+function journalOf(copy: ReturnType<typeof getDeviceCopy<LiveData>>, server: LiveData): Journal {
+  if (!copy) return emptyJournal();
+  if (copy.journal) return copy.journal;
+  return copy.dirty ? journalFromDiff(copy.data.sets, server.sets, copy.data.session.notes, server.session.notes) : emptyJournal();
+}
+
+/** A write to the server: one of this device's set changes, or its session note. */
+export type LivePush = Push | { kind: "notes"; notes: string | null };
+
+export interface Merged {
+  data: LiveData;
+  journal: Journal;
+  push: LivePush[];
+  conflicts: number;
+}
+
+/**
+ * The session as this device should show it: the server's sets with this device's
+ * unconfirmed changes on top, plus the writes that bring the server in line with them.
+ */
+export function mergeLive(server: LiveData, local: LiveData | null, journal: Journal): Merged {
+  // Finished or discarded elsewhere while this device trained: the server's word is final.
+  const ended = server.session.status === "discarded" || (local?.session.status === "active" && server.session.status !== "active");
+  if (!local || ended || journalEmpty(journal)) return { data: server, journal: emptyJournal(), push: [], conflicts: 0 };
+  const r = reconcile(local.sets, server.sets, journal);
+  const n = reconcileNotes(local.session.notes ?? null, server.session.notes ?? null, journal.notesBase);
+  const push: LivePush[] = n.push ? [...r.push, { kind: "notes", notes: n.notes }] : r.push;
+  return { data: { session: { ...server.session, notes: n.notes }, sets: r.sets }, journal: { ...r.journal, notesBase: n.base }, push, conflicts: r.conflicts };
+}
+
+/** Queue the writes that bring the server in line with this device's changes. */
+function enqueuePush(sessionId: string, push: LivePush[]) {
+  for (const p of push) {
+    if (p.kind === "notes") enqueue({ kind: "update", table: "workout_sessions", id: sessionId, values: { notes: p.notes } });
+    else if (p.kind === "update") enqueue({ kind: "update", table: "exercise_sets", id: p.id, values: p.values });
+    else if (p.kind === "insert") enqueue({ kind: "insert", table: "exercise_sets", values: setPayload(p.row) });
+    else enqueue({ kind: "delete", table: "exercise_sets", id: p.id });
+  }
+}
+
+/** Apply the writes directly, in order (Finish waits on each one). */
+export async function applyPush(sessionId: string, push: LivePush[]) {
+  for (const p of push) {
+    if (p.kind === "notes") must(await sb().from("workout_sessions").update({ notes: p.notes }).eq("id", sessionId).select("id"));
+    else if (p.kind === "update") must(await sb().from("exercise_sets").update(p.values as never).eq("id", p.id).select("id"));
+    else if (p.kind === "insert") must(await sb().from("exercise_sets").upsert(setPayload(p.row) as never, { onConflict: "id" }).select("id"));
+    else must(await sb().from("exercise_sets").delete().eq("id", p.id).select("id"));
+  }
+}
+
 export async function fetchLive(id: string, opts: { serverWins?: boolean } = {}): Promise<LiveData | null> {
   if (!isUuid(id)) return null;
   const copy = getDeviceCopy<LiveData>(id);
   // Push anything still queued first so the read reflects every tap made on this device.
   if (online()) await drained(4000);
-  let server: LiveData;
+  let server: LiveData | null;
   try {
-    const session = must(await sb().from("workout_sessions").select("*").eq("id", id).maybeSingle());
-    if (!session) return null;
-    const sets = must(await sb().from("exercise_sets").select("*").eq("session_id", id).order("exercise_order").order("set_index"));
-    server = { session, sets };
+    server = await fetchServer(id);
   } catch (e) {
     // No signal (a reload in a basement gym): keep training from the copy on this device.
     if (copy && (!online() || isNetworkError(e instanceof Error ? e.message : String(e)))) return copy.data;
     throw e;
   }
-  if (server.session.status !== "active") return server;
-  // This device has changes the server may not hold (a write the outbox gave up on): the
-  // device copy wins, and the workout screen re-sends the difference.
-  if (copy?.dirty && !opts.serverWins && copy.data.session.id === id) {
-    return { session: { ...server.session, notes: copy.data.session.notes }, sets: copy.data.sets };
+  if (!server || server.session.status !== "active") return server;
+  if (opts.serverWins || copy?.data.session.id !== id) {
+    setDeviceCopy(id, server, emptyJournal());
+    return server;
   }
-  setDeviceCopy(id, server, false);
-  return server;
-}
-
-/**
- * Bring the server in line with this device's copy of the session. The difference is queued
- * through the outbox (so it stays ordered behind any newer tap) and "clean" is returned only
- * once the server already matches.
- */
-export async function resyncSession(id: string, local: LiveData): Promise<"clean" | "queued"> {
-  const server = must(await sb().from("exercise_sets").select("*").eq("session_id", id));
-  const ses: WSession | null = must(await sb().from("workout_sessions").select("*").eq("id", id).maybeSingle());
-  if (!ses) return "clean";
-  const d = diffSets(local.sets, server);
-  const notesDiffer = (local.session.notes ?? null) !== (ses.notes ?? null) && ses.status === local.session.status;
-  if (isEmptyDiff(d) && !notesDiffer) return "clean";
-  for (const s of d.upserts) enqueue({ kind: "insert", table: "exercise_sets", values: setPayload(s) });
-  for (const x of d.deletes) enqueue({ kind: "delete", table: "exercise_sets", id: x });
-  if (notesDiffer) enqueue({ kind: "update", table: "workout_sessions", id, values: { notes: local.session.notes } });
-  return "queued";
+  // The server's sets (including any logged on another device) with this device's
+  // unconfirmed changes on top; the live screen's sync re-sends those.
+  const m = mergeLive(server, copy.data, journalOf(copy, server));
+  setDeviceCopy(id, m.data, m.journal);
+  return m.data;
 }
 
 export function useLiveSession(id: string | null | undefined) {
@@ -80,6 +136,7 @@ export function useLiveSession(id: string | null | undefined) {
     queryKey: liveKey(id ?? "", userId),
     enabled: !!userId && !!id,
     queryFn: () => fetchLive(id!),
+    // Never refetched wholesale: the live screen merges server changes in (useSessionSync).
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -91,18 +148,20 @@ export function useLiveSession(id: string | null | undefined) {
 
 type SetValues = Partial<Omit<WSet, "id" | "user_id" | "session_id" | "created_at" | "updated_at">>;
 
-/** Optimistic, outbox-backed writes for one session. */
+/** Optimistic, outbox-backed writes for one session, each recorded in this device's journal. */
 export function useSessionOps(id: string) {
   const qc = useQueryClient();
   const { userId } = useUser();
+  const syncing = useRef(false);
 
   const patch = useCallback(
-    (fn: (d: LiveData) => LiveData) =>
+    (fn: (d: LiveData) => LiveData, note: (j: Journal, d: LiveData) => Journal) =>
       qc.setQueryData<LiveData | null>(liveKey(id, userId), (d) => {
         if (!d) return d;
         const next = fn(d);
         // Every tap also lands in this device's copy, so nothing depends on the network.
-        setDeviceCopy(id, next, true);
+        const copy = getDeviceCopy<LiveData>(id);
+        setDeviceCopy(id, next, note(copy?.journal ?? emptyJournal(), d));
         return next;
       }),
     [qc, id, userId],
@@ -111,18 +170,27 @@ export function useSessionOps(id: string) {
   return useMemo(
     () => ({
       updateSet(setId: string, values: SetValues) {
-        patch((d) => ({ ...d, sets: d.sets.map((s) => (s.id === setId ? { ...s, ...values } : s)) }));
+        patch(
+          (d) => ({ ...d, sets: d.sets.map((s) => (s.id === setId ? { ...s, ...values } : s)) }),
+          (j, d) => recordUpdate(j, d.sets.find((s) => s.id === setId), values),
+        );
         enqueue({ kind: "update", table: "exercise_sets", id: setId, values });
       },
       updateSets(list: { id: string; values: SetValues }[]) {
         if (!list.length) return;
         const map = new Map(list.map((x) => [x.id, x.values]));
-        patch((d) => ({ ...d, sets: d.sets.map((s) => (map.has(s.id) ? { ...s, ...map.get(s.id) } : s)) }));
+        patch(
+          (d) => ({ ...d, sets: d.sets.map((s) => (map.has(s.id) ? { ...s, ...map.get(s.id) } : s)) }),
+          (j, d) => list.reduce((acc, x) => recordUpdate(acc, d.sets.find((s) => s.id === x.id), x.values), j),
+        );
         for (const x of list) enqueue({ kind: "update", table: "exercise_sets", id: x.id, values: x.values });
       },
       insertSets(rows: WSet[]) {
         if (!rows.length) return;
-        patch((d) => ({ ...d, sets: [...d.sets.filter((s) => !rows.some((r) => r.id === s.id)), ...rows] }));
+        patch(
+          (d) => ({ ...d, sets: [...d.sets.filter((s) => !rows.some((r) => r.id === s.id)), ...rows] }),
+          (j) => rows.reduce(recordInsert, j),
+        );
         for (const r of rows) {
           const { created_at, updated_at, ...values } = r;
           enqueue({ kind: "insert", table: "exercise_sets", values });
@@ -131,12 +199,43 @@ export function useSessionOps(id: string) {
       deleteSets(ids: string[]) {
         if (!ids.length) return;
         const set = new Set(ids);
-        patch((d) => ({ ...d, sets: d.sets.filter((s) => !set.has(s.id)) }));
+        patch(
+          (d) => ({ ...d, sets: d.sets.filter((s) => !set.has(s.id)) }),
+          (j, d) => d.sets.filter((s) => set.has(s.id)).reduce(recordDelete, j),
+        );
         for (const x of ids) enqueue({ kind: "delete", table: "exercise_sets", id: x });
       },
-      updateSession(values: Partial<Pick<WSession, "notes" | "status" | "ended_at">>) {
-        patch((d) => ({ ...d, session: { ...d.session, ...values } }));
+      updateSession(values: Partial<Pick<WSession, "notes">>) {
+        patch(
+          (d) => ({ ...d, session: { ...d.session, ...values } }),
+          (j, d) => ("notes" in values ? recordNotes(j, d.session.notes ?? null) : j),
+        );
         enqueue({ kind: "update", table: "workout_sessions", id, values });
+      },
+      /**
+       * Merge the server's copy in: sets logged on another device appear, and this device's
+       * unconfirmed changes are re-sent (only those — never a whole row it didn't change).
+       * Skipped while writes are queued or when a tap lands mid-read; the next tick retries.
+       */
+      async sync(): Promise<Merged | null> {
+        const key = liveKey(id, userId);
+        const before = qc.getQueryData<LiveData | null>(key);
+        if (syncing.current || !before || before.session.status !== "active" || !online() || outboxPending() > 0) return null;
+        syncing.current = true;
+        try {
+          const server = await fetchServer(id);
+          if (!server || qc.getQueryData(key) !== before || outboxPending() > 0) return null;
+          const m = mergeLive(server, before, journalOf(getDeviceCopy<LiveData>(id), server));
+          enqueuePush(id, m.push);
+          setDeviceCopy(id, m.data, m.journal);
+          const same = m.data.session.status === before.session.status && (m.data.session.notes ?? null) === (before.session.notes ?? null) && sameSets(m.data.sets, before.sets);
+          if (!same) qc.setQueryData(key, m.data);
+          return m;
+        } catch {
+          return null; // no signal — the next tick tries again
+        } finally {
+          syncing.current = false;
+        }
       },
       /** Replace the cache with server truth (when the server rejected a write). */
       async reload() {
@@ -150,6 +249,33 @@ export function useSessionOps(id: string) {
     }),
     [patch, id, qc, userId],
   );
+}
+
+/**
+ * Keep the live session in step with the server while it is on screen: whenever the outbox
+ * is idle, on focus, on return to the tab, on reconnect and every 20 s.
+ */
+export function useSessionSync(ops: ReturnType<typeof useSessionOps>, enabled: boolean) {
+  const outbox = useOutbox();
+  const idle = outbox.pending === 0;
+  useEffect(() => {
+    if (!enabled || !idle) return;
+    const run = () => {
+      if (document.visibilityState === "visible") void ops.sync();
+    };
+    const first = window.setTimeout(run, 1500);
+    const every = window.setInterval(run, 20000);
+    window.addEventListener("focus", run);
+    window.addEventListener("online", run);
+    document.addEventListener("visibilitychange", run);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(every);
+      window.removeEventListener("focus", run);
+      window.removeEventListener("online", run);
+      document.removeEventListener("visibilitychange", run);
+    };
+  }, [enabled, idle, ops]);
 }
 
 /** A full exercise_sets row for an optimistic insert. */
@@ -187,9 +313,9 @@ export function invalidateTraining(qc: ReturnType<typeof useQueryClient>) {
 /* --------------------------------------------------------------- history */
 
 /**
- * The last two completed sessions of each exercise BEFORE this session (this session's own
- * sets are excluded, so suggestions stay fixed while you train). One query per exercise so a
- * rarely trained lift is never crowded out by frequent ones.
+ * The last few completed sessions of each exercise BEFORE this session (this session's own
+ * sets are excluded, so suggestions stay fixed while you train), each stamped with its
+ * session mode. One query per exercise so a rarely trained lift is never crowded out.
  */
 export async function fetchPriorHistory(slugs: string[], sessionId: string, beforeDate: ISODate): Promise<Record<string, PastSet[]>> {
   const out: Record<string, PastSet[]> = {};
@@ -204,12 +330,12 @@ export async function fetchPriorHistory(slugs: string[], sessionId: string, befo
           .lte("local_date", beforeDate)
           .order("local_date", { ascending: false })
           .order("completed_at", { ascending: false })
-          .limit(60),
+          .limit(80),
       );
       const seen = new Set<string>();
       const list: PastSet[] = [];
       for (const r of rows) {
-        if (!seen.has(r.session_id!) && seen.size >= 2) continue;
+        if (!seen.has(r.session_id!) && seen.size >= HISTORY_SESSIONS) continue;
         seen.add(r.session_id!);
         list.push({
           local_date: r.local_date!,
@@ -224,7 +350,7 @@ export async function fetchPriorHistory(slugs: string[], sessionId: string, befo
       out[slug] = list;
     }),
   );
-  return out;
+  return withSessionModes(out);
 }
 
 export function usePriorHistory(sessionId: string, slugs: string[], beforeDate: ISODate | undefined) {

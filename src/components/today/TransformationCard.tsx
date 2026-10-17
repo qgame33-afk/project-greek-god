@@ -8,8 +8,8 @@ import { ErrorNote } from "@/components/ui/misc";
 import { Bar } from "@/components/ui/progress";
 import { cn } from "@/lib/cn";
 import { shortDate } from "@/lib/dates";
-import { trendCaption, trendTone } from "@/lib/today/ascent";
-import { formatBodyweight, formatDelta, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
+import { rangePlaque, trendCaption, trendTone } from "@/lib/today/ascent";
+import { formatBodyweight, formatDelta, type WeightUnit } from "@/lib/units";
 import { useDawn, useMedia, useReveal } from "./dawn";
 import { WeightSpark } from "./WeightSpark";
 import type { TodayModel } from "./useTodayModel";
@@ -36,11 +36,7 @@ export function TransformationCard({
   const pct = Math.round(a.p * 100);
   const tone = trendTone(a.weeklyChange, m.planRate);
   const planLabel = m.planRate != null ? formatDelta(m.planRate, unit) : null;
-  const whole = (lb: number) => {
-    const v = round(toDisplayWeight(lb, unit), 1);
-    return Number.isInteger(v) ? String(v) : v.toFixed(1);
-  };
-  const plaque = a.start != null && a.goal != null ? `${whole(a.start)} → ${whole(a.goal)} ${unit}` : `Set start and goal in Settings`;
+  const plaque = a.start != null && a.goal != null ? rangePlaque(a.start, a.goal, unit) : `Set start and goal in Settings`;
 
   const failed = m.weightsFailed;
   let when: string;

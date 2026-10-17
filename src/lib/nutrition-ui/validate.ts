@@ -120,12 +120,33 @@ export function previewMacros(f: Pick<FoodForm, "calories" | "protein" | "carbs"
   return { macros: { calories: caloriesBlank ? derived : n(f.calories), protein, carbs, fat }, derived, caloriesBlank };
 }
 
-/** "Macros add to 612 kcal; you entered 540." — null when they agree (±10%) or there is nothing to compare. */
+/**
+ * "Macros add to 612 kcal; you entered 540." — null when they agree (±10%) or there is
+ * nothing to compare. 0 kcal is fine for a food with no macros (water, black coffee), but
+ * 0 kcal with 50 g of protein is a slip worth pointing out.
+ */
 export function consistencyNote(m: Macros): string | null {
   const derived = Math.round(kcalFromMacros(m));
-  if (derived === 0 || m.calories <= 0) return null;
-  if (macrosConsistent(m, 0.1)) return null;
+  if (derived === 0 || m.calories < 0) return null;
+  if (m.calories > 0 && macrosConsistent(m, 0.1)) return null;
   return `Macros add to ${formatInt(derived)} kcal; you entered ${formatInt(m.calories)}.`;
+}
+
+/**
+ * Why a computed entry (a rescaled amount or a picked portion) can't be saved: the
+ * database's per-entry limits. Null when it fits. Shown in place of Save, never after it.
+ */
+export function limitError(m: Macros): string | null {
+  if (round(m.calories, 1) > LIMITS.calories) return `That's ${formatInt(m.calories)} kcal, above ${formatInt(LIMITS.calories)}. Lower the amount.`;
+  const grams: [number, number, string][] = [
+    [m.protein, LIMITS.protein, "protein"],
+    [m.carbs, LIMITS.carbs, "carbs"],
+    [m.fat, LIMITS.fat, "fat"],
+  ];
+  for (const [value, max, label] of grams) {
+    if (round(value, 1) > max) return `That's ${formatInt(value)} g ${label}, above ${formatInt(max)} g. Lower the amount.`;
+  }
+  return null;
 }
 
 /** Soft check for a likely extra digit: one entry bigger than most people's whole day. */

@@ -14,11 +14,11 @@ const PLURAL: Record<string, string> = {
   plate: "plates",
 };
 
-/** "250 g" · "1.5 servings" · "1 cup" · "330 mL". Amounts keep up to 2 decimals. */
+/** "250 g" · "1.5 servings" · "1 cup" · "330 mL" · "6,000 g". Amounts keep up to 2 decimals. */
 export function formatAmount(amount: number, unit: string): string {
   const a = Number(amount);
   if (!Number.isFinite(a)) return "—";
-  const n = Number.isInteger(a) ? String(a) : String(round(a, 2));
+  const n = round(a, 2).toLocaleString("en-US", { maximumFractionDigits: 2 });
   const u = unit.trim();
   if (u === "g" || u === "oz") return `${n} ${u}`;
   if (u.toLowerCase() === "ml") return `${n} mL`;

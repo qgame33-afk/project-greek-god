@@ -17,6 +17,7 @@ export function useQuietRemoveFood() {
   const qc = useQueryClient();
   const { userId } = useUser();
   return useMutation({
+    networkMode: "always",
     mutationFn: async ({ ids }: { ids: string[]; date: ISODate }) => {
       must(await sb().from("food_entries").delete().in("id", ids));
     },
@@ -164,6 +165,9 @@ export function useAddPastWater(date: ISODate) {
   const { userId } = useUser();
   const key = ["water", date, userId];
   return useMutation({
+    // like the shared water hook: an offline tap fails at once instead of pausing unseen
+    networkMode: "always",
+    scope: { id: "water-logs" },
     mutationFn: async ({ id, ml, loggedAt }: { id: string; ml: number; loggedAt: string }) =>
       must(await sb().from("water_logs").insert({ id, local_date: date, amount_ml: ml, logged_at: loggedAt }).select("*").single()),
     onMutate: async ({ id, ml, loggedAt }) => {

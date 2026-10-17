@@ -137,19 +137,21 @@ export const hasRir = (t: Tracking) => t === "weight_reps" || t === "bodyweight_
 /** A load is required to log (bodyweight lifts may leave it blank). */
 export const needsWeight = (t: Tracking) => t === "weight_reps" || t === "weight_time";
 
-/** Equipment where a bodyweight-only set is real (split squats, lunges, step-ups). */
-const ZERO_LOAD_EQUIPMENT = new Set<LibraryExercise["equipment"]>(["dumbbell", "bodyweight", "box", "other"]);
+/** Equipment where a bodyweight-only set is real. */
+const ZERO_LOAD_EQUIPMENT = new Set<LibraryExercise["equipment"]>(["bodyweight", "box", "other"]);
 
 /**
- * Whether 0 is a real load. A bar, a stack or a sled always weighs something and a carry
- * needs something in the hands, so "0 lb × 8" there is a typo — and it would poison the next
- * suggestion ("you hit 8 at 0 lb"). Added load on bodyweight lifts and dumbbell moves that
- * have a bodyweight version may be 0.
+ * Whether 0 is a real load. A bar, a stack or a sled always weighs something, a carry needs
+ * something in the hands, and a dumbbell press or curl without dumbbells isn't the lift — so
+ * "0 lb × 10" there is a typo, and it would poison the next suggestion ("you hit 10 at 0 lb").
+ * Added load on bodyweight lifts, and dumbbell moves with a real bodyweight version (split
+ * squats, lunges), may be 0.
  */
-export function zeroLoadOk(lib: Pick<LibraryExercise, "equipment"> | undefined, t: Tracking): boolean {
+export function zeroLoadOk(lib: Pick<LibraryExercise, "equipment" | "bodyweightOk"> | undefined, t: Tracking): boolean {
   if (!needsWeight(t)) return true;
   if (isTimed(t)) return false;
-  return !lib || ZERO_LOAD_EQUIPMENT.has(lib.equipment);
+  if (!lib) return true;
+  return !!lib.bodyweightOk || ZERO_LOAD_EQUIPMENT.has(lib.equipment);
 }
 
 export function workOf(s: Pick<WSet, "reps" | "duration_sec">, t: Tracking): number | null {
@@ -321,6 +323,30 @@ export function validateCell(field: CellField, raw: string, unit: WeightUnit, t:
   }
   if (n > LIMITS.reps) return { ok: false, error: `Over ${LIMITS.reps} reps. Check the number.` };
   return { ok: true, stored: n };
+}
+
+/* ---------------------------------------------------------- cell errors */
+
+/** Rejected entries, one per cell: fixing one cell never hides another cell's error. */
+export type CellErrors = Readonly<Record<string, string>>;
+
+const CELLS: CellField[] = ["weight", "work", "rir"];
+
+/** Record (or with null, clear) one cell's error; every other cell keeps its own. */
+export function withCellError(e: CellErrors, setId: string, field: CellField, error: string | null): CellErrors {
+  const key = `${setId}:${field}`;
+  if (error == null) {
+    if (!(key in e)) return e;
+    const n = { ...e };
+    delete n[key];
+    return n;
+  }
+  return e[key] === error ? e : { ...e, [key]: error };
+}
+
+/** The cells of a row still holding a rejected value, in entry order. */
+export function rowErrorFields(e: CellErrors, setId: string): CellField[] {
+  return CELLS.filter((f) => e[`${setId}:${f}`]);
 }
 
 /** The DB column a cell writes to. */

@@ -1,7 +1,6 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Field, Input } from "@/components/ui/field";
@@ -107,7 +106,6 @@ export function PasswordSheet({
  * signing out would drop them.
  */
 export function useSignOut() {
-  const router = useRouter();
   const qc = useQueryClient();
   const [pending, setPending] = useState(false);
   const [unsynced, setUnsynced] = useState(false);
@@ -121,8 +119,10 @@ export function useSignOut() {
     }
     clearLocalCaches({ includeOutbox: true });
     qc.clear();
-    router.replace("/sign-in");
-    router.refresh();
+    // A full page load, not a client navigation + refresh: the router would otherwise
+    // re-request this screen's server payload while signed out (RSC 404 noise in production)
+    // and nothing from the old session survives in memory.
+    window.location.replace("/sign-in");
   };
 
   const signOut = async () => {

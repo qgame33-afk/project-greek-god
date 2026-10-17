@@ -1,6 +1,8 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { mkSet } from "./fixtures";
-import { classifyLog, firstBenchmarks, prSetIds, sessionRecords, setE1rm, type PriorBest } from "./pr";
+import { classifyLog, firstBenchmarks, PR_MIN_GAIN_LB, prSetIds, sessionRecords, setE1rm, type PriorBest } from "./pr";
 import { groupSets } from "./session";
 
 const prior = (e1rm: number | null, sets = 9): PriorBest => ({ e1rm, sets, weightLb: null, reps: null });
@@ -80,5 +82,28 @@ describe("PR detection", () => {
     expect(prSetIds(groupSets([{ ...s, completed: true }])[0], prior(228)).size).toBe(0);
     expect(sessionRecords(groupSets([{ ...s, completed: true }]), { "barbell-bench-press": prior(228) })).toEqual([]);
     expect(classifyLog(mkSet({ id: "y", weight_lb: 190, reps: 7 }), g, prior(228)).kind).toBe("pr"); // 234.3
+  });
+});
+
+describe("one record rule everywhere", () => {
+  // The exercise history, Progress › Strength, Today and the reviews read the pr_events and
+  // exercise_daily views; the workout and summary use pr.ts. Both must apply the same margin.
+  const dir = path.resolve(__dirname, "../../../supabase/migrations");
+  const latest = (view: string) => {
+    const file = readdirSync(dir)
+      .filter((f) => f.endsWith(".sql"))
+      .sort()
+      .filter((f) => new RegExp(`create (or replace )?view public\\.${view}\\b`).test(readFileSync(path.join(dir, f), "utf8")))
+      .at(-1)!;
+    const sql = readFileSync(path.join(dir, file), "utf8");
+    return sql.slice(sql.search(new RegExp(`create (or replace )?view public\\.${view}\\b`))).split(";")[0];
+  };
+
+  it("pr_events only lists sets that clear the margin", () => {
+    expect(latest("pr_events")).toContain(`e1rm_lb >= prior_best_e1rm + ${PR_MIN_GAIN_LB}`);
+  });
+
+  it("exercise_daily.had_pr uses the same margin", () => {
+    expect(latest("exercise_daily")).toMatch(new RegExp(`e1rm_lb >= prior_best_e1rm \\+ ${PR_MIN_GAIN_LB}\\) as had_pr`));
   });
 });

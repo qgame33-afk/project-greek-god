@@ -5,6 +5,7 @@
 import { addDays, dateRange, daysBetween, type ISODate } from "@/lib/dates";
 import { formatHours } from "./checkin";
 import type { CheckinLite, SessionLite } from "./guidance";
+import { volleyballEntries } from "./volleyball";
 
 export interface VolleyballLite {
   local_date: ISODate;
@@ -218,25 +219,16 @@ export function weeklyReview(input: WeeklyInput): WeeklyReview {
       : ("last week" as const),
   };
 
-  /* volleyball: logged sessions, plus check-ins that flagged it without details */
-  const vbDates = new Set(
-    input.volleyball
-      .filter((v) => inWeek(v.local_date))
-      .map((v) => v.local_date),
-  );
-  for (const c of cur) if (c.volleyball) vbDates.add(c.local_date);
-  const prevVb = new Set(
-    input.volleyball
-      .filter((v) => inPrev(v.local_date))
-      .map((v) => v.local_date),
-  );
-  for (const c of prev) if (c.volleyball) prevVb.add(c.local_date);
+  /* volleyball: logged sessions, plus check-ins that flagged it without one (the same
+     count Training and Progress show) */
+  const vbAll = volleyballEntries(input.volleyball, [...cur, ...prev]);
+  const vbDates = new Set(vbAll.filter((v) => inWeek(v.local_date)).map((v) => v.local_date));
   const volleyball = {
-    sessions: vbDates.size,
+    sessions: vbAll.filter((v) => inWeek(v.local_date)).length,
     minutes: input.volleyball
       .filter((v) => inWeek(v.local_date))
       .reduce((a, v) => a + (v.duration_min ?? 0), 0),
-    prevSessions: prevVb.size,
+    prevSessions: vbAll.filter((v) => inPrev(v.local_date)).length,
   };
 
   /* rest days: elapsed days with neither a finished session nor volleyball. Today only
@@ -373,21 +365,52 @@ export function recommend(r: WeeklyReview): WeeklyRecommendation[] {
   }
 
   if (!out.length) {
-    out.push({
-      key: "keep",
-      title: r.inProgress ? "Stay the course" : "Keep the same plan",
-      reason: onTrackReason(r),
-    });
+    // Off-target numbers on too few days for a suggestion are said as they are, never
+    // called "on track" (every Monday, and day 1 of the programme).
+    const early = offTarget(r);
+    out.push(
+      early.length
+        ? {
+            key: "keep",
+            title: "Too early to call",
+            reason: `So far: ${early.join(", ")}. A few more check-ins will show whether the week needs a change.`,
+          }
+        : {
+            key: "keep",
+            title: r.inProgress ? "Stay the course" : "Keep the same plan",
+            reason: onTrackReason(r),
+          },
+    );
   }
   return out.slice(0, 3);
 }
 
-/** "Sleep, soreness and training are on track." — naming only signals that were logged. */
+const SLEEP_SLACK_H = 0.5;
+const STRAIN_HIGH = 3.5;
+const sleepOk = (s: WeeklyReview["sleep"]) => s.avg != null && s.avg >= s.goal - SLEEP_SLACK_H;
+const ratingOk = (s: RatingSummary) => s.avg != null && s.avg < STRAIN_HIGH;
+
+/** Logged signals that miss their target ("5 h of sleep", "soreness 4/5"). */
+export function offTarget(r: WeeklyReview): string[] {
+  const out: string[] = [];
+  if (r.sleep.nights > 0 && r.sleep.avg != null && !sleepOk(r.sleep)) {
+    const h = formatHours(Math.round(r.sleep.avg * 4) / 4);
+    out.push(r.sleep.nights === 1 ? `${h} h of sleep` : `${h} h average sleep`);
+  }
+  if (r.soreness.n > 0 && !ratingOk(r.soreness)) out.push(`soreness ${r.soreness.avg}/5`);
+  if (r.fatigue.n > 0 && !ratingOk(r.fatigue)) out.push(`fatigue ${r.fatigue.avg}/5`);
+  return out;
+}
+
+/**
+ * "Sleep, soreness and training are on track." — naming only signals that were logged
+ * and meet their target (sleep within 0.5 h of the goal, soreness and fatigue under 3.5).
+ */
 export function onTrackReason(r: WeeklyReview) {
   const parts: string[] = [];
-  if (r.sleep.nights > 0) parts.push("sleep");
-  if (r.soreness.n > 0) parts.push("soreness");
-  if (r.fatigue.n > 0) parts.push("fatigue");
+  if (r.sleep.nights > 0 && sleepOk(r.sleep)) parts.push("sleep");
+  if (r.soreness.n > 0 && ratingOk(r.soreness)) parts.push("soreness");
+  if (r.fatigue.n > 0 && ratingOk(r.fatigue)) parts.push("fatigue");
   if (r.training.done > 0) parts.push("training");
   const list =
     parts.length <= 1

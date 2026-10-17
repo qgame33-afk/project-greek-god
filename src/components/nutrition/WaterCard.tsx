@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/controls";
 import { Ring } from "@/components/ui/ring";
 import { Sheet } from "@/components/ui/sheet";
-import { newId } from "@/lib/data/core";
+import { isOffline, newId } from "@/lib/data/core";
 import { useWater, useWaterMutations } from "@/lib/data/nutrition";
 import { cn } from "@/lib/cn";
 import type { ISODate } from "@/lib/dates";
 import { haptic } from "@/lib/haptics";
 import { composeEatenAt, dayLabel, formatClock, timeValue } from "@/lib/nutrition-ui/format";
-import { WATER_MAX, WATER_MIN, WATER_PRESETS, clampWater, liters } from "@/lib/nutrition-ui/water";
+import { WATER_MAX, WATER_MIN, WATER_PRESETS, clampWater, liters, waterToGo } from "@/lib/nutrition-ui/water";
 import { afterPendingMutations, keepOpenOnToast, useAddPastWater, useFocusIntoSheet } from "./hooks";
 import { formatInt } from "@/lib/units";
 import { parseFoodNumber } from "@/lib/nutrition-ui/number";
@@ -32,6 +32,11 @@ export function WaterCard({ date, today, goalMl, unknown }: { date: ISODate; tod
   const left = goalMl - totalMl;
 
   const add = (ml: number) => {
+    // an offline tap would only fail: say so instead of showing water that isn't saved
+    if (isOffline()) {
+      toast.error("You're offline. Water wasn't logged.", { description: "Tap again once you're back online." });
+      return;
+    }
     let id: string;
     if (isToday) id = water.addMl(ml);
     else {
@@ -79,7 +84,7 @@ export function WaterCard({ date, today, goalMl, unknown }: { date: ISODate; tod
                 ? "Set a water goal in Settings."
                 : left <= 0
                   ? "Goal met."
-                  : `${liters(left)} L to go${isToday ? "" : " that day"}.`}
+                  : `${waterToGo(goalMl, totalMl)} to go${isToday ? "" : " that day"}.`}
           </p>
         </div>
       </div>
@@ -145,6 +150,9 @@ export function WaterCard({ date, today, goalMl, unknown }: { date: ISODate; tod
 
 function CustomWater({ onAdd }: { onAdd: (ml: number) => void }) {
   const [ml, setMl] = useState(400);
+  // the sheet stays tappable while it closes: one tap logs once, a double tap still once
+  const used = useRef(false);
+  const [sent, setSent] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   useFocusIntoSheet(root);
   const [text, setText] = useState("400");
@@ -192,7 +200,19 @@ function CustomWater({ onAdd }: { onAdd: (ml: number) => void }) {
           </button>
         ))}
       </div>
-      <Button variant="primary" size="lg" block className="mt-5" disabled={invalid} onClick={() => !invalid && parsed != null && onAdd(clampWater(parsed))}>
+      <Button
+        variant="primary"
+        size="lg"
+        block
+        className="mt-5"
+        disabled={invalid || sent}
+        onClick={() => {
+          if (used.current || invalid || parsed == null) return;
+          used.current = true;
+          setSent(true);
+          onAdd(clampWater(parsed));
+        }}
+      >
         Add {invalid || parsed == null ? "" : `${formatInt(clampWater(parsed))} mL`}
       </Button>
     </div>

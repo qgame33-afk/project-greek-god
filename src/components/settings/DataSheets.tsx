@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Check, Download, FileArchive, Share } from "lucide-react";
 import { toast } from "sonner";
@@ -428,7 +427,6 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
 /* ---------------------------------------------------------- delete account */
 
 export function DeleteAccountSheet({ open, onOpenChange, email, onExport }: { open: boolean; onOpenChange: (o: boolean) => void; email: string | null; onExport: () => void }) {
-  const router = useRouter();
   const qc = useQueryClient();
   const [typed, setTyped] = useState("");
   const [pending, setPending] = useState(false);
@@ -451,9 +449,8 @@ export function DeleteAccountSheet({ open, onOpenChange, email, onExport }: { op
       await supabaseBrowser().auth.signOut({ scope: "local" });
       clearLocalCaches({ includeOutbox: true });
       qc.clear();
-      toast.success("Account deleted. Everything is gone.");
-      router.replace("/sign-in");
-      router.refresh();
+      // a full page load (see useSignOut): no signed-out server payload requests
+      window.location.replace("/sign-in?deleted=1");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       busy.current = false;

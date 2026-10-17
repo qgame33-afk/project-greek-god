@@ -365,7 +365,7 @@ describe("readinessLine", () => {
     );
     expect(g.level).toBe("ease");
     expect(readinessLine(g, "Pull B")).toBe(
-      "Pull B today, lighter: about 10% off the load, one set fewer per exercise, RIR 3.",
+      "Pull B today, lighter: 10% less load, one set fewer, RIR 3.",
     );
     const bad = computeGuidance(
       input({
@@ -395,7 +395,61 @@ describe("readinessLine", () => {
     );
     expect(legs.level).toBe("legs");
     expect(readinessLine(legs, "Legs A")).toBe(
-      "Legs A today without the jumps and one set fewer per exercise. Legs are carrying volleyball fatigue.",
+      "Legs A today without the jumps, one set fewer. Volleyball has tired your legs.",
     );
+  });
+});
+
+describe("today's session in the call", () => {
+  const wrecked = [ci({ sleep_hours: 4, sleep_quality: 1, energy: 1, soreness: 5, fatigue: 5 })];
+  const done = { local_date: D, status: "done", sets_completed: 18, name: "Pull B" };
+
+  it("never tells you to move a session that is already done", () => {
+    const before = computeGuidance(input({ checkins: wrecked }));
+    expect(before.level).toBe("recover");
+    expect(before.detail).toMatch(/Move Pull B to tomorrow/);
+    const after = computeGuidance(input({ checkins: wrecked, sessions: [done] }));
+    expect(after.session).toBe("done");
+    expect(after.title).toBe("Pull B done");
+    expect(after.detail).not.toMatch(/tomorrow:|Move/);
+    expect(after.detail).toMatch(/^Recovery tonight/);
+    expect(after.reasons).toEqual(before.reasons);
+    expect(after.adjustments.rest).toBe(false);
+    expect(readinessLine(after, "Pull B")).toBe("Pull B done. Recovery tonight: protein, an easy walk, an early night.");
+  });
+
+  it("keeps a session underway light instead of moving it", () => {
+    const g = computeGuidance(input({ checkins: wrecked, sessions: [{ ...done, status: "active" }] }));
+    expect(g.session).toBe("active");
+    expect(g.title).toBe("Keep Pull B light");
+    expect(g.detail).not.toMatch(/tomorrow/);
+    expect(readinessLine(g, "Pull B")).toBe("Pull B underway: keep the rest light, RIR 3–4, or stop early.");
+  });
+
+  it("an easy day after the session just says refuel", () => {
+    const g = computeGuidance(input({ checkins: [ci({ sleep_hours: 8, energy: 4 })], sessions: [done] }));
+    expect(g.title).toBe("Pull B done");
+    expect(g.detail).toMatch(/^Refuel tonight and aim for 8 h of sleep/);
+    expect(readinessLine(g, "Pull B")).toBe("Pull B done. Refuel and sleep well tonight.");
+  });
+
+  it("ignores another day's session", () => {
+    const g = computeGuidance(input({ checkins: wrecked, sessions: [{ ...done, local_date: addDays(D, -1) }] }));
+    expect(g.session).toBe("none");
+    expect(g.level).toBe("recover");
+  });
+});
+
+describe("readinessLine length", () => {
+  it("every variant fits the Today hero (three lines at 375 px) with the pain caveat", () => {
+    const adj = { dropSets: 1, rir: "2–3", loadPct: -10, skipJumps: true, rest: false };
+    const levels = ["go", "trim", "ease", "legs", "recover", "rest"] as const;
+    for (const level of levels)
+      for (const pain of [null, "Right shoulder, overhead pressing"])
+        for (const skipJumps of [true, false])
+          for (const session of ["none", "active", "done"] as const) {
+            const line = readinessLine({ level, score: 5, adjustments: { ...adj, skipJumps }, pain, session }, "Legs A");
+            if (line) expect(line.length, line).toBeLessThanOrEqual(110);
+          }
   });
 });

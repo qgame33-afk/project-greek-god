@@ -89,8 +89,13 @@ export function entryFromItem(
   };
 }
 
+/** Rows at 0 kcal and no macros are left out of a logged meal. */
+export function isLoggable(i: { macros: MacroSet }): boolean {
+  return i.macros.calories > 0 || i.macros.protein + i.macros.carbs + i.macros.fat > 0;
+}
+
 export function entriesFromItems(items: Parameters<typeof entryFromItem>[0][], ctx: LogContext): FoodEntryInsert[] {
-  return items.filter((i) => i.macros.calories > 0 || i.macros.protein + i.macros.carbs + i.macros.fat > 0).map((i) => entryFromItem(i, ctx));
+  return items.filter(isLoggable).map((i) => entryFromItem(i, ctx));
 }
 
 /** Handoff rows: per-unit values from the assistant's reply, the link it reported. */

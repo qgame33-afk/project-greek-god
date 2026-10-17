@@ -92,7 +92,10 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
 
   // Soft check against the nearest other weigh-in: a 10% swing is a typo or the wrong unit.
   const ref = useMemo(() => [...weights].reverse().find((w) => w.local_date !== date && w.local_date <= date) ?? weights.find((w) => w.local_date !== date), [weights, date]);
-  const refLb = ref ? Number(ref.weight_lb) : null;
+  // The very first weigh-in has no other one to compare with: the start weight from
+  // onboarding is the reference then (a new lb user typing their kg weight still hears about it).
+  const startLb = profile?.start_weight_lb != null && Number(profile.start_weight_lb) > 0 ? Number(profile.start_weight_lb) : null;
+  const refLb = ref ? Number(ref.weight_lb) : startLb;
   const odd = !invalid && lb != null && refLb != null && Math.abs(lb - refLb) / refLb >= IMPLAUSIBLE_CHANGE;
 
   const submit = () => {
@@ -163,9 +166,10 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
           </label>
         </Stepper>
         {invalid && <p className="mt-2 text-center text-[13px] text-danger">Enter a weight between {min} and {max} {unit}.</p>}
-        {odd && ref && refLb != null && (
+        {odd && refLb != null && (
           <p className="mt-2 text-center text-[13px] text-warning" role="status">
-            {formatBodyweight(Math.abs(lb! - refLb), unit)} {lb! < refLb ? "under" : "over"} {dayRef(ref.local_date, today)}&apos;s {formatBodyweight(refLb, unit)}. Check the number and the unit.
+            {formatBodyweight(Math.abs(lb! - refLb), unit)} {lb! < refLb ? "under" : "over"}{" "}
+            {ref ? `${dayRef(ref.local_date, today)}'s ${formatBodyweight(refLb, unit)}` : `your start weight of ${formatBodyweight(refLb, unit)}`}. Check the number and the unit.
           </p>
         )}
       </div>

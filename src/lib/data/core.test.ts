@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { isNetworkError } from "@/lib/workout/sync";
-import { fetchAll, friendlyError } from "./core";
+import { fetchAll, friendlyError, saveErrorKind } from "./core";
+
+describe("saveErrorKind", () => {
+  it("tells a dropped connection from a database limit", () => {
+    expect(saveErrorKind(new Error(friendlyError("TypeError: Failed to fetch")))).toBe("offline");
+    expect(saveErrorKind(new Error(friendlyError('new row for relation "food_entries" violates check constraint "food_entries_calories_check"')))).toBe("invalid");
+    expect(saveErrorKind(new Error(friendlyError("JWT expired")))).toBe("auth");
+    expect(saveErrorKind(new Error("boom"))).toBe("other");
+  });
+});
 
 type Page = { data: number[] | null; error: { message: string } | null };
 

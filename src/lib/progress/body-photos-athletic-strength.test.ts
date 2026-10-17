@@ -167,6 +167,15 @@ describe("strength", () => {
     expect(metricMode(s)).toBe("e1rm");
   });
 
+  it("uses the workout's record margin: formula noise is not a PR", () => {
+    // 185×7 → 228.2 over a prior 180×8 → 228.0 (the workout and the views agree: no record)
+    const noise = summarizeLift([set("2026-10-05", "A", 180, 8, 0), set("2026-10-12", "B", 185, 7, 0)]);
+    expect(noise.sessions[1].pr).toBe(false);
+    expect(noise.prCount).toBe(0);
+    const real = summarizeLift([set("2026-10-05", "A", 180, 8, 0), set("2026-10-12", "B", 190, 7, 0)]);
+    expect(real.sessions[1].pr).toBe(true);
+  });
+
   it("handles pure bodyweight lifts and empty history", () => {
     const bw = summarizeLift([set("2026-10-01", "A", null, 10, 0, "pull-up"), set("2026-10-08", "B", null, 12, 0, "pull-up")]);
     expect(bw.bodyweightOnly).toBe(true);

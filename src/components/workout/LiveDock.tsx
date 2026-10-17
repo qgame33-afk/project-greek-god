@@ -14,9 +14,10 @@ import { useActiveSession } from "@/lib/data/training";
 import { formatDuration, shortDate } from "@/lib/dates";
 import { parsePrefs } from "@/lib/workout/prefs";
 import { endedAgoSec, formatClock, remainingSec, type RestState } from "@/lib/workout/rest";
+import { isStaleSession, lastCompletedAt } from "@/lib/workout/summary";
 import { useLiveSession } from "./data";
 import { RestWatcher, useClockSec } from "./rest";
-import { useRest } from "./stores";
+import { useNowMinute, useRest } from "./stores";
 import { WorkoutStyles } from "./styles";
 
 export function LiveDock() {
@@ -76,7 +77,8 @@ export function LiveDockBar({ sessionId, name, startedAt, localDate, besideFab =
     const working = sets.filter((x) => x.kind !== "warmup");
     return { done: working.filter((x) => x.completed).length, total: working.length, ready: !!live.data };
   }, [live.data]);
-  const stale = localDate !== today;
+  const minute = useNowMinute();
+  const stale = isStaleSession(localDate, today, startedAt, lastCompletedAt(live.data?.sets ?? []), minute * 60000);
 
   return (
     <>

@@ -7,16 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Segmented, Stepper } from "@/components/ui/controls";
 import { Field, Input } from "@/components/ui/field";
 import { Sheet } from "@/components/ui/sheet";
-import { newId } from "@/lib/data/core";
+import { isOffline, newId, saveErrorKind } from "@/lib/data/core";
 import { useDeleteFood, useSavedFoodMutations, useSavedFoods, useUpdateFood, type FoodEntry } from "@/lib/data/nutrition";
 import { composeEatenAt, dayLabel, formatAmount, formatClock, timeValue, unitLabel } from "@/lib/nutrition-ui/format";
 import { asMeal, groupMates } from "@/lib/nutrition-ui/group";
 import { amountBounds, directEdit, entryBase, macrosEqual, normalizeUnit, rescaleEntry, savedFoodFromEntry, stepFor, type FoodUpdate } from "@/lib/nutrition-ui/portion";
 import { groupLabel } from "@/lib/nutrition-ui/provenance";
-import { fieldText, validateFoodForm, type FoodForm } from "@/lib/nutrition-ui/validate";
+import { fieldText, limitError, sizeNote, validateFoodForm, type FoodForm } from "@/lib/nutrition-ui/validate";
 import { formatInt } from "@/lib/units";
 import { parseFoodNumber } from "@/lib/nutrition-ui/number";
-import { MacroGrid, ProvenanceBadge, SheetError, StickyFooter } from "./bits";
+import { MacroGrid, ProvenanceBadge, SheetError, SoftNote, StickyFooter } from "./bits";
+import { saveFailure } from "@/lib/nutrition-ui/errors";
 import { ToastMark, useFuel } from "./context";
 import { FoodFields } from "./FoodFields";
 import { useFocusIntoSheet } from "./hooks";
@@ -86,7 +87,8 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
     fat: fieldText(Number(entry.fat_g)),
   }));
   const [touched, setTouched] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<{ text: string; retry: boolean } | null>(null);
+  const removed = useRef(false);
 
   const mates = useMemo(() => groupMates(entries, entry), [entries, entry]);
   const { baseAmount, base } = entryBase(entry);
@@ -95,7 +97,18 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
   // an entry logged above the stepper's range (typed by hand) can still be moved or renamed
   const max = Math.max(bounds.max, Number(entry.amount) || 0);
   const parsedAmount = parseFoodNumber(amountText);
-  const amountInvalid = parsedAmount == null || parsedAmount <= 0 || parsedAmount > max;
+  const amountOutOfRange = parsedAmount == null || parsedAmount <= 0 || parsedAmount > max;
+  const amountChanged = Math.abs(amount - Number(entry.amount)) > 1e-9;
+  const current = { calories: Number(entry.calories), protein: Number(entry.protein_g), carbs: Number(entry.carbs_g), fat: Number(entry.fat_g) };
+  // What the entry becomes at the typed amount; an unchanged amount keeps the stored numbers.
+  const scaled = useMemo(() => {
+    if (amountOutOfRange || !amountChanged) return null;
+    const r = rescaleEntry(entry, amount);
+    return { calories: Number(r.calories), protein: Number(r.protein_g), carbs: Number(r.carbs_g), fat: Number(r.fat_g) };
+  }, [amountOutOfRange, amountChanged, entry, amount]);
+  // the rescaled entry must still fit the database's per-entry limits (20,000 kcal …)
+  const overLimit = scaled ? limitError(scaled) : null;
+  const amountInvalid = amountOutOfRange || !!overLimit;
   const formResult = validateFoodForm({ ...form, name: name || "x" });
   const nameTrim = name.trim();
   const nameInvalid = !nameTrim || nameTrim.length > 120;
@@ -103,7 +116,6 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
   const nameError = nameInvalid && (touched || name !== entry.name) ? "Enter a food name." : null;
 
   // Only fields that really changed are written (untouched rows never drift by a rounding kcal).
-  const current = { calories: Number(entry.calories), protein: Number(entry.protein_g), carbs: Number(entry.carbs_g), fat: Number(entry.fat_g) };
   const values: FoodUpdate | null = useMemo(() => {
     const patch: FoodUpdate = {};
     if (nameTrim && nameTrim !== entry.name) patch.name = nameTrim;
@@ -112,7 +124,7 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
     if (when.date !== entry.local_date || when.time !== timeValue(entry.eaten_at)) patch.eaten_at = composeEatenAt(when.date, when.time);
     if (mode === "amount") {
       if (amountInvalid) return null;
-      if (Math.abs(amount - Number(entry.amount)) > 1e-9) Object.assign(patch, rescaleEntry(entry, amount));
+      if (amountChanged) Object.assign(patch, rescaleEntry(entry, amount));
     } else {
       if (!formResult.ok) return null;
       const v = formResult.value;
@@ -122,29 +134,25 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
       }
     }
     return patch;
-  }, [mode, amount, amountInvalid, formResult, entry, nameTrim, when]);
+  }, [mode, amount, amountChanged, amountInvalid, formResult, entry, nameTrim, when]);
 
-  const preview =
-    mode === "amount"
-      ? values?.calories != null
-        ? { calories: Number(values.calories), protein: Number(values.protein_g), carbs: Number(values.carbs_g), fat: Number(values.fat_g) }
-        : current
-      : null;
-
+  const preview = mode === "amount" ? (scaled ?? current) : null;
   const dirty = !!values && Object.keys(values).length > 0;
+  const big = scaled && !overLimit ? sizeNote(scaled) : null;
 
   // The amount carries across modes, so a change made in one is never silently dropped.
   const switchMode = (next: Mode) => {
     if (next === mode) return;
-    if (next === "macros" && !amountInvalid && Math.abs(amount - Number(entry.amount)) > 1e-9 && preview) {
+    if (next === "macros" && scaled) {
+      const r = scaled;
       setForm((f) => ({
         ...f,
         amount: fieldText(amount),
         unit: normalizeUnit(entry.unit) ?? entry.unit,
-        calories: fieldText(Math.round(preview.calories)),
-        protein: fieldText(preview.protein),
-        carbs: fieldText(preview.carbs),
-        fat: fieldText(preview.fat),
+        calories: fieldText(Math.round(r.calories)),
+        protein: fieldText(r.protein),
+        carbs: fieldText(r.carbs),
+        fat: fieldText(r.fat),
       }));
     }
     if (next === "amount") {
@@ -166,11 +174,15 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
       return;
     }
     setErr(null);
+    if (isOffline()) {
+      setErr(saveFailure({ kind: "offline", message: "" }, "changes"));
+      return;
+    }
     const snapshot = Object.fromEntries(SNAPSHOT_KEYS.filter((k) => k in values).map((k) => [k, entry[k]])) as FoodUpdate;
     try {
       await update.mutateAsync({ id: entry.id, date: entry.local_date, values });
-    } catch {
-      setErr("Couldn't save. Your changes are kept. Retry.");
+    } catch (e) {
+      setErr(saveFailure({ kind: saveErrorKind(e), message: (e as Error).message }, "changes"));
       return;
     }
     const moved = values.local_date != null && values.local_date !== entry.local_date;
@@ -183,7 +195,10 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
     close();
   };
 
+  // the sheet stays tappable while it closes: a double tap must not delete (and toast) twice
   const remove = (rows: FoodEntry[], label?: string) => {
+    if (removed.current) return;
+    removed.current = true;
     del.mutate({ ids: rows.map((r) => r.id), date: entry.local_date, rows, label });
     close();
   };
@@ -268,14 +283,19 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
               <span className="mt-1 block text-[13px] font-semibold tracking-[0.04em] text-fg-3">{unitLabel(entry.unit, amount)}</span>
             </label>
           </Stepper>
-          {amountInvalid ? (
+          {amountOutOfRange ? (
             <p className="mt-2 text-center text-[13px] font-medium text-danger">Enter an amount above 0 and up to {formatInt(max)}.</p>
+          ) : overLimit ? (
+            <p className="mt-2 text-center text-[13px] font-medium text-danger" role="alert">
+              {overLimit}
+            </p>
           ) : (
             <p className="mt-2 text-center text-[12.5px] font-medium text-fg-3">
               Rescaled from {formatInt(base.calories)} kcal per {formatAmount(baseAmount, entry.unit)}
             </p>
           )}
-          {preview && <MacroGrid className="mt-4" macros={preview} dim={amountInvalid} />}
+          {preview && <MacroGrid className="mt-4" macros={preview} dim={amountOutOfRange} />}
+          {big && <SoftNote className="mt-3">{big}</SoftNote>}
         </div>
       ) : (
         <div className="mt-5">
@@ -291,7 +311,7 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
         <Button variant="secondary" block onClick={saveToFoods} disabled={savedM.create.isPending}>
           <BookmarkPlus className="size-[18px]" /> Save to my foods
         </Button>
-        <Button variant="destructive" block onClick={() => remove([entry])}>
+        <Button variant="destructive" block onClick={() => remove([entry])} disabled={del.isPending}>
           <Trash className="size-[18px]" /> Delete entry
         </Button>
         {grouped && (
@@ -302,8 +322,8 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
       </div>
 
       {err && (
-        <SheetError className="mt-4" onRetry={save}>
-          {err}
+        <SheetError className="mt-4" onRetry={err.retry ? save : undefined}>
+          {err.text}
         </SheetError>
       )}
 

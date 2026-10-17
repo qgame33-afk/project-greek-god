@@ -1,9 +1,11 @@
 "use client";
 
 import { DropdownMenu } from "radix-ui";
-import { BookmarkPlus, CalendarDays, Ellipsis, Layers, Pencil, Plus, Trash } from "lucide-react";
-import type { ReactNode } from "react";
+import { BookmarkPlus, CalendarDays, Ellipsis, ImageIcon, Layers, Pencil, Plus, Trash } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
 import { Skeleton } from "@/components/ui/misc";
+import { Sheet } from "@/components/ui/sheet";
+import { useSignedUrls } from "@/lib/data/body";
 import { useDeleteFood, type FoodEntry } from "@/lib/data/nutrition";
 import { cn } from "@/lib/cn";
 import { composeEatenAt, formatAmount, formatClock, macroLine, timeValue } from "@/lib/nutrition-ui/format";
@@ -43,12 +45,20 @@ export function MealCard({
       }
       return cloneEntry(e, { id: newId(), date: today, eatenAt: composeEatenAt(today, timeValue(e.eaten_at)), groupId: gid });
     });
-    void log(rows, { meal, what: `${rows.length} ${rows.length === 1 ? "item" : "items"} · ${formatInt(totals.calories)} kcal` });
+    void log(rows, { meal, name: null, detail: `${rows.length} ${rows.length === 1 ? "item" : "items"} · ${formatInt(totals.calories)} kcal` });
   };
 
+  // a double tap on Delete / Remove all sends one delete, not two (and one Undo toast)
+  const removing = useRef(new Set<string>());
   const remove = (rows: FoodEntry[], what?: string) => {
     setOpenRow(null);
-    del.mutate({ ids: rows.map((r) => r.id), date, rows, label: what });
+    const fresh = rows.filter((r) => !removing.current.has(r.id));
+    if (!fresh.length) return;
+    fresh.forEach((r) => removing.current.add(r.id));
+    del
+      .mutateAsync({ ids: fresh.map((r) => r.id), date, rows: fresh, label: what })
+      .catch(() => {}) // the shared hook rolled back and explained
+      .finally(() => fresh.forEach((r) => removing.current.delete(r.id)));
   };
 
   return (
@@ -113,7 +123,11 @@ export function MealCard({
             ) : (
               <li key={it.id} className="border-b border-line-hair last:border-b-0">
                 <div className="flex h-11 items-center gap-2 bg-white/[.015] pl-4 pr-1 sm:pl-5">
-                  <Layers className="size-3.5 shrink-0 text-fg-3" aria-hidden />
+                  {groupPhoto(it.entries) ? (
+                    <GroupPhoto path={groupPhoto(it.entries)!} label={groupLabel(it.entries[0].source).toLowerCase()} />
+                  ) : (
+                    <Layers className="size-3.5 shrink-0 text-fg-3" aria-hidden />
+                  )}
                   <span className="flex min-w-0 flex-1 items-baseline gap-2 truncate">
                     <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-fg-3">{groupLabel(it.entries[0].source)}</span>
                     <span className="truncate text-[12.5px] font-medium text-fg-3">
@@ -151,6 +165,47 @@ export function MealCard({
         </ul>
       )}
     </section>
+  );
+}
+
+/** The private photo a scanned meal was saved with, if any. */
+const groupPhoto = (entries: FoodEntry[]) => entries.find((e) => e.photo_path)?.photo_path ?? null;
+
+/** Thumbnail of a privately saved meal photo; tap to see it full size. */
+function GroupPhoto({ path, label }: { path: string; label: string }) {
+  const urls = useSignedUrls("meal-photos", [path]);
+  const url = urls.data?.[path];
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={`View the ${label} photo`}
+        className="press -my-1.5 -ml-1.5 grid size-11 shrink-0 place-items-center"
+      >
+        <span className="grid size-8 place-items-center overflow-hidden rounded-[8px] border border-line bg-s3">
+          {url ? (
+            // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL of a private photo
+            <img src={url} alt="" className="size-full object-cover" />
+          ) : (
+            <ImageIcon className="size-4 text-fg-3" aria-hidden />
+          )}
+        </span>
+      </button>
+      <Sheet open={open} onOpenChange={setOpen} title="Meal photo" description="Saved privately. Only you can see it.">
+        <div className="pb-4 pt-2">
+          {url ? (
+            // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL of a private photo
+            <img src={url} alt={`Photo of this ${label}`} className="max-h-[70dvh] w-full rounded-[14px] border border-line object-contain" />
+          ) : urls.isError ? (
+            <p className="py-8 text-center text-[13px] text-fg-2">The photo couldn&apos;t be loaded.</p>
+          ) : (
+            <Skeleton className="aspect-[4/3] w-full rounded-[14px]" />
+          )}
+        </div>
+      </Sheet>
+    </>
   );
 }
 

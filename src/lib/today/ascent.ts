@@ -3,6 +3,7 @@
 
 import { weightStats, type WeighIn } from "@/lib/bodyweight";
 import { addDays, daysBetween, type ISODate } from "@/lib/dates";
+import { round, toDisplayWeight, type WeightUnit } from "@/lib/units";
 
 const clamp01 = (n: number) => (Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0);
 
@@ -114,4 +115,13 @@ export function bustFillLine(p: number): number {
   if (v <= 0) return 0;
   if (v >= 1) return 1;
   return FIGURE_BASE + v * (FIGURE_TOP - FIGURE_BASE);
+}
+
+/** "163 → 183 lb", "73.9 → 83.0 kg": both ends of the climb to the same precision. */
+export function rangePlaque(startLb: number, goalLb: number, unit: WeightUnit): string {
+  const a = round(toDisplayWeight(startLb, unit), 1);
+  const b = round(toDisplayWeight(goalLb, unit), 1);
+  const whole = Number.isInteger(a) && Number.isInteger(b);
+  const f = (v: number) => (whole ? String(v) : v.toFixed(1));
+  return `${f(a)} → ${f(b)} ${unit}`;
 }
