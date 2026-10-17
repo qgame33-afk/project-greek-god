@@ -44,3 +44,12 @@ export function hidesLiveDock(pathname: string) {
 export function hidesFab(pathname: string) {
   return hidesLiveDock(pathname) || pathname.startsWith("/nutrition/meals/recipe/") || pathname.startsWith("/nutrition/meals/grocery");
 }
+
+/**
+ * Whether the page's big heading has scrolled up under the mobile top bar (52 px plus the safe
+ * area, rounded up to 60), so the bar should show the page title. A heading with no box, or one
+ * that sits up there while the page is at the top (it belongs to a full-screen layer), never counts.
+ */
+export function headingUnderBar(entry: { isIntersecting: boolean; top: number; height: number }, scrollY: number) {
+  return !entry.isIntersecting && entry.height > 0 && entry.top < 60 && scrollY > 0;
+}

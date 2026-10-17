@@ -13,7 +13,7 @@ import { useProfile } from "@/lib/data/profile";
 import { useUser } from "@/lib/data/core";
 import { cn } from "@/lib/cn";
 import { navDirection, prefersReducedMotion } from "@/lib/motion";
-import { PRIMARY_NAV, SECONDARY_NAV, hidesFab, isActive, isFocusRoute } from "./nav";
+import { PRIMARY_NAV, SECONDARY_NAV, headingUnderBar, hidesFab, isActive, isFocusRoute } from "./nav";
 
 export function AppShell({ children }: { children: ReactNode }) {
   // Everything inside the app is per-user and per-timezone, so it renders on the client only.
@@ -109,7 +109,7 @@ function TopBar({ pathname }: { pathname: string }) {
   }, []);
   const initial = (user?.email ?? "?").slice(0, 1).toUpperCase();
   const home = pathname === "/";
-  const { title, show } = useScrolledPageTitle(!home);
+  const { title, show } = useScrolledPageTitle(!home, pathname);
   return (
     <header
       className={cn("chrome vt-topbar sticky top-0 z-20 border-b transition-colors md:hidden", scrolled ? "border-line-hair" : "border-transparent")}
@@ -155,36 +155,80 @@ function TopBar({ pathname }: { pathname: string }) {
   );
 }
 
-/** The page's <h1> text, and whether it has scrolled up under the top bar. */
-function useScrolledPageTitle(enabled: boolean) {
-  const [title, setTitle] = useState<string | null>(null);
-  const [show, setShow] = useState(false);
+/**
+ * The page's <h1> text, and whether it has scrolled up under the top bar.
+ *
+ * Every route renders its own <main> (the shell keys the page's view transition by pathname), so
+ * nothing here may hold on to a page element across navigations: the hook starts over for each
+ * pathname, watches the stable document body for the heading to appear, change or be replaced,
+ * and ignores reports about a heading that has left the page (an IntersectionObserver on a
+ * detached node says "not intersecting, top 0", which would read as "scrolled away").
+ */
+function useScrolledPageTitle(enabled: boolean, pathname: string) {
+  const [bar, setBar] = useState<PageTitleState>(NO_TITLE);
   useEffect(() => {
     if (!enabled) return;
     let io: IntersectionObserver | null = null;
     let observed: Element | null = null;
+    let frame = 0;
+    const update = (patch: Partial<Omit<PageTitleState, "path">>) =>
+      setBar((b) => {
+        const base = b.path === pathname ? b : { ...NO_TITLE, path: pathname };
+        const next = { ...base, ...patch };
+        return next.path === b.path && next.title === b.title && next.show === b.show ? b : next;
+      });
     const attach = () => {
-      const el = document.querySelector("main h1");
-      setTitle(el?.textContent?.trim() || null);
+      frame = 0;
+      const el = pageHeading();
+      update({ title: el?.textContent?.trim() || null });
       if (el === observed) return;
       io?.disconnect();
+      io = null;
       observed = el;
-      if (!el) return setShow(false);
-      // hidden under the 52px bar (plus the safe area) counts as scrolled away
-      io = new IntersectionObserver(([e]) => setShow(!e.isIntersecting && e.boundingClientRect.top < 60), { rootMargin: "-60px 0px 0px 0px" });
-      io.observe(el);
+      update({ show: false });
+      if (!el) return;
+      const mine = new IntersectionObserver(
+        ([e]) => {
+          if (io !== mine || !e.target.isConnected) return;
+          update({ show: headingUnderBar({ isIntersecting: e.isIntersecting, top: e.boundingClientRect.top, height: e.boundingClientRect.height }, window.scrollY) });
+        },
+        { rootMargin: "-60px 0px 0px 0px" },
+      );
+      io = mine;
+      mine.observe(el);
+    };
+    // coalesce bursts of DOM changes (a page streaming in) into one look per frame
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(attach);
     };
     attach();
-    const main = document.querySelector("main") ?? document.body;
-    const mo = new MutationObserver(attach);
-    mo.observe(main, { childList: true, subtree: true, characterData: true });
+    const mo = new MutationObserver(schedule);
+    mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+    window.addEventListener("resize", schedule);
     return () => {
       mo.disconnect();
       io?.disconnect();
-      setShow(false);
+      io = null;
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", schedule);
     };
-  }, [enabled]);
-  return { title: enabled ? title : null, show: enabled && show };
+  }, [enabled, pathname]);
+  const current = enabled && bar.path === pathname;
+  return { title: current ? bar.title : null, show: current && bar.show };
+}
+
+interface PageTitleState {
+  path: string;
+  title: string | null;
+  show: boolean;
+}
+const NO_TITLE: PageTitleState = { path: "", title: null, show: false };
+
+/** The current page's heading: the first <h1> in the page that is laid out (a copy hidden at
+ *  this breakpoint has no boxes and never counts). */
+function pageHeading(): Element | null {
+  for (const h of document.querySelectorAll("main h1")) if (h.isConnected && h.getClientRects().length > 0) return h;
+  return null;
 }
 
 /* --------------------------------------------------------- mobile tabs */
