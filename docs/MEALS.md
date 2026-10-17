@@ -84,13 +84,17 @@ Unit tests live next to the code (`*.test.ts`, vitest).
 ## 4. Personalisation (engine/prefs.ts + score.ts) — a real, explainable learner
 
 **Features** of a recipe (`recipeFeatures`): its `tags` (cuisine:, protein:, base:, style:, dish:)
-plus `ing:<key>` for each non-staple, non-optional ingredient, plus derived buckets
-`time:quick|medium|long` (≤15/≤30/>30 min), `effort:few|some|many` (≤5/≤8/>8 ingredients),
-`cost:1|2|3`.
+plus `group:seafood` for tuna/salmon/fish/cod/shrimp, `ing:<key>` for each non-staple,
+non-optional ingredient, plus derived buckets `time:quick|medium|long` (≤15/≤30/>30 min),
+`effort:few|some|many` (≤5/≤8/>8 ingredients), `cost:1|2|3`.
 
 **Learned weights** are recomputed from `meal_feedback` (never invented): for each event,
-`w[f] += signal × decay(age) / sqrt(|features|)` for each feature f in the event's snapshot,
-clamped to [−3, 3]. Decay half-life 60 days. Signals:
+`w[f] += signal × decay(age) × FAMILY_WEIGHT[family] / sqrt(|features of that family|)` for each
+TASTE feature f of the event's snapshot (protein 0.5, ing 0.45, dish 0.4, group 0.35, cuisine /
+style / base 0.25), clamped to [−3, 3]; scoring reads weights back with the same family scales.
+Taste signals never touch the `time:`/`effort:`/`cost:` buckets — disliking a quick tuna melt is
+about tuna, not quick meals; the buckets are learned only from the reasons below. Decay half-life
+60 days. Signals:
 
 | event | signal | notes |
 |---|---|---|
@@ -106,14 +110,20 @@ clamped to [−3, 3]. Decay half-life 60 days. Signals:
 
 Reasons modify learning: `too_complicated` → −0.8 on that recipe's `effort:*`/`time:*` features
 and a persistent "simpler" bias (prefer fewer ingredients/steps); `too_long` → −0.8 on `time:*`;
-`too_expensive` → −0.8 on `cost:*`; `dont_like` → −1.0 on all features; `ate_recently` → no taste
+`too_expensive` → −0.8 on `cost:*` (never on the easiest bucket: `time:quick`, `effort:few`,
+`cost:1`); `dont_like` → a −1.0 taste signal; `ate_recently` → no taste
 penalty, only a 14-day cooldown for that recipe; `dislike_ingredient` → asks which ingredient and
 adds it to `dislikedIngredients` (hard) after the user confirms.
 
 **Score** for a candidate in a slot (all terms recorded for "Why this meal?"):
 1. Hard filters: slot, allergies, diets, disliked ingredients, missing equipment, thumbs-down
-   within 90 days, already used this week (unless favourite with repeat_ok, ≥ 3 days apart).
-2. Fit: difficulty (super_easy: penalty past 15 min / 6 ingredients / 5 steps), time cap, budget vs cost.
+   within 90 days, the same recipe twice in a day or more than 3 times a week, a make-ahead
+   recipe (overnight oats) on today, above the cooking level unless liked or a favourite, already
+   used this week (unless favourite with repeat_ok, ≥ 3 days apart). When fewer than 2 fit, the
+   level, then spaced repeats, then the time cap are relaxed — never the rest.
+2. Fit: difficulty (super_easy: penalty past 15 min / 6 ingredients / 5 steps), time cap, budget vs
+   cost, reuse (+ per ingredient already on the week's grocery list, − per new one and per dollar
+   of a new pack the meal would leave unused).
 3. Taste: Σ w[f] over the recipe's features (normalised) + explicit liked/disliked ingredients and cuisines.
 4. Variety: penalties for same `protein:` twice in a day, same `base:` twice in a day, same `dish:`
    within 5 days, recipe planned/eaten in the last 14 days (cooldown; favourites 4 days).
@@ -135,7 +145,9 @@ Cheeseburgers and Beef Tacos (beef)", "Super Easy: 12 min, 5 ingredients", "Fits
 ## 5. Planner operations (engine/plan.ts, pure; hooks persist)
 
 - `generateWeek(ctx)` → 7 days × (breakfast, lunch, dinner, snacks) with servings + reasons;
-  keeps `locked` meals when regenerating a week; deterministic given a seed.
+  keeps `locked` meals when regenerating a week; deterministic given a seed. With `today` inside
+  the week it plans from today on and keeps the past days' meals (`wholeWeek` plans all 7);
+  `save` is what to store.
 - `regenerateMeal(ctx, meal, shown[])` → a different recipe for that one meal only (excludes the
   current one and everything already shown in this regenerate session); the old pick is pushed on
   `history` for Undo; logs `regenerated` (+ optional reason) for the old recipe.
@@ -144,10 +156,12 @@ Cheeseburgers and Beef Tacos (beef)", "Super Easy: 12 min, 5 ingredients", "Fits
   `shortcut` swaps, drop optional ingredients and garnish, merge steps, recompute minutes and
   nutrition → a new `simplified` recipe stored in `recipes`; if nothing can be simplified, say so
   honestly (with AI available, `/api/meals/ai/simplify` may produce one, validated the same way).
-- `buildGroceryList(plan meals, recipes, prefs)` → consolidated items: sum by ingredient key across
-  the week (scaled by servings), convert compatible units to base (g/ml/piece), present in shopper
-  units/packs ("1.2 kg — 3 × 454 g packs", "18 eggs — 2 dozen"), group by category, staples under
-  Pantry as "check you have", `pantry` prefs marked "have", estimated cost vs optional budget.
+- `buildGroceryList(plan meals, recipes, prefs, { from })` → consolidated items: sum by ingredient
+  key across the days from `from` on (scaled by servings), buy one variant of interchangeable ones
+  (0%/2% yogurt, white/whole-wheat bread, tortilla sizes), convert compatible units to base
+  (g/ml/piece), present in shopper units/packs ("1.2 kg — 3 × 454 g packs", "18 eggs — 2 dozen",
+  "3 slices", "7 pouches"), group by category, staples under Pantry as "check you have", `pantry`
+  prefs marked "have", checkout estimate vs optional budget (and the food used vs budget).
   Regenerating keeps custom items and the checked/have/removed state of items that still exist.
 
 ## 6. UI (DESIGN.md Pantheon; mobile-first 390 px; must also be great at 1440)
