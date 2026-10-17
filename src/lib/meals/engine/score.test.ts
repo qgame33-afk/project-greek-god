@@ -218,6 +218,14 @@ describe("explainPick", () => {
     expect(liked?.text).toContain("beef");
   });
 
+  it("keeps two liked names apart when one has its own 'and'", () => {
+    const rows: FeedbackRow[] = ["lib:double-cheeseburger", "lib:cheeseburger-oven-fries"].map((k, i) => ({ recipe_key: k, event: "thumbs_up", reason: null, ingredient: null, features: recipeFeatures(R(k)), created_at: new Date(Date.parse(NOW) - i * 86_400_000).toISOString() }));
+    const learned = learnPrefs(rows, NOW);
+    const c = scoreRecipe(R("lib:sloppy-joes"), sctx({ learned }));
+    const liked = explainPick(c, { slot: "dinner", learned, nameOf }).find((x) => x.kind === "liked_similar");
+    expect(liked?.text).toMatch(/^You liked (Double Cheeseburger, and Cheeseburger and Oven Fries|Cheeseburger and Oven Fries, and Double Cheeseburger) \(/);
+  });
+
   it("says 'One of your favourites', liked cuisines and pantry items only when true", () => {
     const tacos = R("lib:beef-tacos");
     const favourites = new Map([[tacos.key, { recipe_key: tacos.key, repeat_ok: true }]]);

@@ -390,12 +390,13 @@ export function summarizeLearning(model: LearnedModel, opts: { nameOf?: NameOf; 
 
 /**
  * Recipes the user liked that share feature `f`, strongest first (names resolved), for
- * "You liked Cheeseburgers and Beef Tacos (beef)". Excludes `exceptKey`.
+ * "You liked Cheeseburgers and Beef Tacos (beef)". Excludes `exceptKey`. "Kept" still teaches
+ * the planner, but not swapping a suggestion away isn't saying you liked it, so it never names one.
  */
 export function likedRecipesWith(model: LearnedModel, f: string, nameOf: NameOf, exceptKey?: string, max = 2): { recipe_key: string; name: string; strength: number }[] {
   const sums = new Map<string, number>();
   for (const c of model.contributions[f] ?? []) {
-    if (c.value <= 0 || c.recipe_key === exceptKey || !LIKE_EVENTS.has(c.event) || c.reason) continue;
+    if (c.value <= 0 || c.recipe_key === exceptKey || !LIKE_EVENTS.has(c.event) || c.event === "kept" || c.reason) continue;
     sums.set(c.recipe_key, (sums.get(c.recipe_key) ?? 0) + c.value);
   }
   const out: { recipe_key: string; name: string; strength: number }[] = [];

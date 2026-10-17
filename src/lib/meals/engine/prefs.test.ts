@@ -142,6 +142,12 @@ describe("learnPrefs: weights per docs/MEALS.md §4", () => {
     const liked = likedRecipesWith(m, "protein:beef", (k) => getLibraryRecipe(k)?.name);
     expect(liked.map((l) => l.name).sort()).toEqual(["Beef Tacos", "Double Cheeseburger"]);
   });
+
+  it("never says 'You liked' a recipe the user only kept after a regenerate", () => {
+    const m = learnPrefs([row("lib:beef-tacos", "kept"), row("lib:double-cheeseburger", "kept", { days: 2 })], NOW);
+    expect(m.weights["protein:beef"]).toBeGreaterThan(0); // it still teaches the planner
+    expect(likedRecipesWith(m, "protein:beef", (k) => getLibraryRecipe(k)?.name)).toEqual([]);
+  });
 });
 
 describe("labels", () => {

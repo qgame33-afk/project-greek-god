@@ -17,7 +17,8 @@ const MIN_WEIGHT = 0.05;
 export const MAX_REASONS = 4;
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
-const list = (xs: string[]) => (xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+// a comma before the last "and" when a name has its own ("Cheeseburger and Oven Fries, and Beef Tacos")
+const list = (xs: string[]) => (xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")}${xs.some((x) => x.includes(" and ")) ? "," : ""} and ${xs[xs.length - 1]}`);
 const times = (n: number) => (n === 1 ? "once" : n === 2 ? "twice" : `${n} times`);
 
 /** "You gave this a thumbs up" / "You've logged this 3 times" from the user's own events on this recipe. */
