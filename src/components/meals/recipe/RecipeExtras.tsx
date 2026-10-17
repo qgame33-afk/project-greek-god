@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Coins, Gauge, Globe, Heart, Leaf, Package, RotateCcw, Sparkles, Star, ThumbsDown, ThumbsUp, Utensils, type LucideIcon } from "lucide-react";
+import { Coins, Gauge, Globe, Heart, Leaf, Package, RotateCcw, Sparkles, Star, ThumbsDown, ThumbsUp, Utensils, type LucideIcon } from "lucide-react";
 import { useId } from "react";
+import { SealTick } from "@/components/art/icons";
+import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
 import { relativeDay } from "@/lib/dates";
 import type { WhyReason } from "@/lib/meals/types";
@@ -29,8 +31,8 @@ export function WhyThisMeal({ reasons, className }: { reasons: WhyReason[]; clas
   const list = [...reasons].sort((a, b) => b.weight - a.weight);
   if (!list.length) return null;
   return (
-    <section className={cn("card p-4 sm:p-5", className)} aria-labelledby={titleId}>
-      <h2 id={titleId} className="eyebrow mb-3">
+    <section className={cn("border-y border-vein py-4", className)} aria-labelledby={titleId}>
+      <h2 id={titleId} className="t-eyebrow mb-3">
         Why this meal?
       </h2>
       <ul className="space-y-3">
@@ -38,15 +40,18 @@ export function WhyThisMeal({ reasons, className }: { reasons: WhyReason[]; clas
           const Icon = WHY_ICON[r.kind] ?? Sparkles;
           return (
             <li key={`${r.kind}-${i}`} className="flex items-start gap-3">
-              <span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-lapis-line bg-lapis-tint text-lapis-text">
-                <Icon className="size-4" aria-hidden />
+              <span className="grid size-8 shrink-0 place-items-center rounded-full text-stone shadow-[inset_0_0_0_1px_var(--vein-3)]">
+                <Icon className="size-4" strokeWidth={1.6} aria-hidden />
               </span>
-              <p className="pt-[5px] text-[14.5px] font-medium leading-snug text-fg">{r.text}</p>
+              <p className="t-callout pt-1 text-ivory">{r.text}</p>
             </li>
           );
         })}
       </ul>
-      <p className="mt-4 text-[12.5px] leading-relaxed text-fg-3">Why the planner picked it for this slot. Rate meals to teach it.</p>
+      <div className="mt-3 flex items-center gap-2">
+        <Tag kind="RULE" />
+        <p className="t-meta text-stone">Why the planner picked it for this slot. Rate meals to teach it.</p>
+      </div>
     </section>
   );
 }
@@ -66,16 +71,17 @@ export function TasteCard({
   className?: string;
 }) {
   const titleId = useId();
-  const pill = "press inline-flex h-11 items-center justify-center gap-2 rounded-[12px] border px-3 text-[14px] font-bold transition-colors";
-  const on = "border-line-gold bg-gold-tint text-gold-300";
-  const off = "border-line bg-s3 text-fg-2 hover:text-fg";
+  // an opinion, not something earned: selected is ivory, never gold
+  const pill = "press t-callout inline-flex h-11 items-center justify-center gap-2 rounded-full px-3 font-semibold transition-colors";
+  const on = "bg-m4 text-ivory shadow-[inset_0_0_0_1px_var(--ivory)]";
+  const off = "bg-m3 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory";
   return (
-    <section className={cn("card p-4 sm:p-5", className)} aria-labelledby={titleId}>
+    <section className={cn("", className)} aria-labelledby={titleId}>
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 id={titleId} className="eyebrow">
+        <h2 id={titleId} className="t-eyebrow">
           Your taste
         </h2>
-        <span className="text-[12px] font-medium text-fg-3">Teaches your planner</span>
+        <span className="t-meta text-stone">Teaches your planner</span>
       </div>
       <div className="grid grid-cols-3 gap-2">
         <button type="button" aria-pressed={favourite} onClick={onFavourite} className={cn(pill, favourite ? on : off)}>
@@ -86,7 +92,7 @@ export function TasteCard({
           <ThumbsUp className="size-[18px]" fill={thumbs === "up" ? "currentColor" : "none"} aria-hidden />
           {thumbs === "up" ? "Liked" : "Like"}
         </button>
-        <button type="button" aria-pressed={thumbs === "down"} onClick={() => onThumbs("down")} className={cn(pill, thumbs === "down" ? "border-line-strong bg-s5 text-fg" : off)}>
+        <button type="button" aria-pressed={thumbs === "down"} onClick={() => onThumbs("down")} className={cn(pill, thumbs === "down" ? "bg-m4 text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)]" : off)}>
           <ThumbsDown className="size-[18px]" fill={thumbs === "down" ? "currentColor" : "none"} aria-hidden />
           {thumbs === "down" ? "Disliked" : "Dislike"}
         </button>
@@ -105,17 +111,15 @@ export function loggedText(date: string, today: string, kcal: number): string {
 /** "Logged today · 1,155 kcal" after this meal went into the food diary, with Undo when we can. */
 export function LoggedStrip({ text, onUndo, href = "/nutrition", className }: { text: string; onUndo?: () => void; href?: string; className?: string }) {
   return (
-    <div className={cn("flex min-h-[52px] items-center gap-3 rounded-[14px] border border-success/25 bg-success-tint py-1.5 pl-3.5 pr-1.5", className)} role="status">
-      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-success text-ink">
-        <Check className="size-4" strokeWidth={3} aria-hidden />
-      </span>
-      <p className="min-w-0 flex-1 truncate text-[14px] font-semibold text-fg">{text}</p>
+    <div className={cn("flex min-h-14 items-center gap-3 rounded-btn bg-leaf-tint py-1.5 pl-3.5 pr-1.5 shadow-[inset_0_0_0_1px_var(--leaf-line)]", className)} role="status">
+      <SealTick className="seal-in size-6 shrink-0 text-leaf-300" />
+      <p className="t-callout min-w-0 flex-1 truncate font-semibold text-ivory">{text}</p>
       {onUndo ? (
-        <button type="button" onClick={onUndo} className="press inline-flex h-11 shrink-0 items-center rounded-[10px] px-3 text-[13.5px] font-bold text-gold-300 hover:text-gold-200">
+        <button type="button" onClick={onUndo} className="press t-callout inline-flex h-11 shrink-0 items-center rounded-field px-3 font-semibold text-ivory">
           Undo
         </button>
       ) : (
-        <Link href={href} className="press inline-flex h-11 shrink-0 items-center rounded-[10px] px-3 text-[13.5px] font-bold text-gold-300 hover:text-gold-200">
+        <Link href={href} className="press t-callout inline-flex h-11 shrink-0 items-center rounded-field px-3 font-semibold text-ivory">
           View
         </Link>
       )}

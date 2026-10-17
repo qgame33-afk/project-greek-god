@@ -2,11 +2,11 @@ import { cn } from "@/lib/cn";
 import type { Difficulty } from "@/lib/meals/types";
 import { DIFFICULTY_LABEL, DIFFICULTY_LEVEL } from "./format";
 
-const HEIGHT = ["h-[6px]", "h-[9px]", "h-[12px]"];
+const HEIGHT = ["h-1.5", "h-[0.5625rem]", "h-3"];
 
 /**
  * Difficulty as three rising bars (1 = Super Easy, 3 = I Like Cooking) plus its name. The
- * bars are a data mark (gold-400); the label carries the meaning for screen readers and anyone
+ * bars are a data mark (ivory: difficulty is not earned); the label carries the meaning for anyone
  * who can't tell the bars apart.
  */
 export function DifficultyPips({
@@ -32,7 +32,7 @@ export function DifficultyPips({
         className={cn("inline-flex items-end gap-[2px]", size === "sm" && "scale-90")}
       >
         {HEIGHT.map((h, i) => (
-          <span key={h} className={cn("w-[3px] rounded-[1px]", h, i < n ? "bg-gold-400" : "bg-white/15")} />
+          <span key={h} className={cn("w-[3px] rounded-[1px]", h, i < n ? "bg-ivory" : "bg-vein-3")} />
         ))}
       </span>
       {label && <span>{name}</span>}

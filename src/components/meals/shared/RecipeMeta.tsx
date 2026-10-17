@@ -1,4 +1,5 @@
-import { Clock, Moon, Sparkles, WandSparkles } from "lucide-react";
+import { Clock, Moon, WandSparkles } from "lucide-react";
+import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
 import { ingredientCount, makeAheadOf } from "@/lib/meals/recipe";
 import type { MakeAhead, Recipe, RecipeOrigin } from "@/lib/meals/types";
@@ -24,9 +25,9 @@ export function RecipeMeta({
       case "time":
         return (
           <span key={p} className="inline-flex items-center gap-1 whitespace-nowrap">
-            <Clock className="size-3.5 text-fg-3" aria-hidden />
+            <Clock className="size-3.5 text-ash" strokeWidth={1.6} aria-hidden />
             <span>
-              <span className="num text-[13.5px] font-semibold text-fg">{recipe.minutes}</span> min
+              <span className="tnum font-semibold text-ivory">{recipe.minutes}</span> min
             </span>
           </span>
         );
@@ -41,8 +42,8 @@ export function RecipeMeta({
       case "cost":
         return (
           <span key={p} className="whitespace-nowrap" aria-label={`Cost ${recipe.cost} of 3`}>
-            <span className="text-fg">{costLabel(recipe.cost)}</span>
-            <span className="text-fg-3/50" aria-hidden>
+            <span className="text-ivory">{costLabel(recipe.cost)}</span>
+            <span className="opacity-40" aria-hidden>
               {"$".repeat(3 - recipe.cost)}
             </span>
           </span>
@@ -52,11 +53,11 @@ export function RecipeMeta({
   // Every item carries its own leading "·"; the row is shifted left by one separator and
   // clipped, so whichever item starts a line (the first, or one that wrapped) shows no dot.
   return (
-    <p className={cn("min-w-0 overflow-hidden text-[12.5px] font-semibold text-fg-2", className)}>
+    <p className={cn("t-meta min-w-0 overflow-hidden text-stone", className)}>
       <span className="-ml-3 flex flex-wrap items-center gap-x-2 gap-y-1">
         {items.map((el, i) => (
           <span key={i} className="inline-flex items-center gap-2">
-            <span className="w-1 text-center text-fg-3/60" aria-hidden>
+            <span className="w-1 text-center text-ash" aria-hidden>
               ·
             </span>
             {el}
@@ -67,24 +68,18 @@ export function RecipeMeta({
   );
 }
 
-const BADGE = "inline-flex h-5 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-[10.5px] font-bold uppercase leading-none tracking-[0.06em]";
+const BADGE = "t-tag inline-flex h-5 shrink-0 items-center gap-1 rounded-tag px-1.5";
 
 /**
- * Where a recipe came from. AI recipes are always labelled (lapis, like every suggestion);
- * simplified and custom ones are quiet; library recipes show nothing.
+ * Where a recipe came from. AI recipes always carry the AI tag (aegean is for AI only);
+ * simplified and custom ones are quiet chips; library recipes show nothing.
  */
 export function OriginBadge({ origin, className }: { origin: RecipeOrigin; className?: string }) {
   const label = originLabel(origin);
   if (!label) return null;
-  if (origin === "ai")
-    return (
-      <span className={cn(BADGE, "border border-lapis/35 bg-lapis/10 text-lapis-text", className)}>
-        <Sparkles className="size-3" aria-hidden />
-        {label}
-      </span>
-    );
+  if (origin === "ai") return <Tag kind="AI" detail="recipe" className={className} />;
   return (
-    <span className={cn(BADGE, "border border-line text-fg-2", className)}>
+    <span className={cn(BADGE, "text-stone shadow-[inset_0_0_0_1px_var(--vein-3)]", className)}>
       {origin === "simplified" && <WandSparkles className="size-3" aria-hidden />}
       {label}
     </span>
@@ -99,7 +94,7 @@ export function MakeAheadBadge({ recipe, className }: { recipe: Pick<Recipe, "st
   const ahead = makeAheadOf(recipe);
   if (!ahead) return null;
   return (
-    <span className={cn(BADGE, "border border-line text-fg-2", className)} title={`Needs about ${ahead.hours < 1 ? `${Math.round(ahead.hours * 60)} min` : `${ahead.hours} h`} ahead`}>
+    <span className={cn(BADGE, "text-stone shadow-[inset_0_0_0_1px_var(--vein-3)]", className)} title={`Needs about ${ahead.hours < 1 ? `${Math.round(ahead.hours * 60)} min` : `${ahead.hours} h`} ahead`}>
       <Moon className="size-3" aria-hidden />
       {ahead.label}
     </span>

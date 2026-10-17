@@ -10,6 +10,7 @@ import { slotToMeal, useLogPlannedMeal } from "@/lib/data/meals";
 import type { ISODate } from "@/lib/dates";
 import { recipeFeatures, recipeMacrosExact } from "@/lib/meals/recipe";
 import type { Recipe, Slot } from "@/lib/meals/types";
+import { mealForTime } from "@/lib/nutrition";
 import { composeEatenAt } from "@/lib/nutrition-ui/format";
 import { fromMinutes, type Min } from "@/lib/prefs";
 import { formatInt } from "@/lib/units";
@@ -159,4 +160,40 @@ export function EatenButton({
 export function plannedEatenAt(date: ISODate, today: ISODate, at: Min | null | undefined): string | undefined {
   if (date === today || at == null || !Number.isFinite(at)) return undefined;
   return composeEatenAt(date, fromMinutes(at));
+}
+
+/**
+ * "Eaten · log 1½ servings" from a recipe or cooking mode: one tap writes one food-log row for
+ * the servings on screen through the idempotent planned-meal path (linked to the planned meal
+ * when the recipe was opened from the plan), with the Undo toast. The id is fixed per screen, so
+ * a repeat tap or a retry never logs twice; after an Undo the same id can log again.
+ */
+export function useQuickEaten(recipe: Recipe | null | undefined, plannedMeal: { id: string; slot: Slot } | null | undefined) {
+  const today = useToday();
+  const log = useLogPlannedMeal();
+  const entryId = useRef<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const eat = (servings: number, onLogged?: () => void) => {
+    if (!recipe || log.isPending) return;
+    if (isOffline()) {
+      setNote("Offline · try again when you're back");
+      return;
+    }
+    setNote(null);
+    entryId.current ??= newId();
+    log.mutate(
+      {
+        id: entryId.current,
+        plannedMealId: plannedMeal?.id ?? null,
+        recipe: { key: recipe.key, name: recipe.name, ingredients: recipe.ingredients },
+        servings,
+        date: today,
+        meal: plannedMeal ? slotToMeal(plannedMeal.slot) : mealForTime(),
+        macros: estimateFor(recipeMacrosExact(recipe, 1), servings),
+        features: recipeFeatures(recipe),
+      },
+      { onSuccess: () => onLogged?.() },
+    );
+  };
+  return { eat, pending: log.isPending, note };
 }
