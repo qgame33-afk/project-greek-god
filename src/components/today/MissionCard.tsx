@@ -279,7 +279,7 @@ function ValueForm({ habitKey, spec, log, today, onDone }: { habitKey: string; s
   };
 
   return (
-    <div className="pb-[calc(16px+var(--safe-bottom))] pt-2 lg:pb-2">
+    <div className="pb-4 pt-2 lg:pb-2">
       <Stepper
         label={spec.label}
         value={value}

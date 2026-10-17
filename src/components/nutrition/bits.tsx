@@ -151,7 +151,7 @@ export function StickyFooter({ children, className }: { children: ReactNode; cla
   return (
     <div
       className={cn(
-        "sticky -bottom-4 z-10 -mx-5 -mb-4 mt-5 border-t border-line-hair bg-s2 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5",
+        "sticky bottom-[calc(var(--sheet-pb)*-1)] z-10 -mx-5 mb-[calc(var(--sheet-pb)*-1)] mt-5 border-t border-line-hair bg-s2 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5",
         className,
       )}
     >

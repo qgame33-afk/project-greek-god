@@ -201,7 +201,7 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
         </p>
       </div>
 
-      <div className="sticky -bottom-4 z-10 -mx-5 -mb-4 border-t border-line-hair bg-s2 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5">
+      <div className="sticky bottom-[calc(var(--sheet-pb)*-1)] z-10 -mx-5 mb-[calc(var(--sheet-pb)*-1)] border-t border-line-hair bg-s2 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5">
         <Button variant="primary" size="lg" block onClick={submit} loading={log.isPending} disabled={log.isPending}>
           Add to {label}
         </Button>

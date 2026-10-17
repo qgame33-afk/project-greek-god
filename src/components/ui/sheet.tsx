@@ -2,7 +2,7 @@
 
 import { Dialog } from "radix-ui";
 import { X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Drawer } from "vaul";
 import { cn } from "@/lib/cn";
 
@@ -57,9 +57,15 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
     </div>
   );
 
+  // A phone sheet without a footer runs its body to the screen's bottom edge, so the body's
+  // padding clears the home indicator. --sheet-pb is that padding: action bars that stick to the
+  // bottom inside the body (StickyFooter) pull themselves down by it.
+  const sheetPb = footer || desktop ? "16px" : "calc(16px + var(--safe-bottom))";
   const body = (
     <>
-      <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4", className)}>{children}</div>
+      <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-(--sheet-pb)", className)} style={{ "--sheet-pb": sheetPb } as CSSProperties}>
+        {children}
+      </div>
       {footer && <div className="border-t border-line-hair bg-s2 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5">{footer}</div>}
     </>
   );
