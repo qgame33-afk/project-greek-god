@@ -64,3 +64,17 @@ export function compareRecipes(a: Recipe, b: Recipe): CompareRow[] {
     { label: "Protein", before: `${fmt(ma.protein)} g`, after: `${fmt(mb.protein)} g`, better: false },
   ];
 }
+
+/** What makes two versions of a recipe the same to cook: name, time, ingredient lines and steps. */
+const bodyOf = (r: Pick<Recipe, "name" | "minutes" | "ingredients" | "steps">) =>
+  JSON.stringify([r.name, r.minutes, r.ingredients.map((l) => [l.key, l.qty, l.unit, !!l.optional]), r.steps.map((s) => [s.text, s.timerSec ?? null])]);
+
+/**
+ * The user's already-stored copy of this shortcut version, if any. "Make this easier" → Undo →
+ * "Make this easier" again (or on another day's meal) reuses it instead of storing a duplicate
+ * that the planner would then treat as a different recipe.
+ */
+export function storedSimplified(pool: readonly Recipe[], candidate: Recipe): Recipe | undefined {
+  const body = bodyOf(candidate);
+  return pool.find((r) => r.origin === "simplified" && r.key.startsWith("usr:") && r.baseKey === candidate.baseKey && bodyOf(r) === body);
+}

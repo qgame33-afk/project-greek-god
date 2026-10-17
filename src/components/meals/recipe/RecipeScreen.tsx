@@ -35,7 +35,7 @@ import type { Recipe } from "@/lib/meals/types";
 import { LogMealSheet } from "../log/LogMealSheet";
 import { TimerAlarm, readTimerSound } from "../cook/timers";
 import { checkScope, useChecks } from "./checks";
-import { easierSwapPatch } from "./easier";
+import { easierSwapPatch, storedSimplified } from "./easier";
 import { usePlannedMealById, useServingsWriteBack, useThumbs, useViewedSignal } from "./hooks";
 import { IngredientList } from "./IngredientList";
 import { MakeEasierSheet, type EasierChoice } from "./MakeEasierSheet";
@@ -191,7 +191,7 @@ function RecipeView({
     setEasierBusy(true);
     try {
       let next = c.recipe;
-      if (c.kind === "simplified") next = await saveRecipe.mutateAsync({ recipe: c.recipe });
+      if (c.kind === "simplified") next = storedSimplified(pool.pool, c.recipe) ?? (await saveRecipe.mutateAsync({ recipe: c.recipe }));
       if (c.kind === "ai") {
         // the server stored it already: show it at once, then refresh the list
         qc.setQueryData<Recipe[]>(mealKeys.recipes(userId), (prev) => [next, ...(prev ?? []).filter((r) => r.key !== next.key)]);

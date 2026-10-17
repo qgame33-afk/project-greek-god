@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { HISTORY_CAP } from "@/lib/data/meals-model";
 import { simplifyRecipe } from "@/lib/meals/engine";
-import { getLibraryRecipe } from "@/lib/meals/library";
+import { LIBRARY, getLibraryRecipe } from "@/lib/meals/library";
 import { ingredientCount } from "@/lib/meals/recipe";
 import type { WhyReason } from "@/lib/meals/types";
-import { compareRecipes, easierSwapPatch } from "./easier";
+import { compareRecipes, easierSwapPatch, storedSimplified } from "./easier";
 
 const homemade = getLibraryRecipe("lib:homemade-bolognese")!;
 const jarred = getLibraryRecipe("lib:spaghetti-bolognese")!;
@@ -92,5 +92,19 @@ describe("make this easier: before → after", () => {
     const shake = getLibraryRecipe("lib:protein-shake")!;
     const res = simplifyRecipe(shake);
     expect(res.ok).toBe(false);
+  });
+});
+
+describe("make this easier: the same shortcut version twice", () => {
+  it("reuses the stored copy instead of storing a duplicate", () => {
+    const alfredo = getLibraryRecipe("lib:chicken-alfredo")!;
+    const res = simplifyRecipe(alfredo);
+    if (!res.ok || res.kind !== "simplified") throw new Error("expected a shortcut version");
+    const stored = { ...res.recipe, key: "usr:5d1f0c55-0000-4000-8000-000000000001" };
+    expect(storedSimplified([...LIBRARY, stored], res.recipe)?.key).toBe(stored.key);
+    // a different version of the same base (other swaps) is not the same recipe
+    const other = { ...stored, minutes: stored.minutes + 5 };
+    expect(storedSimplified([...LIBRARY, other], res.recipe)).toBeUndefined();
+    expect(storedSimplified(LIBRARY, res.recipe)).toBeUndefined();
   });
 });
