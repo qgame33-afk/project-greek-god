@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { draftMacros, editField, estimateFor, macroMismatch, newDraft, parseNumber, resetDraft, withServings } from "./draft";
+import { LIBRARY } from "@/lib/meals/library";
+import { recipeMacros, recipeMacrosExact } from "@/lib/meals/recipe";
+import { draftMacros, editField, estimateFor, fieldText, macroMismatch, newDraft, parseNumber, resetDraft, withServings } from "./draft";
 
 const PER = { kcal: 924, protein: 51.6, carbs: 98.3, fat: 33.1 };
 
@@ -72,5 +74,22 @@ describe("food-log draft", () => {
     expect(macroMismatch({ kcal: 0, protein: 0, carbs: 0, fat: 0 })).toBeNull();
     // small differences never nag
     expect(macroMismatch({ kcal: 150, protein: 10, carbs: 10, fat: 10 })).toBeNull();
+  });
+});
+
+describe("the draft matches what the cards show", () => {
+  it("starts at recipeMacros(recipe, servings) for every library recipe and servings step", () => {
+    const misses: string[] = [];
+    for (const r of LIBRARY) {
+      for (const s of [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3]) {
+        const card = recipeMacros(r, s);
+        const d = newDraft(recipeMacrosExact(r, 1), s);
+        const want = { kcal: fieldText("kcal", card.kcal), protein: fieldText("protein", card.protein), carbs: fieldText("carbs", card.carbs), fat: fieldText("fat", card.fat) };
+        if (JSON.stringify(d.fields) !== JSON.stringify(want)) misses.push(`${r.key} ×${s}: ${JSON.stringify(d.fields)} vs ${JSON.stringify(want)}`);
+        // and the servings stepper lands on the same numbers
+        if (withServings(newDraft(recipeMacrosExact(r, 1), 1), s, recipeMacrosExact(r, 1)).fields.kcal !== want.kcal) misses.push(`${r.key} stepper ×${s}`);
+      }
+    }
+    expect(misses).toEqual([]);
   });
 });

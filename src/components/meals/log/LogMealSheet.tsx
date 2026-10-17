@@ -13,7 +13,7 @@ import { cn } from "@/lib/cn";
 import { newId, useToday } from "@/lib/data/core";
 import { slotToMeal, useLogPlannedMeal, type LogPlannedMealResult } from "@/lib/data/meals";
 import { addDays, dayName, shortDate, type ISODate } from "@/lib/dates";
-import { recipeFeatures, recipeMacros } from "@/lib/meals/recipe";
+import { recipeFeatures, recipeMacrosExact } from "@/lib/meals/recipe";
 import type { Recipe, Slot } from "@/lib/meals/types";
 import { mealForTime, MEALS, type Meal } from "@/lib/nutrition";
 import { clampDay } from "@/lib/nutrition-ui/format";
@@ -69,7 +69,8 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
   const ref = useRef<HTMLDivElement>(null);
   useFocusIntoSheet(ref);
   const { recipe, plannedMeal } = target;
-  const per = useMemo(() => recipeMacros(recipe, 1), [recipe]);
+  // unrounded per serving: the draft scales first and rounds once, so it matches the cards
+  const per = useMemo(() => recipeMacrosExact(recipe, 1), [recipe]);
   const [id] = useState(() => newId());
   const [draft, setDraft] = useState<LogDraft>(() => newDraft(per, target.servings));
   const [meal, setMeal] = useState<Meal>(() => (plannedMeal ? slotToMeal(plannedMeal.slot) : mealForTime()));
