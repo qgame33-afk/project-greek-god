@@ -323,6 +323,30 @@ export function validateCell(field: CellField, raw: string, unit: WeightUnit, t:
   return { ok: true, stored: n };
 }
 
+/* ---------------------------------------------------------- cell errors */
+
+/** Rejected entries, one per cell: fixing one cell never hides another cell's error. */
+export type CellErrors = Readonly<Record<string, string>>;
+
+const CELLS: CellField[] = ["weight", "work", "rir"];
+
+/** Record (or with null, clear) one cell's error; every other cell keeps its own. */
+export function withCellError(e: CellErrors, setId: string, field: CellField, error: string | null): CellErrors {
+  const key = `${setId}:${field}`;
+  if (error == null) {
+    if (!(key in e)) return e;
+    const n = { ...e };
+    delete n[key];
+    return n;
+  }
+  return e[key] === error ? e : { ...e, [key]: error };
+}
+
+/** The cells of a row still holding a rejected value, in entry order. */
+export function rowErrorFields(e: CellErrors, setId: string): CellField[] {
+  return CELLS.filter((f) => e[`${setId}:${f}`]);
+}
+
 /** The DB column a cell writes to. */
 export function columnFor(field: CellField, t: Tracking): "weight_lb" | "reps" | "duration_sec" | "rir" {
   if (field === "weight") return "weight_lb";

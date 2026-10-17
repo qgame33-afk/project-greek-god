@@ -45,6 +45,7 @@ import {
   renumber,
   resolveLog,
   retarget,
+  rowErrorFields,
   sessionCounts,
   setChip,
   setLabel,
@@ -52,7 +53,9 @@ import {
   trackingFor,
   upNextSet,
   validateCell,
+  withCellError,
   zeroLoadOk,
+  type CellErrors,
   type ExerciseGroup,
   type Ghost,
 } from "@/lib/workout/session";
@@ -278,7 +281,13 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const [sheenId, setSheenId] = useState<string | null>(null);
   const [pulseId, setPulseId] = useState<string | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Record<string, { field: CellField; message: string }>>({});
+  // One entry per cell (`${setId}:${field}`): fixing one cell never hides another's error.
+  const [errors, setErrorsState] = useState<CellErrors>({});
+  const errorsRef = useRef(errors);
+  const setCellError = (setId: string, field: CellField, error: string | null) => {
+    errorsRef.current = withCellError(errorsRef.current, setId, field, error);
+    setErrorsState(errorsRef.current);
+  };
   // Focus mode belongs to one rest period (keyed by its start), so it never reopens by itself.
   const [focusFor, setFocusFor] = useState<number | null>(null);
   const setFocus = (on: boolean) => setFocusFor(on ? (getRest(id)?.startSec ?? null) : null);
@@ -309,16 +318,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     const gi = g ? info.get(g.key) : undefined;
     const t = gi?.tracking ?? "weight_reps";
     const r = validateCell(field, raw, unit, t, zeroLoadOk(gi?.lib, t));
-    if (!r.ok) {
-      setErrors((e) => ({ ...e, [set.id]: { field, message: r.error } }));
-      return r.error;
-    }
-    setErrors((e) => {
-      if (!(set.id in e)) return e;
-      const n = { ...e };
-      delete n[set.id];
-      return n;
-    });
+    setCellError(set.id, field, r.ok ? null : r.error);
+    if (!r.ok) return r.error;
     const col = columnFor(field, t);
     const cur = set[col] == null ? null : Number(set[col]);
     if (cur !== r.stored) {
@@ -440,6 +441,13 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     if (t0 - (taps.current.get(set.id) ?? 0) < 450) return; // double-tap guard
     taps.current.set(set.id, t0);
     if (set.completed) return unlog(set);
+    // A cell still showing a rejected value would log the old number under the new text.
+    const bad = rowErrorFields(errorsRef.current, set.id)[0];
+    if (bad) {
+      if (prefs.haptics) haptic([8, 40, 8]);
+      openCell(set, bad);
+      return;
+    }
 
     const g = groupOf.get(set.id);
     if (!g) return;
@@ -1006,8 +1014,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
         sheen: sheenId === s.id,
         pulse: pulseId === s.id,
         flash: flashId === s.id,
-        error: errors[s.id]?.message ?? null,
-        errorField: errors[s.id]?.field ?? null,
+        error: rowErrorFields(errors, s.id).map((f) => errors[`${s.id}:${f}`])[0] ?? null,
+        errorFields: rowErrorFields(errors, s.id),
         showNote: s.id !== carrier?.id,
       };
     });

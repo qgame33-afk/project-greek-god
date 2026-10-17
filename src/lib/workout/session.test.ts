@@ -26,6 +26,8 @@ import {
   retarget,
   defaultTargets,
   zeroLoadOk,
+  rowErrorFields,
+  withCellError,
 } from "./session";
 
 const past = (i: number, w: number | null, reps: number | null, dur: number | null = null): PastSet => ({
@@ -243,6 +245,24 @@ describe("validation", () => {
   it("infers tracking without a library entry", () => {
     expect(trackingFor(undefined, "sec")).toBe("weight_time");
     expect(trackingFor(undefined, "reps")).toBe("weight_reps");
+  });
+});
+
+describe("cell errors", () => {
+  it("a valid entry in one cell never clears another cell's error", () => {
+    let e = withCellError({}, "s1", "work", "Whole reps only.");
+    e = withCellError(e, "s1", "weight", null); // weight 55 accepted
+    e = withCellError(e, "s1", "rir", "RIR is a whole number.");
+    expect(rowErrorFields(e, "s1")).toEqual(["work", "rir"]);
+    expect(rowErrorFields(e, "s2")).toEqual([]);
+    e = withCellError(e, "s1", "work", null); // reps fixed
+    expect(rowErrorFields(e, "s1")).toEqual(["rir"]);
+  });
+
+  it("returns the same object when nothing changes", () => {
+    const e = withCellError({}, "s1", "work", "Whole reps only.");
+    expect(withCellError(e, "s1", "work", "Whole reps only.")).toBe(e);
+    expect(withCellError(e, "s1", "weight", null)).toBe(e);
   });
 });
 
