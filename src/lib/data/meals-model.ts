@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { addDays, weekStart, type ISODate } from "@/lib/dates";
 import type { Meal } from "@/lib/nutrition";
+import type { DaySchedule } from "@/lib/prefs";
 import {
   DEFAULT_PREFS,
   SLOTS,
@@ -542,11 +543,22 @@ export const mealToSlot = (m: Meal): Slot => (m === "snacks" ? "snack" : m);
 /** When a meal logged for another day is stamped (same hours as the Food Coach and scanner). */
 const MEAL_TIME: Record<Meal, [number, number]> = { breakfast: [8, 0], lunch: [12, 30], dinner: [18, 30], snacks: [15, 30] };
 
-/** Now for today; the meal's usual time on another day (in the device's timezone). */
-export function defaultEatenAt(date: ISODate, todayDate: ISODate, meal: Meal, now: Date = new Date()): string {
+/** The meal's time in his day schedule (profiles.prefs.day): mains as set, snacks at the middle snack. */
+function scheduleTime(schedule: Pick<DaySchedule, "meals">, meal: Meal): [number, number] | null {
+  const hhmm = meal === "snacks" ? schedule.meals.snacks[1] : schedule.meals[meal];
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm?.trim() ?? "");
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null;
+  return [Number(m[1]), Number(m[2])];
+}
+
+/**
+ * Now for today; the meal's usual time on another day (in the device's timezone). With his
+ * day schedule (DESIGN-V2 §4.4) another day's meal is stamped at HIS time for that meal.
+ */
+export function defaultEatenAt(date: ISODate, todayDate: ISODate, meal: Meal, now: Date = new Date(), schedule?: Pick<DaySchedule, "meals"> | null): string {
   if (date === todayDate) return now.toISOString();
   const [y, mo, d] = date.split("-").map(Number);
-  const [h, mi] = MEAL_TIME[meal];
+  const [h, mi] = (schedule && scheduleTime(schedule, meal)) ?? MEAL_TIME[meal];
   return new Date(y, mo - 1, d, h, mi).toISOString();
 }
 
@@ -572,7 +584,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
  * "serving", base_* = one serving, source "meal_plan", confidence "estimate". Throws a readable
  * Error for impossible values.
  */
-export function plannedMealFoodEntry(input: LogPlannedMealInput, opts: { todayDate: ISODate; now?: Date }): PlannedFoodEntry {
+export function plannedMealFoodEntry(input: LogPlannedMealInput, opts: { todayDate: ISODate; now?: Date; schedule?: Pick<DaySchedule, "meals"> | null }): PlannedFoodEntry {
   const s = input.servings;
   if (!Number.isFinite(s) || s <= 0 || s > 20) throw new Error("Servings must be more than 0 and at most 20.");
   if (!ISO_DATE.test(input.date)) throw new Error("Pick a date.");
@@ -594,7 +606,7 @@ export function plannedMealFoodEntry(input: LogPlannedMealInput, opts: { todayDa
   return {
     id: input.id,
     local_date: input.date,
-    eaten_at: input.eatenAt ?? defaultEatenAt(input.date, opts.todayDate, input.meal, opts.now),
+    eaten_at: input.eatenAt ?? defaultEatenAt(input.date, opts.todayDate, input.meal, opts.now, opts.schedule),
     meal: input.meal,
     name: (input.recipe.name?.trim() || "Planned meal").slice(0, 120),
     brand: null,

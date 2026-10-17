@@ -452,4 +452,22 @@ describe("food log entry for a planned meal", () => {
     expect(mealToSlot("breakfast")).toBe("breakfast");
     expect(defaultEatenAt("2026-10-16", "2026-10-16", "lunch", new Date("2026-10-16T17:00:00Z"))).toBe("2026-10-16T17:00:00.000Z");
   });
+
+  it("stamps another day's meal at his own time when the day schedule is given", () => {
+    const schedule = { meals: { breakfast: "06:50", lunch: "11:45", dinner: "19:15", snacks: ["10:00", "16:20", "21:00"] as [string, string, string] } };
+    const at = (meal: "breakfast" | "lunch" | "dinner" | "snacks") => new Date(defaultEatenAt("2026-10-14", "2026-10-16", meal, new Date(), schedule));
+    expect([at("breakfast").getHours(), at("breakfast").getMinutes()]).toEqual([6, 50]);
+    expect([at("dinner").getHours(), at("dinner").getMinutes()]).toEqual([19, 15]);
+    expect([at("snacks").getHours(), at("snacks").getMinutes()]).toEqual([16, 20]);
+    // today is still "now"; a broken time falls back to the usual hours
+    expect(defaultEatenAt("2026-10-16", "2026-10-16", "lunch", new Date("2026-10-16T17:00:00Z"), schedule)).toBe("2026-10-16T17:00:00.000Z");
+    const broken = new Date(defaultEatenAt("2026-10-14", "2026-10-16", "lunch", new Date(), { meals: { ...schedule.meals, lunch: "25:99" } }));
+    expect([broken.getHours(), broken.getMinutes()]).toEqual([12, 30]);
+    // and the planner's log row uses it
+    const row = plannedMealFoodEntry(
+      { id: "8f6b1d2c-3a4e-4f5a-9b6c-7d8e9f0a1b2c", recipe: { name: "Oats" }, servings: 1, date: "2026-10-14", meal: "breakfast", macros: { kcal: 400, protein: 30, carbs: 50, fat: 8 } },
+      { todayDate: "2026-10-16", schedule },
+    );
+    expect(new Date(row.eaten_at!).getHours()).toBe(6);
+  });
 });

@@ -11,6 +11,7 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 import { addDays, relativeDay, weekStart, type ISODate } from "@/lib/dates";
 import type { MealPrefs, Recipe } from "@/lib/meals/types";
+import { parseAppPrefs } from "@/lib/prefs";
 import type { Json } from "@/lib/supabase/database.types";
 import { fetchAll, must, newId, sb, useToday, useUser } from "./core";
 import {
@@ -52,6 +53,7 @@ import {
   type WeekPlan,
 } from "./meals-model";
 import { invalidateFood, optimisticFoodEntry, type FoodEntry } from "./nutrition";
+import { useProfile } from "./profile";
 
 export * from "./meals-model";
 
@@ -927,9 +929,12 @@ export function useLogPlannedMeal(opts: { toast?: boolean } = {}) {
   const { userId } = useUser();
   const todayDate = useToday();
   const showToast = opts.toast ?? true;
+  // another day's meal is stamped at his own time for it (profiles.prefs.day)
+  const { profile } = useProfile();
+  const schedule = useMemo(() => parseAppPrefs(profile?.prefs).day, [profile?.prefs]);
   const m = useMutation({
     mutationFn: async (input: LogPlannedMealInput): Promise<LogPlannedMealResult> => {
-      const row = plannedMealFoodEntry(input, { todayDate });
+      const row = plannedMealFoodEntry(input, { todayDate, schedule });
       const inserted = must(await sb().from("food_entries").upsert(row, { onConflict: "id", ignoreDuplicates: true }).select("*"));
       if (!inserted.length) {
         const existing = must(await sb().from("food_entries").select("*").eq("id", row.id).maybeSingle());
@@ -947,7 +952,7 @@ export function useLogPlannedMeal(opts: { toast?: boolean } = {}) {
     onMutate: async (input) => {
       let row: PlannedFoodEntry;
       try {
-        row = plannedMealFoodEntry(input, { todayDate });
+        row = plannedMealFoodEntry(input, { todayDate, schedule });
       } catch {
         return null; // mutationFn throws the same error
       }
