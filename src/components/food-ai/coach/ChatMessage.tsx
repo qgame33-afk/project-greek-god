@@ -5,6 +5,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/cn";
 import type { AIQuestion, FoodChatPayload } from "@/lib/ai/food-schemas";
+import { usdaDownNote } from "@/lib/ai/lookup-note";
 import { useMealPhotoUrl, type AIMessage } from "../hooks";
 import { CoachAvatar } from "../parts";
 import { MealDraftCard, type GroupInfo } from "./MealDraftCard";
@@ -90,6 +91,7 @@ export const AssistantMessage = memo(function AssistantMessage({
 }) {
   const payload = message.payload as unknown as FoodChatPayload | null;
   const hasDraft = !!payload?.items?.length;
+  const usdaNote = hasDraft ? usdaDownNote(payload!.lookup?.usda, payload!.items, "chat") : null;
   return (
     <div className="flex gap-2.5">
       <CoachAvatar />
@@ -109,9 +111,9 @@ export const AssistantMessage = memo(function AssistantMessage({
             onSend={onSend}
           />
         )}
-        {hasDraft && (payload!.notes?.length || lookupDown(payload!)) ? (
+        {hasDraft && (payload!.notes?.length || usdaNote) ? (
           <p className="mt-2 text-[12px] leading-relaxed text-fg-3">
-            {[...(payload!.notes ?? []), lookupDown(payload!) ? "USDA didn't answer this time, so generic foods are estimates." : null]
+            {[...(payload!.notes ?? []), usdaNote]
               .filter(Boolean)
               .join(" ")}
           </p>
@@ -121,12 +123,6 @@ export const AssistantMessage = memo(function AssistantMessage({
     </div>
   );
 });
-
-/** The USDA lookup failed and at least one generic row fell back to an estimate because of it. */
-function lookupDown(p: FoodChatPayload) {
-  const down = ["rate_limited", "error", "timeout"].includes(p.lookup?.usda ?? "");
-  return down && p.items.some((i) => i.kind === "generic" && i.provenance === "estimate");
-}
 
 /** Clarifying questions as lapis chips; answers are sent together (auto when all are picked). */
 function Questions({ questions, onSend }: { questions: AIQuestion[]; onSend: (text: string) => void }) {

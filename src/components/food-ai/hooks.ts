@@ -1,11 +1,12 @@
 "use client";
 
 // Data hooks for the food AI screens (TanStack Query + the browser client under RLS).
-// Logging uses the shared optimistic useAddFood; chat drafts are claimed atomically via
-// ai_messages.logged_group_id so one estimate can never be logged twice.
+// Logging uses the shared optimistic useAddFood, whose inserts are idempotent by row id; chat
+// drafts are claimed atomically via ai_messages.logged_group_id so one estimate can never be
+// logged twice, even when a retry follows a response the network dropped.
 
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { fetchAll, must, newId, sb, useUser, type Row } from "@/lib/data/core";
+import { fetchAll, isOffline, must, newId, sb, useUser, type Row } from "@/lib/data/core";
 import { useAddFood, type FoodEntry } from "@/lib/data/nutrition";
 import type { FoodEntryInsert } from "@/lib/ai/food-log";
 
@@ -43,10 +44,24 @@ export async function deleteLogged(ids: string[], photoPath?: string | null) {
   if (photoPath) await sb().storage.from("meal-photos").remove([photoPath]);
 }
 
+/** The AI screens explain failures themselves, so the shared hook's error toast is off. */
 export function useInsertEntries() {
-  const add = useAddFood();
+  const add = useAddFood({ quiet: true });
   return { insert: (rows: FoodEntryInsert[]) => add.mutateAsync(rows as Parameters<typeof add.mutateAsync>[0]), pending: add.isPending };
 }
+
+/** Diary rows carrying a meal group, or null when the diary can't be reached to ask. */
+export async function groupRows(groupId: string): Promise<{ id: string; calories: number }[] | null> {
+  try {
+    const { data, error } = await sb().from("food_entries").select("id, calories").eq("meal_group_id", groupId);
+    return error ? null : (data ?? []).map((r) => ({ id: r.id, calories: Number(r.calories) || 0 }));
+  } catch {
+    return null;
+  }
+}
+
+/** Thrown when a save may or may not have landed (the connection dropped mid-way). */
+export const UNSURE_SAVE = "The connection dropped before the diary answered. Try again once you're online: it can't be added twice.";
 
 /* ---------------------------------------------------------------- chat */
 
@@ -135,8 +150,10 @@ export interface LogDraftArgs {
 }
 
 /**
- * Claim the message (compare-and-swap on logged_group_id), then insert the rows. If the
- * insert fails, the claim is released so the user can retry. Returns undo context.
+ * Claim the message (compare-and-swap on logged_group_id), then insert the rows. Rows and
+ * the group id are the caller's and stay the same on a retry, so a retry after a lost answer
+ * finishes the same save instead of adding a second copy. The claim is released only once
+ * the diary confirms nothing landed. Returns undo context.
  */
 export function useLogDraft(conversationId: string | null) {
   const qc = useQueryClient();
@@ -148,10 +165,17 @@ export function useLogDraft(conversationId: string | null) {
     qc.setQueryData<AIMessage[]>(msgKey, (prev) => prev?.map((m) => (m.id === id ? { ...m, logged_group_id: group } : m)));
 
   return useMutation({
+    networkMode: "always",
     mutationFn: async ({ message, rows, groupId, replaceGroupId, previousGroupId }: LogDraftArgs) => {
+      // nothing is sent offline, so it's certain nothing was saved
+      if (isOffline()) throw new Error("You're offline, so nothing was added. Try again once you're back online.");
       const claim = sb().from("ai_messages").update({ logged_group_id: groupId }).eq("id", message.id);
       const claimed = must(await (previousGroupId ? claim.eq("logged_group_id", previousGroupId) : claim.is("logged_group_id", null)).select("id"));
-      if (!claimed.length) throw new Error("This meal was already added to your diary.");
+      if (!claimed.length) {
+        // a retry of this same save (its first answer was lost) already holds the claim
+        const cur = must(await sb().from("ai_messages").select("logged_group_id").eq("id", message.id)) as { logged_group_id: string | null }[];
+        if (cur[0]?.logged_group_id !== groupId) throw new Error("This meal was already added to your diary.");
+      }
       setLogged(message.id, groupId);
 
       let replaced: FoodEntry[] = [];
@@ -163,14 +187,19 @@ export function useLogDraft(conversationId: string | null) {
         const inserted = await insert(rows);
         return { groupId, ids: inserted.map((r) => r.id), replaced };
       } catch (e) {
-        // release the claim and put back anything we removed
+        const landed = await groupRows(groupId);
+        // the rows are in the diary after all: the save worked, only its answer was lost
+        if (landed?.length) return { groupId, ids: landed.map((r) => r.id), replaced };
+        // can't tell: keep the claim, so a retry finishes this save rather than doubling it
+        if (landed === null) throw new Error(UNSURE_SAVE);
+        // certainly not saved: release the claim and put back anything we removed
         await sb()
           .from("ai_messages")
           .update({ logged_group_id: previousGroupId ?? null })
           .eq("id", message.id)
           .eq("logged_group_id", groupId);
         setLogged(message.id, previousGroupId ?? null);
-        if (replaced.length) await sb().from("food_entries").insert(replaced.map(stripMeta));
+        if (replaced.length) await sb().from("food_entries").upsert(replaced.map(stripMeta), { onConflict: "id", ignoreDuplicates: true });
         throw e;
       }
     },
