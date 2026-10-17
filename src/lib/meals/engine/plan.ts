@@ -366,6 +366,8 @@ export function generateWeek(ctx: PlanContext): WeekResult {
   const dates = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const fixedIds = new Set(ctx.fixedIds ?? []);
   const kept = (ctx.meals ?? []).filter((m) => m.locked || (m.id && fixedIds.has(m.id)));
+  // regenerating a week: the meal being replaced in each place isn't picked there again (unless nothing else fits)
+  const replaced = (ctx.meals ?? []).filter((m) => !kept.includes(m));
   const placed: Placed[] = kept.map((m) => ({ meal: m, recipe: P.byKey.get(m.recipe_key), fixed: true }));
   const warnings: string[] = [];
 
@@ -373,7 +375,8 @@ export function generateWeek(ctx: PlanContext): WeekResult {
     for (const { slot, position } of P.places) {
       if (placed.some((p) => samePlace(p.meal, { local_date: date, slot, position }))) continue;
       const target = slotTarget(slot, ctx.goals, ctx.prefs.snacksPerDay);
-      const res = choose(P, { date, slot, position, placed, target, attempt: 0 });
+      const before = replaced.find((m) => samePlace(m, { local_date: date, slot, position }));
+      const res = (before && choose(P, { date, slot, position, placed, target, attempt: 0, exclude: new Set([before.recipe_key]) })) || choose(P, { date, slot, position, placed, target, attempt: 0 });
       if (!res) {
         warnings.push(`Nothing in your recipes fits ${slot === "snack" ? "a snack" : slot} on ${date} with your current settings.`);
         continue;

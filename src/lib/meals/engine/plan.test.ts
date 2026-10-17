@@ -219,6 +219,18 @@ describe("locked meals", () => {
     const fixed = generateWeek(ctx({ seed: "three", meals: current, fixedIds: ["m20"] }));
     expect(fixed.kept.map((m) => m.id)).toContain("m20");
   });
+
+  it("regenerating the week gives every unlocked place a different recipe than it had", () => {
+    for (const seed of SEEDS) {
+      const current = withIds(generateWeek(ctx({ seed: `${seed}:a` })).meals);
+      const next = generateWeek(ctx({ seed: `${seed}:b`, meals: current }));
+      expect(next.meals).toHaveLength(35);
+      for (const m of next.meals) {
+        const was = current.find((c) => c.local_date === m.local_date && c.slot === m.slot && c.position === m.position)!;
+        expect(m.recipe_key, `${seed} ${m.local_date} ${m.slot}`).not.toBe(was.recipe_key);
+      }
+    }
+  });
 });
 
 describe("regenerateMeal", () => {
