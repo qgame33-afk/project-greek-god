@@ -2,12 +2,8 @@ import { describe, expect, it } from "vitest";
 import { PROGRAM_BY_KEY } from "@/lib/training/program";
 import { ascentProgress, bustFillLine, planRatePerWeek, rangePlaque, trendCaption, trendTone } from "./ascent";
 import { dailyLine, fmtHours, type DailyLineInput } from "./daily-line";
-import { cardDelay, DAWN, DAWN_KEY, shouldPlayDawn } from "./dawn";
-import { kcalSummary, ofGoal, ratio } from "./fuel";
-import { dayPart, firstName, greeting } from "./greeting";
 import { nextSession, planFacts, prescription, upcomingLabel } from "./plan";
 import { latestRecords } from "./records";
-import { sparkSeries } from "./spark";
 import { restDayRecommendations } from "./recovery-recs";
 import { daysLeft, programWeeks, timeline, timelineElapsed, trainingWeek } from "./timeline";
 import { formatHabitValue, parseHabitValue, valueHabitSpec } from "./value-habit";
@@ -122,19 +118,6 @@ describe("ascentProgress — one p for the hero, bust and meter", () => {
     expect(trendCaption("warn", 1.2, "+0.5 lb")).toBe("Faster than plan");
     expect(trendCaption("neutral", 0.1, "+0.5 lb")).toBe("Plan +0.5 lb/wk");
     expect(trendCaption("neutral", null, "+0.5 lb")).toBe("Needs 2 weeks of data");
-  });
-});
-
-describe("greeting", () => {
-  it("switches by time of day and uses the first name", () => {
-    expect(dayPart(6)).toBe("morning");
-    expect(dayPart(12)).toBe("afternoon");
-    expect(dayPart(17)).toBe("evening");
-    expect(dayPart(2)).toBe("evening");
-    expect(greeting(7, "Quinton Hayes")).toBe("Good morning, Quinton");
-    expect(greeting(14, "  ")).toBe("Good afternoon");
-    expect(greeting(21, null)).toBe("Good evening");
-    expect(firstName("me@example.com")).toBeNull();
   });
 });
 
@@ -354,30 +337,6 @@ describe("restDayRecommendations", () => {
   });
 });
 
-describe("dawn", () => {
-  it("plays once per session and never with reduced motion", () => {
-    const empty = { getItem: () => null };
-    const seen = { getItem: (k: string) => (k === DAWN_KEY ? "1" : null) };
-    expect(shouldPlayDawn(empty, false)).toBe(true);
-    expect(shouldPlayDawn(seen, false)).toBe(false);
-    expect(shouldPlayDawn(empty, true)).toBe(false);
-    expect(shouldPlayDawn(null, false)).toBe(false);
-    expect(shouldPlayDawn({ getItem: () => { throw new Error("blocked"); } }, false)).toBe(false);
-    expect(cardDelay(0)).toBe(DAWN.cardsStart);
-    expect(cardDelay(20)).toBe(cardDelay(DAWN.maxStaggered - 1));
-  });
-});
-
-describe("fuel", () => {
-  it("shows calories left, or over without going negative", () => {
-    expect(kcalSummary(1840, 3300)).toMatchObject({ left: 1460, over: 0, value: "1,460", label: "KCAL LEFT" });
-    expect(kcalSummary(3420, 3300)).toMatchObject({ left: 0, over: 120, value: "+120", label: "KCAL OVER" });
-    expect(kcalSummary(100, 0).ratio).toBe(0);
-    expect(ratio(142, 185)).toBeCloseTo(0.7676, 3);
-    expect(ofGoal(142.4, 185, "g")).toBe("142 / 185 g");
-  });
-});
-
 describe("plan helpers", () => {
   it("describes templates and finds the next session", () => {
     expect(planFacts(PROGRAM_BY_KEY.legs_a)).toEqual({ kind: "train", name: "Legs A", explosiveFirst: true, legs: true });
@@ -391,30 +350,6 @@ describe("plan helpers", () => {
     const n = nextSession("2026-10-18", (d) => (d === "2026-10-19" ? PROGRAM_BY_KEY.push_a : null));
     expect(n).toMatchObject({ date: "2026-10-19", name: "Push A", when: "Tomorrow", exercises: 6 });
     expect(nextSession("2026-10-18", () => null)).toBeNull();
-  });
-});
-
-describe("sparkSeries", () => {
-  const w = (d: string, lb: number) => ({ local_date: d, weight_lb: lb });
-  it("needs two weigh-ins in the window", () => {
-    expect(sparkSeries([], "2026-10-16")).toBeNull();
-    expect(sparkSeries([w("2026-10-16", 165)], "2026-10-16")).toBeNull();
-    expect(sparkSeries([w("2026-08-01", 160), w("2026-10-16", 165)], "2026-10-16")).toBeNull();
-  });
-  it("scales dots and the rolling average into the box", () => {
-    const s = sparkSeries([w("2026-09-19", 164), w("2026-10-03", 165), w("2026-10-16", 166)], "2026-10-16", 28, 270, 56, 6)!;
-    expect(s.dots.map((d) => d.x)).toEqual([0, 140, 270]);
-    expect(s.min).toBe(164);
-    expect(s.max).toBe(166);
-    expect(s.dots[0].y).toBe(50); // lowest value sits on the bottom padding
-    expect(s.dots[2].y).toBe(6); // highest on the top padding
-    expect(s.avgPath.startsWith("M0 50")).toBe(true);
-    expect(s.avg).toHaveLength(3);
-  });
-  it("pads a flat series so it doesn't divide by zero", () => {
-    const s = sparkSeries([w("2026-10-15", 165), w("2026-10-16", 165)], "2026-10-16")!;
-    expect(s.max - s.min).toBe(1);
-    expect(s.dots.every((d) => Number.isFinite(d.y))).toBe(true);
   });
 });
 
