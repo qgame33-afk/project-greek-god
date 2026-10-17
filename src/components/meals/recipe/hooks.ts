@@ -9,9 +9,10 @@ import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-quer
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { must, sb, useToday, useUser } from "@/lib/data/core";
-import { useAddFeedback, useDeleteFeedback, useMealFeedback, usePlan, useUpdatePlannedMeal, weekStart, type WeekPlan } from "@/lib/data/meals";
+import { useAddFeedback, useDeleteFeedback, useMealFeedback, usePlan, useUpdatePlannedMeal, weekStart, type PlanMeal, type WeekPlan } from "@/lib/data/meals";
 import { recipeFeatures } from "@/lib/meals/recipe";
 import type { Recipe } from "@/lib/meals/types";
+import { servingsPatch } from "./servings";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -49,11 +50,12 @@ export function usePlannedMealById(id: string | null | undefined) {
 
 /**
  * Servings changes on the recipe screen are written back to the planned meal after a short
- * pause (a run of taps is one write), and on leaving the screen.
+ * pause (a run of taps is one write), and on leaving the screen. A new size drops the "Fits
+ * dinner: … kcal" reason, which described the planner's size (see servingsPatch).
  */
-export function useServingsWriteBack(mealId: string | null | undefined, weekStartDate: string | null) {
+export function useServingsWriteBack(meal: Pick<PlanMeal, "id" | "servings" | "reason"> | null | undefined, weekStartDate: string | null) {
   const update = useUpdatePlannedMeal();
-  const pending = useRef<{ id: string; servings: number; ws: string | null } | null>(null);
+  const pending = useRef<{ id: string; patch: NonNullable<ReturnType<typeof servingsPatch>>; ws: string | null } | null>(null);
   const timer = useRef<number | null>(null);
   const mutate = update.mutate;
   const flush = useCallback(() => {
@@ -61,17 +63,18 @@ export function useServingsWriteBack(mealId: string | null | undefined, weekStar
     timer.current = null;
     const p = pending.current;
     pending.current = null;
-    if (p) mutate({ id: p.id, patch: { servings: p.servings }, weekStart: p.ws ?? undefined });
+    if (p) mutate({ id: p.id, patch: p.patch, weekStart: p.ws ?? undefined });
   }, [mutate]);
   useEffect(() => flush, [flush]);
   const schedule = useCallback(
     (servings: number) => {
-      if (!mealId) return;
-      pending.current = { id: mealId, servings, ws: weekStartDate };
+      if (!meal) return;
+      const patch = servingsPatch(meal, servings);
+      pending.current = patch ? { id: meal.id, patch, ws: weekStartDate } : null;
       if (timer.current) window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(flush, 500);
+      timer.current = patch ? window.setTimeout(flush, 500) : null;
     },
-    [mealId, weekStartDate, flush],
+    [meal, weekStartDate, flush],
   );
   return { schedule, flush, isPending: () => pending.current != null };
 }

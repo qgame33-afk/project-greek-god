@@ -18,12 +18,34 @@ const REASONS: WhyReason[] = [
 describe("make this easier: swap into the planned meal", () => {
   it("puts the easier recipe in, the old pick on the undo stack, and keeps only reasons that still hold", () => {
     const meal = { recipe_key: homemade.key, servings: 1.25, reason: REASONS, history: [] };
-    const p = easierSwapPatch(meal, jarred);
+    const p = easierSwapPatch(meal, jarred, homemade);
     expect(p.recipe_key).toBe(jarred.key);
     expect(p.history).toEqual([{ recipe_key: homemade.key, servings: 1.25, reason: REASONS }]);
-    // the macro reason quoted the old recipe's numbers: gone. Taste reasons survive.
+    // the macro reason quoted the old recipe's numbers: gone. Taste reasons survive (same dish).
     expect(p.reason!.map((r) => r.kind)).toEqual(["difficulty_fit", "liked_similar", "liked_cuisine"]);
     expect(p.reason![0].text).toBe(`Made easier: ${jarred.minutes} min, ${ingredientCount(jarred)} ingredients, ${jarred.steps.length} steps`);
+  });
+
+  it("drops taste reasons that no longer hold when the easier version is another kind of dish", () => {
+    const pasta = getLibraryRecipe("lib:garlic-shrimp-pasta")!;
+    const rice = getLibraryRecipe(pasta.easierKey!)!;
+    const reasons: WhyReason[] = [
+      { kind: "liked_similar", text: "You liked Easy Spaghetti Bolognese (pasta)", weight: 1 },
+      { kind: "liked_cuisine", text: "You like Italian food", weight: 0.5 },
+    ];
+    const p = easierSwapPatch({ recipe_key: pasta.key, servings: 1, reason: reasons, history: [] }, rice, pasta);
+    expect(p.reason!.map((r) => r.kind)).toEqual(["difficulty_fit"]);
+    // without the original recipe to compare, nothing is assumed to still hold
+    expect(easierSwapPatch({ recipe_key: homemade.key, servings: 1, reason: REASONS, history: [] }, jarred).reason).toHaveLength(1);
+  });
+
+  it("never carries a reason about the old recipe itself over to another recipe", () => {
+    const own: WhyReason[] = [{ kind: "liked_similar", text: "You gave this a thumbs up", weight: 1 }, ...REASONS];
+    const p = easierSwapPatch({ recipe_key: homemade.key, servings: 1, reason: own, history: [] }, jarred, homemade);
+    expect(p.reason!.map((r) => r.text)).not.toContain("You gave this a thumbs up");
+    // a version made from this recipe keeps it (it's the same dish, simplified)
+    const derived = { ...jarred, key: "usr:x", baseKey: homemade.key };
+    expect(easierSwapPatch({ recipe_key: homemade.key, servings: 1, reason: own, history: [] }, derived).reason!.map((r) => r.text)).toContain("You gave this a thumbs up");
   });
 
   it("caps the undo stack like every other planned-meal change", () => {

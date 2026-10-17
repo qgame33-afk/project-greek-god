@@ -7,17 +7,28 @@ import type { PlannedMeal, Recipe, WhyReason } from "@/lib/meals/types";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
+const TASTE_TAG = /^(cuisine|protein|base|style|dish):/;
+const tasteOf = (r: Pick<Recipe, "tags">) => r.tags.filter((t) => TASTE_TAG.test(t)).sort().join("|");
+
 /**
  * The planned-meal patch that swaps in the easier recipe. The old pick goes on `history`, so
- * Undo (the engine's undoRegenerate) puts it back. "Why this meal?" keeps only the taste reasons
- * (tags survive simplifying) and leads with what was made easier; reasons quoting the old
- * recipe's own numbers (time, macros, cost, what you have) no longer hold, so they go.
+ * Undo (the engine's undoRegenerate) puts it back. "Why this meal?" leads with what was made
+ * easier and keeps a taste reason only while it still holds: always for a version made from
+ * this recipe (tags survive simplifying), and for another recipe (the library's easier
+ * version) only when it is the same kind of dish ("You liked … (pasta)" is false for a rice
+ * bowl) and the reason isn't about the old recipe itself ("You gave this a thumbs up").
+ * Reasons quoting the old recipe's own numbers (time, macros, cost, what you have) always go.
  */
 export function easierSwapPatch(
   meal: Pick<PlannedMeal, "recipe_key" | "servings" | "reason" | "history">,
-  next: Pick<Recipe, "key" | "minutes" | "ingredients" | "steps">,
+  next: Pick<Recipe, "key" | "minutes" | "ingredients" | "steps" | "tags" | "baseKey">,
+  from?: Pick<Recipe, "tags">,
 ): Pick<PlannedMeal, "recipe_key" | "reason" | "history"> {
-  const kept = (meal.reason ?? []).filter((r) => r.kind === "liked_similar" || r.kind === "liked_cuisine");
+  const derived = next.baseKey === meal.recipe_key;
+  const sameDish = !!from && tasteOf(from) === tasteOf(next);
+  const kept = (meal.reason ?? []).filter(
+    (r) => (r.kind === "liked_similar" || r.kind === "liked_cuisine") && (derived || (sameDish && (r.kind === "liked_cuisine" || r.text.startsWith("You liked ")))),
+  );
   const made: WhyReason = {
     kind: "difficulty_fit",
     text: `Made easier: ${next.minutes} min, ${plural(ingredientCount(next), "ingredient")}, ${plural(next.steps.length, "step")}`,

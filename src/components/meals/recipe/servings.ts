@@ -7,6 +7,7 @@
 
 import { MAX_SERVINGS, MIN_SERVINGS } from "@/lib/data/meals-model";
 import { fractionText } from "@/lib/meals/recipe";
+import type { WhyReason } from "@/lib/meals/types";
 
 export const SERVING_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4, 5, 6] as const;
 
@@ -27,6 +28,21 @@ export function stepServings(current: number, dir: 1 | -1): number {
 }
 
 export const canStep = (current: number, dir: 1 | -1) => stepServings(current, dir) !== clampServings(current);
+
+/**
+ * The planned-meal patch for a new servings count, or null when nothing changes. "Why this
+ * meal?" was written for the size the planner picked ("Fits dinner: 952 kcal, 64 g protein"):
+ * once the user picks another size that line no longer describes the meal, so it goes. The
+ * other reasons (taste, difficulty, favourite) don't depend on the size and stay.
+ */
+export function servingsPatch(
+  meal: { servings: number; reason: readonly WhyReason[] | null },
+  servings: number,
+): { servings: number; reason?: WhyReason[] } | null {
+  const s = clampServings(servings);
+  if (Math.abs(s - Number(meal.servings)) < EPS) return null;
+  return meal.reason?.some((r) => r.kind === "macro_fit") ? { servings: s, reason: meal.reason.filter((r) => r.kind !== "macro_fit") } : { servings: s };
+}
 
 /** "1¼", "½", "2", "1.1" (off-ladder values keep up to 2 decimals). */
 export function servingsNumber(s: number): string {

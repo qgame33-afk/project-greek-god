@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { canStep, clampServings, SERVING_STEPS, servingsNumber, stepServings } from "./servings";
+import type { WhyReason } from "@/lib/meals/types";
+import { canStep, clampServings, SERVING_STEPS, servingsNumber, servingsPatch, stepServings } from "./servings";
 import { checkScope, parseChecks, toggleIn } from "./checks";
 
 describe("servings ladder", () => {
@@ -74,5 +75,20 @@ describe("ingredient and step checklist storage", () => {
     expect(toggleIn(["a", "b"], "a")).toEqual(["b"]);
     expect(toggleIn(["a"], "a", true)).toEqual(["a"]);
     expect(toggleIn(["a"], "b", false)).toEqual(["a"]);
+  });
+});
+
+describe("servings write-back", () => {
+  const reason: WhyReason[] = [
+    { kind: "macro_fit", text: "Fits dinner: 952 kcal, 64 g protein", weight: 1.2 },
+    { kind: "difficulty_fit", text: "Super Easy: 12 min, 5 ingredients", weight: 0.8 },
+  ];
+  it("drops the size-specific reason when the size changes, keeps the rest", () => {
+    expect(servingsPatch({ servings: 1, reason }, 2)).toEqual({ servings: 2, reason: [reason[1]] });
+    expect(servingsPatch({ servings: 1, reason: [reason[1]] }, 1.5)).toEqual({ servings: 1.5 });
+    expect(servingsPatch({ servings: 1, reason: null }, 0.75)).toEqual({ servings: 0.75 });
+  });
+  it("writes nothing when the size is the one already planned", () => {
+    expect(servingsPatch({ servings: 1.25, reason }, 1.25)).toBeNull();
   });
 });

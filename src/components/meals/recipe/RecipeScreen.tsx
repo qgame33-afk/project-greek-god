@@ -18,6 +18,7 @@ import {
   useDeleteFeedback,
   useFavourites,
   useLoggedForPlannedMeal,
+  useMealFeedback,
   useMealPrefs,
   useSaveUserRecipe,
   useToggleFavourite,
@@ -28,6 +29,7 @@ import {
 import { useDeleteFood } from "@/lib/data/nutrition";
 import { useProfile } from "@/lib/data/profile";
 import { dayName, relativeDay } from "@/lib/dates";
+import { learnPrefs } from "@/lib/meals/engine";
 import { ingredientCount, recipeFeatures, recipeMacros, scaleIngredients } from "@/lib/meals/recipe";
 import type { Recipe } from "@/lib/meals/types";
 import { LogMealSheet } from "../log/LogMealSheet";
@@ -133,7 +135,7 @@ function RecipeView({
   /* servings: the planned meal's, saved back after a short pause */
   const [localServings, setLocalServings] = useState<number | null>(null);
   const servings = clampServings(localServings ?? meal?.servings ?? initialServings ?? 1);
-  const writeBack = useServingsWriteBack(meal?.id, weekStart);
+  const writeBack = useServingsWriteBack(meal, weekStart);
   const [savedNote, setSavedNote] = useState(false);
   const setServings = (v: number) => {
     setLocalServings(v);
@@ -177,7 +179,13 @@ function RecipeView({
   const addFeedback = useAddFeedback();
   const constraintPrefs = useMemo(() => ({ allergies: prefs.allergies, diets: prefs.diets, dislikedIngredients: prefs.dislikedIngredients, equipment: prefs.equipment }), [prefs]);
   const lookup = pool.lookup;
-  const easierLookup = useCallback((k: string) => lookup(k), [lookup]);
+  // a recipe the user turned down (thumbs down / "I don't like this") is never offered as the easier version
+  const feedback = useMealFeedback();
+  const turnedDown = useMemo(() => {
+    const blocked = learnPrefs(feedback.data ?? []).blocked;
+    return new Set(Object.keys(blocked).filter((k) => blocked[k].reason !== "ate_recently"));
+  }, [feedback.data]);
+  const easierLookup = useCallback((k: string) => (turnedDown.has(k) ? undefined : lookup(k)), [lookup, turnedDown]);
 
   const applyEasier = async (c: EasierChoice) => {
     setEasierBusy(true);
@@ -196,7 +204,7 @@ function RecipeView({
       const before = swapIn ? { recipe_key: swapIn.recipe_key, servings: swapIn.servings, reason: swapIn.reason, history: swapIn.history } : null;
       if (swapIn) {
         writeBack.flush();
-        await updateMeal.mutateAsync({ id: swapIn.id, patch: easierSwapPatch({ ...swapIn, servings }, next), weekStart: weekStart ?? undefined });
+        await updateMeal.mutateAsync({ id: swapIn.id, patch: easierSwapPatch({ ...swapIn, servings }, next, recipe), weekStart: weekStart ?? undefined });
       }
       setEasierOpen(false);
       router.replace(swapIn ? recipeHref(next.key, swapIn.id) : `${recipeHref(next.key)}${servings !== 1 ? `?servings=${servings}` : ""}`, { scroll: true });
