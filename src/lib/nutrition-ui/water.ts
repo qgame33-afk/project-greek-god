@@ -17,6 +17,22 @@ export function liters(ml: number): string {
 }
 
 /**
+ * Litres still to drink, from the two figures as shown ("0.3 / 3.0 L" → "2.7"), so the
+ * drunk and to-go numbers always add up to the goal on screen.
+ */
+export function litersLeft(goalMl: number, totalMl: number): string {
+  return (Math.max(0, Math.round(goalMl / 100) - Math.round(totalMl / 100)) / 10).toFixed(1);
+}
+
+/** "2.7 L" to go, or "50 mL" when the gap is too small to show in litres. Null once met. */
+export function waterToGo(goalMl: number, totalMl: number): string | null {
+  const left = goalMl - totalMl;
+  if (!(goalMl > 0) || left <= 0) return null;
+  const l = litersLeft(goalMl, totalMl);
+  return l === "0.0" ? `${Math.round(left)} mL` : `${l} L`;
+}
+
+/**
  * The tap a toast's Undo should remove: the newest log of that size that wasn't
  * there when the tap happened. Robust to rapid taps and to the optimistic row
  * being replaced by the server row (same id).

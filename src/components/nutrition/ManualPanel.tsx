@@ -10,6 +10,7 @@ import { manualEntry } from "@/lib/nutrition-ui/portion";
 import { parseFoodNumber } from "@/lib/nutrition-ui/number";
 import { emptyForm, previewMacros, validateFoodForm, type FoodForm } from "@/lib/nutrition-ui/validate";
 import { focusFirstInvalid, SheetError, StickyFooter } from "./bits";
+import { saveFailure } from "@/lib/nutrition-ui/errors";
 import { mealLabel, useFuel } from "./context";
 import { FoodFields } from "./FoodFields";
 import { SaveToFoods, WhenFields, type When } from "./log-shared";
@@ -24,7 +25,10 @@ export function ManualPanel({ seed, when, setWhen, onDone }: { seed: { name: str
   const [saveFood, setSaveFood] = useState(false);
   const [fav, setFav] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const busyRef = useRef(false);
+  // kept across a Retry, so an add whose answer was lost can't land twice
+  const attemptId = useRef<string | null>(null);
+  const [err, setErr] = useState<{ text: string; retry: boolean } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // "Add manually" from Search carries the typed name over
@@ -43,16 +47,21 @@ export function ManualPanel({ seed, when, setWhen, onDone }: { seed: { name: str
   const submit = async () => {
     setTouched(true);
     if (!result.ok) focusFirstInvalid(formRef.current);
-    if (busy || !result.ok) return;
+    if (busyRef.current || !result.ok) return;
     const v = result.value;
+    busyRef.current = true;
     setBusy(true);
     setErr(null);
     // The saved food is written only once the entry is in, so a failed add (or its
     // Retry) never leaves an orphan or a duplicate in Saved.
     const savedId = saveFood ? newId() : null;
-    const row = manualEntry(v, { id: newId(), meal: when.meal, date: when.date, eatenAt: composeEatenAt(when.date, when.time), savedFoodId: savedId });
-    const ok = await log([row], { meal: when.meal });
+    attemptId.current ??= newId();
+    const row = manualEntry(v, { id: attemptId.current, meal: when.meal, date: when.date, eatenAt: composeEatenAt(when.date, when.time), savedFoodId: savedId });
+    const res = await log([row], { meal: when.meal, quiet: true });
+    busyRef.current = false;
     setBusy(false);
+    const ok = res.ok;
+    if (ok || (!res.ok && res.kind === "invalid")) attemptId.current = null;
     if (ok && savedId) {
       saved.create.mutate({
         id: savedId,
@@ -75,7 +84,7 @@ export function ManualPanel({ seed, when, setWhen, onDone }: { seed: { name: str
       setSaveFood(false);
       setFav(false);
       onDone();
-    } else setErr("Couldn't save. Your entry is kept. Retry.");
+    } else if (!res.ok) setErr(saveFailure(res));
   };
 
   return (
@@ -92,8 +101,8 @@ export function ManualPanel({ seed, when, setWhen, onDone }: { seed: { name: str
       <SaveToFoods className="mt-5" save={saveFood} setSave={setSaveFood} fav={fav} setFav={setFav} />
       {touched && !result.ok && <p className="mt-4 text-[13px] font-medium text-danger">Check the highlighted fields.</p>}
       {err && (
-        <SheetError className="mt-4" onRetry={submit}>
-          {err}
+        <SheetError className="mt-4" onRetry={err.retry ? submit : undefined}>
+          {err.text}
         </SheetError>
       )}
       <StickyFooter>

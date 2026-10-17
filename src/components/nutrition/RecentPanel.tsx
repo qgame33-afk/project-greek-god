@@ -33,7 +33,7 @@ export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntr
     setPending(e.id);
     const c = fromEntry(e);
     const row = buildEntry(c, { id: newId(), unitIndex: 0, amount: c.defaultAmount, meal: when.meal, date: when.date, eatenAt: composeEatenAt(when.date, when.time) });
-    await log([row], { meal: when.meal, what: `${e.name} · ${formatAmount(c.defaultAmount, e.unit)} · ${formatInt(row.calories)} kcal` });
+    await log([row], { meal: when.meal, name: e.name, detail: `${formatAmount(c.defaultAmount, e.unit)} · ${formatInt(row.calories)} kcal` });
     setPending(null);
   };
 

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/misc";
 import { cn } from "@/lib/cn";
 import { normalizeUnit } from "@/lib/nutrition-ui/portion";
-import { searchUnavailable, SearchUnavailableError, statusNotes, type SearchResult } from "@/lib/nutrition-ui/search";
+import { searchErrorFor, searchUnavailable, SearchUnavailableError, statusNotes, type SearchResult } from "@/lib/nutrition-ui/search";
 import { formatInt, round } from "@/lib/units";
 import { useDebounced, useDelayedFlag, useFoodSearch } from "./hooks";
 
@@ -20,8 +20,10 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
   const typing = q.trim() !== term;
   const waiting = (search.isFetching || typing) && q.trim().length >= 2;
   const showSkeleton = useDelayedFlag(waiting && !search.data, 150);
-  const err = search.error;
   const data = search.data;
+  // offline, the lookup pauses (no error, no loading): say so instead of a blank panel
+  const paused = search.fetchStatus === "paused" && !data && q.trim().length >= 2;
+  const err = search.error ?? (paused ? searchErrorFor("network") : null);
   const notes = data ? statusNotes(data.status) : [];
   // no database answered: an empty list would read as "no matches", which it isn't
   const down = !!data && searchUnavailable(data);

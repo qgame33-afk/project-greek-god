@@ -2,7 +2,7 @@
 
 import { DropdownMenu } from "radix-ui";
 import { BookmarkPlus, CalendarDays, Ellipsis, Layers, Pencil, Plus, Trash } from "lucide-react";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { Skeleton } from "@/components/ui/misc";
 import { useDeleteFood, type FoodEntry } from "@/lib/data/nutrition";
 import { cn } from "@/lib/cn";
@@ -43,12 +43,20 @@ export function MealCard({
       }
       return cloneEntry(e, { id: newId(), date: today, eatenAt: composeEatenAt(today, timeValue(e.eaten_at)), groupId: gid });
     });
-    void log(rows, { meal, what: `${rows.length} ${rows.length === 1 ? "item" : "items"} · ${formatInt(totals.calories)} kcal` });
+    void log(rows, { meal, name: null, detail: `${rows.length} ${rows.length === 1 ? "item" : "items"} · ${formatInt(totals.calories)} kcal` });
   };
 
+  // a double tap on Delete / Remove all sends one delete, not two (and one Undo toast)
+  const removing = useRef(new Set<string>());
   const remove = (rows: FoodEntry[], what?: string) => {
     setOpenRow(null);
-    del.mutate({ ids: rows.map((r) => r.id), date, rows, label: what });
+    const fresh = rows.filter((r) => !removing.current.has(r.id));
+    if (!fresh.length) return;
+    fresh.forEach((r) => removing.current.add(r.id));
+    del
+      .mutateAsync({ ids: fresh.map((r) => r.id), date, rows: fresh, label: what })
+      .catch(() => {}) // the shared hook rolled back and explained
+      .finally(() => fresh.forEach((r) => removing.current.delete(r.id)));
   };
 
   return (

@@ -90,6 +90,27 @@ export function friendlyError(msg: string) {
   return msg;
 }
 
+export type SaveErrorKind = "offline" | "invalid" | "auth" | "other";
+
+/**
+ * What kind of failure a write hit, from the error `must()` threw: offline (worth a Retry
+ * once the connection is back), invalid (a database limit; retrying the same values can
+ * never work), auth, or anything else.
+ */
+export function saveErrorKind(e: unknown): SaveErrorKind {
+  const msg = e instanceof Error ? e.message : String(e ?? "");
+  if (/offline or the connection dropped|fetch|network/i.test(msg)) return "offline";
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return "offline";
+  if (/out of range|check constraint|invalid input/i.test(msg)) return "invalid";
+  if (/session expired|JWT/i.test(msg)) return "auth";
+  return "other";
+}
+
+/** True when the browser says there is no connection (a write would fail at once). */
+export function isOffline() {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
+
 export function newId() {
   return crypto.randomUUID();
 }

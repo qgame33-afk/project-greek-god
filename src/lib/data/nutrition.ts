@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import { toast } from "sonner";
 import type { ISODate } from "@/lib/dates";
 import { sumMacros } from "@/lib/nutrition";
-import { fetchAll, must, newId, sb, useUser, type Insert, type Row, type Update } from "./core";
+import { fetchAll, must, newId, saveErrorKind, sb, useUser, type Insert, type Row, type Update } from "./core";
 
 export type FoodEntry = Row<"food_entries">;
 export type SavedFood = Row<"saved_foods">;
@@ -65,15 +65,42 @@ function invalidateFood(qc: QueryClient) {
 
 type NewFood = Omit<Insert<"food_entries">, "user_id" | "id"> & { id?: string };
 
-/** Add one or more entries (a meal group) optimistically. Returns the inserted rows. */
-export function useAddFood() {
+/**
+ * Insert rows so that sending the same rows twice can never log them twice: rows carry
+ * their own ids, an id that is already in the diary is skipped (ON CONFLICT DO NOTHING),
+ * and when the connection drops after the server saved them the rows are looked up before
+ * the write is called a failure. Returns the rows as they are in the diary.
+ */
+export async function insertFoodRows(items: NewFood[]): Promise<FoodEntry[]> {
+  const rows = items.map((i) => ({ ...i, id: i.id ?? newId() }));
+  const ids = rows.map((r) => r.id);
+  const lookup = async () => must(await sb().from("food_entries").select("*").in("id", ids));
+  try {
+    const inserted = must(await sb().from("food_entries").upsert(rows, { onConflict: "id", ignoreDuplicates: true }).select("*"));
+    if (inserted.length === rows.length) return inserted;
+    // some ids were already there (a retry of a write that had landed): report the diary's rows
+    return await lookup();
+  } catch (e) {
+    if (saveErrorKind(e) !== "offline") throw e;
+    const landed = await lookup().catch(() => null);
+    if (landed && landed.length === rows.length) return landed;
+    throw e;
+  }
+}
+
+/**
+ * Add one or more entries (a meal group) optimistically. Returns the inserted rows.
+ * Never pauses offline (networkMode "always"): an offline add fails at once, rolls back and
+ * says so, instead of spinning while the unsaved row looks saved. `quiet` skips the error
+ * toast for callers that explain the failure in place (a sheet's inline error).
+ */
+export function useAddFood(opts: { quiet?: boolean } = {}) {
   const qc = useQueryClient();
   const { userId } = useUser();
+  const quiet = !!opts.quiet;
   return useMutation({
-    mutationFn: async (items: NewFood[]) => {
-      const rows = items.map((i) => ({ ...i, id: i.id ?? newId() }));
-      return must(await sb().from("food_entries").insert(rows).select("*"));
-    },
+    networkMode: "always",
+    mutationFn: insertFoodRows,
     onMutate: async (items) => {
       const date = items[0]?.local_date;
       if (!date) return;
@@ -81,42 +108,45 @@ export function useAddFood() {
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<FoodEntry[]>(key);
       const now = new Date().toISOString();
-      const optimistic = items.map(
-        (i) =>
-          ({
-            id: i.id ?? newId(),
-            user_id: userId!,
-            created_at: now,
-            updated_at: now,
-            eaten_at: i.eaten_at ?? now,
-            brand: null,
-            grams: null,
-            source_name: null,
-            source_url: null,
-            meal_group_id: null,
-            saved_food_id: null,
-            photo_path: null,
-            source: "manual",
-            confidence: "logged",
-            amount: 1,
-            unit: "serving",
-            base_amount: 1,
-            base_calories: 0,
-            base_protein_g: 0,
-            base_carbs_g: 0,
-            base_fat_g: 0,
-            protein_g: 0,
-            carbs_g: 0,
-            fat_g: 0,
-            ...i,
-          }) as FoodEntry,
-      );
+      const have = new Set((prev ?? []).map((r) => r.id));
+      const optimistic = items
+        .filter((i) => !i.id || !have.has(i.id))
+        .map(
+          (i) =>
+            ({
+              id: i.id ?? newId(),
+              user_id: userId!,
+              created_at: now,
+              updated_at: now,
+              eaten_at: i.eaten_at ?? now,
+              brand: null,
+              grams: null,
+              source_name: null,
+              source_url: null,
+              meal_group_id: null,
+              saved_food_id: null,
+              photo_path: null,
+              source: "manual",
+              confidence: "logged",
+              amount: 1,
+              unit: "serving",
+              base_amount: 1,
+              base_calories: 0,
+              base_protein_g: 0,
+              base_carbs_g: 0,
+              base_fat_g: 0,
+              protein_g: 0,
+              carbs_g: 0,
+              fat_g: 0,
+              ...i,
+            }) as FoodEntry,
+        );
       qc.setQueryData<FoodEntry[]>(key, [...(prev ?? []), ...optimistic]);
       return { key, prev };
     },
     onError: (e: Error, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(ctx.key, ctx.prev);
-      toast.error("Couldn't add that", { description: e.message });
+      if (!quiet) toast.error("Couldn't add that", { description: e.message });
     },
     onSettled: () => invalidateFood(qc),
   });
@@ -126,6 +156,7 @@ export function useUpdateFood() {
   const qc = useQueryClient();
   const { userId } = useUser();
   return useMutation({
+    networkMode: "always",
     mutationFn: async ({ id, values }: { id: string; date: ISODate; values: Update<"food_entries"> }) =>
       must(await sb().from("food_entries").update(values).eq("id", id).select("*").single()),
     onMutate: async ({ id, date, values }) => {
@@ -152,12 +183,30 @@ export function useUpdateFood() {
   });
 }
 
+/**
+ * A private meal photo whose last diary row is gone (and whose Undo window has passed) is
+ * removed from storage, so deleting a scanned meal never leaves the photo behind.
+ */
+export async function removeOrphanMealPhotos(paths: (string | null | undefined)[]) {
+  const unique = [...new Set(paths.filter((p): p is string => !!p))];
+  if (!unique.length) return;
+  const [used, chat] = await Promise.all([
+    sb().from("food_entries").select("photo_path").in("photo_path", unique),
+    sb().from("ai_messages").select("image_path").in("image_path", unique),
+  ]);
+  if (used.error || chat.error) return; // can't tell: keep the photo
+  const keep = new Set([...(used.data ?? []).map((r) => r.photo_path), ...(chat.data ?? []).map((r) => r.image_path)]);
+  const orphans = unique.filter((p) => !keep.has(p));
+  if (orphans.length) await sb().storage.from("meal-photos").remove(orphans);
+}
+
 /** Delete entries (by ids) with an Undo toast that restores them exactly. */
 export function useDeleteFood() {
   const qc = useQueryClient();
   const { userId } = useUser();
   const add = useAddFood();
   return useMutation({
+    networkMode: "always",
     mutationFn: async ({ ids }: { ids: string[]; date: ISODate; rows: FoodEntry[]; label?: string }) => {
       must(await sb().from("food_entries").delete().in("id", ids));
     },
@@ -169,14 +218,22 @@ export function useDeleteFood() {
       return { key, prev };
     },
     onSuccess: (_d, { rows, label }) => {
+      let undone = false;
+      const photos = rows.map((r) => r.photo_path);
+      const settle = () => {
+        if (!undone) void removeOrphanMealPhotos(photos).catch(() => {});
+      };
       toast(label ?? (rows.length > 1 ? `Removed ${rows.length} items` : `Removed ${rows[0]?.name ?? "entry"}`), {
         duration: 6000,
+        onAutoClose: settle,
+        onDismiss: settle,
         action: {
           label: "Undo",
-          onClick: () =>
-            add.mutate(
-              rows.map(({ user_id: _u, created_at: _c, updated_at: _up, ...r }) => r),
-            ),
+          onClick: () => {
+            undone = true;
+            // ids are kept, so a second Undo (or a retry) restores nothing twice
+            add.mutate(rows.map(({ user_id: _u, created_at: _c, updated_at: _up, ...r }) => r));
+          },
         },
       });
     },
@@ -289,6 +346,7 @@ export function useWaterMutations(date: ISODate) {
   };
   // one scope: an Undo tapped while its insert is still in flight runs after the insert lands
   const add = useMutation({
+    networkMode: "always",
     scope: { id: "water-logs" },
     mutationFn: async ({ id, ml, loggedAt }: { id: string; ml: number; loggedAt?: string }) =>
       must(await sb().from("water_logs").insert({ id, local_date: date, amount_ml: ml, ...(loggedAt ? { logged_at: loggedAt } : {}) }).select("*").single()),
@@ -305,6 +363,7 @@ export function useWaterMutations(date: ISODate) {
     onSettled: settle,
   });
   const remove = useMutation({
+    networkMode: "always",
     scope: { id: "water-logs" },
     mutationFn: async (id: string) => must(await sb().from("water_logs").delete().eq("id", id)),
     onMutate: async (id) => {

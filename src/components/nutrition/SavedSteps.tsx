@@ -13,6 +13,7 @@ import { entriesFromSavedMeal, parseSavedMealItems, savedMealTotals } from "@/li
 import { fieldText, validateFoodForm, type FoodForm } from "@/lib/nutrition-ui/validate";
 import { formatInt } from "@/lib/units";
 import { focusFirstInvalid, MacroGrid, SheetError, StarButton, StickyFooter } from "./bits";
+import { saveFailure } from "@/lib/nutrition-ui/errors";
 import { mealLabel, useFuel } from "./context";
 import { FoodFields } from "./FoodFields";
 import { BackButton, WhenFields, type When } from "./log-shared";
@@ -24,25 +25,33 @@ export function SavedMealPanel({ meal, when, setWhen, onBack, onDone }: { meal: 
   const items = parseSavedMealItems(meal.items);
   const totals = savedMealTotals(items);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const busyRef = useRef(false);
+  // kept across a Retry, so a meal whose answer was lost can't land twice
+  const attempt = useRef<{ groupId: string; ids: string[] } | null>(null);
+  const [err, setErr] = useState<{ text: string; retry: boolean } | null>(null);
 
   const submit = async () => {
-    if (busy || !items.length) return;
+    if (busyRef.current || !items.length) return;
+    busyRef.current = true;
     setBusy(true);
     setErr(null);
+    attempt.current ??= { groupId: newId(), ids: items.map(() => newId()) };
     const rows = entriesFromSavedMeal(items, {
       meal: when.meal,
       date: when.date,
       eatenAt: composeEatenAt(when.date, when.time),
-      groupId: newId(),
-      ids: items.map(() => newId()),
+      groupId: attempt.current.groupId,
+      ids: attempt.current.ids,
     });
-    const ok = await log(rows, { meal: when.meal, what: `${meal.name} · ${items.length} items · ${formatInt(totals.calories)} kcal` });
+    const n = items.length;
+    const res = await log(rows, { meal: when.meal, name: meal.name, detail: `${n} ${n === 1 ? "item" : "items"} · ${formatInt(totals.calories)} kcal`, quiet: true });
+    busyRef.current = false;
     setBusy(false);
-    if (ok) {
+    if (res.ok || res.kind === "invalid") attempt.current = null;
+    if (res.ok) {
       m.update.mutate({ id: meal.id, values: { use_count: meal.use_count + 1, last_used_at: new Date().toISOString() } });
       onDone();
-    } else setErr("Couldn't save. Nothing was added. Retry.");
+    } else setErr(saveFailure(res, "meal"));
   };
 
   return (
@@ -70,8 +79,8 @@ export function SavedMealPanel({ meal, when, setWhen, onBack, onDone }: { meal: 
       <MacroGrid className="mt-4" macros={totals} />
       <WhenFields className="mt-6" when={when} setWhen={setWhen} today={today} />
       {err && (
-        <SheetError className="mt-4" onRetry={submit}>
-          {err}
+        <SheetError className="mt-4" onRetry={err.retry ? submit : undefined}>
+          {err.text}
         </SheetError>
       )}
       <StickyFooter>

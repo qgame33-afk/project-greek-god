@@ -49,7 +49,8 @@ function AppShellInner({ children }: { children: ReactNode }) {
 
   if (focus) return <>{children}</>;
 
-  const showFab = !hidesFab(pathname) && !keyboard;
+  // Nutrition has its own Add manually and per-meal +, and the FAB would sit on its content
+  const showFab = !hidesFab(pathname) && !isActive(pathname, "/nutrition") && !keyboard;
 
   return (
     <div className="min-h-dvh">
@@ -98,7 +99,7 @@ function TopBar({ pathname }: { pathname: string }) {
   }, []);
   const initial = (user?.email ?? "?").slice(0, 1).toUpperCase();
   const home = pathname === "/";
-  const { title, show } = useScrolledPageTitle(!home);
+  const { title, show } = useScrolledPageTitle(!home, pathname);
   return (
     <header
       className={cn("chrome sticky top-0 z-20 border-b transition-colors md:hidden", scrolled ? "border-line-hair" : "border-transparent")}
@@ -144,8 +145,11 @@ function TopBar({ pathname }: { pathname: string }) {
   );
 }
 
-/** The page's <h1> text, and whether it has scrolled up under the top bar. */
-function useScrolledPageTitle(enabled: boolean) {
+/**
+ * The page's <h1> text, and whether it has scrolled up under the top bar. Re-attaches on
+ * every route change, so the title can never be left over from the previous screen.
+ */
+function useScrolledPageTitle(enabled: boolean, pathname: string) {
   const [title, setTitle] = useState<string | null>(null);
   const [show, setShow] = useState(false);
   useEffect(() => {
@@ -171,8 +175,9 @@ function useScrolledPageTitle(enabled: boolean) {
       mo.disconnect();
       io?.disconnect();
       setShow(false);
+      setTitle(null);
     };
-  }, [enabled]);
+  }, [enabled, pathname]);
   return { title: enabled ? title : null, show: enabled && show };
 }
 
