@@ -16,13 +16,12 @@ import { useProfile } from "@/lib/data/profile";
 import { useVolleyball } from "@/lib/data/training";
 import { useRecovery } from "@/lib/data/recovery";
 import { volleyballEntries } from "@/lib/recovery/volleyball";
-import { weightStats } from "@/lib/bodyweight";
+import { trendAt } from "@/lib/progress/pace";
 import { addDays, shortDate } from "@/lib/dates";
 import { formatLoad, round, toDisplayLength, toDisplayWeight, type LengthUnit, type WeightUnit } from "@/lib/units";
 import { fmtLen } from "@/lib/progress/measurements";
 import { cn } from "@/lib/cn";
 import { TESTS, TEST_BY_KEY, feetInches, prIds, sprintDistances, squatToBodyweight, testPR, testSeries, touchHeight, volleyballFrequency, type TestType } from "@/lib/progress/athletic";
-import { planFromProfile } from "@/lib/progress/plan";
 import { summarizeLift } from "@/lib/progress/strength";
 import { useAthleticWrite, useStrengthSets } from "@/lib/progress/hooks";
 import { dateToT } from "@/lib/progress/weightSeries";
@@ -47,9 +46,8 @@ export function AthleticTab() {
   const actions = useProgressActions();
   const [detail, setDetail] = useState<TestType | null>(null);
 
-  const plan = planFromProfile(profile, today);
-  const stats = useMemo(() => weightStats(weights, plan.startLb, plan.goalLb, today), [weights, plan.startLb, plan.goalLb, today]);
-  const trendBw = stats.avg7 ?? stats.current;
+  // the one trend weight (lib/progress/pace)
+  const trendBw = useMemo(() => trendAt(weights, today).lb, [weights, today]);
   const squat = useMemo(() => summarizeLift((strength.data ?? []).filter((s) => s.exercise_slug === "back-squat")), [strength.data]);
   const ratio = squatToBodyweight(squat.bestE1rm, trendBw);
   const freq = volleyballFrequency(volleyballEntries(vb.data ?? [], vbRec.data ?? []), today);

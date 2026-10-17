@@ -34,7 +34,7 @@ export interface SuggestionContext {
   access: CoachAccess;
   /** 7-day average (or latest) bodyweight in lb, from logged weigh-ins. */
   trendLb: number | null;
-  /** The app's own two-week calorie check (§12). */
+  /** The app's own calorie check (§12), on the one 4-week rate. */
   calorieCheck: CalorieSuggestion | null;
 }
 

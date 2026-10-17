@@ -8,7 +8,7 @@ import { ErrorNote } from "@/components/ui/misc";
 import { Bar } from "@/components/ui/progress";
 import { cn } from "@/lib/cn";
 import { shortDate } from "@/lib/dates";
-import { rangePlaque, trendCaption, trendTone } from "@/lib/today/ascent";
+import { paceCaption, paceTone, rangePlaque } from "@/lib/today/ascent";
 import { formatBodyweight, formatDelta, type WeightUnit } from "@/lib/units";
 import { useDawn, useMedia, useReveal } from "./dawn";
 import { WeightSpark } from "./WeightSpark";
@@ -34,8 +34,9 @@ export function TransformationCard({
   const unit = (m.profile.weight_unit ?? "lb") as WeightUnit;
   const a = m.ascent;
   const pct = Math.round(a.p * 100);
-  const tone = trendTone(a.weeklyChange, m.planRate);
-  const planLabel = m.planRate != null ? formatDelta(m.planRate, unit) : null;
+  // The one rate (28-day least squares) and its pace call, the same numbers every screen shows.
+  const rate = m.pace.rate.lbPerWeek;
+  const tone = paceTone(m.pace.verdict);
   const plaque = a.start != null && a.goal != null ? rangePlaque(a.start, a.goal, unit) : `Set start and goal in Settings`;
 
   const failed = m.weightsFailed;
@@ -81,12 +82,7 @@ export function TransformationCard({
                     : "From your first weigh-in"
               }
             />
-            <Row
-              label="Trend"
-              value={a.weeklyChange != null ? `${formatDelta(a.weeklyChange, unit)}/wk` : "—"}
-              tone={tone}
-              caption={failed ? undefined : trendCaption(tone, a.weeklyChange, planLabel)}
-            />
+            <Row label="Pace" value={rate != null ? `${formatDelta(rate, unit, 2)}/wk` : "—"} tone={tone} caption={failed ? undefined : paceCaption(m.pace)} />
           </dl>
         </div>
         <GildedBust

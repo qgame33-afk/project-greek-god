@@ -11,6 +11,7 @@ import { useRecovery } from "@/lib/data/recovery";
 import { planFor, usePREvents, useDayPlans, useSessions, useTemplates, useVolleyball, volleyballLoad, type Session } from "@/lib/data/training";
 import { useStartWorkout } from "@/lib/data/workout";
 import { addDays, weekDates, type ISODate } from "@/lib/dates";
+import { pace as paceOf } from "@/lib/progress/pace";
 import { ascentProgress, planRatePerWeek } from "@/lib/today/ascent";
 import type { CheckinFacts } from "@/lib/today/daily-line";
 import { planFacts, nextSession } from "@/lib/today/plan";
@@ -88,6 +89,8 @@ export function useTodayModel() {
     const ascent = ascentProgress(startLb, goalLb, weights, today);
     const latestRow = weights.length ? weights[weights.length - 1] : null;
     const planRate = planRatePerWeek(startLb, goalLb, profile.start_date, profile.target_date);
+    // THE trend, rate, projection and verdict (lib/progress/pace) — never recomputed here.
+    const pace = paceOf({ weighIns: weights, today, profile, unit: profile.weight_unit === "kg" ? "kg" : "lb" });
 
     // Timeline
     const tl = timeline(profile.start_date, profile.target_date, today);
@@ -151,6 +154,7 @@ export function useTodayModel() {
       volleyballToday,
       volleyballDays7,
       ascent,
+      pace,
       weights,
       /** Weigh-ins failed to load and nothing is cached: show "—", not the start weight. */
       weightsFailed: !!weightsError && weights.length === 0,

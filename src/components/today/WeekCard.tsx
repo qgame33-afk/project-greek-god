@@ -6,7 +6,7 @@ import { CardAction } from "@/components/ui/card";
 import { ErrorNote, Skeleton } from "@/components/ui/misc";
 import { cn } from "@/lib/cn";
 import { monthName, parseISODate } from "@/lib/dates";
-import { trendCaption, trendTone, type TrendTone } from "@/lib/today/ascent";
+import { paceCaption, paceTone, type TrendTone } from "@/lib/today/ascent";
 import { fmtHours } from "@/lib/today/daily-line";
 import { formatDelta, formatInt, type WeightUnit } from "@/lib/units";
 import { useMedia } from "./dawn";
@@ -17,9 +17,8 @@ export function WeekCard({ m, loading, error, onRetry, className }: { m: TodayMo
   const router = useRouter();
   const o = m.overview;
   const unit = (m.profile.weight_unit ?? "lb") as WeightUnit;
-  const a = m.ascent;
-  const tone = trendTone(a.weeklyChange, m.planRate);
-  const planLabel = m.planRate != null ? formatDelta(m.planRate, unit) : null;
+  const rate = m.pace.rate.lbPerWeek;
+  const tone = paceTone(m.pace.verdict);
   const s = parseISODate(m.week[0]);
   const e = parseISODate(m.week[6]);
   const range = s.getMonth() === e.getMonth() ? `${monthName(m.week[0], true)} ${s.getDate()}–${e.getDate()}` : `${monthName(m.week[0], true)} ${s.getDate()} – ${monthName(m.week[6], true)} ${e.getDate()}`;
@@ -54,10 +53,10 @@ export function WeekCard({ m, loading, error, onRetry, className }: { m: TodayMo
       tone: o.avgProtein != null && o.avgProtein >= m.profile.protein_goal ? "good" : "neutral",
     },
     {
-      label: "Weight trend",
-      value: a.weeklyChange != null ? formatDelta(a.weeklyChange, unit).replace(` ${unit}`, "") : "—",
-      unit: a.weeklyChange != null ? `${unit}/wk` : undefined,
-      caption: trendCaption(tone, a.weeklyChange, planLabel),
+      label: "Pace",
+      value: rate != null ? formatDelta(rate, unit, 2).replace(` ${unit}`, "") : "—",
+      unit: rate != null ? `${unit}/wk` : undefined,
+      caption: paceCaption(m.pace),
       tone,
     },
     {

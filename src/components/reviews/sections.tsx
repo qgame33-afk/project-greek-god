@@ -108,7 +108,8 @@ export function PhysicalCard({
               ? p.weighIns
                 ? "Needs weigh-ins a week apart"
                 : undefined
-              : `${formatDelta(p.ratePerWeek, unit, 2)} per week`
+              : // a month change, never a rate: the pace is the one 28-day rate
+                `${p.earlyWater ? "Includes early water · " : ""}${p.ratePerWeek != null ? `pace ${formatDelta(p.ratePerWeek, unit, 2)}/wk, last 4 weeks` : "7-day averages, start to end"}`
           }
         />
         <Metric

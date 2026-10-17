@@ -8,9 +8,8 @@ import { Sheet } from "@/components/ui/sheet";
 import { CoachRequestError, askCoach, useCoachStatus, useConversations, useMessages, useReceiveReply, useSetSuggestionStatus } from "@/lib/coach/hooks";
 import { MAX_MESSAGE_CHARS } from "@/lib/coach/schema";
 import type { CoachErrorCode, SuggestionStatus } from "@/lib/coach/types";
-import { useProfile, useSaveProfile } from "@/lib/data/profile";
+import { useProfile, useSavePrefs } from "@/lib/data/profile";
 import { newId } from "@/lib/data/core";
-import type { Json } from "@/lib/supabase/database.types";
 import { localDateOf, today } from "@/lib/dates";
 import { cn } from "@/lib/cn";
 import { AccessChip } from "./AccessSheet";
@@ -119,7 +118,7 @@ function CoachScreenInner() {
   const profile = useProfile().profile ?? undefined;
   const status = useCoachStatus();
   const convs = useConversations();
-  const save = useSaveProfile();
+  const savePrefs = useSavePrefs();
   const setStatus = useSetSuggestionStatus();
   const receive = useReceiveReply();
 
@@ -250,8 +249,7 @@ function CoachScreenInner() {
 
   const dismissNote = () => {
     if (!profile) return;
-    const prefs = (profile.prefs && typeof profile.prefs === "object" && !Array.isArray(profile.prefs) ? profile.prefs : {}) as Record<string, Json>;
-    save.mutate({ values: { prefs: { ...prefs, coachNoteSeen: true } } });
+    savePrefs.mutate({ coachNoteSeen: true });
   };
 
   const newChat = () => {

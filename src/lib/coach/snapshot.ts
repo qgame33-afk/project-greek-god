@@ -3,7 +3,8 @@
 // server maps cited ids back to these labels/values (model-written numbers are never shown
 // as chips).
 
-import { calorieSuggestion, requiredWeeklyGain, weightStats, type CalorieSuggestion, type WeighIn } from "@/lib/bodyweight";
+import { calorieSuggestion, progressPct, requiredWeeklyGain, weightStats, type CalorieSuggestion, type WeighIn } from "@/lib/bodyweight";
+import { MIN_SPAN_DAYS, MIN_WEIGHINS, rateAt, trendAt } from "@/lib/progress/pace";
 import { addDays, dayName, daysBetween, monthLabel, shortDate, weekDates, type ISODate } from "@/lib/dates";
 import { getExercise } from "@/lib/training/library";
 import { PROGRAM, TRAINING_RULES } from "@/lib/training/program";
@@ -246,24 +247,45 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
       note("No weigh-ins logged yet. Bodyweight trend, rate and calorie checks are unavailable until the user logs morning weigh-ins.");
     } else {
       const st = weightStats(w, p.start_weight_lb, p.goal_weight_lb, today);
-      trendLb = st.avg7 ?? st.current;
+      // THE trend and THE rate (lib/progress/pace): the same numbers every screen shows.
+      const tr = trendAt(w, today);
+      const rt = rateAt(w, today, p.start_date);
+      trendLb = tr.lb;
       const sorted = [...w].sort((a, b) => a.local_date.localeCompare(b.local_date));
       const first = sorted[0];
       fact("bodyweight", "logged", "bw.latest", "Latest weigh-in", bw(st.current), `on ${sd(st.currentDate!)}`);
-      if (st.avg7 != null) fact("bodyweight", "logged", "bw.avg7", "7-day average", bw(st.avg7), "trend weight (mean of weigh-ins in the last 7 days)");
-      if (st.weeklyChange != null) fact("bodyweight", "logged", "bw.week", "Weekly change", formatDelta(st.weeklyChange, wu), "7-day average vs the 7 days before");
-      if (st.monthlyChange != null) fact("bodyweight", "logged", "bw.month", "Monthly change", formatDelta(st.monthlyChange, wu), "7-day average vs the 7-day average 30 days earlier");
-      if (st.fromStart != null) fact("bodyweight", "logged", "bw.fromStart", "Change since start", formatDelta(st.fromStart, wu), `trend weight vs start weight ${bw(p.start_weight_lb)} (${sd(p.start_date)})`);
+      if (tr.lb != null)
+        fact("bodyweight", "logged", "bw.avg7", "7-day average", bw(tr.lb), tr.end === today ? "trend weight (mean of weigh-ins in the last 7 days)" : `trend weight as of ${sd(tr.end)} (the last weigh-in is more than a week old)`);
+      if (rt.status === "ok" && rt.lbPerWeek != null)
+        fact(
+          "bodyweight",
+          "logged",
+          "bw.rate",
+          "Rate",
+          rate(rt.lbPerWeek),
+          `least-squares slope of ${rt.n} weigh-ins over the last 4 weeks; the only weekly rate the app shows${rt.includesEarlyWater ? ". The window includes the programme's first two weeks, which carry water and glycogen" : ""}`,
+        );
+      else
+        fact(
+          "bodyweight",
+          "logged",
+          "bw.rate",
+          "Rate",
+          "Not enough data yet",
+          rt.status === "needs_weighins" ? `needs ${MIN_WEIGHINS} weigh-ins in the last 4 weeks; has ${rt.n}. Don't state a weekly rate.` : `needs weigh-ins spanning ${MIN_SPAN_DAYS} days; they span ${rt.spanDays}. Don't state a weekly rate.`,
+        );
+      if (st.monthlyChange != null) fact("bodyweight", "logged", "bw.month", "Monthly change", formatDelta(st.monthlyChange, wu), "7-day average vs the 7-day average 30 days earlier (a change, not a rate)");
+      if (tr.lb != null) fact("bodyweight", "logged", "bw.fromStart", "Change since start", formatDelta(round(tr.lb - p.start_weight_lb, 2), wu), `trend weight vs start weight ${bw(p.start_weight_lb)} (${sd(p.start_date)})`);
       fact("bodyweight", "logged", "bw.first", "First weigh-in", bw(first.weight_lb), `on ${sd(first.local_date)}`);
-      if (st.ratePerWeek != null) fact("bodyweight", "logged", "bw.rate", "Average rate", rate(st.ratePerWeek), `since the first weigh-in (${daysBetween(first.local_date, st.currentDate!)} days)`);
       const req = trendLb != null ? requiredWeeklyGain(trendLb, p.goal_weight_lb, today, p.target_date) : null;
       if (req != null) fact("bodyweight", "plan", "bw.required", "Required rate", rate(req), `to reach ${bw(p.goal_weight_lb)} by ${sd(p.target_date)} from the current trend weight`);
-      if (st.toGoal != null) fact("bodyweight", "logged", "bw.toGoal", "Left to goal", formatDelta(st.toGoal, wu).replace(/^\+/, ""), `${st.progressPct}% of the way from start to goal`);
+      if (tr.lb != null)
+        fact("bodyweight", "logged", "bw.toGoal", "Left to goal", formatDelta(round(p.goal_weight_lb - tr.lb, 2), wu).replace(/^\+/, ""), `${progressPct(tr.lb, p.start_weight_lb, p.goal_weight_lb)}% of the way from start to goal`);
       const last14 = w.filter((x) => x.local_date > addDays(today, -14) && x.local_date <= today).length;
       fact("bodyweight", "logged", "bw.count", "Weigh-ins logged", String(w.length), `${last14} in the last 14 days`);
-      // §12 smart calorie check: the app's own two-week trend rule
+      // §12 smart calorie check: the app's own rule, on the same rate
       const targetRate = req ?? round((p.goal_weight_lb - p.start_weight_lb) / Math.max(1, daysBetween(p.start_date, p.target_date) / 7), 2);
-      calorieCheck = calorieSuggestion(w, today, targetRate, lastCalorieChange);
+      calorieCheck = calorieSuggestion(rt, today, targetRate, lastCalorieChange);
       const cc = calorieCheck;
       const ccValue =
         cc.kind === "insufficient"
@@ -275,15 +297,16 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
               : cc.kind === "increase"
                 ? `Gaining slower than planned`
                 : `Gaining faster than planned`;
+      const water = cc.kind !== "insufficient" && cc.kind !== "cooldown" && cc.earlyWater ? " The rate includes early water and glycogen, so treat a fast early gain with caution." : "";
       const ccDetail =
         cc.kind === "insufficient"
-          ? `needs ≥14 days and ≥8 weigh-ins; has ${cc.daysOfData} days, ${cc.weighIns} weigh-ins. Don't recommend a calorie change yet.`
+          ? `needs ≥8 weigh-ins spanning ≥14 days in the last 4 weeks; has ${cc.weighIns} weigh-ins over ${cc.daysOfData} days. Don't recommend a calorie change yet.`
           : cc.kind === "cooldown"
             ? `calorie target changed ${sd(cc.lastChange)}; the app waits 14 days of new data before another change`
             : cc.kind === "on_track"
-              ? `last 7-day average vs the previous 7 days: ${rate(cc.ratePerWeek)} vs target ${rate(cc.targetRate)}. Keep the calorie target.`
-              : `last 7-day average vs the previous 7 days: ${rate(cc.ratePerWeek)} vs target ${rate(cc.targetRate)}. The app's rule suggests ${signed(cc.delta, 0)} kcal/day (a modest step that needs the user's confirmation).`;
-      fact("bodyweight", "logged", "bw.check", "Two-week calorie check", ccValue, ccDetail);
+              ? `rate over the last 4 weeks ${rate(cc.ratePerWeek)} vs target ${rate(cc.targetRate)}. Keep the calorie target.${water}`
+              : `rate over the last 4 weeks ${rate(cc.ratePerWeek)} vs target ${rate(cc.targetRate)}. The app's rule suggests ${signed(cc.delta, 0)} kcal/day (a modest step that needs the user's confirmation).${water}`;
+      fact("bodyweight", "logged", "bw.check", "Calorie check", ccValue, ccDetail);
       for (const m of monthlyWeights(w).slice(-12)) {
         fact("bodyweight", "logged", `bw.m.${m.month}`, `${monthLabel(m.month + "-01")} average`, bw(m.avg), `${m.n} weigh-ins; first ${bw(m.first.lb)} on ${sd(m.first.date)}, last ${bw(m.last.lb)} on ${sd(m.last.date)}`);
       }

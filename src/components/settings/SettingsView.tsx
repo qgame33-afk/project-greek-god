@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
 import { ErrorNote, PageHeader } from "@/components/ui/misc";
 import { useToday, useUser } from "@/lib/data/core";
-import { useProfile, type Profile } from "@/lib/data/profile";
+import { useProfile, useSavePrefs, type Profile } from "@/lib/data/profile";
 import { daysBetween, shortDate, type ISODate } from "@/lib/dates";
 import { requiredWeeklyGain } from "@/lib/bodyweight";
 import { cn } from "@/lib/cn";
@@ -86,6 +86,7 @@ const SECTIONS: { id: string; label: string }[] = [
   { id: "about", label: "About" },
 ];
 
+/** The workout booleans for display. Read-only: writes go through useSavePrefs (which keeps every other key). */
 export function prefsOf(p: Profile | null | undefined): Prefs {
   const raw = (p?.prefs ?? {}) as Partial<Prefs>;
   return { ...PREF_DEFAULTS, ...Object.fromEntries(Object.entries(raw).filter(([, v]) => typeof v === "boolean")) };
@@ -107,6 +108,8 @@ export function SettingsView() {
   const status = useAppStatus();
   const credits = useCredits();
   const { commit } = useCommit({ inline: false });
+  // prefs writes merge into the stored JSON (meal times, training time and unknown keys survive)
+  const savePrefs = useSavePrefs();
   const { signOut, pending: signingOut, dialog: signOutDialog } = useSignOut();
   // Arriving from a password-reset email opens "Set a new password" straight away.
   const [sheet, setSheet] = useState<SheetId | null>(recovery ? "password" : null);
@@ -161,7 +164,7 @@ export function SettingsView() {
         /* private mode */
       }
     }
-    commit({ prefs: { ...prefs, [k]: v } }, { guard: false });
+    savePrefs.mutate({ [k]: v });
   };
   const setCoach = (k: CoachKey, v: boolean) => commit({ coach_access: { ...coach, [k]: v } }, { guard: false });
 

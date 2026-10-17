@@ -9,8 +9,8 @@ import { Card } from "@/components/ui/card";
 import { Bar } from "@/components/ui/progress";
 import { Sheet } from "@/components/ui/sheet";
 import { useToday } from "@/lib/data/core";
-import type { WeightEntry } from "@/lib/data/body";
 import { useGoalChanges, useProfile, useSaveProfile } from "@/lib/data/profile";
+import type { RateReading } from "@/lib/progress/pace";
 import { calorieSuggestion } from "@/lib/bodyweight";
 import { localDateOf, shortDate } from "@/lib/dates";
 import { carbsForGoal } from "@/lib/nutrition";
@@ -19,10 +19,11 @@ import type { PlanInput } from "@/lib/progress/plan";
 import { signed } from "../kit";
 
 /**
- * Smart calorie check (SPEC §12). Needs two weeks of weigh-ins; suggests a modest change when
- * the trend is well off plan; never changes the goal without an explicit confirmation.
+ * Smart calorie check (SPEC §12). Reads THE rate (pace.rateAt, the 28-day least-squares
+ * slope every screen shows); needs ≥ 8 weigh-ins over two weeks; suggests a modest change
+ * when the pace is well off plan; never changes the goal without an explicit confirmation.
  */
-export function CalorieCard({ weights, plan, planRate, unit }: { weights: WeightEntry[]; plan: PlanInput; planRate: number | null; unit: WeightUnit }) {
+export function CalorieCard({ rate: reading, plan, planRate, unit }: { rate: RateReading; plan: PlanInput; planRate: number | null; unit: WeightUnit }) {
   const today = useToday();
   const { profile } = useProfile();
   const changes = useGoalChanges();
@@ -35,7 +36,7 @@ export function CalorieCard({ weights, plan, planRate, unit }: { weights: Weight
   }, [changes.data]);
 
   const target = Math.max(0.1, planRate ?? 0.46);
-  const sug = useMemo(() => calorieSuggestion(weights, today, target, lastCalChange), [weights, today, target, lastCalChange]);
+  const sug = useMemo(() => calorieSuggestion(reading, today, target, lastCalChange), [reading, today, target, lastCalChange]);
   const rate = (lb: number) => `${signed(toDisplayWeight(lb, unit), 2)} ${unit}/wk`;
 
   if (!profile || changes.isLoading) return null;
@@ -81,7 +82,7 @@ export function CalorieCard({ weights, plan, planRate, unit }: { weights: Weight
           {pace === "on" ? "On plan" : pace === "ahead" ? "A little ahead of plan" : "A little behind plan"}
         </p>
         <p className="mt-1 text-[13px] leading-relaxed text-fg-2">
-          Trend {rate(sug.ratePerWeek)} vs {rate(sug.targetRate)} planned over the last two weeks. Keep {formatInt(cal)} kcal
+          Pace {rate(sug.ratePerWeek)} vs {rate(sug.targetRate)} planned over the last 4 weeks. Keep {formatInt(cal)} kcal
           {pace === "on" ? "." : "; a change is suggested only if the trend stays well off the plan."}
         </p>
       </Card>
@@ -91,10 +92,11 @@ export function CalorieCard({ weights, plan, planRate, unit }: { weights: Weight
   const next = cal + sug.delta;
   const inRange = next >= 1000 && next <= 8000;
   const carbs = carbsForGoal(next, profile.protein_goal, profile.fat_goal);
+  const water = sug.earlyWater ? " The first two weeks include water and glycogen." : "";
   const reason =
     sug.kind === "increase"
-      ? `Two-week trend ${rate(sug.ratePerWeek)} vs ${rate(sug.targetRate)} planned.`
-      : `Two-week trend ${rate(sug.ratePerWeek)} vs ${rate(sug.targetRate)} planned. Gaining this fast mostly adds fat.`;
+      ? `Pace over the last 4 weeks ${rate(sug.ratePerWeek)} vs ${rate(sug.targetRate)} planned.`
+      : `Pace over the last 4 weeks ${rate(sug.ratePerWeek)} vs ${rate(sug.targetRate)} planned. Gaining this fast mostly adds fat.${water}`;
 
   const apply = () => {
     if (save.isPending || !inRange) return;

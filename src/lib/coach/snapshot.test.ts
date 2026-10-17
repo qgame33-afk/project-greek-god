@@ -5,6 +5,7 @@ import { buildSystemPrompt } from "./prompt";
 import { sanitizeAnswer, sanitizeFollowUps, titleFrom } from "./schema";
 import { buildSnapshot, chipsFor, dateInZone, type RawCoachData } from "./snapshot";
 import { validateSuggestions } from "./suggestions";
+import { rateAt, trendAt } from "@/lib/progress/pace";
 
 const today = "2026-10-16"; // a Friday
 
@@ -99,6 +100,21 @@ describe("buildSnapshot", () => {
     expect(s.facts.some((f) => f.id.startsWith("rec."))).toBe(false);
     expect(s.text).toMatch(/NOT SHARED: Nutrition, Recovery/);
     expect(s.shared).not.toContain("nutrition");
+  });
+
+  it("states THE rate (pace.rateAt) and no other weekly rate", () => {
+    const r = raw();
+    const s = buildSnapshot(r);
+    const f = (id: string) => s.facts.find((x) => x.id === id);
+    const rt = rateAt(r.weights!, today, r.profile.start_date);
+    expect(rt.status).toBe("ok");
+    expect(f("bw.rate")?.value).toBe(`${rt.lbPerWeek! > 0 ? "+" : ""}${rt.lbPerWeek!.toFixed(2)} lb/wk`);
+    expect(f("bw.week")).toBeUndefined();
+    expect(s.derived.trendLb).toBe(trendAt(r.weights!, today).lb);
+    expect(s.derived.calorieCheck?.kind).not.toBe("insufficient");
+    // too few weigh-ins: says so, never a number
+    const few = buildSnapshot(raw({ weights: r.weights!.slice(-3) }));
+    expect(few.facts.find((x) => x.id === "bw.rate")?.value).toBe("Not enough data yet");
   });
 
   it("is honest about missing bodyweight data", () => {

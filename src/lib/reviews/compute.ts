@@ -4,6 +4,7 @@
 
 import { addDays, addMonths, dateRange, daysBetween, monthEnd, monthLabel, monthStart, shortDate, weekday, weekStart, type ISODate } from "@/lib/dates";
 import { defaultMilestone, parseRoadmap } from "@/lib/progress/months";
+import { EARLY_WATER_DAYS, rateAt } from "@/lib/progress/pace";
 import { formatDelta, formatBodyweight, formatInt, round, type WeightUnit } from "@/lib/units";
 import { plannedKey, scheduleFrom } from "./plan";
 
@@ -137,7 +138,17 @@ export interface ReviewStats {
     spanDays: number;
     /** days between the mean dates of the start and end 7-day windows (what `change` spans) */
     gapDays: number;
+    /**
+     * THE rate at the review's last day (pace.rateAt: the 28-day least-squares slope every
+     * screen shows), lb a week; null until it has 4 weigh-ins over 10 days. Not derived from
+     * `change`: the month figure is a change, never a rate (DESIGN-V2 §4.1.1).
+     */
     ratePerWeek: number | null;
+    /** Weigh-ins and first→last span behind ratePerWeek (absent on snapshots saved before v2). */
+    rateWeighIns?: number;
+    rateSpanDays?: number;
+    /** The month overlaps the programme's first 14 days (water and glycogen). */
+    earlyWater?: boolean;
     plannedRatePerWeek: number | null;
     plannedChange: number | null;
     fromStart: number | null;
@@ -354,7 +365,9 @@ export function computeReview({ month: anyDay, today, profile, rows }: ComputeOp
   const spanDays = firstW && lastW ? daysBetween(firstW.local_date, lastW.local_date) : 0;
   // the two averages must sit at least a week apart before a change means anything
   const change = monthStartAvg != null && monthEndAvg != null && gapDays >= 7 ? monthEndAvg - monthStartAvg : null;
-  const ratePerWeek = change != null ? (change / gapDays) * 7 : null;
+  const rate = outOfRange ? null : rateAt(allW, to, start);
+  const ratePerWeek = rate?.status === "ok" ? rate.lbPerWeek : null;
+  const earlyWater = !outOfRange && from <= addDays(start, EARLY_WATER_DAYS - 1) && to >= start;
   const programmeDays = daysBetween(start, profile.target_date);
   const plannedRatePerWeek = startWeight != null && goalWeight != null && programmeDays > 0 ? ((goalWeight - startWeight) / programmeDays) * 7 : null;
   const plannedChange = plannedRatePerWeek != null && change != null ? (plannedRatePerWeek * gapDays) / 7 : null;
@@ -528,6 +541,9 @@ export function computeReview({ month: anyDay, today, profile, rows }: ComputeOp
       spanDays,
       gapDays: r1(gapDays) ?? 0,
       ratePerWeek: r2(ratePerWeek),
+      rateWeighIns: rate?.n ?? 0,
+      rateSpanDays: rate?.spanDays ?? 0,
+      earlyWater,
       plannedRatePerWeek: r2(plannedRatePerWeek),
       plannedChange: r1(plannedChange),
       fromStart: trendNow != null && startWeight != null ? r1(trendNow - startWeight) : null,
@@ -630,9 +646,11 @@ export function candidatePriorities(s: ReviewStats, unit: WeightUnit = "lb"): Pr
   const nextMonth = monthLabel(addMonths(s.month, 1)).split(" ")[0];
 
   // ---- bodyweight trend vs plan (needs ~2 weeks of weigh-ins)
-  if (p.ratePerWeek != null && p.plannedRatePerWeek != null && p.gapDays >= 7 && p.spanDays >= 13 && p.weighIns >= 6 && p.plannedRatePerWeek > 0) {
+  // the one rate (28 days to the review's end), with the calorie rule's evidence bar
+  const rateN = p.rateWeighIns ?? p.weighIns;
+  if (p.ratePerWeek != null && p.plannedRatePerWeek != null && (p.rateSpanDays ?? p.spanDays) >= 13 && rateN >= 6 && p.plannedRatePerWeek > 0) {
     const plan = p.plannedRatePerWeek;
-    const ev = [`Trend ${rate(p.ratePerWeek, unit)}`, `Plan ${rate(plan, unit)}`, `${p.weighIns} weigh-ins`];
+    const ev = [`Pace ${rate(p.ratePerWeek, unit)}`, `Plan ${rate(plan, unit)}`, `${rateN} weigh-ins in 4 weeks`];
     const underEating = n.avgCalories != null && n.daysLogged >= 10 && n.avgCalories < n.calorieTarget * 0.92;
     if (p.ratePerWeek < plan * 0.5) {
       if (underEating) {
@@ -640,7 +658,7 @@ export function candidatePriorities(s: ReviewStats, unit: WeightUnit = "lb"): Pr
           id: "eat-to-target",
           area: "nutrition",
           title: "Eat to your current target first",
-          detail: `Logged days averaged ${kcal(n.avgCalories!)} against your ${kcal(n.calorieTarget)} target, and the trend ran ${rate(p.ratePerWeek, unit)} against ${rate(plan, unit)} planned. Closing that ${formatInt(n.calorieTarget - n.avgCalories!)} kcal gap comes before any target change.`,
+          detail: `Logged days averaged ${kcal(n.avgCalories!)} against your ${kcal(n.calorieTarget)} target, and your pace over the last 4 weeks was ${rate(p.ratePerWeek, unit)} against ${rate(plan, unit)} planned. Closing that ${formatInt(n.calorieTarget - n.avgCalories!)} kcal gap comes before any target change.`,
           evidence: [...ev, `${kcal(n.avgCalories!)} avg`],
           action: { label: "Open nutrition", href: "/nutrition" },
           score: 9,
@@ -651,7 +669,7 @@ export function candidatePriorities(s: ReviewStats, unit: WeightUnit = "lb"): Pr
           id: "calories-up",
           area: "nutrition",
           title: `Consider +${delta} kcal a day`,
-          detail: `Your trend was ${rate(p.ratePerWeek, unit)} against ${rate(plan, unit)} planned. A modest ${delta} kcal increase, about one extra snack, is the usual next step. Your target only changes if you confirm it.`,
+          detail: `Your pace over the last 4 weeks was ${rate(p.ratePerWeek, unit)} against ${rate(plan, unit)} planned. A modest ${delta} kcal increase, about one extra snack, is the usual next step. Your target only changes if you confirm it.`,
           evidence: n.avgCalories != null ? [...ev, `${kcal(n.avgCalories)} avg`] : ev,
           action: { label: "Review targets", href: "/progress?tab=weight" },
           score: 9,
@@ -662,7 +680,7 @@ export function candidatePriorities(s: ReviewStats, unit: WeightUnit = "lb"): Pr
         id: "calories-down",
         area: "nutrition",
         title: "Ease the surplus slightly",
-        detail: `You gained ${rate(p.ratePerWeek, unit)} against ${rate(plan, unit)} planned. Faster than this mostly adds fat. Consider about 100–150 kcal less per day and re-check in two weeks.`,
+        detail: `You gained ${rate(p.ratePerWeek, unit)} against ${rate(plan, unit)} planned. Faster than this mostly adds fat. Consider about 100–150 kcal less per day and re-check in two weeks.${p.earlyWater ? " Your first two weeks include water and glycogen, so part of this is not tissue." : ""}`,
         evidence: ev,
         action: { label: "Review targets", href: "/progress?tab=weight" },
         score: 8,
@@ -674,8 +692,8 @@ export function candidatePriorities(s: ReviewStats, unit: WeightUnit = "lb"): Pr
         area: "physical",
         title: "Hold the course",
         detail: ahead
-          ? `Your trend (${rate(p.ratePerWeek, unit)}) is a little ahead of the plan (${rate(plan, unit)}). Keep intake where it is. If it stays above ${rate(plan * 2, unit)} for two more weeks, trim about 100 kcal a day.`
-          : `Your trend (${rate(p.ratePerWeek, unit)}) is in line with the plan (${rate(plan, unit)}). Keep intake where it is and re-check after two more weeks of weigh-ins.`,
+          ? `Your pace over the last 4 weeks (${rate(p.ratePerWeek, unit)}) is a little ahead of the plan (${rate(plan, unit)}). Keep intake where it is. If it stays above ${rate(plan * 2, unit)} for two more weeks, trim about 100 kcal a day.`
+          : `Your pace over the last 4 weeks (${rate(p.ratePerWeek, unit)}) is in line with the plan (${rate(plan, unit)}). Keep intake where it is and re-check after two more weeks of weigh-ins.`,
         evidence: ev,
         score: 1,
       });

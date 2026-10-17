@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addDays, dateRange, weekday, type ISODate } from "@/lib/dates";
 import { aiDigest, candidatePriorities, computePriorities, computeReview, headline, milestoneFor, monthWeightSeries, parseMonthParam, reviewMonths, type ReviewProfile, type ReviewRows } from "./compute";
+import { rateAt } from "@/lib/progress/pace";
 import { plannedKey, scheduleFrom } from "./plan";
 
 const profile: ReviewProfile = {
@@ -169,18 +170,27 @@ describe("physical", () => {
       expect(Math.abs(p.ratePerWeek! - slope)).toBeLessThanOrEqual(0.05);
     });
 
-    it("two weigh-ins a week apart", () => {
+    it("two weigh-ins a week apart: a month change, but no rate (it needs 4 weigh-ins)", () => {
       const p = run([3, 10]);
       expect(p.gapDays).toBe(7);
-      expect(Math.abs(p.ratePerWeek! - slope)).toBeLessThanOrEqual(0.05);
+      expect(p.change).toBe(0.5);
+      expect(p.ratePerWeek).toBeNull();
+      expect(p.rateWeighIns).toBe(2);
     });
 
-    it("refuses when the two averages sit less than a week apart", () => {
+    it("refuses a month change when the two averages sit less than a week apart; the rate is separate", () => {
       const p = run(range(13)); // centres 3 and 9
       expect(p.gapDays).toBe(6);
       expect(p.change).toBeNull();
-      expect(p.ratePerWeek).toBeNull();
       expect(p.plannedChange).toBeNull();
+      // the one rate (28 days to Sep 30) has 11 weigh-ins over 10 days
+      expect(p.ratePerWeek).toBe(0.5);
+    });
+
+    it("is the same rate pace() shows on the month's last day", () => {
+      const days = range(30);
+      const p = run(days);
+      expect(p.ratePerWeek).toBe(rateAt(series(days), "2026-09-30", profile.start_date).lbPerWeek);
     });
 
     it("an on-plan gain over two weeks reads as on plan, not as a stall", () => {
@@ -559,5 +569,14 @@ describe("priorities with nothing logged", () => {
     expect(ps[0].id).toBe("first-session");
     expect(ps.some((p) => p.id === "adherence")).toBe(false);
     expect(ps[0].evidence).toEqual([`0/${s.training.planned} planned days`]);
+  });
+});
+
+describe("physical · one rate, early water", () => {
+  it("flags months that include the programme's first 14 days", () => {
+    const sep = computeReview({ month: "2026-09-01", today: TODAY, profile, rows: empty() });
+    expect(sep.physical.earlyWater).toBe(true); // programme starts Sep 1
+    const oct = computeReview({ month: "2026-10-01", today: TODAY, profile, rows: empty() });
+    expect(oct.physical.earlyWater).toBe(false);
   });
 });

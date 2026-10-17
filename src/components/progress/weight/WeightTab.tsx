@@ -16,7 +16,8 @@ import { useProfile } from "@/lib/data/profile";
 import { avgWindow, plannedWeight, requiredWeeklyGain, weightStats } from "@/lib/bodyweight";
 import { dayName, relativeDay, shortDate, type ISODate } from "@/lib/dates";
 import { round, toDisplayWeight, type WeightUnit } from "@/lib/units";
-import { changeTone, planFromProfile, planRatePerWeek, rateTone, type PlanInput } from "@/lib/progress/plan";
+import { pace, type Pace } from "@/lib/progress/pace";
+import { changeTone, planFromProfile, planRatePerWeek, type PlanInput, type Tone } from "@/lib/progress/plan";
 import { climbFraction } from "@/lib/progress/scale";
 import { RANGES, buildWeightRows, dateToT, isRangeKey, lastWeighIns, nearestWeighInIndex, rangeFrom, xTicks, yDomain, type RangeKey, type WeightRow } from "@/lib/progress/weightSeries";
 import { cn } from "@/lib/cn";
@@ -58,7 +59,9 @@ export function WeightTab() {
   const planRate = planRatePerWeek(plan);
   const actions = useProgressActions();
 
-  const stats = useMemo(() => weightStats(weights, plan.startLb, plan.goalLb, today), [weights, plan.startLb, plan.goalLb, today]);
+  // THE trend, rate and projection (lib/progress/pace): the same numbers as Today and the coach.
+  const pc = useMemo(() => pace({ weighIns: weights, today, profile, unit }), [weights, today, profile, unit]);
+  const stats = useMemo(() => withTrend(weightStats(weights, plan.startLb, plan.goalLb, today), pc, plan), [weights, plan, today, pc]);
   const disp = useCallback((lb: number | null) => (lb == null ? null : round(toDisplayWeight(lb, unit), 2)), [unit]);
   const planToday = today >= plan.startDate && today <= plan.targetDate ? plannedWeight(today, plan.startDate, plan.targetDate, plan.startLb, plan.goalLb) : null;
 
@@ -87,14 +90,45 @@ export function WeightTab() {
       </div>
       <div className="contents lg:sticky lg:top-[72px] lg:grid lg:min-w-0 lg:grid-cols-1 lg:gap-5">
         <div className="order-3 min-w-0 lg:order-none">
-          <StatsCard busy={busy} stats={stats} plan={plan} planRate={planRate} unit={unit} disp={disp} today={today} />
+          <StatsCard busy={busy} stats={stats} pace={pc} plan={plan} planRate={planRate} unit={unit} disp={disp} today={today} />
         </div>
         <div className="order-4 min-w-0 empty:hidden lg:order-none">
-          <CalorieCard weights={weights} plan={plan} planRate={planRate} unit={unit} />
+          <CalorieCard rate={pc.rate} plan={plan} planRate={planRate} unit={unit} />
         </div>
       </div>
     </div>
   );
+}
+
+type Stats = ReturnType<typeof weightStats>;
+
+/** weightStats with the trend from pace.trendAt, so "7-day avg", "since start" and "to go" match every screen. */
+function withTrend(s: Stats, pc: Pace, plan: PlanInput): Stats {
+  const trend = pc.trend.lb;
+  return {
+    ...s,
+    avg7: trend,
+    fromStart: trend != null ? round(trend - plan.startLb, 2) : null,
+    toGoal: trend != null ? round(plan.goalLb - trend, 2) : null,
+  };
+}
+
+/** The pace call as the old tiles' tone and words. */
+function paceDelta(pc: Pace): { tone: Tone; delta: string | null } {
+  switch (pc.verdict) {
+    case "on_pace":
+      return { tone: "success", delta: "On pace" };
+    case "top":
+      return { tone: "success", delta: "Top of corridor" };
+    case "arrived":
+      return { tone: "success", delta: "In the band" };
+    case "above":
+      return { tone: "warning", delta: "Faster than corridor" };
+    case "below":
+      return { tone: "neutral", delta: "Under corridor" };
+    default:
+      return { tone: "neutral", delta: null };
+  }
 }
 
 /* ------------------------------------------------------------------ hero */
@@ -112,7 +146,7 @@ function WeightHero({
 }: {
   busy: boolean;
   weights: WeightEntry[];
-  stats: ReturnType<typeof weightStats>;
+  stats: Stats;
   plan: PlanInput;
   unit: WeightUnit;
   planToday: number | null;
@@ -372,6 +406,7 @@ function ChartCard({
 function StatsCard({
   busy,
   stats,
+  pace: pc,
   plan,
   planRate,
   unit,
@@ -379,7 +414,8 @@ function StatsCard({
   today,
 }: {
   busy: boolean;
-  stats: ReturnType<typeof weightStats>;
+  stats: Stats;
+  pace: Pace;
   plan: PlanInput;
   planRate: number | null;
   unit: WeightUnit;
@@ -391,10 +427,10 @@ function StatsCard({
   const needed = today < plan.targetDate ? requiredWeeklyGain(trend ?? plan.startLb, plan.goalLb, today < plan.startDate ? plan.startDate : today, plan.targetDate) : null;
   const d = (lb: number | null, dp = 1) => (lb == null ? "—" : disp(lb)!.toFixed(dp));
   const s = (lb: number | null, dp = 1) => (lb == null ? "—" : signed(disp(lb), dp));
-  const planWk = planRate != null ? `Plan ${signed(disp(planRate), 2)}/wk` : null;
-  const weeklyTone = rateTone(stats.weeklyChange, planRate);
   const monthlyTone = changeTone(stats.monthlyChange, 30, planRate);
-  const rateToneV = rateTone(stats.ratePerWeek, planRate);
+  const rate = pc.rate.lbPerWeek;
+  const call = paceDelta(pc);
+  const proj = pc.projection;
   const faster = "Faster than plan";
   const reached = stats.toGoal != null && stats.toGoal <= 0;
 
@@ -402,12 +438,12 @@ function StatsCard({
     { label: "Current", value: d(stats.current), unit, caption: stats.currentDate ? relativeDay(stats.currentDate, today) : "No weigh-ins yet" },
     { label: "7-day avg", value: d(stats.avg7), unit, caption: stats.avg7 != null ? "Trend weight" : "Needs a weigh-in this week" },
     {
-      label: "Weekly",
-      value: s(stats.weeklyChange, 2),
-      unit,
-      delta: stats.weeklyChange != null ? (weeklyTone === "warning" ? faster : weeklyTone === "success" ? "On plan" : planWk) : null,
-      tone: weeklyTone,
-      caption: stats.weeklyChange != null ? "vs the week before" : "Needs 2 weeks",
+      label: "Pace",
+      value: s(rate, 2),
+      unit: rate != null ? `${unit}/wk` : undefined,
+      delta: rate != null ? call.delta : null,
+      tone: call.tone,
+      caption: rate != null ? `last 4 weeks · ${pc.rate.n} weigh-ins` : pc.detail,
     },
     {
       label: "Monthly",
@@ -420,12 +456,10 @@ function StatsCard({
     { label: "Since start", value: s(stats.fromStart, 1), unit, caption: stats.fromStart != null ? `7-day avg vs ${d(plan.startLb)} start` : `Start ${d(plan.startLb)} on ${shortDate(plan.startDate, today)}` },
     { label: reached ? "Goal" : "To go", value: reached ? "Reached" : d(stats.toGoal), unit: reached ? undefined : unit, caption: `7-day avg to ${d(plan.goalLb)} ${unit}` },
     {
-      label: "Avg rate",
-      value: s(stats.ratePerWeek, 2),
-      unit: stats.ratePerWeek != null ? `${unit}/wk` : undefined,
-      delta: stats.ratePerWeek != null ? (rateToneV === "warning" ? faster : rateToneV === "success" ? "On plan" : planWk) : null,
-      tone: rateToneV,
-      caption: stats.ratePerWeek != null ? "since first weigh-in" : "Needs a week of data",
+      label: "Projected",
+      value: proj ? `~${d(proj.lb)}` : "—",
+      unit,
+      caption: proj ? `by ${shortDate(proj.date, today)} at this pace` : "After 4 weigh-ins over 10 days",
     },
     {
       label: "Needed",
