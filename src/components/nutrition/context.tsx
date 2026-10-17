@@ -62,7 +62,7 @@ export const mealLabel = (m: Meal) => MEALS.find((x) => x.key === m)?.label ?? "
 
 export function ToastMark() {
   return (
-    <span className="grid size-6 place-items-center rounded-full bg-gold-tint text-gold-300" aria-hidden>
+    <span className="grid size-6 place-items-center rounded-full bg-leaf-tint text-leaf-300" aria-hidden>
       <Check className="size-3.5" strokeWidth={2.5} />
     </span>
   );

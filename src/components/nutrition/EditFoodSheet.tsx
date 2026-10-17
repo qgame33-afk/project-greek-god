@@ -232,9 +232,9 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
       <Field label="Food" error={nameError}>
         {(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="off" enterKeyHint="done" aria-invalid={!!nameError} />}
       </Field>
-      <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px] font-medium text-fg-3">
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 t-meta font-medium text-ash">
         <ProvenanceBadge item={entry} full />
-        {entry.brand && <span className="text-fg-2">{entry.brand}</span>}
+        {entry.brand && <span className="text-stone">{entry.brand}</span>}
         <span>
           Logged {formatAmount(Number(entry.amount), entry.unit)} · {formatClock(entry.eaten_at)}
         </span>
@@ -278,19 +278,19 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
                   const n = parseFoodNumber(e.target.value);
                   if (n != null) setAmount(n);
                 }}
-                className="num-xl w-full bg-transparent text-center text-fg outline-none"
+                className="t-num-l w-full bg-transparent text-center text-ivory outline-none"
               />
-              <span className="mt-1 block text-[13px] font-semibold tracking-[0.04em] text-fg-3">{unitLabel(entry.unit, amount)}</span>
+              <span className="mt-1 block t-meta font-semibold tracking-[0.04em] text-ash">{unitLabel(entry.unit, amount)}</span>
             </label>
           </Stepper>
           {amountOutOfRange ? (
-            <p className="mt-2 text-center text-[13px] font-medium text-danger">Enter an amount above 0 and up to {formatInt(max)}.</p>
+            <p className="mt-2 text-center t-meta font-medium text-cinnabar">Enter an amount above 0 and up to {formatInt(max)}.</p>
           ) : overLimit ? (
-            <p className="mt-2 text-center text-[13px] font-medium text-danger" role="alert">
+            <p className="mt-2 text-center t-meta font-medium text-cinnabar" role="alert">
               {overLimit}
             </p>
           ) : (
-            <p className="mt-2 text-center text-[12.5px] font-medium text-fg-3">
+            <p className="mt-2 text-center t-meta font-medium text-ash">
               Rescaled from {formatInt(base.calories)} kcal per {formatAmount(baseAmount, entry.unit)}
             </p>
           )}
@@ -301,22 +301,22 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
         <div className="mt-5">
           {/* errors show as soon as a number goes bad, so a disabled Save always has a visible reason */}
           <FoodFields form={form} set={(p) => setForm((f) => ({ ...f, ...p }))} errors={formResult.ok ? {} : formResult.errors} showName={false} />
-          <p className="mt-3 text-[12.5px] leading-snug text-fg-3">These numbers become the new base, so later amount changes scale from them.</p>
+          <p className="mt-3 t-meta leading-snug text-ash">These numbers become the new base, so later amount changes scale from them.</p>
         </div>
       )}
 
       <WhenFields className="mt-6" when={when} setWhen={setWhen} today={today} />
 
-      <div className="mt-6 grid gap-2 border-t border-line-hair pt-5">
+      <div className="mt-6 grid gap-2 border-t border-vein pt-5">
         <Button variant="secondary" block onClick={saveToFoods} disabled={savedM.create.isPending}>
-          <BookmarkPlus className="size-[18px]" /> Save to my foods
+          <BookmarkPlus className="size-[1.125rem]" /> Save to my foods
         </Button>
         <Button variant="destructive" block onClick={() => remove([entry])} disabled={del.isPending}>
-          <Trash className="size-[18px]" /> Delete entry
+          <Trash className="size-[1.125rem]" /> Delete entry
         </Button>
         {grouped && (
           <Button variant="destructive" block onClick={() => remove(mates, `Removed ${gLabel} · ${mates.length} items`)}>
-            <Layers className="size-[18px]" /> Delete all {mates.length} from this {gLabel}
+            <Layers className="size-[1.125rem]" /> Delete all {mates.length} from this {gLabel}
           </Button>
         )}
       </div>

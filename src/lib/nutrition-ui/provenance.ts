@@ -1,11 +1,13 @@
 // Which provenance badge a food row earns. A SOURCE badge needs a real URL from an
 // actual lookup; database rows (USDA / Open Food Facts) get the database badge; AI
-// values without a citation are estimates. Plain hand-logged rows show no badge.
+// values without a citation are estimates; planned meals logged as eaten carry recipe macros
+// worked out from the ingredient database (CALC). Plain hand-logged rows show no badge.
 
 export type Provenance =
   | { kind: "database"; name: string; short: string; url: string | null }
   | { kind: "source"; name: string; url: string }
   | { kind: "estimate" }
+  | { kind: "calc" }
   | null;
 
 export interface ProvenanceInput {
@@ -49,6 +51,8 @@ export function provenanceOf(e: ProvenanceInput): Provenance {
   if (url && (e.source === "assistant_handoff" || e.confidence === "verified")) {
     return { kind: "source", name: e.source_name?.trim() || hostOf(url), url };
   }
+  // a planned meal logged as eaten: recipe macros worked out from the ingredient database (CALC, not AI)
+  if (e.source === "meal_plan") return { kind: "calc" };
   if (e.confidence === "estimate" || e.source === "photo_ai" || e.source === "chat_ai") return { kind: "estimate" };
   return null;
 }

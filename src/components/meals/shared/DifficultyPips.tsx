@@ -32,7 +32,7 @@ export function DifficultyPips({
         className={cn("inline-flex items-end gap-[2px]", size === "sm" && "scale-90")}
       >
         {HEIGHT.map((h, i) => (
-          <span key={h} className={cn("w-[3px] rounded-[1px]", h, i < n ? "bg-ivory" : "bg-vein-3")} />
+          <span key={h} className={cn("w-[3px] rounded-xs", h, i < n ? "bg-ivory" : "bg-vein-3")} />
         ))}
       </span>
       {label && <span>{name}</span>}

@@ -31,7 +31,7 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
   return (
     <div>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-fg-3" aria-hidden />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[1.125rem] -translate-y-1/2 text-ash" aria-hidden />
         <Input
           type="search"
           value={q}
@@ -47,18 +47,18 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
           className="pl-11 pr-12 [&::-webkit-search-cancel-button]:hidden"
         />
         {q && (
-          <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="absolute right-1 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-[10px] text-fg-3 hover:text-fg">
-            <X className="size-[18px]" />
+          <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="absolute right-1 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-field text-ash hover:text-ivory">
+            <X className="size-[1.125rem]" />
           </button>
         )}
       </div>
 
       {q.trim().length < 2 ? (
         <div className="pt-5">
-          <p className="text-[14px] leading-relaxed text-fg-2">Search USDA FoodData Central and Open Food Facts, then set the amount you ate.</p>
+          <p className="t-callout leading-relaxed text-stone">Search USDA FoodData Central and Open Food Facts, then set the amount you ate.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             {EXAMPLES.map((x) => (
-              <button key={x} type="button" onClick={() => setQ(x)} className="press h-11 rounded-full border border-line bg-s3 px-4 text-[13.5px] font-semibold text-fg-2 hover:text-fg">
+              <button key={x} type="button" onClick={() => setQ(x)} className="press h-11 rounded-full border border-vein-2 bg-m3 px-4 t-callout font-semibold text-stone hover:text-ivory">
                 {x}
               </button>
             ))}
@@ -73,7 +73,7 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
       ) : showSkeleton || down ? (
         <ul className="mt-3" aria-busy="true" aria-label="Searching">
           {[0, 1, 2, 3, 4].map((i) => (
-            <li key={i} className="flex items-center gap-3 border-b border-line-hair py-3">
+            <li key={i} className="flex items-center gap-3 border-b border-vein py-3">
               <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-3 w-1/2" />
@@ -85,16 +85,16 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
       ) : data ? (
         <div className={cn("transition-opacity", waiting && "opacity-60")}>
           {notes.length > 0 && (
-            <p className="mt-3 flex items-start gap-2 text-[12.5px] leading-snug text-fg-3">
+            <p className="mt-3 flex items-start gap-2 t-meta leading-snug text-ash">
               <Info className="mt-px size-3.5 shrink-0" aria-hidden />
               <span>{notes.join(" ")}</span>
             </p>
           )}
           {data.results.length === 0 ? (
-            <div className="card-inset mt-4 flex flex-col items-center px-5 py-7 text-center">
-              <SearchX className="size-7 text-gold-600" strokeWidth={1.5} aria-hidden />
-              <p className="mt-3 text-[15px] font-bold text-fg">No matches for “{term}”</p>
-              <p className="mt-1 max-w-[32ch] text-[13px] text-fg-2">Try fewer words or a simpler name. You can always enter it by hand.</p>
+            <div className="rounded-field bg-m2 shadow-[inset_0_0_0_1px_var(--vein-2)] mt-4 flex flex-col items-center px-5 py-7 text-center">
+              <SearchX className="size-7 text-ash" strokeWidth={1.5} aria-hidden />
+              <p className="mt-3 t-callout font-bold text-ivory">No matches for “{term}”</p>
+              <p className="mt-1 max-w-[32ch] t-meta text-stone">Try fewer words or a simpler name. You can always enter it by hand.</p>
               <Button variant="secondary" className="mt-4" onClick={() => onManual(q.trim())}>
                 Add manually
               </Button>
@@ -103,14 +103,14 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
             <>
               <ul className="mt-2" aria-label={`${data.results.length} results`}>
                 {data.results.map((r) => (
-                  <li key={`${r.source}:${r.id}`} className="border-b border-line-hair last:border-b-0">
+                  <li key={`${r.source}:${r.id}`} className="border-b border-vein last:border-b-0">
                     <ResultRow r={r} onPick={() => onPick(r)} />
                   </li>
                 ))}
               </ul>
               <div className="mt-4 flex items-center justify-between gap-3">
-                <p className="text-[12px] text-fg-3">Not here?</p>
-                <button type="button" onClick={() => onManual(q.trim())} className="inline-flex h-11 items-center text-[13px] font-bold text-gold-300">
+                <p className="t-meta text-ash">Not here?</p>
+                <button type="button" onClick={() => onManual(q.trim())} className="press t-meta inline-flex h-11 items-center font-semibold text-ivory underline decoration-vein-3 underline-offset-4">
                   Add manually
                 </button>
               </div>
@@ -133,16 +133,16 @@ function ResultRow({ r, onPick }: { r: SearchResult; onPick: () => void }) {
   return (
     <button type="button" onClick={onPick} className="press-soft flex min-h-16 w-full items-center gap-3 py-2.5 text-left">
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-[15px] font-semibold leading-snug text-fg">{r.name}</p>
-        <p className="mt-0.5 truncate text-[12.5px] font-medium text-fg-3">
+        <p className="line-clamp-2 t-callout font-semibold leading-snug text-ivory">{r.name}</p>
+        <p className="mt-0.5 truncate t-meta font-medium text-ash">
           {r.brand ? `${r.brand} · ` : ""}
           {servingText(r)}
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <span className="num text-[18px] font-semibold leading-none text-fg">
+        <span className="tnum t-title-3 font-semibold leading-none text-ivory">
           {formatInt(r.perServing.calories)}
-          <span className="unit !text-[12px]">kcal</span>
+          <span className="t-meta ml-0.5 text-stone">kcal</span>
         </span>
         <DatabaseBadge name={r.source === "usda" ? "USDA" : "Open Food Facts"} />
       </div>
@@ -173,10 +173,10 @@ function SearchError({ err, notes, onRetry, onManual }: { err: Error; notes?: st
             ? `${notes?.length ? notes.join(" ") : "Neither USDA nor Open Food Facts answered."} Retry in a minute, or enter it by hand.`
             : "Try again in a moment, or enter it by hand.";
   return (
-    <div className="card-inset mt-4 flex flex-col items-center px-5 py-7 text-center" role="status">
-      {kind === "offline" ? <WifiOff className="size-7 text-gold-600" strokeWidth={1.5} aria-hidden /> : <SearchX className="size-7 text-gold-600" strokeWidth={1.5} aria-hidden />}
-      <p className="mt-3 text-[15px] font-bold text-fg">{title}</p>
-      <p className="mt-1 max-w-[34ch] text-[13px] leading-relaxed text-fg-2">{body}</p>
+    <div className="rounded-field bg-m2 shadow-[inset_0_0_0_1px_var(--vein-2)] mt-4 flex flex-col items-center px-5 py-7 text-center" role="status">
+      {kind === "offline" ? <WifiOff className="size-7 text-ash" strokeWidth={1.5} aria-hidden /> : <SearchX className="size-7 text-ash" strokeWidth={1.5} aria-hidden />}
+      <p className="mt-3 t-callout font-bold text-ivory">{title}</p>
+      <p className="mt-1 max-w-[34ch] t-meta leading-relaxed text-stone">{body}</p>
       <div className="mt-4 flex gap-2">
         {kind !== "unavailable" && kind !== "auth" && (
           <Button variant="ghost" onClick={onRetry}>

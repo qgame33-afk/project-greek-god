@@ -77,27 +77,27 @@ function SaveMealBody({ section, close }: { section: MealSection<FoodEntry>; clo
       <Field label="Name" error={touched ? nameErr : null}>
         {(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="off" aria-invalid={touched && !!nameErr} />}
       </Field>
-      <p className="mb-2 mt-5 text-[13px] font-semibold text-fg-2">Include</p>
-      <ul className="rounded-[14px] bg-s3" role="group" aria-label="Items to include">
+      <p className="mb-2 mt-5 t-meta font-semibold text-stone">Include</p>
+      <ul className="rounded-field bg-m3" role="group" aria-label="Items to include">
         {section.entries.map((e) => {
           const on = picked.has(e.id);
           return (
-            <li key={e.id} className="border-b border-line-hair last:border-b-0">
+            <li key={e.id} className="border-b border-vein last:border-b-0">
               <button type="button" role="checkbox" aria-checked={on} onClick={() => toggle(e.id)} className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2 text-left">
-                <span className={cn("grid size-6 shrink-0 place-items-center rounded-[7px] border transition-colors", on ? "border-line-gold bg-gold-tint text-gold-300" : "border-line-field")}>
+                <span className={cn("grid size-6 shrink-0 place-items-center rounded-tag border transition-colors duration-(--dur-fast)", on ? "border-ivory bg-ivory text-ink" : "border-ui-line")}>
                   {on && <Check className="size-4" strokeWidth={3} />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14.5px] font-semibold text-fg">{e.name}</span>
-                  <span className="block truncate text-[12px] text-fg-3">{formatAmount(Number(e.amount), e.unit)}</span>
+                  <span className="block truncate t-callout font-semibold text-ivory">{e.name}</span>
+                  <span className="block truncate t-meta text-ash">{formatAmount(Number(e.amount), e.unit)}</span>
                 </span>
-                <span className="num shrink-0 text-[15px] text-fg-2">{formatInt(Number(e.calories))}</span>
+                <span className="tnum shrink-0 t-callout text-stone">{formatInt(Number(e.calories))}</span>
               </button>
             </li>
           );
         })}
       </ul>
-      <p className="num mt-3 text-[13px] text-fg-3">
+      <p className="tnum mt-3 t-meta text-ash">
         {chosen.length ? `${formatInt(totals.calories)} kcal · ${macroLine(totals)}` : "Pick at least one item."}
       </p>
       <StickyFooter>

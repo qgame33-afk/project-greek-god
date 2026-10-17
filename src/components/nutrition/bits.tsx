@@ -2,28 +2,37 @@
 
 import { BadgeCheck, Star } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
-import { DatabaseBadge, EstimateBadge, SourceBadge } from "@/components/ui/badge";
+import { DatabaseBadge, SourceBadge } from "@/components/ui/badge";
 import { ErrorNote } from "@/components/ui/misc";
 import { SheetFooterBar } from "@/components/ui/sheet";
+import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
+import { useToday } from "@/lib/data/core";
+import { useFoodEntries } from "@/lib/data/nutrition";
+import { shortDate, type ISODate } from "@/lib/dates";
+import { ifYouAdd, type ConsequenceVerb } from "@/lib/fuel/consequence";
 import { MEALS, type Macros, type Meal } from "@/lib/nutrition";
 import { formatInt } from "@/lib/units";
 import { g } from "@/lib/nutrition-ui/format";
 import { provenanceOf, type ProvenanceInput } from "@/lib/nutrition-ui/provenance";
 
+const CALC_EXPLAIN = "Recipe macros: each ingredient's USDA FoodData Central values × the amounts eaten.";
+
 /**
- * ESTIMATE / database / SOURCE badge for a food, or nothing for plain logs.
- * `still` renders without links (for use inside a tappable row).
+ * The provenance mark for a food, or nothing for plain logs: AI · ESTIMATE (aegean) for AI
+ * values, CALC for planned meals logged as eaten (recipe arithmetic, never AI), a database or
+ * source chip for looked-up values. `still` renders without links (inside a tappable row).
  */
 export function ProvenanceBadge({ item, full, still, className }: { item: ProvenanceInput; full?: boolean; still?: boolean; className?: string }) {
   const p = provenanceOf(item);
   if (!p) return null;
-  if (p.kind === "estimate") return <EstimateBadge className={className} />;
+  if (p.kind === "estimate") return <Tag kind="AI" detail="estimate" className={className} />;
+  if (p.kind === "calc") return <Tag kind="CALC" explain={still ? undefined : CALC_EXPLAIN} className={className} />;
   if (p.kind === "source") {
     if (!still) return <SourceBadge name={p.name} url={p.url} className={className} />;
     return (
-      <span className={cn(BADGE, "max-w-full border border-line-gold bg-gold-tint text-gold-300", className)}>
-        <BadgeCheck className="size-3" aria-hidden />
+      <span className={cn(BADGE, "max-w-full border border-vein-3 text-ivory", className)}>
+        <BadgeCheck className="size-3 text-stone" aria-hidden />
         <span className="truncate">Source · {p.name}</span>
       </span>
     );
@@ -31,27 +40,24 @@ export function ProvenanceBadge({ item, full, still, className }: { item: Proven
   return <DatabaseBadge name={full ? p.name : p.short} url={still ? null : p.url} className={className} />;
 }
 
-const BADGE = "inline-flex h-5 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-[10.5px] font-bold uppercase leading-none tracking-[0.06em]";
+const BADGE = "t-tag inline-flex h-5 shrink-0 items-center gap-1 rounded-tag px-1.5 normal-case tracking-[0.02em]";
 
 /**
- * Row badge that fits the space: the full ESTIMATE / USDA / SOURCE badge when the card is
- * wide enough, a 20px mark with the same colour and an accessible name on narrow phones
- * (so "amount · time" never gets squeezed and no label is clipped mid-word).
- * Needs an `@container` ancestor (the meal card).
+ * Row badge that fits the space: the full badge when the row is wide enough, a 20px mark with
+ * the same look and an accessible name on narrow phones (so "amount · time" never gets squeezed
+ * and no label is clipped mid-word). Needs an `@container` ancestor.
  */
 export function RowProvenance({ item }: { item: ProvenanceInput }) {
   const p = provenanceOf(item);
   if (!p) return null;
-  const label = p.kind === "estimate" ? "Estimate" : p.kind === "source" ? `Source: ${p.name}` : `Database: ${p.name}`;
+  const label = p.kind === "estimate" ? "AI estimate" : p.kind === "calc" ? "Calculated from the recipe" : p.kind === "source" ? `Source: ${p.name}` : `Database: ${p.name}`;
   const mark =
     p.kind === "estimate" ? (
-      <span className="border border-dashed border-[rgb(163_169_180/.5)] text-fg-2">≈</span>
-    ) : p.kind === "source" ? (
-      <span className="border border-line-gold bg-gold-tint text-gold-300">
-        <BadgeCheck className="size-3" aria-hidden />
-      </span>
+      <span className="border border-aegean-line bg-aegean-tint text-aegean">≈</span>
+    ) : p.kind === "calc" ? (
+      <span className="border border-dotted border-ui-line text-stone">=</span>
     ) : (
-      <span className="border border-verdigris/40 bg-verdigris/10 text-verdigris">
+      <span className="border border-vein-3 text-stone">
         <BadgeCheck className="size-3" aria-hidden />
       </span>
     );
@@ -62,7 +68,7 @@ export function RowProvenance({ item }: { item: ProvenanceInput }) {
         role="img"
         aria-label={label}
         title={label}
-        className="inline-flex shrink-0 @[21rem]:hidden [&>span]:grid [&>span]:size-5 [&>span]:place-items-center [&>span]:rounded-[6px] [&>span]:text-[12px] [&>span]:font-bold"
+        className="t-meta inline-flex shrink-0 @[21rem]:hidden [&>span]:grid [&>span]:size-5 [&>span]:place-items-center [&>span]:rounded-tag [&>span]:font-semibold"
       >
         {mark}
       </span>
@@ -84,8 +90,8 @@ export function MealChips({ value, onChange, className }: { value: Meal; onChang
             aria-checked={on}
             onClick={() => onChange(m.key)}
             className={cn(
-              "press h-11 min-w-0 truncate rounded-[12px] border px-1 text-[13px] font-semibold transition-colors",
-              on ? "border-line-gold bg-gold-tint text-gold-300" : "border-line bg-s3 text-fg-2 hover:text-fg",
+              "press t-meta h-11 min-w-0 truncate rounded-field border px-1 font-semibold transition-colors duration-(--dur-fast)",
+              on ? "border-ivory bg-m4 text-ivory" : "border-vein-2 bg-m3 text-stone hover:text-ivory",
             )}
           >
             {m.label}
@@ -97,28 +103,28 @@ export function MealChips({ value, onChange, className }: { value: Meal; onChang
 }
 
 const SERIES = {
-  protein: "bg-marble",
-  carbs: "bg-terracotta",
-  fat: "bg-porphyry",
+  protein: "bg-ivory",
+  carbs: "bg-carbs",
+  fat: "bg-fat",
 } as const;
 
 /** Live macro grid: KCAL large, then P / C / F with series dots. */
 export function MacroGrid({ macros, className, dim }: { macros: Macros; className?: string; dim?: boolean }) {
   return (
     <div className={cn("grid grid-cols-4 gap-2", className)} aria-live="polite">
-      <div className="card-inset flex flex-col justify-between px-3 py-2.5">
-        <span className="eyebrow">Kcal</span>
-        <span className={cn("num mt-1 text-[24px] font-semibold leading-none", dim && "text-fg-3")}>{formatInt(macros.calories)}</span>
+      <div className="flex min-w-0 flex-col justify-between rounded-field bg-m2 px-3 py-2.5 shadow-[inset_0_0_0_1px_var(--vein-2)]">
+        <span className="t-eyebrow">Kcal</span>
+        <span className={cn("t-num-m mt-1 truncate", dim ? "text-ash" : "text-ivory")}>{formatInt(macros.calories)}</span>
       </div>
       {(["protein", "carbs", "fat"] as const).map((k) => (
-        <div key={k} className="card-inset flex flex-col justify-between px-3 py-2.5">
-          <span className="eyebrow flex items-center gap-1.5">
+        <div key={k} className="flex min-w-0 flex-col justify-between rounded-field bg-m2 px-3 py-2.5 shadow-[inset_0_0_0_1px_var(--vein-2)]">
+          <span className="t-eyebrow flex items-center gap-1.5">
             <span className={cn("size-1.5 rounded-full", SERIES[k])} aria-hidden />
             {k === "protein" ? "Prot" : k === "carbs" ? "Carb" : "Fat"}
           </span>
-          <span className={cn("num mt-1 text-[24px] font-semibold leading-none", dim && "text-fg-3")}>
+          <span className={cn("t-num-m mt-1 truncate", dim ? "text-ash" : "text-ivory")}>
             {g(macros[k])}
-            <span className="unit !text-[12px]">g</span>
+            <span className="t-meta ml-0.5 text-stone">g</span>
           </span>
         </div>
       ))}
@@ -159,9 +165,9 @@ export function StarButton({ on, onToggle, label, className }: { on: boolean; on
       onClick={onToggle}
       aria-pressed={on}
       aria-label={label}
-      className={cn("press grid size-11 shrink-0 place-items-center rounded-[12px] transition-colors", on ? "text-gold-300" : "text-fg-3 hover:text-fg-2", className)}
+      className={cn("press grid size-11 shrink-0 place-items-center rounded-field transition-colors", on ? "text-ivory" : "text-ash hover:text-stone", className)}
     >
-      <Star className="size-[19px]" fill={on ? "currentColor" : "none"} strokeWidth={1.75} />
+      <Star className="size-[1.1875rem]" fill={on ? "currentColor" : "none"} strokeWidth={1.75} />
     </button>
   );
 }
@@ -170,7 +176,7 @@ export function StarButton({ on, onToggle, label, className }: { on: boolean; on
 export function SubLabel({ children, action, className }: { children: ReactNode; action?: ReactNode; className?: string }) {
   return (
     <div className={cn("mb-2 flex min-h-6 items-center justify-between gap-3", className)}>
-      <p className="eyebrow">{children}</p>
+      <p className="t-eyebrow">{children}</p>
       {action}
     </div>
   );
@@ -178,5 +184,38 @@ export function SubLabel({ children, action, className }: { children: ReactNode;
 
 /** Tiny inline note (soft warnings are text-2, never red). */
 export function SoftNote({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn("rounded-[10px] border border-line bg-white/[.03] px-3 py-2 text-[13px] leading-snug text-fg-2", className)}>{children}</p>;
+  return <p className={cn("t-meta rounded-field bg-m2 px-3 py-2 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)]", className)}>{children}</p>;
+}
+
+/**
+ * The consequence line of a confirm step (docs/DESIGN-V2.md §3.5.1): "If you eat it: 2,520 kcal ·
+ * 151 g" + CALC, for the day the food goes to — that day's log plus this food. Nothing shows until
+ * the day's log has loaded (never a guess), or while the numbers are invalid.
+ */
+export function ConsequenceLine({
+  date,
+  add,
+  verb = "eat",
+  className,
+}: {
+  date: ISODate;
+  add: { kcal: number; protein: number } | null;
+  verb?: ConsequenceVerb;
+  className?: string;
+}) {
+  const today = useToday();
+  const day = useFoodEntries(date);
+  if (!add || !day.hasData || !Number.isFinite(add.kcal) || !Number.isFinite(add.protein)) return null;
+  const c = ifYouAdd({ kcal: day.totals.calories, protein: day.totals.protein }, add, verb);
+  const isToday = date === today;
+  return (
+    <p className={cn("t-meta flex flex-wrap items-center gap-x-2 gap-y-1 text-stone", className)} data-testid="consequence">
+      <span aria-hidden>
+        {isToday ? "" : `${shortDate(date, today)} · `}
+        {c.text}
+      </span>
+      <span className="sr-only">{isToday ? c.spoken : c.spoken.replace("today", `on ${shortDate(date, today)}`)}</span>
+      <Tag kind="CALC" explain={`${c.explain} (${isToday ? "today's" : "that day's"} log + this food)`} />
+    </p>
+  );
 }

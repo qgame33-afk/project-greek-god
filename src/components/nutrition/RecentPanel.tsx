@@ -2,7 +2,7 @@
 
 import { Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { EmptyArt } from "@/components/art/Motifs";
+import { FuelAmphora } from "@/components/art/icons";
 import { Input } from "@/components/ui/field";
 import { Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
 import { newId } from "@/lib/data/core";
@@ -41,12 +41,12 @@ export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntr
     return (
       <ul aria-busy="true" aria-label="Loading recent foods">
         {[0, 1, 2, 3].map((i) => (
-          <li key={i} className="flex items-center gap-3 border-b border-line-hair py-3">
+          <li key={i} className="flex items-center gap-3 border-b border-vein py-3">
             <div className="flex-1 space-y-2">
               <Skeleton className="h-4 w-2/3" />
               <Skeleton className="h-3 w-1/3" />
             </div>
-            <Skeleton className="size-11 rounded-[12px]" />
+            <Skeleton className="size-11 rounded-field" />
           </li>
         ))}
       </ul>
@@ -54,7 +54,7 @@ export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntr
   if (recent.error) return <ErrorNote onRetry={() => recent.refetch()}>Couldn&apos;t load recent foods.</ErrorNote>;
   if (!recent.data?.length)
     return (
-      <Empty art={<EmptyArt kind="kylix" size={56} />} title="Nothing logged yet">
+      <Empty art={<FuelAmphora className="size-10 text-ui-line" />} title="Nothing logged yet">
         Foods you log show up here, so the next time takes one tap.
       </Empty>
     );
@@ -63,21 +63,21 @@ export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntr
     <div>
       {recent.data.length > 8 && (
         <div className="relative mb-1">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-fg-3" aria-hidden />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[1.125rem] -translate-y-1/2 text-ash" aria-hidden />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter recent foods" aria-label="Filter recent foods" autoComplete="off" className="pl-11" enterKeyHint="search" />
         </div>
       )}
       {!list.length ? (
-        <p className="py-6 text-center text-[14px] text-fg-3">No recent foods match “{q.trim()}”.</p>
+        <p className="py-6 text-center t-callout text-ash">No recent foods match “{q.trim()}”.</p>
       ) : (
         <ul className="@container">
           {list.map((e) => (
-            <li key={e.id} className="flex items-center gap-2 border-b border-line-hair last:border-b-0">
+            <li key={e.id} className="flex items-center gap-2 border-b border-vein last:border-b-0">
               <button type="button" onClick={() => onPick(e)} className="press-soft min-w-0 flex-1 py-2.5 text-left">
-                <p className="truncate text-[15px] font-semibold text-fg">{e.name}</p>
+                <p className="truncate t-callout font-semibold text-ivory">{e.name}</p>
                 <div className="mt-0.5 flex min-w-0 items-center gap-2">
-                  <span className="truncate text-[12.5px] font-medium text-fg-3">
-                    {formatAmount(Number(e.amount), e.unit)} · <span className="num text-[13px]">{formatInt(Number(e.calories))}</span> kcal · {relativeDay(e.local_date, today)}
+                  <span className="truncate t-meta font-medium text-ash">
+                    {formatAmount(Number(e.amount), e.unit)} · <span className="tnum">{formatInt(Number(e.calories))}</span> kcal · {relativeDay(e.local_date, today)}
                   </span>
                   <RowProvenance item={e} />
                 </div>
@@ -87,7 +87,7 @@ export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntr
                 onClick={() => quickAdd(e)}
                 disabled={pending != null}
                 aria-label={`Add ${e.name}, ${formatAmount(Number(e.amount), e.unit)}, to ${mealLabel(when.meal)}`}
-                className="press grid size-11 shrink-0 place-items-center rounded-[12px] border border-line-gold text-gold-300 hover:bg-gold-tint disabled:opacity-50"
+                className="press grid size-11 shrink-0 place-items-center rounded-field bg-m3 text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)] hover:bg-m4 disabled:opacity-50"
               >
                 <Plus className="size-5" strokeWidth={2.2} />
               </button>

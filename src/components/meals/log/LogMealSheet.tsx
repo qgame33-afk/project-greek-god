@@ -1,15 +1,15 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { focusFirstInvalid, MealChips, SubLabel } from "@/components/nutrition/bits";
+import { ConsequenceLine, focusFirstInvalid, MealChips, SubLabel } from "@/components/nutrition/bits";
 import { useFocusIntoSheet } from "@/components/nutrition/hooks";
 import { ConflictNote, useRecipeConflicts } from "@/components/meals/shared";
-import { EstimateBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Chip, Switch } from "@/components/ui/controls";
 import { Field, Input, NumberInput } from "@/components/ui/field";
 import { Collapse } from "@/components/ui/misc";
 import { Sheet, SheetFooterBar } from "@/components/ui/sheet";
+import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
 import { newId, useToday } from "@/lib/data/core";
 import { slotToMeal, useLogPlannedMeal, type LogPlannedMealResult } from "@/lib/data/meals";
@@ -60,9 +60,9 @@ export function LogMealSheet({
 
 const FIELDS: { k: MacroField; label: string; suffix: string; dot?: string }[] = [
   { k: "kcal", label: "Calories", suffix: "kcal" },
-  { k: "protein", label: "Protein", suffix: "g", dot: "bg-marble" },
-  { k: "carbs", label: "Carbs", suffix: "g", dot: "bg-terracotta" },
-  { k: "fat", label: "Fat", suffix: "g", dot: "bg-porphyry" },
+  { k: "protein", label: "Protein", suffix: "g", dot: "bg-ivory" },
+  { k: "carbs", label: "Carbs", suffix: "g", dot: "bg-carbs" },
+  { k: "fat", label: "Fat", suffix: "g", dot: "bg-fat" },
 ];
 
 function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogPlannedMealResult, servings: number) => void }) {
@@ -126,15 +126,15 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
       <ConflictNote conflicts={conflicts}>
         {allergy && (
           <div className="mt-2.5 flex min-h-11 items-center justify-between gap-3 border-t border-warning/20 pt-2.5">
-            <span className="text-[13.5px] font-semibold leading-snug text-fg">I ate it anyway. Log it.</span>
+            <span className="t-callout font-semibold leading-snug text-ivory">I ate it anyway. Log it.</span>
             <Switch checked={allergyOk} onCheckedChange={setAllergyOk} label="Confirm logging a meal with an allergen" />
           </div>
         )}
       </ConflictNote>
-      <div className="flex items-center justify-between gap-4 rounded-[16px] bg-s3/60 px-4 py-3">
+      <div className="flex items-center justify-between gap-4 rounded-btn bg-m3/60 px-4 py-3">
         <div className="min-w-0">
-          <p className="eyebrow">Servings</p>
-          <p className="mt-1 text-[13px] font-medium text-fg-2">How much you ate</p>
+          <p className="t-eyebrow">Servings</p>
+          <p className="mt-1 t-meta font-medium text-stone">How much you ate</p>
         </div>
         <ServingsStepper value={draft.servings} onChange={(s) => setDraft((d) => withServings(d, s, per))} showUnit={false} />
       </div>
@@ -177,11 +177,11 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
         <SubLabel
           action={
             draft.edited ? (
-              <button type="button" onClick={() => (setDraft((d) => resetDraft(d, per)), setErrors({}))} className="press -my-3 -mr-2 inline-flex h-11 items-center rounded-[10px] px-2 text-[13px] font-bold text-gold-300">
+              <button type="button" onClick={() => (setDraft((d) => resetDraft(d, per)), setErrors({}))} className="press t-meta -my-3 -mr-2 inline-flex h-11 items-center rounded-field px-2 font-semibold text-ivory underline decoration-vein-3 underline-offset-4">
                 Use the estimate
               </button>
             ) : (
-              <EstimateBadge />
+              <Tag kind="CALC" explain="Recipe macros: each ingredient's USDA FoodData Central values × the amounts, for the servings shown." />
             )
           }
         >
@@ -194,7 +194,7 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
               error={errors[f.k] ?? null}
               label={
                 <span className="inline-flex items-center gap-1.5">
-                  {f.dot ? <span className={cn("size-1.5 rounded-full", f.dot)} aria-hidden /> : <span className="size-1.5 rounded-full bg-gold-400" aria-hidden />}
+                  {f.dot ? <span className={cn("size-1.5 rounded-full", f.dot)} aria-hidden /> : <span className="size-1.5 rounded-full bg-stone" aria-hidden />}
                   {f.label}
                 </span>
               }
@@ -212,8 +212,8 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
             </Field>
           ))}
         </div>
-        <p className={cn("mt-2.5 text-[12.5px] font-medium leading-snug", mismatch ? "text-fg-2" : "text-fg-3")}>
-          {mismatch ?? (draft.edited ? "Your numbers will be logged as an estimate." : "Estimated from the ingredients (USDA values). Adjust if your portion was different.")}
+        <p className={cn("mt-2.5 t-meta font-medium leading-snug", mismatch ? "text-stone" : "text-ash")}>
+          {mismatch ?? (draft.edited ? "Your numbers will be logged as you typed them." : "Worked out from the ingredients (USDA values). Adjust if your portion was different.")}
         </p>
       </div>
 
@@ -221,11 +221,13 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
         <Button variant="primary" size="lg" block onClick={submit} loading={log.isPending} disabled={log.isPending || blocked}>
           Add to {label}
         </Button>
-        <p className="mt-2 text-center text-[12px] font-medium text-fg-3">
-          {blocked
-            ? "Confirm the allergy note above to log it"
-            : `${date === today ? "Today" : shortDate(date)} · ${parsed.ok ? `${parsed.macros.kcal.toLocaleString("en-US")} kcal · ${Math.round(parsed.macros.protein)} g protein` : "Check the numbers"}`}
-        </p>
+        {blocked ? (
+          <p className="mt-2 text-center t-meta font-medium text-ash">Confirm the allergy note above to log it</p>
+        ) : parsed.ok ? (
+          <ConsequenceLine className="mt-2 justify-center" date={date} add={{ kcal: parsed.macros.kcal, protein: parsed.macros.protein }} />
+        ) : (
+          <p className="mt-2 text-center t-meta font-medium text-ash">Check the numbers</p>
+        )}
       </SheetFooterBar>
     </div>
   );

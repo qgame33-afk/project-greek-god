@@ -490,7 +490,7 @@ function MealPlanLink() {
 function FinePrint() {
   return (
     <p className="t-meta mt-6 max-w-[60ch] text-stone">
-      Nutrition is an estimate from USDA FoodData Central values for each ingredient, so brands and portions will differ a little. Cooking temperatures follow Health Canada&apos;s safe
+      Nutrition is worked out from USDA FoodData Central values for each ingredient (CALC), so brands and portions will differ a little. Cooking temperatures follow Health Canada&apos;s safe
       internal temperatures.
     </p>
   );

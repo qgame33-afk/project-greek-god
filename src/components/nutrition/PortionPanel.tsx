@@ -11,7 +11,7 @@ import { amountBounds, buildEntry, portion, savedFoodFromPortion, stepFor, type 
 import { fieldText, limitError, sizeNote } from "@/lib/nutrition-ui/validate";
 import { formatInt, round } from "@/lib/units";
 import { parseFoodNumber } from "@/lib/nutrition-ui/number";
-import { MacroGrid, ProvenanceBadge, SheetError, SoftNote, StarButton, StickyFooter } from "./bits";
+import { ConsequenceLine, MacroGrid, ProvenanceBadge, SheetError, SoftNote, StarButton, StickyFooter } from "./bits";
 import { saveFailure } from "@/lib/nutrition-ui/errors";
 import { mealLabel, useFuel } from "./context";
 import { BackButton, SaveToFoods, WhenFields, type When } from "./log-shared";
@@ -108,10 +108,10 @@ export function PortionPanel({
       <BackButton onClick={onBack} />
       <div className="mt-1 flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <h3 className="text-[20px] font-bold leading-snug tracking-[-0.01em] text-fg">{c.name}</h3>
+          <h3 className="t-title-2 font-bold leading-snug tracking-[-0.01em] text-ivory">{c.name}</h3>
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
             <ProvenanceBadge item={{ source: c.source, confidence: c.confidence, source_name: c.sourceName, source_url: c.sourceUrl }} full />
-            {c.brand && <span className="text-[13px] font-medium text-fg-2">{c.brand}</span>}
+            {c.brand && <span className="t-meta font-medium text-stone">{c.brand}</span>}
           </div>
         </div>
         {savedFood && <StarButton on={starred} onToggle={toggleStar} label={starred ? "Remove from favourites" : "Mark as favourite"} className="-mr-2 -mt-1" />}
@@ -150,20 +150,20 @@ export function PortionPanel({
                 const n = parseFoodNumber(e.target.value);
                 if (n != null) setAmount(n);
               }}
-              className="num-xl w-full bg-transparent text-center text-fg outline-none"
+              className="t-num-l w-full bg-transparent text-center text-ivory outline-none"
             />
-            <span className="mt-1 block text-[13px] font-semibold tracking-[0.04em] text-fg-3">{unitLabel(u.unit, amount)}</span>
+            <span className="mt-1 block t-meta font-semibold tracking-[0.04em] text-ash">{unitLabel(u.unit, amount)}</span>
           </label>
         </Stepper>
         {amountInvalid ? (
-          <p className="mt-2 text-center text-[13px] font-medium text-danger">Enter an amount above 0{max ? ` and up to ${formatInt(max)}` : ""}.</p>
+          <p className="mt-2 text-center t-meta font-medium text-cinnabar">Enter an amount above 0{max ? ` and up to ${formatInt(max)}` : ""}.</p>
         ) : overLimit ? (
-          <p className="mt-2 text-center text-[13px] font-medium text-danger" role="alert">
+          <p className="mt-2 text-center t-meta font-medium text-cinnabar" role="alert">
             {overLimit}
           </p>
         ) : (
           (u.hint || (p.grams != null && u.unit !== "g")) && (
-            <p className="mt-2 text-center text-[12.5px] font-medium text-fg-3">
+            <p className="mt-2 text-center t-meta font-medium text-ash">
               {[u.hint, p.grams != null && u.unit !== "g" && (!u.hint || amount !== u.baseAmount) ? `≈ ${formatInt(p.grams)} g` : null].filter(Boolean).join(" · ")}
             </p>
           )
@@ -184,6 +184,7 @@ export function PortionPanel({
       )}
 
       <StickyFooter>
+        {!invalid && <ConsequenceLine className="mb-2.5 justify-center" date={when.date} add={{ kcal: p.macros.calories, protein: p.macros.protein }} />}
         <Button variant="primary" size="lg" block onClick={submit} loading={busy} disabled={invalid}>
           Add to {mealLabel(when.meal)}
         </Button>

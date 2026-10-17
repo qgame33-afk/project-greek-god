@@ -42,17 +42,17 @@ export function DislikeSheet({
       description={recipe ? `From ${recipe.name}` : undefined}
       footer={
         <div>
-          <p className="mb-3 min-h-[38px] text-[13px] font-medium leading-snug text-fg-2" aria-live="polite">
+          <p className="mb-3 min-h-[38px] t-meta font-medium leading-snug text-stone" aria-live="polite">
             {picked ? (
               <>
-                Meals with <span className="font-bold text-fg">{ingredientInline(picked)}</span> won&apos;t be planned again. You can undo this in Preferences.
+                Meals with <span className="font-bold text-ivory">{ingredientInline(picked)}</span> won&apos;t be planned again. You can undo this in Preferences.
               </>
             ) : (
               "Pick one. It becomes a hard rule, like an allergy."
             )}
           </p>
           <Button variant="secondary" size="lg" block disabled={!picked} onClick={() => picked && onConfirm(picked)}>
-            <Ban className="size-[18px] text-gold-300" />
+            <Ban className="size-[1.125rem] text-stone" strokeWidth={1.6} />
             Never plan it
           </Button>
         </div>
@@ -70,8 +70,8 @@ export function DislikeSheet({
                 aria-checked={on}
                 onClick={() => setPicked(on ? null : c.key)}
                 className={cn(
-                  "press inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-[14px] font-semibold transition-colors",
-                  on ? "border-line-gold bg-gold-tint text-gold-300" : "border-line bg-s3 text-fg-2 hover:text-fg",
+                  "press inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 t-callout font-semibold transition-colors",
+                  on ? "border-ivory bg-m4 text-ivory" : "border-vein-2 bg-m3 text-stone hover:text-ivory",
                 )}
               >
                 {on && <Check className="size-4" aria-hidden />}
@@ -81,7 +81,7 @@ export function DislikeSheet({
           })}
         </div>
       ) : (
-        <p className="pb-2 text-[14px] text-fg-2">Every ingredient in this meal is already on your dislikes.</p>
+        <p className="pb-2 t-callout text-stone">Every ingredient in this meal is already on your dislikes.</p>
       )}
     </Sheet>
   );

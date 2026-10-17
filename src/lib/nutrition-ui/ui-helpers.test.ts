@@ -109,6 +109,8 @@ describe("provenance", () => {
   it("treats uncited AI values as estimates", () => {
     expect(provenanceOf({ ...base, source: "photo_ai", confidence: "estimate" })).toEqual({ kind: "estimate" });
     expect(provenanceOf({ ...base, source: "chat_ai" })).toEqual({ kind: "estimate" });
+    // a planned meal logged as eaten is recipe arithmetic, never an AI estimate
+    expect(provenanceOf({ ...base, source: "meal_plan", confidence: "estimate" })).toEqual({ kind: "calc" });
     expect(groupLabel("photo_ai")).toBe("Photo scan");
   });
 });

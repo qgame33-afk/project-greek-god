@@ -982,7 +982,7 @@ export function useLogPlannedMeal(opts: { toast?: boolean } = {}) {
         return;
       }
       toast(`Logged ${res.entry.name}`, {
-        description: `${relativeDay(input.date, todayDate)} · ${Math.round(Number(res.entry.calories))} kcal estimate`,
+        description: `${relativeDay(input.date, todayDate)} · ${Math.round(Number(res.entry.calories)).toLocaleString("en-US")} kcal from the recipe`,
         duration: 6000,
         action: { label: "Undo", onClick: () => undoLog(qc, userId, res) },
       });
