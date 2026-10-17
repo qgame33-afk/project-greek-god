@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookSubtitle, bookTitle, sessionsLine, terracesReachedIn } from "./chronicle";
+import { bookGild, bookSubtitle, bookTitle, chronicleStamp, monthChange, nextMonthPlan, sessionsLine, terracesReachedIn, titleCredits } from "./chronicle";
 
 const stats = (over: { from?: string; to?: string; monthIndex?: number; sessions?: number; records?: number; planned?: number; plannedDone?: number } = {}) => ({
   month: (over.from ?? "2026-10-01").slice(0, 8) + "01",
@@ -43,5 +43,50 @@ describe("the Book's subtitle states only what the logs show", () => {
   it("sessions read X of Y planned, never a percentage", () => {
     expect(sessionsLine({ planned: 20, plannedDone: 19, sessions: 21 } as never)).toEqual({ value: "19", label: "sessions of 20" });
     expect(sessionsLine({ planned: 0, plannedDone: 0, sessions: 0 } as never)).toEqual({ value: "—", label: "sessions" });
+  });
+});
+
+describe("the chapters' numbers", () => {
+  const phys = (change: number | null, early = false) => ({
+    physical: { change, monthStartDate: change == null ? null : "2026-09-11", monthEndDate: change == null ? null : "2026-09-30", earlyWater: early },
+    training: { planned: 20, plannedDone: 19, sessions: 19, prs: { count: 4, items: Array.from({ length: 4 }, () => ({})) } },
+  });
+
+  it("credits: the trend change, sessions of planned, records; a missing change is a dash", () => {
+    expect(titleCredits(phys(4) as never, "lb").map((c) => c.value)).toEqual(["+4.0", "19", "4"]);
+    expect(titleCredits(phys(4) as never, "lb")[0].label).toBe("lb · trend change");
+    expect(titleCredits(phys(null) as never, "lb")[0].value).toBe("—");
+    expect(titleCredits(phys(-1.24) as never, "lb")[0].value).toBe("−1.2");
+    expect(titleCredits(phys(4.4) as never, "kg")[0].value).toBe("+2.0");
+  });
+
+  it("the month figure is a change with its dates, and flags early water", () => {
+    expect(monthChange(phys(4, true) as never, "lb")).toEqual({ value: "+4.0 lb", range: "11 → 30 Sep", earlyWater: true });
+    expect(monthChange(phys(null) as never, "lb")).toEqual({ value: null, range: null, earlyWater: false });
+  });
+
+  it("gilds the statue to the trend at the month's end, not today's", () => {
+    const w = Array.from({ length: 40 }, (_, i) => ({ local_date: `2026-${i < 20 ? "09" : "10"}-${String((i % 20) + 10).padStart(2, "0")}`, weight_lb: 163 + i * 0.1 }));
+    const sep = bookGild(w, "2026-09-30", 163, 183);
+    const oct = bookGild(w, "2026-10-31", 163, 183);
+    expect(sep).toBeGreaterThan(0);
+    expect(oct).toBeGreaterThan(sep);
+    expect(bookGild(w.slice(0, 3), "2026-09-30", 163, 183)).toBe(0); // under 4 weigh-ins: marble
+  });
+
+  it("next month's PLAN weight is the straight line at its last day", () => {
+    const p = { start_date: "2026-09-01", target_date: "2027-08-01", start_weight_lb: 163, goal_weight_lb: 183 };
+    const n = nextMonthPlan("2026-09-01", p)!;
+    expect(n.month).toBe("2026-10-01");
+    expect(n.end).toBe("2026-10-31");
+    expect(n.lb).toBeGreaterThan(165);
+    expect(n.lb).toBeLessThan(167);
+    expect(nextMonthPlan("2027-08-01", p)).toBeNull();
+    expect(nextMonthPlan("2026-09-01", { ...p, goal_weight_lb: null })).toBeNull();
+  });
+
+  it("stamps a sealed Book with its sealing day", () => {
+    expect(chronicleStamp("2026-09-01", "2026-10-17")).toBe("The Chronicle · 1 Oct");
+    expect(chronicleStamp("2026-10-01", "2026-10-17")).toBe("The Chronicle · being written");
   });
 });

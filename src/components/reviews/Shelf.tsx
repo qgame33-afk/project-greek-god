@@ -60,8 +60,8 @@ export function Spine({ numeral, state, size = "md" }: { numeral: string; state:
     <span
       aria-hidden
       className={cn(
-        "grid shrink-0 place-items-center rounded-[5px] font-voice font-semibold tracking-[0.06em]",
-        size === "lg" ? "h-16 w-12 text-[length:1.375rem]" : "h-14 w-10 text-[length:1.25rem]",
+        "t-title-2 grid shrink-0 place-items-center rounded-tag tracking-[0.06em]",
+        size === "lg" ? "h-16 w-12" : "h-14 w-10",
         state === "written" && "bg-m2 text-leaf-300 shadow-[inset_0_0_0_1.5px_var(--leaf-400),inset_0_0_0_4px_var(--m2),inset_0_0_0_5px_var(--leaf-line)]",
         state === "writing" && "text-ivory outline-dashed outline-[1.5px] -outline-offset-[1.5px] outline-leaf-line",
         state === "ahead" && "text-stone shadow-[inset_0_0_0_1px_var(--ui-line)]",
@@ -115,7 +115,7 @@ export function Shelf({ unit }: { unit: WeightUnit }) {
         <div className="divide-y divide-vein border-y border-vein">
           {[0, 1].map((i) => (
             <div key={i} className="flex items-center gap-4 py-3">
-              <Skeleton className="h-14 w-10 rounded-[5px]" />
+              <Skeleton className="h-14 w-10 rounded-tag" />
               <div className="flex-1">
                 <Skeleton className="h-3 w-24 rounded-tag" />
                 <Skeleton className="mt-2 h-5 w-40 rounded-tag" />
@@ -147,7 +147,12 @@ export function Shelf({ unit }: { unit: WeightUnit }) {
                   <ChevronRight className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
                 </Link>
                 {byMonth.has(b.month) && (
-                  <button type="button" onClick={() => edit(b.month)} className="press grid size-11 shrink-0 place-items-center rounded-field text-ash hover:text-ivory" aria-label={`Edit the ${b.film.toLowerCase()} milestone`}>
+                  <button
+                    type="button"
+                    onClick={() => edit(b.month)}
+                    className="press grid size-11 shrink-0 place-items-center rounded-field text-ash hover:text-ivory"
+                    aria-label={`Edit the ${b.film.toLowerCase()} milestone`}
+                  >
                     <Pencil className="size-4" strokeWidth={1.6} />
                   </button>
                 )}
@@ -180,7 +185,12 @@ export function Shelf({ unit }: { unit: WeightUnit }) {
                       <span className="t-meta tnum text-stone">{m.plan != null ? `${formatBodyweight(m.plan, unit)} at month end` : "—"}</span>
                     </span>
                   </span>
-                  <button type="button" onClick={() => edit(m.month)} className="press grid size-11 shrink-0 place-items-center rounded-field text-ash hover:text-ivory" aria-label={`Edit the ${monthLabelShort(m.month)} milestone`}>
+                  <button
+                    type="button"
+                    onClick={() => edit(m.month)}
+                    className="press grid size-11 shrink-0 place-items-center rounded-field text-ash hover:text-ivory"
+                    aria-label={`Edit the ${monthLabelShort(m.month)} milestone`}
+                  >
                     <Pencil className="size-4" strokeWidth={1.6} />
                   </button>
                 </li>

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { MonthlyReview, ReviewSkeleton } from "@/components/reviews/MonthlyReview";
+import { ReviewSkeleton } from "@/components/reviews/MonthlyReview";
+import { ReviewRoute } from "@/components/reviews/ReviewRoute";
 
-export const metadata: Metadata = { title: "Monthly review" };
+export const metadata: Metadata = { title: "The Chronicle" };
 
 export default function MonthlyReviewPage({ params }: PageProps<"/reviews/[month]">) {
   return (
@@ -14,5 +15,5 @@ export default function MonthlyReviewPage({ params }: PageProps<"/reviews/[month
 
 async function MonthFromParams({ params }: { params: PageProps<"/reviews/[month]">["params"] }) {
   const { month } = await params;
-  return <MonthlyReview monthParam={month} />;
+  return <ReviewRoute monthParam={month} />;
 }

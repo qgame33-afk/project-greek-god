@@ -3,11 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { toast } from "sonner";
-import { must, sb, useUser, type Row } from "@/lib/data/core";
+import { fetchAll, must, sb, useUser, type Row } from "@/lib/data/core";
 import { useMeasurements, usePhotos, useWeights } from "@/lib/data/body";
 import { useDailyNutrition, useDailyWater } from "@/lib/data/nutrition";
 import { useProfile } from "@/lib/data/profile";
-import { useRecovery } from "@/lib/data/recovery";
+import { usePlannedMealsRange } from "@/lib/data/meals";
+import { useHabitLogs, useRecovery } from "@/lib/data/recovery";
 import { useDayPlans, usePREvents, useSessions, useSetsInRange, useVolleyball } from "@/lib/data/training";
 import type { Json } from "@/lib/supabase/database.types";
 import type { ISODate } from "@/lib/dates";
@@ -239,4 +240,31 @@ export function useAISummary() {
       return { summary: json.summary, model: json.model ?? "" };
     },
   });
+}
+
+/* ------------------------------------------------------ chronicle extras */
+
+/**
+ * What the Chronicle's Fuel-and-rites chapter needs beyond the review rows: the month's planned
+ * meals, which of them have a linked food entry (for planFollowed), and the rites marked done.
+ * Read-only; nothing here writes.
+ */
+export function useChronicleExtras(from: ISODate, to: ISODate) {
+  const { userId } = useUser();
+  const planned = usePlannedMealsRange(from, to);
+  const linked = useQuery({
+    queryKey: ["food", "planned-range", from, to, userId],
+    enabled: !!userId,
+    queryFn: async () =>
+      fetchAll((a, b) => sb().from("food_entries").select("planned_meal_id,local_date").gte("local_date", from).lte("local_date", to).not("planned_meal_id", "is", null).range(a, b)),
+  });
+  const rites = useHabitLogs(from, to);
+  const loggedIds = useMemo(() => new Set((linked.data ?? []).map((r) => r.planned_meal_id).filter((x): x is string => !!x)), [linked.data]);
+  return {
+    loading: planned.isLoading || linked.isLoading || rites.isLoading,
+    planned: planned.data ?? [],
+    loggedIds,
+    ritesDone: (rites.data ?? []).filter((r) => r.done).length,
+    error: (planned.error ?? linked.error ?? rites.error ?? null) as Error | null,
+  };
 }
