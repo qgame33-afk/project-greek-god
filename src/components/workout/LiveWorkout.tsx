@@ -1461,7 +1461,10 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
           if (g) toggleSkip(g);
           setLiftsOpen(false);
         }}
-        onAdd={() => setPicker({ mode: "add" })}
+        onAdd={() => {
+          setLiftsOpen(false);
+          setPicker({ mode: "add" });
+        }}
         onDiscard={() => {
           setLiftsOpen(false);
           setDiscardOpen(true);

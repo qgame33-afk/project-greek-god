@@ -43,9 +43,10 @@ export function StartWorkout() {
       router.replace("/onboarding");
       return;
     }
-    const run = template && !active.data ? start({ template, date: today, mode: (profile.training_mode ?? "standard") as Mode }) : startToday();
+    // start() and startToday() both ask the server what is open first (and resume it).
+    const run = template ? start({ template, date: today, mode: (profile.training_mode ?? "standard") as Mode }) : startToday();
     void run.then((ok) => !ok && setFailed(true));
-  }, [ready, profile, onboarded, router, template, active.data, start, startToday, today]);
+  }, [ready, profile, onboarded, router, template, start, startToday, today]);
 
   if (failed || (ready && !profile))
     return (

@@ -126,6 +126,18 @@ export function useStartWorkout() {
   const [starting, setStarting] = useState(false);
   const busy = useRef(false);
 
+  /**
+   * The session open right now: the server's word when there is a signal (a cached copy restored
+   * at launch can still name a session sealed moments before), the cache only offline.
+   */
+  const openNow = async (): Promise<Session | null> => {
+    const online = typeof navigator === "undefined" || navigator.onLine !== false;
+    if (!online) return active.data ?? null;
+    const row = must(await sb().from("workout_sessions").select("*").eq("status", "active").order("started_at", { ascending: false }).limit(1)).at(0) ?? null;
+    if ((row?.id ?? null) !== (active.data?.id ?? null)) qc.setQueryData(["sessions", "active", userId], row);
+    return row;
+  };
+
   const start = async (opts: StartOptions): Promise<boolean> => {
     if (busy.current) return false;
     busy.current = true;
@@ -134,12 +146,7 @@ export function useStartWorkout() {
     // into the workout, where their Undo would act on a plan that is already being trained.
     toast.dismiss();
     try {
-      // The server's word on what is open (a cached copy restored at launch can still name a
-      // session sealed moments before); the cache only when there is no signal.
-      const online = typeof navigator === "undefined" || navigator.onLine !== false;
-      const current = online
-        ? (must(await sb().from("workout_sessions").select("*").eq("status", "active").order("started_at", { ascending: false }).limit(1)).at(0) ?? null)
-        : (active.data ?? null);
+      const current = await openNow();
       if (current) {
         if (current.local_date === opts.date && current.template_key === opts.template.key) {
           router.push(`/workout/${current.id}`);
@@ -189,8 +196,9 @@ export function useStartWorkout() {
   /** Start whatever is planned today. On a rest day, opens Training to pick a session. */
   const startToday = async (): Promise<boolean> => {
     const p = planFor(today, profile ?? undefined, plans.data ?? [], byKey);
-    if (active.data) {
-      router.push(`/workout/${active.data.id}`);
+    const open = await openNow().catch(() => active.data ?? null);
+    if (open) {
+      router.push(`/workout/${open.id}`);
       return true;
     }
     if (!p.template) {

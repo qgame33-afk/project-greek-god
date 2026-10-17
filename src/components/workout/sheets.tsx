@@ -31,17 +31,17 @@ function MenuItem({
   tone?: "danger";
 }) {
   const cls = cn(
-    "press-soft flex min-h-[56px] w-full items-center gap-3.5 rounded-[14px] px-3 text-left transition-colors hover:bg-white/[.04] disabled:opacity-35 disabled:hover:bg-transparent",
-    tone === "danger" ? "text-danger" : "text-fg",
+    "press-soft flex min-h-14 w-full items-center gap-3.5 rounded-btn px-3 text-left transition-colors hover:bg-white/[.04] disabled:opacity-35 disabled:hover:bg-transparent",
+    tone === "danger" ? "text-cinnabar" : "text-ivory",
   );
   const inner = (
     <>
-      <span className={cn("grid size-9 shrink-0 place-items-center rounded-[10px] bg-s3", tone === "danger" ? "text-danger" : "text-fg-2")}>{icon}</span>
+      <span className={cn("grid size-9 shrink-0 place-items-center rounded-field bg-m3", tone === "danger" ? "text-cinnabar" : "text-stone")}>{icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold">{label}</span>
-        {hint && <span className="block truncate text-[12.5px] font-medium text-fg-3">{hint}</span>}
+        <span className="t-title-3 block">{label}</span>
+        {hint && <span className="t-meta block truncate text-stone">{hint}</span>}
       </span>
-      {href && <ChevronRight className="size-4 text-fg-3" aria-hidden />}
+      {href && <ChevronRight className="size-4 text-ash" strokeWidth={1.6} aria-hidden />}
     </>
   );
   if (href)
@@ -120,7 +120,7 @@ export function ExerciseMenuSheet({
         />
         <MenuItem icon={<Clock className="size-[18px]" />} label="Exercise history" href={`/training/exercise/${slug}`} />
       </div>
-      <p className="mt-2 rounded-[12px] bg-s3 px-3.5 py-3 text-[13px] leading-relaxed text-fg-2">
+      <p className="t-meta mt-2 rounded-field bg-m3 px-3.5 py-3 text-stone">
         Sharp or joint pain is a stop sign. Replace or skip the exercise — never train through it.
       </p>
     </Sheet>
@@ -135,30 +135,30 @@ export function HowToSheet({ open, onOpenChange, slug, name, note }: { open: boo
     <Sheet open={open} onOpenChange={onOpenChange} title={name} description={lib ? musclesLine(lib.primary, lib.secondary) : undefined}>
       {lib ? (
         <div className="space-y-6 pb-2">
-          {note && <p className="rounded-[12px] border border-line-gold/60 bg-gold-tint px-3.5 py-3 text-[14px] leading-relaxed text-fg">{note}</p>}
+          {note && <p className="t-callout rounded-field bg-m2 px-3.5 py-3 text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)]">{note}</p>}
           <section>
-            <h3 className="eyebrow mb-3">How to</h3>
+            <h3 className="t-eyebrow mb-3">How to</h3>
             <ol className="space-y-3">
               {lib.instructions.map((s, i) => (
-                <li key={i} className="flex gap-3 text-[15px] leading-relaxed text-fg">
-                  <span className="num grid size-6 shrink-0 place-items-center rounded-full bg-s3 text-[13px] font-semibold text-fg-2">{i + 1}</span>
+                <li key={i} className="t-body flex gap-3 text-ivory">
+                  <span className="t-meta tnum grid size-6 shrink-0 place-items-center rounded-full bg-m3 font-semibold text-stone">{i + 1}</span>
                   <span>{s}</span>
                 </li>
               ))}
             </ol>
           </section>
           <section>
-            <h3 className="eyebrow mb-3">Form tips</h3>
+            <h3 className="t-eyebrow mb-3">Form tips</h3>
             <ul className="space-y-2.5">
               {lib.formTips.map((s, i) => (
-                <li key={i} className="flex gap-3 text-[14px] leading-relaxed text-fg-2">
-                  <span className="mt-[9px] size-1.5 shrink-0 rounded-full bg-gold-500" aria-hidden />
+                <li key={i} className="t-callout flex gap-3 text-stone">
+                  <span className="mt-2 size-1.5 shrink-0 rotate-45 bg-ivory/70" aria-hidden />
                   <span>{s}</span>
                 </li>
               ))}
             </ul>
           </section>
-          <section className="text-[13px] text-fg-2">
+          <section className="t-meta text-stone">
             <p>
               Load is logged {lib.perHand ? "per dumbbell" : "as the total on the bar or stack"}
               {lib.perSide ? ", reps per side" : ""}. Rest about {Math.round(lib.rest / 60) || 1} min between sets.
@@ -168,17 +168,17 @@ export function HowToSheet({ open, onOpenChange, slug, name, note }: { open: boo
             href={demoUrl(lib.name)}
             target="_blank"
             rel="noopener noreferrer"
-            className="press-soft flex min-h-[52px] items-center justify-between gap-3 rounded-[14px] border border-line-strong bg-s3 px-4 text-[15px] font-bold text-fg hover:bg-s4"
+            className="press-soft t-title-3 flex min-h-14 items-center justify-between gap-3 rounded-btn bg-m3 px-4 text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)] hover:bg-m4"
           >
             <span>
               Watch a demonstration
-              <span className="block text-[12px] font-medium text-fg-3">Opens a YouTube search in a new tab</span>
+              <span className="t-meta block text-stone">Opens a YouTube search in a new tab</span>
             </span>
-            <ExternalLink className="size-4 text-fg-2" aria-hidden />
+            <ExternalLink className="size-4 text-stone" strokeWidth={1.6} aria-hidden />
           </a>
         </div>
       ) : (
-        <p className="pb-4 text-[14px] text-fg-2">No instructions are stored for this exercise.</p>
+        <p className="t-callout pb-4 text-stone">No instructions are stored for this exercise.</p>
       )}
     </Sheet>
   );
@@ -235,9 +235,9 @@ export function PickExerciseSheet({
       title={mode === "replace" ? `Replace ${current?.name ?? "exercise"}` : "Add exercise"}
       description={description}
     >
-      <div className="sticky top-0 z-10 -mx-1 bg-s2 px-1 pb-3 pt-2">
+      <div className="sticky top-0 z-10 -mx-1 bg-m1 px-1 pb-3 pt-2">
         <label className="relative block">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-3" aria-hidden />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ash" strokeWidth={1.6} aria-hidden />
           <input
             type="search"
             value={q}
@@ -246,19 +246,19 @@ export function PickExerciseSheet({
             aria-label="Search the exercise library"
             enterKeyHint="search"
             autoComplete="off"
-            className="h-[52px] w-full rounded-[12px] border border-line-field bg-s3 pl-10 pr-3.5 text-[16px] font-medium text-fg outline-none placeholder:text-fg-3 focus:border-gold-400 focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)]"
+            className="t-body h-14 w-full rounded-field border border-ui-line bg-m2 pl-10 pr-3.5 text-ivory outline-none placeholder:text-ash focus:border-ivory"
           />
         </label>
       </div>
       {!q && subs.length > 0 && (
         <section className="mb-4">
-          <h3 className="eyebrow mb-1.5 px-1">Good swaps</h3>
+          <h3 className="t-eyebrow mb-1.5 px-1">Good swaps</h3>
           <ExerciseList items={subs} busySlug={busySlug} onPick={onPick} />
         </section>
       )}
       <section className="pb-2">
-        <h3 className="eyebrow mb-1.5 px-1">{q ? `${list.length} ${list.length === 1 ? "match" : "matches"}` : "Library"}</h3>
-        {list.length ? <ExerciseList items={list} busySlug={busySlug} onPick={onPick} /> : <p className="px-1 py-6 text-center text-[14px] text-fg-2">Nothing matches “{q}”. Try a muscle, like “lats”.</p>}
+        <h3 className="t-eyebrow mb-1.5 px-1">{q ? `${list.length} ${list.length === 1 ? "match" : "matches"}` : "Library"}</h3>
+        {list.length ? <ExerciseList items={list} busySlug={busySlug} onPick={onPick} /> : <p className="t-callout px-1 py-6 text-center text-stone">Nothing matches “{q}”. Try a muscle, like “lats”.</p>}
       </section>
     </Sheet>
   );
@@ -273,15 +273,15 @@ function ExerciseList({ items, busySlug, onPick }: { items: LibraryExercise[]; b
             type="button"
             disabled={!!busySlug}
             onClick={() => onPick(e)}
-            className="press-soft flex min-h-[56px] w-full items-center gap-3 rounded-[14px] px-3 py-2 text-left hover:bg-white/[.04] disabled:opacity-50"
+            className="press-soft flex min-h-14 w-full items-center gap-3 rounded-btn px-3 py-2 text-left hover:bg-white/[.04] disabled:opacity-50"
           >
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-semibold text-fg">{e.name}</span>
-              <span className="block truncate text-[12.5px] font-medium text-fg-3">
+              <span className="t-title-3 block truncate text-ivory">{e.name}</span>
+              <span className="t-meta block truncate text-stone">
                 {musclesLine(e.primary, e.secondary, 3)} · {e.equipment.replace("_", " ")}
               </span>
             </span>
-            {busySlug === e.slug ? <span className="text-[12px] font-semibold text-fg-2">Loading…</span> : <Plus className="size-4 shrink-0 text-fg-3" aria-hidden />}
+            {busySlug === e.slug ? <span className="t-meta font-semibold text-stone">Loading…</span> : <Plus className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />}
           </button>
         </li>
       ))}
@@ -330,7 +330,7 @@ function NoteForm({ initial, onSave, onDone, extra }: { initial: string; onSave:
           rows={4}
           enterKeyHint="done"
         />
-        <p className={cn("mt-1.5 text-right text-[12px] font-medium", over ? "text-danger" : "text-fg-3")}>{text.length} / 500</p>
+        <p className={cn("t-meta tnum mt-1.5 text-right", over ? "text-cinnabar" : "text-ash")}>{text.length} / 500</p>
       </div>
       {extra}
       <Button
@@ -375,81 +375,7 @@ export function SetSheetActions({
   );
 }
 
-/* --------------------------------------------------------------- finish */
-
-export function FinishSheet({
-  open,
-  onOpenChange,
-  logged,
-  unlogged,
-  saving,
-  error,
-  onSave,
-  onDiscard,
-  editing,
-}: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  logged: number;
-  unlogged: number;
-  saving: boolean;
-  error: string | null;
-  onSave: () => void;
-  onDiscard: () => void;
-  editing?: boolean;
-}) {
-  const none = logged === 0;
-  return (
-    <Sheet
-      open={open}
-      onOpenChange={(o) => !saving && onOpenChange(o)}
-      title={editing ? "Save changes" : "Finish workout"}
-      footer={
-        none && !editing ? (
-          <div className="grid grid-cols-2 gap-3">
-            <Button variant="secondary" size="lg" onClick={() => onOpenChange(false)}>
-              Keep training
-            </Button>
-            <Button variant="destructive" size="lg" onClick={onDiscard}>
-              Discard
-            </Button>
-          </div>
-        ) : (
-          <Button variant="primary" size="lg" block loading={saving} onClick={onSave}>
-            {editing ? "Save changes" : "Save session"}
-          </Button>
-        )
-      }
-    >
-      <div className="pb-2">
-        {none ? (
-          <>
-            <p className="num-lg text-fg">0</p>
-            <p className="mt-2 text-[15px] leading-relaxed text-fg-2">No sets logged yet. Log at least one set to save this session, or discard it.</p>
-          </>
-        ) : (
-          <>
-            <p className="num-lg text-fg">
-              {logged}
-              <span className="unit">{logged === 1 ? "set logged" : "sets logged"}</span>
-            </p>
-            <p className="mt-2 text-[15px] leading-relaxed text-fg-2">
-              {unlogged === 0
-                ? "Every planned set is logged."
-                : `${unlogged} unlogged ${unlogged === 1 ? "set" : "sets"} will be discarded. Logged sets are kept exactly as entered.`}
-            </p>
-          </>
-        )}
-        {saving && <p className="mt-3 text-[13px] font-medium text-fg-3">Syncing your sets…</p>}
-        {error && (
-          <p className="mt-3 rounded-[12px] border border-danger/30 bg-danger-tint px-3.5 py-3 text-[13px] font-medium text-fg" role="alert">
-            {error}
-          </p>
-        )}
-      </div>
-    </Sheet>
-  );
-}
+/* -------------------------------------------------------------- discard */
 
 export function DiscardSheet({ open, onOpenChange, logged, busy, onConfirm }: { open: boolean; onOpenChange: (o: boolean) => void; logged: number; busy: boolean; onConfirm: () => void }) {
   return (
@@ -468,7 +394,7 @@ export function DiscardSheet({ open, onOpenChange, logged, busy, onConfirm }: { 
         </div>
       }
     >
-      <p className="pb-2 text-[15px] leading-relaxed text-fg-2">
+      <p className="t-body pb-2 text-stone">
         {logged
           ? `The ${logged} logged ${logged === 1 ? "set" : "sets"} won't count toward history, records or volume. You can undo right after.`
           : "Nothing is logged yet. You can undo right after."}
