@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown, Ellipsis, House, RotateCcw, Trash, Undo2, X } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { memo, useRef, useState, type ReactNode } from "react";
 import { SubLabel } from "@/components/nutrition/bits";
 import { useFocusIntoSheet } from "@/components/nutrition/hooks";
 import { EstimateBadge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Field, Input, NumberInput } from "@/components/ui/field";
 import { Collapse } from "@/components/ui/misc";
 import { Sheet, SheetFooterBar } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
+import { newId } from "@/lib/data/core";
 import { haptic } from "@/lib/haptics";
 import type { GroceryUse } from "@/lib/meals/engine";
 import { GROCERY_CATEGORY_LABEL, type GroceryCategory } from "@/lib/meals/types";
@@ -23,7 +24,18 @@ import { cad, rowAmount, rowBuy, type GroceryRow } from "./model";
  * One line of the list. The whole row ticks it into the cart (52px+, big circle, at arm's
  * length in a store aisle); the ⋯ button holds "I have this", Remove and what it's for.
  */
-export function GroceryLineRow({ row, onToggle, onMore, staple }: { row: GroceryRow; onToggle: () => void; onMore: () => void; staple?: boolean }) {
+export const GroceryLineRow = memo(function GroceryLineRow({
+  row,
+  onToggle,
+  onMore,
+  staple,
+}: {
+  row: GroceryRow;
+  /** Stable across renders (memoised rows): ticking one line re-renders only that line. */
+  onToggle: (row: GroceryRow) => void;
+  onMore: (key: string) => void;
+  staple?: boolean;
+}) {
   const amount = rowAmount(row);
   const buy = rowBuy(row);
   const on = row.checked;
@@ -36,7 +48,7 @@ export function GroceryLineRow({ row, onToggle, onMore, staple }: { row: Grocery
         aria-checked={on}
         onClick={() => {
           haptic(6);
-          onToggle();
+          onToggle(row);
         }}
         className={cn("press-soft group flex min-w-0 flex-1 items-center gap-3.5 py-2.5 pl-4 pr-2 text-left", staple ? "min-h-[52px]" : "min-h-[60px]")}
       >
@@ -54,12 +66,12 @@ export function GroceryLineRow({ row, onToggle, onMore, staple }: { row: Grocery
           {detail && <span className={cn("mt-0.5 block text-[13px] font-medium leading-snug", on ? "text-fg-3/70" : "text-fg-2")}>{detail}</span>}
         </span>
       </button>
-      <button type="button" onClick={onMore} aria-label={`More for ${row.name}`} className="press grid w-12 shrink-0 place-items-center text-fg-3 hover:text-fg">
+      <button type="button" onClick={() => onMore(row.key)} aria-label={`More for ${row.name}`} className="press grid w-12 shrink-0 place-items-center text-fg-3 hover:text-fg">
         <Ellipsis className="size-5" aria-hidden />
       </button>
     </li>
   );
-}
+});
 
 /** A quiet group (Already have, Removed): collapsed by default, each line one tap from coming back. */
 export function SetAsideGroup({ title, rows, action, actionLabel, icon }: { title: string; rows: GroceryRow[]; action: (r: GroceryRow) => void; actionLabel: string; icon: ReactNode }) {
@@ -173,7 +185,7 @@ function ActionRow({ icon, label, hint, onClick, tone }: { icon: ReactNode; labe
 const CATEGORIES = Object.keys(GROCERY_CATEGORY_LABEL) as GroceryCategory[];
 const SHORT: Record<GroceryCategory, string> = { meat: "Meat", dairy_eggs: "Dairy & eggs", bread_grains: "Bread & grains", fruit: "Fruit", vegetables: "Vegetables", frozen: "Frozen", pantry: "Pantry", other: "Other" };
 
-export function AddItemSheet({ open, onOpenChange, onAdd }: { open: boolean; onOpenChange: (o: boolean) => void; onAdd: (v: { name: string; label: string | null; category: GroceryCategory }) => void }) {
+export function AddItemSheet({ open, onOpenChange, onAdd }: { open: boolean; onOpenChange: (o: boolean) => void; onAdd: (v: NewGroceryItem) => void }) {
   const [nonce, setNonce] = useState(0);
   const [was, setWas] = useState(open);
   if (open !== was) {
@@ -187,9 +199,19 @@ export function AddItemSheet({ open, onOpenChange, onAdd }: { open: boolean; onO
   );
 }
 
-function AddItemForm({ onAdd }: { onAdd: (v: { name: string; label: string | null; category: GroceryCategory }) => void }) {
+export interface NewGroceryItem {
+  /** Fixed per form: a repeated submit (a double click while the sheet closes) upserts the same line. */
+  id: string;
+  name: string;
+  label: string | null;
+  category: GroceryCategory;
+}
+
+function AddItemForm({ onAdd }: { onAdd: (v: NewGroceryItem) => void }) {
   const ref = useRef<HTMLFormElement>(null);
   useFocusIntoSheet(ref);
+  const [id] = useState(() => newId());
+  const sent = useRef(false);
   const [name, setName] = useState("");
   const [label, setLabel] = useState("");
   const [category, setCategory] = useState<GroceryCategory>("other");
@@ -200,9 +222,11 @@ function AddItemForm({ onAdd }: { onAdd: (v: { name: string; label: string | nul
       className="space-y-5 pt-1"
       onSubmit={(e) => {
         e.preventDefault();
+        if (sent.current) return;
         const n = name.trim();
         if (!n) return setError("Name the item");
-        onAdd({ name: n.slice(0, 120), label: label.trim() ? label.trim().slice(0, 60) : null, category });
+        sent.current = true;
+        onAdd({ id, name: n.slice(0, 120), label: label.trim() ? label.trim().slice(0, 60) : null, category });
       }}
     >
       <Field label="Item" error={error}>

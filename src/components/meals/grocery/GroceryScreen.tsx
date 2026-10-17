@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Check, ChevronLeft, Copy, House, Pencil, Plus, RefreshCw, ShoppingBasket } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useRecipePool } from "@/components/meals/shared";
 import { EstimateBadge } from "@/components/ui/badge";
@@ -28,7 +28,7 @@ import { addDays, shortDate, weekStart } from "@/lib/dates";
 import { buildGroceryList, mergeGroceryState, toGroceryInput, type GroceryUse } from "@/lib/meals/engine";
 import { useSwapIn } from "@/lib/motion";
 import { AddItemSheet, BudgetSheet, GroceryLineRow, LineSheet, RestoreIcon, SetAsideGroup } from "./GroceryParts";
-import { cad, groceryText, groceryView, rowTotals } from "./model";
+import { cad, groceryText, groceryView, rowTotals, type GroceryRow } from "./model";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -125,6 +125,15 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
   }, [plan, input, grocery.hasData, rows.length, sync]);
 
   const [lineKey, setLineKey] = useState<string | null>(null);
+  // one stable handler for every row, so a tick re-renders only the row that changed
+  const planId = plan?.id ?? null;
+  const { mutate: patchItem } = update;
+  const toggleRow = useCallback(
+    (r: GroceryRow) => {
+      if (planId) patchItem({ planId, key: r.key, values: { checked: !r.checked } });
+    },
+    [planId, patchItem],
+  );
   const line = lineKey ? (rows.find((r) => r.key === lineKey) ?? null) : null;
   const [addOpen, setAddOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
@@ -149,8 +158,7 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
   }
   if (rows.length === 0 && (sync.isPending || (!plan.grocery_generated_at && !!input?.length))) return <GrocerySkeleton label="Making your list" />;
 
-  const planId = plan.id;
-  const set = (r: GroceryItem | { key: string }, values: Parameters<typeof update.mutate>[0]["values"], undo?: boolean) => update.mutate({ planId, key: r.key, values, undo });
+  const set = (r: GroceryItem | { key: string }, values: Parameters<typeof update.mutate>[0]["values"], undo?: boolean) => update.mutate({ planId: plan.id, key: r.key, values, undo });
   const item = (key: string) => rows.find((r) => r.key === key);
 
   const copy = async () => {
@@ -183,7 +191,7 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
 
   const regenerate = () => {
     if (!input) return;
-    sync.mutate({ planId, items: input });
+    sync.mutate({ planId: plan.id, items: input });
     toast("List updated", { description: "Your ticks and your own items were kept." });
   };
 
@@ -302,7 +310,7 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
               </div>
               <ul className="divide-y divide-line-hair">
                 {g.items.map((r) => (
-                  <GroceryLineRow key={r.key} row={r} onToggle={() => set(r, { checked: !r.checked })} onMore={() => setLineKey(r.key)} />
+                  <GroceryLineRow key={r.key} row={r} onToggle={toggleRow} onMore={setLineKey} />
                 ))}
               </ul>
             </section>
@@ -319,7 +327,7 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
             </div>
             <ul className="divide-y divide-line-hair">
               {view.staples.map((r) => (
-                <GroceryLineRow key={r.key} row={r} staple onToggle={() => set(r, { checked: !r.checked })} onMore={() => setLineKey(r.key)} />
+                <GroceryLineRow key={r.key} row={r} staple onToggle={toggleRow} onMore={setLineKey} />
               ))}
             </ul>
           </section>
@@ -357,8 +365,8 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
           setLineKey(null);
         }}
       />
-      <AddItemSheet open={addOpen} onOpenChange={setAddOpen} onAdd={(v) => addCustom.mutate({ planId, name: v.name, label: v.label, category: v.category })} />
-      <BudgetSheet open={budgetOpen} onOpenChange={setBudgetOpen} value={budget} onSave={(v) => updatePlan.mutate({ planId, weekStart: plan.week_start, values: { grocery_budget_cad: v } })} />
+      <AddItemSheet open={addOpen} onOpenChange={setAddOpen} onAdd={(v) => addCustom.mutate({ planId: plan.id, id: v.id, name: v.name, label: v.label, category: v.category })} />
+      <BudgetSheet open={budgetOpen} onOpenChange={setBudgetOpen} value={budget} onSave={(v) => updatePlan.mutate({ planId: plan.id, weekStart: plan.week_start, values: { grocery_budget_cad: v } })} />
     </div>
   );
 }
