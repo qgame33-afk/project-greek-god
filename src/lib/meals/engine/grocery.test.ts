@@ -77,14 +77,81 @@ describe("buildGroceryList", () => {
     expect(withPantry.totals.checkoutCad).toBeCloseTo(without.totals.checkoutCad - 2.49, 2);
   });
 
-  it("estimates cost against the weekly budget", () => {
+  it("compares the weekly budget with what the user pays at the checkout (and with the food used)", () => {
     const meals = [{ recipe_key: "lib:spaghetti-bolognese", servings: 7 }];
     const list = buildGroceryList(meals, lookup, { pantry: [], weeklyBudgetCad: 20 });
     expect(list.totals.budgetCad).toBe(20);
     expect(list.totals.weekCad).toBeGreaterThan(0);
     expect(list.totals.weekCad).toBeLessThanOrEqual(list.totals.checkoutCad);
-    expect(list.totals.overBudgetCad).toBeCloseTo(list.totals.weekCad - 20, 2);
-    expect(buildGroceryList(meals, lookup).totals.overBudgetCad).toBeNull();
+    expect(list.totals.overBudgetCad).toBeCloseTo(list.totals.checkoutCad - 20, 2);
+    expect(list.totals.weekOverBudgetCad).toBeCloseTo(list.totals.weekCad - 20, 2);
+    const none = buildGroceryList(meals, lookup).totals;
+    expect(none.overBudgetCad).toBeNull();
+    expect(none.weekOverBudgetCad).toBeNull();
+  });
+
+  it("mid-week, shops only from the given day on", () => {
+    const meals = [
+      { recipe_key: "lib:spaghetti-bolognese", servings: 1, local_date: "2026-10-13" },
+      { recipe_key: "lib:beef-tacos", servings: 1, local_date: "2026-10-16" },
+    ];
+    const all = buildGroceryList(meals, lookup);
+    const fromFri = buildGroceryList(meals, lookup, undefined, { from: "2026-10-16" });
+    expect(all.items.some((i) => i.key === "pasta-dry")).toBe(true);
+    expect(fromFri.items.some((i) => i.key === "pasta-dry")).toBe(false);
+    expect(fromFri.items.find((i) => i.key === "ground-beef-lean")!.uses.map((u) => u.recipe_key)).toEqual(["lib:beef-tacos"]);
+    expect(fromFri.totals.checkoutCad).toBeLessThan(all.totals.checkoutCad);
+  });
+
+  it("buys one variant for interchangeable ones: yogurt 0%/2%, bread, tortilla sizes, ready chicken, milk", () => {
+    const yog = buildGroceryList([{ recipe_key: "lib:overnight-protein-oats", servings: 1 }, { recipe_key: "lib:greek-yogurt-parfait", servings: 1 }].filter((m) => lookup(m.recipe_key)), lookup);
+    const yLines = yog.items.filter((i) => i.key.startsWith("greek-yogurt"));
+    expect(yLines.length).toBeLessThanOrEqual(1);
+    // made-up recipes that ask for each variant
+    const fake = (key: string, ing: string, qty: number, unit: Recipe["ingredients"][number]["unit"]): Recipe => ({ ...R("lib:protein-shake"), key, ingredients: [{ key: ing, qty, unit }] });
+    const recipes = new Map<string, Recipe>([
+      ["a", fake("a", "bread-white", 2, "slice")],
+      ["b", fake("b", "bread-whole-wheat", 4, "slice")],
+      ["c", fake("c", "tortilla-flour", 3, "piece")],
+      ["d", fake("d", "tortilla-large", 1, "piece")],
+      ["e", fake("e", "greek-yogurt-0", 200, "g")],
+      ["f", fake("f", "greek-yogurt-2", 100, "g")],
+    ]);
+    const list = buildGroceryList([...recipes.keys()].map((k) => ({ recipe_key: k, servings: 1 })), (k) => recipes.get(k), { pantry: ["greek-yogurt-2"], weeklyBudgetCad: null });
+    const keys = list.items.map((i) => i.key).sort();
+    expect(keys).toEqual(["bread-whole-wheat", "greek-yogurt-0", "tortilla-large"]);
+    const bread = list.items.find((i) => i.key === "bread-whole-wheat")!;
+    expect(bread.name).toBe("Sandwich bread (white or whole-wheat)");
+    expect(bread.covers).toEqual([{ key: "bread-white", name: "White sandwich bread" }]);
+    expect(bread.packs).toBe(1);
+    expect(bread.uses.map((u) => u.recipe_key).sort()).toEqual(["a", "b"]);
+    // tortillas swap one for one, and always as the large ones
+    const tort = list.items.find((i) => i.key === "tortilla-large")!;
+    expect(tort.qty).toBe(4);
+    expect(tort.amount).toBe("4 large tortillas");
+    // "I already have" either variant counts
+    expect(list.items.find((i) => i.key === "greek-yogurt-0")!.have).toBe(true);
+  });
+
+  it("counts in shopper units: slices of bread and bacon, pouches of rice, cans", () => {
+    const meals = [
+      { recipe_key: "lib:bacon-eggs-toast", servings: 1 },
+      { recipe_key: "lib:teriyaki-chicken-rice-bowl", servings: 3 },
+      { recipe_key: "lib:tuna-melts", servings: 2 },
+    ].filter((m) => lookup(m.recipe_key));
+    const list = buildGroceryList(meals, lookup);
+    for (const l of list.items) {
+      if (l.key.startsWith("bread-") || l.key === "bacon-cooked") expect(l.amount, l.key).toMatch(/^\d+ slices?$/);
+      if (l.key === "rice-cooked-microwave") {
+        expect(l.amount).toMatch(/^\d+ pouch(es)?$/);
+        expect(l.label).toBe(l.amount); // one pouch is one pack: said once
+      }
+      if (l.key === "tuna-canned") expect(l.amount).toMatch(/^\d+ cans?$/);
+    }
+    expect(list.items.some((l) => l.key === "rice-cooked-microwave")).toBe(true);
+    expect(groceryLineText({ key: "bread-white", qty: 95, unit: "g", label: "1 × 675 g loaf (about 20 slices)", name: "Bread" })).toBe("3 slices · 1 × 675 g loaf (about 20 slices)");
+    expect(groceryLineText({ key: "bacon-cooked", qty: 11, unit: "piece", label: "1 × 375 g pack (about 16 slices)", name: "Bacon" })).toBe("11 slices · 1 × 375 g pack (about 16 slices)");
+    expect(groceryLineText({ key: "rice-cooked-microwave", qty: 1560, unit: "g", label: "7 pouches", name: "Rice" })).toBe("7 pouches · 7 pouches");
   });
 
   it("reports recipes it can't find instead of guessing", () => {
@@ -110,6 +177,7 @@ describe("shopper text", () => {
     expect(packLabel("675 g loaf (about 20 slices)", 2)).toBe("2 × 675 g loaves (about 20 slices)");
     expect(packLabel("1 bunch", 2)).toBe("2 bunches");
     expect(packLabel("1 whole chicken (about 600 g meat)", 1)).toBe("1 whole chicken (about 600 g meat)");
+    expect(packLabel("1 whole chicken (about 600 g meat)", 2)).toBe("2 whole chickens (about 600 g meat)");
     expect(packLabel("bunch of about 6", 1)).toBe("1 bunch of about 6");
     expect(packLabel("6 bagels", 2)).toBe("2 × 6 bagels");
   });

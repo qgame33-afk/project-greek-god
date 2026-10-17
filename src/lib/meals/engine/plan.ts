@@ -5,7 +5,8 @@
 
 import { addDays, daysBetween, weekStart as mondayOf, type ISODate } from "@/lib/dates";
 import { LIBRARY, getLibraryRecipe } from "../library";
-import { recipeMacros, recipeFeatures, validateRecipe } from "../recipe";
+import { shopKey } from "../ingredients";
+import { coreIngredients, recipeMacros, recipeFeatures, validateRecipe } from "../recipe";
 import type { FeedbackEvent, FeedbackReason, FeedbackRow, Macros, MealPrefs, PlannedMeal, Recipe, Slot, WhyReason } from "../types";
 import { candidatesFor, type Favourite } from "./constraints";
 import { explainPick, repeatReason } from "./explain";
@@ -153,6 +154,8 @@ interface Prepared {
   hasHistory: boolean;
   seed: string;
   places: { slot: Slot; position: number }[];
+  /** First day planned (and shopped for): meals before it don't count toward the week's list. */
+  from: ISODate;
 }
 
 function prepare(input: PlanContext): Prepared {
@@ -178,7 +181,15 @@ function prepare(input: PlanContext): Prepared {
     hasHistory: learned.events >= 5 || (ctx.history?.length ?? 0) >= 7,
     seed: ctx.seed ?? ctx.weekStart,
     places,
+    from: planFrom(ctx.weekStart, ctx.today, ctx.wholeWeek),
   };
+}
+
+/** Ingredients the week's other meals already put on the grocery list (from `P.from` on). */
+function weekIngredients(P: Prepared, others: readonly Placed[]): Set<string> {
+  const out = new Set<string>();
+  for (const p of others) if (p.recipe && p.meal.local_date >= P.from) for (const l of coreIngredients(p.recipe)) out.add(shopKey(l.key));
+  return out;
 }
 
 interface Placed {
@@ -250,6 +261,7 @@ function choose(P: Prepared, a: ChooseArgs): { candidate: ScoredCandidate; relax
   if (!recipes.length) return null;
   const dayMeals = others.filter((p) => p.meal.local_date === a.date && p.recipe).map((p) => ({ recipe: p.recipe!, servings: p.meal.servings }));
   const nearby = nearbyFor(P, others, a.date);
+  const onList = weekIngredients(P, others);
   let scored = recipes.map((r) =>
     scoreRecipe(r, {
       slot: a.slot,
@@ -265,6 +277,7 @@ function choose(P: Prepared, a: ChooseArgs): { candidate: ScoredCandidate; relax
       seed: P.seed,
       attempt: a.attempt,
       hasHistory: P.hasHistory,
+      weekIngredients: onList,
     }),
   );
   if (a.only) scored = scored.filter(a.only);

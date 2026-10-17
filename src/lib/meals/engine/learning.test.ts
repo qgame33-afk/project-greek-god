@@ -88,12 +88,18 @@ describe("learning from feedback, over many planned weeks", () => {
   }, 120_000);
 
   it("likes raise what was liked in recipes never rated, and every week stays varied", () => {
-    const pasta = has(/^base:pasta$/);
-    const before = tally([], pasta, LIKES);
-    const after = tally(rows(LIKES, "thumbs_up"), pasta, LIKES);
-    expect(after.unrated).toBeGreaterThan(before.unrated);
+    const beefLikes = ["lib:double-cheeseburger", "lib:sloppy-joes", "lib:meatball-sub"];
+    const beef = has(/^protein:beef$/);
+    const before = tally([], beef, beefLikes);
+    const after = tally(rows(beefLikes, "thumbs_up"), beef, beefLikes);
+    expect(after.unrated).toBeGreaterThan(before.unrated * 1.2);
     expect(after.minDistinct).toBeGreaterThanOrEqual(33);
     expect(after.maxRepeat).toBe(1);
+    // liked Everyday pasta dishes come back for a Super Easy cook (they asked), still varied
+    const pasta = tally(rows(LIKES, "thumbs_up"), has(/^base:pasta$/), []);
+    expect(pasta.unrated).toBeGreaterThan(tally([], has(/^base:pasta$/), []).unrated);
+    expect(pasta.minDistinct).toBeGreaterThanOrEqual(33);
+    expect(pasta.maxRepeat).toBe(1);
   }, 60_000);
 
   it("dislikes plus likes together: seafood still falls, and the panel never says 'less of quick meals'", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getLibraryRecipe } from "./library";
+import { getLibraryRecipe, LIBRARY } from "./library";
 import {
   applyShortcut,
   costBucket,
@@ -13,6 +13,7 @@ import {
   recipeCostCad,
   recipeFeatures,
   recipeMacros,
+  recipeMacrosExact,
   scaleIngredients,
   superEasyIssues,
   timeBucket,
@@ -64,6 +65,15 @@ describe("nutrition (hand-checked against the ingredient database)", () => {
     expect(recipeMacros(r, 0.5)).toEqual({ kcal: 462, protein: 25.8, carbs: 58.1, fat: 13.3 });
     expect(recipeMacros(r, 0)).toEqual({ kcal: 0, protein: 0, carbs: 0, fat: 0 });
     expect(recipeMacros(r, Number.NaN).kcal).toBe(0);
+  });
+
+  it("exact macros scaled then rounded match the card for every serving step (no 1 kcal drift)", () => {
+    for (const r of LIBRARY.slice(0, 40)) {
+      for (const s of [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3]) {
+        expect(Math.round(recipeMacrosExact(r, s).kcal), `${r.key} × ${s}`).toBe(recipeMacros(r, s).kcal);
+        expect(Math.round(recipeMacrosExact(r, 1).kcal * s), `${r.key} × ${s}`).toBe(recipeMacros(r, s).kcal);
+      }
+    }
   });
 
   it("Protein Shake with Milk: whey 31 g + 2% milk 1¼ cups (312.5 mL × 1.03)", () => {

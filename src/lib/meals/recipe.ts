@@ -108,6 +108,18 @@ export function recipeMacros(recipe: Recipe, servings = 1, opts: { includeOption
   return tidy({ kcal: base.kcal * s, protein: base.protein * s, carbs: base.carbs * s, fat: base.fat * s });
 }
 
+/**
+ * Unrounded nutrition for `servings` — for code that scales macros itself. Scale this, then
+ * round: `recipeMacros(recipe, 1)` is already rounded, and multiplying a rounded per-serving
+ * value drifts from what cards show (`recipeMacros(recipe, servings)`) by about 1 kcal.
+ */
+export function recipeMacrosExact(recipe: Recipe, servings = 1): Macros {
+  const s = Number.isFinite(servings) && servings > 0 ? servings : 0;
+  if (!Array.isArray(recipe?.ingredients)) return { ...ZERO };
+  const base = sumLines(recipe.ingredients, false);
+  return { kcal: base.kcal * s, protein: base.protein * s, carbs: base.carbs * s, fat: base.fat * s };
+}
+
 const ALLERGEN_ORDER = new Map<string, number>(ALLERGENS.map((a, i) => [a, i]));
 const KIND_ORDER = new Map<string, number>(KINDS.map((k, i) => [k, i]));
 

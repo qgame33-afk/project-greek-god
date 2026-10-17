@@ -98,6 +98,11 @@ export function explainPick(c: ScoredCandidate, ctx: ExplainContext, final?: { s
     const keys = (pantry.data?.keys as string[]) ?? [];
     add("pantry", `Uses what you have: ${list(keys.map((k) => ingredientInline(k)))}`, pantry.value);
   }
+  const reuse = get("reuse");
+  if (reuse && reuse.value > 0) {
+    const keys = ((reuse.data?.keys as string[]) ?? []).slice(0, 3);
+    if (keys.length) add("pantry", `Shares ingredients with your week: ${list(keys.map((k) => ingredientInline(k)))}`, reuse.value);
+  }
 
   // fit
   const diff = get("difficulty");

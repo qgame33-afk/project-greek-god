@@ -7,6 +7,8 @@ import {
   gramsToPackUnits,
   ingredientCostCad,
   ingredientInline,
+  SHOP_SWAPS,
+  shopKey,
   shortcutFor,
 } from "./ingredients";
 import { GROCERY_CATEGORY_LABEL } from "./types";
@@ -163,5 +165,23 @@ describe("conversions", () => {
     expect(dislikeCovers("onion").has("frozen-peppers-onions")).toBe(true);
     expect(dislikeCovers("eggs").has("egg-whites")).toBe(true);
     expect([...dislikeCovers("mushrooms")]).toEqual(["mushrooms"]);
+  });
+
+  it("interchangeable shopping variants never differ in allergens or diet kinds", () => {
+    for (const g of SHOP_SWAPS) {
+      const [first, ...rest] = g.keys.map((k) => getIngredient(k)!);
+      for (const e of rest) {
+        expect([...e.allergens].sort(), `${first.key} vs ${e.key}`).toEqual([...first.allergens].sort());
+        expect([...e.kinds].sort(), `${first.key} vs ${e.key}`).toEqual([...first.kinds].sort());
+        expect(e.category).toBe(first.category);
+      }
+      if (g.always) expect(g.keys).toContain(g.always);
+      for (const k of g.keys) expect(shopKey(k)).toBe(g.keys[0]);
+    }
+    expect(shopKey("eggs")).toBe("eggs");
+  });
+
+  it("every shopper unit converts to grams", () => {
+    for (const e of INGREDIENTS) if (e.shopUnit) expect(gramsFor(e.key, 1, e.shopUnit), e.key).toBeGreaterThan(0);
   });
 });

@@ -6,7 +6,7 @@ import { candidatesFor, exclusions, hardAllowed } from "./constraints";
 import { explainPick } from "./explain";
 import { EMPTY_MODEL, learnPrefs } from "./prefs";
 import { rngFor } from "./rng";
-import { bestServings, rankCandidates, scoreRecipe, selectCandidate, slotTarget, type ScoreContext } from "./score";
+import { bestServings, rankCandidates, REUSE, scoreRecipe, selectCandidate, slotTarget, type ScoreContext } from "./score";
 
 const NOW = "2026-10-16T12:00:00Z";
 const GOALS = { kcal: 3300, protein: 185 };
@@ -155,6 +155,24 @@ describe("scoreRecipe", () => {
     expect(cuisine).toBeGreaterThan(base);
     const disliked = scoreRecipe(tacos, sctx({ prefs: { ...DEFAULT_PREFS, dislikedCuisines: ["mexican"] } })).terms.taste;
     expect(disliked).toBeLessThan(base);
+  });
+
+  it("reuse: rewards what the week's list already has, costs new and mostly-wasted packs", () => {
+    const tacos = R("lib:beef-tacos");
+    const reuse = (c: ReturnType<typeof scoreRecipe>) => c.parts.find((p) => p.key === "reuse");
+    expect(reuse(scoreRecipe(tacos, sctx()))).toBeUndefined(); // no week context, no term
+    const empty = reuse(scoreRecipe(tacos, sctx({ weekIngredients: new Set() })))!;
+    expect(empty.value).toBeLessThan(0);
+    const onList = new Set(["ground-beef-lean", "taco-shells", "cheddar", "salsa", "lettuce", "tomato"]);
+    const shared = reuse(scoreRecipe(tacos, sctx({ weekIngredients: onList })))!;
+    expect(shared.value).toBeGreaterThan(0);
+    expect(shared.value).toBeLessThanOrEqual(REUSE.max);
+    // a variant already on the list counts (one tub of Greek yogurt for 0% and 2%)
+    const yogurt = LIBRARY.find((r) => r.ingredients.some((l) => l.key === "greek-yogurt-2" && !l.optional))!;
+    expect(reuse(scoreRecipe(yogurt, sctx({ slot: yogurt.slots[0], weekIngredients: new Set(["greek-yogurt-0"]) })))!.data!.keys).toContain("greek-yogurt-2");
+    // "Why this meal?" says so, with the real ingredients
+    const why = explainPick(scoreRecipe(tacos, sctx({ weekIngredients: onList })), { slot: "dinner", learned: EMPTY_MODEL, nameOf: (k) => getLibraryRecipe(k)?.name });
+    expect(why.map((w) => w.text).join(" | ")).toMatch(/Shares ingredients with your week: /);
   });
 
   it("variety: same protein the same day, the same dish within 5 days, recent repeats", () => {

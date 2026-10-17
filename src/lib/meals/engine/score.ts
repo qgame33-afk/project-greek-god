@@ -8,8 +8,8 @@
 // pick among unseen recipes in that top 8.
 
 import { daysBetween, type ISODate } from "@/lib/dates";
-import { dislikeCovers } from "../ingredients";
-import { coreIngredients, ingredientCount, recipeCostCad, recipeFeatures, recipeMacros } from "../recipe";
+import { dislikeCovers, getIngredient, gramsToPackUnits, shopKey } from "../ingredients";
+import { coreIngredients, ingredientCount, lineGrams, recipeCostCad, recipeFeatures, recipeMacros } from "../recipe";
 import type { Difficulty, Macros, MealPrefs, Recipe, Slot } from "../types";
 import type { Favourite } from "./constraints";
 import { familyScales, type LearnedModel } from "./prefs";
@@ -86,6 +86,22 @@ export const VARIETY = {
   cooldown: -1.2,
 } as const;
 
+/**
+ * Reusing what's already on the week's grocery list (docs/MEALS.md §5): each ingredient the
+ * week already buys earns `shared` (up to `max`); each one it would add costs `fresh`, plus
+ * `waste` per dollar of the new pack this meal leaves unused (up to `wasteMax`): a 540 mL can
+ * of maple syrup for one drizzle is a poor buy. Shorter, cheaper lists, variety intact.
+ */
+export const REUSE = { shared: 0.12, max: 0.4, fresh: 0.05, waste: 0.02, wasteMax: 0.3 } as const;
+
+/** The checkout money a new pack of `key` leaves unused when this meal is its only use (CAD). */
+function unusedPackCad(key: string, grams: number): number {
+  const e = getIngredient(key);
+  if (!e?.pack || e.staple) return 0;
+  const used = Math.min(1, (gramsToPackUnits(key, grams)?.qty ?? 0) / e.pack.size);
+  return e.pack.priceCad * (1 - used);
+}
+
 /* ------------------------------------------------------------------ scoring */
 
 export type Term = "fit" | "taste" | "variety" | "macro" | "explore";
@@ -137,6 +153,8 @@ export interface ScoreContext {
   attempt?: number;
   /** "New for you" only means something once the user has some history. */
   hasHistory?: boolean;
+  /** Ingredients already on this week's grocery list (shopKey of each core ingredient), for the reuse term. */
+  weekIngredients?: ReadonlySet<string>;
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
@@ -230,6 +248,23 @@ export function scoreRecipe(recipe: Recipe, ctx: ScoreContext): ScoredCandidate 
   if (pantry.length) push("taste", "pantry", Math.min(0.3, 0.1 * pantry.length), { keys: pantry });
   const fav = ctx.favourites?.get(recipe.key);
   if (fav) push("taste", "favourite", 0.6);
+
+  /* ---- reuse: what the week's grocery list already has */
+  if (ctx.weekIngredients) {
+    const shared: string[] = [];
+    let fresh = 0;
+    let unused = 0;
+    for (const l of coreIngredients(recipe)) {
+      if (ctx.weekIngredients.has(shopKey(l.key))) {
+        if (!shared.includes(l.key)) shared.push(l.key);
+      } else if (!prefs.pantry.includes(l.key)) {
+        fresh++;
+        unused += unusedPackCad(l.key, (lineGrams(l) ?? 0) * servings);
+      }
+    }
+    const v = Math.min(REUSE.max, REUSE.shared * shared.length) - REUSE.fresh * fresh - Math.min(REUSE.wasteMax, REUSE.waste * unused);
+    push("fit", "reuse", v, { keys: shared, fresh, unusedCad: Math.round(unused * 100) / 100 });
+  }
 
   /* ---- 4. variety */
   const proteins = tagValues(recipe, "protein:");

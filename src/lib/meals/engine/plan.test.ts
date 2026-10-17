@@ -3,6 +3,7 @@ import { LIBRARY, getLibraryRecipe } from "../library";
 import { ingredientCount, recipeConflicts, recipeFeatures, recipeMacros } from "../recipe";
 import { DEFAULT_PREFS, type FeedbackEvent, type FeedbackReason, type FeedbackRow, type MealPrefs, type Recipe } from "../types";
 import { WEEK_REPEAT_CAP } from "./constraints";
+import { buildGroceryList } from "./grocery";
 import { buildPool, dayTotals, generateWeek, lockMeal, moveMeal, planFrom, regenerateMeal, repeatMeal, setServings, undoRegenerate, type EngineMeal, type PlanContext } from "./plan";
 
 const NOW = "2026-10-16T12:00:00Z";
@@ -294,6 +295,41 @@ describe("planning the current week mid-week", () => {
     for (const [k, n] of perWeek) expect(n, k).toBeLessThanOrEqual(WEEK_REPEAT_CAP);
     expect(w.unfilled).toBe(7 * 5 - w.meals.length);
     if (w.unfilled) expect(w.warnings.some((x) => x.startsWith("Nothing in your recipes fits"))).toBe(true);
+  });
+});
+
+describe("the week's grocery list", () => {
+  it("stays short and cheap: ingredients are reused across the week, one line per food", () => {
+    let lines = 0;
+    let checkout = 0;
+    let uses = 0;
+    for (const seed of SEEDS.slice(0, 8)) {
+      const w = generateWeek(ctx({ seed }));
+      const list = buildGroceryList(w.meals, lookup);
+      const buys = list.items.filter((l) => !l.staple);
+      lines += buys.length;
+      checkout += list.totals.checkoutCad;
+      uses += buys.reduce((n, l) => n + l.uses.length, 0);
+      expect(new Set(buys.map((l) => l.name)).size, seed).toBe(buys.length);
+      for (const g of [["greek-yogurt-0", "greek-yogurt-2"], ["bread-white", "bread-whole-wheat"], ["tortilla-flour", "tortilla-large"]]) {
+        expect(buys.filter((l) => g.includes(l.key)).length, `${seed} ${g}`).toBeLessThanOrEqual(1);
+      }
+    }
+    expect(lines / 8).toBeLessThanOrEqual(60); // 66 before reuse and variant merging
+    expect(checkout / 8).toBeLessThanOrEqual(445); // $468 before
+    expect(uses / lines).toBeGreaterThanOrEqual(1.9); // most lines feed more than one meal
+  });
+
+  it("mid-week, the list from today covers only the days planned", () => {
+    const FRIDAY = "2026-10-16";
+    const first = withIds(generateWeek(ctx({ seed: "groc" })).meals);
+    const w = generateWeek(ctx({ seed: "groc2", today: FRIDAY, meals: first }));
+    const full = buildGroceryList(w.save, lookup);
+    const fromToday = buildGroceryList(w.save, lookup, undefined, { from: w.from });
+    const planned = new Set(w.meals.map((m) => m.recipe_key));
+    for (const u of fromToday.items.flatMap((l) => l.uses)) expect(planned.has(u.recipe_key), u.recipe_key).toBe(true);
+    expect(fromToday.items.length).toBeLessThan(full.items.length);
+    expect(fromToday.totals.checkoutCad).toBeLessThan(full.totals.checkoutCad);
   });
 });
 

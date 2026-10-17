@@ -23,6 +23,8 @@ export interface IngredientEntry extends IngredientInfo {
   whole?: boolean;
   /** Grams of `shortcut` that replace one gram of this ingredient (raw chicken → cooked ≈ 0.75). Default 1. */
   shortcutFactor?: number;
+  /** The unit a shopper counts it in on the grocery list ("3 slices" of bread, "7 pouches" of rice). Needs `unitGrams` for it. */
+  shopUnit?: Unit;
 }
 
 type P = [kcal: number, protein: number, carbs: number, fat: number];
@@ -112,6 +114,7 @@ export const INGREDIENTS: IngredientEntry[] = [
   I("bacon-cooked", "Bacon", [541, 37, 1.4, 41.8], "meat", PORK, {
     inline: "bacon",
     unitGrams: { slice: 8, piece: 8 },
+    shopUnit: "slice",
     pack: { size: 16, unit: "piece", label: "375 g pack (about 16 slices)", priceCad: 6.99 },
   }),
   I("pepperoni", "Sliced pepperoni", [504, 19.3, 1.2, 46.3], "meat", ["meat", "pork", "beef"], {
@@ -149,6 +152,7 @@ export const INGREDIENTS: IngredientEntry[] = [
     inline: "light tuna, drained",
     allergens: ["fish"],
     unitGrams: { can: 120 },
+    shopUnit: "can",
     pack: { size: 120, unit: "g", label: "170 g can (120 g drained)", priceCad: 1.99 },
   }),
   I("salmon-raw", "Atlantic salmon fillets", [208, 20.4, 0, 13.4], "meat", ["fish"], {
@@ -248,6 +252,7 @@ export const INGREDIENTS: IngredientEntry[] = [
     inline: "processed cheese",
     allergens: ["dairy"],
     unitGrams: { slice: 21, piece: 21 },
+    shopUnit: "slice",
     pack: { size: 16, unit: "piece", label: "16 slices (340 g)", priceCad: 4.99 },
   }),
   I("cream-cheese", "Cream cheese", [342, 5.9, 4.1, 34.2], "dairy_eggs", DAIRY, {
@@ -298,11 +303,13 @@ export const INGREDIENTS: IngredientEntry[] = [
   I("bread-white", "White sandwich bread", [266, 7.6, 50.6, 3.3], "bread_grains", GRAIN, {
     allergens: ["gluten"],
     unitGrams: { slice: 32 },
+    shopUnit: "slice",
     pack: { size: 675, unit: "g", label: "675 g loaf (about 20 slices)", priceCad: 3.49 },
   }),
   I("bread-whole-wheat", "Whole-wheat bread", [252, 12.4, 42.7, 3.5], "bread_grains", GRAIN, {
     allergens: ["gluten"],
     unitGrams: { slice: 35 },
+    shopUnit: "slice",
     pack: { size: 675, unit: "g", label: "675 g loaf (about 19 slices)", priceCad: 3.79 },
   }),
   I("bagel", "Plain bagels", [257, 10, 50.5, 1.6], "bread_grains", GRAIN, {
@@ -370,6 +377,7 @@ export const INGREDIENTS: IngredientEntry[] = [
     inline: "microwave rice",
     unitGrams: { pouch: 250, cup: 160 },
     nouns: { pouch: ["pouch", "pouches"] },
+    shopUnit: "pouch",
     pack: { size: 250, unit: "g", label: "250 g pouch", priceCad: 3.29 },
   }),
   I("oats", "Quick or large-flake oats", [379, 13.2, 67.7, 6.5], "bread_grains", GRAIN, {
@@ -668,6 +676,7 @@ export const INGREDIENTS: IngredientEntry[] = [
     source: "label",
     unitGrams: { pouch: 24, tbsp: 8, tsp: 2.7 },
     nouns: { pouch: ["packet", "packets"] },
+    shopUnit: "pouch",
     pack: { size: 24, unit: "g", label: "24 g packet", priceCad: 1.49 },
   }),
   I("soy-sauce", "Soy sauce", [53, 8.1, 4.9, 0.6], "pantry", PLANT, {
@@ -745,26 +754,31 @@ export const INGREDIENTS: IngredientEntry[] = [
   I("black-beans", "Canned black beans", [132, 8.9, 23.7, 0.5], "pantry", PLANT, {
     inline: "black beans, drained",
     unitGrams: { can: 280, cup: 172 },
+    shopUnit: "can",
     pack: { size: 280, unit: "g", label: "540 mL can (about 280 g drained)", priceCad: 1.69 },
   }),
   I("chickpeas", "Canned chickpeas", [164, 8.9, 27.4, 2.6], "pantry", PLANT, {
     inline: "chickpeas, drained",
     unitGrams: { can: 280, cup: 164 },
+    shopUnit: "can",
     pack: { size: 280, unit: "g", label: "540 mL can (about 280 g drained)", priceCad: 1.69 },
   }),
   I("kidney-beans", "Canned red kidney beans", [127, 8.7, 22.8, 0.5], "pantry", PLANT, {
     inline: "kidney beans, drained",
     unitGrams: { can: 280, cup: 177 },
+    shopUnit: "can",
     pack: { size: 280, unit: "g", label: "540 mL can (about 280 g drained)", priceCad: 1.69 },
   }),
   I("lentils", "Canned lentils", [116, 9, 20.1, 0.4], "pantry", PLANT, {
     inline: "lentils, drained",
     unitGrams: { can: 280, cup: 198 },
+    shopUnit: "can",
     pack: { size: 280, unit: "g", label: "540 mL can (about 280 g drained)", priceCad: 1.79 },
   }),
   I("pineapple-canned", "Canned pineapple tidbits", [60, 0.5, 15.7, 0.1], "pantry", PLANT, {
     inline: "pineapple, drained",
     unitGrams: { can: 225, cup: 165 },
+    shopUnit: "can",
     pack: { size: 225, unit: "g", label: "398 mL can (about 225 g drained)", priceCad: 2.29 },
   }),
   I("brown-sugar", "Brown sugar", [380, 0.1, 98.1, 0], "pantry", PLANT, {
@@ -774,6 +788,7 @@ export const INGREDIENTS: IngredientEntry[] = [
   I("diced-tomatoes", "Canned diced tomatoes", [16, 0.8, 3.5, 0.3], "pantry", PLANT, {
     inline: "canned diced tomatoes",
     unitGrams: { can: 796, cup: 240 },
+    shopUnit: "can",
     pack: { size: 796, unit: "g", label: "796 mL can", priceCad: 1.99 },
   }),
   I("tofu-firm", "Firm tofu", [144, 15.8, 4.3, 8.7], "other", PLANT, {
@@ -954,6 +969,40 @@ const FAMILIES: string[][] = [
   ["milk-2", "milk-whole", "milk-lactose-free"],
   ["eggs", "egg-whites"],
 ];
+
+/**
+ * Variants a shopper can buy one of for every recipe that week: 0% or 2% Greek yogurt, white or
+ * whole-wheat bread, small or large tortillas, cooked strips or a rotisserie chicken, 2% or
+ * whole milk. Same allergens and diet kinds within a group (tested), so a merged line never
+ * breaks a constraint. The grocery list buys the variant the week uses most (or `always`, when
+ * only one can stand in for the other) under the group's `name`; the planner counts a group as
+ * one ingredient when it rewards reuse.
+ */
+export interface ShopSwap {
+  keys: readonly string[];
+  /** Shopper-facing name for the merged line. */
+  name: string;
+  /** The variant always bought (a large tortilla wraps a small recipe; not the other way round). */
+  always?: string;
+}
+export const SHOP_SWAPS: readonly ShopSwap[] = [
+  { keys: ["greek-yogurt-0", "greek-yogurt-2"], name: "Plain Greek yogurt (0% or 2%)" },
+  { keys: ["bread-white", "bread-whole-wheat"], name: "Sandwich bread (white or whole-wheat)" },
+  { keys: ["tortilla-large", "tortilla-flour"], name: "Large flour tortillas (10 inch)", always: "tortilla-large" },
+  { keys: ["chicken-breast-cooked", "rotisserie-chicken"], name: "Ready-to-eat chicken (strips or rotisserie)" },
+  { keys: ["milk-2", "milk-whole"], name: "Milk (2% or whole)" },
+];
+const SHOP_GROUP: ReadonlyMap<string, ShopSwap> = new Map(SHOP_SWAPS.flatMap((g) => g.keys.map((k) => [k, g] as const)));
+
+/** The interchangeable group `key` belongs to, if any. */
+export function shopSwapFor(key: string): ShopSwap | undefined {
+  return SHOP_GROUP.get(key);
+}
+
+/** One key per interchangeable group (its first member), for counting "already on the list". */
+export function shopKey(key: string): string {
+  return SHOP_GROUP.get(key)?.keys[0] ?? key;
+}
 
 /** Mixes that contain other ingredients. Disliking a part excludes the mix. */
 const CONTAINS: Record<string, string[]> = {
