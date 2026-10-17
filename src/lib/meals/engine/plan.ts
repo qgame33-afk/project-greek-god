@@ -60,6 +60,14 @@ export interface PlanContext {
   fixedIds?: readonly string[];
   /** Seed for every random choice (default: the week start). Same seed → same plan. */
   seed?: string;
+  /**
+   * The user's local date (useToday()). When it falls inside the plan week, generateWeek plans
+   * only today and the days after it: meals on earlier days stay exactly as they are (see
+   * `wholeWeek`). Make-ahead recipes (overnight oats) are never planned for today.
+   */
+  today?: ISODate;
+  /** Plan every day of the week, even days already past when `today` is mid-week. Default false. */
+  wholeWeek?: boolean;
 }
 
 export interface DaySummary {
@@ -76,11 +84,23 @@ export interface DaySummary {
 }
 
 export interface WeekResult {
-  /** New picks for every open place (servings set, reasons attached, no ids). */
+  /** New picks for every open place on the planned days (servings set, reasons attached, no ids). */
   meals: EngineMeal[];
-  /** Meals that stay as they were (locked or fixed). */
+  /** Meals that stay as they were: locked, fixed (already logged), or on a day before `from`. */
   kept: EngineMeal[];
+  /**
+   * What to hand to useSavePlan: the new picks plus every kept meal. replace_meal_plan keeps
+   * locked and logged meals itself, but would delete the untouched meals of past days, so they
+   * are written back unchanged (same id, servings, reason and history).
+   */
+  save: EngineMeal[];
+  /** First day planned (today when generating the current week mid-week) and the days planned. */
+  from: ISODate;
+  dates: ISODate[];
+  /** Summaries of the planned days. */
   days: DaySummary[];
+  /** Places on the planned days nothing could fill (also explained in `warnings`). */
+  unfilled: number;
   /** Honest notes: a place nothing fits, a day that can't reach protein with the allowed recipes. */
   warnings: string[];
 }
@@ -225,6 +245,7 @@ function choose(P: Prepared, a: ChooseArgs): { candidate: ScoredCandidate; relax
     weekUses: others.map((p) => ({ recipe_key: p.meal.recipe_key, local_date: p.meal.local_date })),
     favourites: P.favourites,
     exclude: a.exclude,
+    today: ctx.today,
   });
   if (!recipes.length) return null;
   const dayMeals = others.filter((p) => p.meal.local_date === a.date && p.recipe).map((p) => ({ recipe: p.recipe!, servings: p.meal.servings }));
@@ -351,25 +372,55 @@ function checkGoals(goals: Goals) {
   if (!(goals?.kcal > 0) || !(goals?.protein > 0)) throw new Error("Set your calorie and protein goals first.");
 }
 
+/**
+ * The first day a plan (and its grocery list) covers: the Monday, or `today` when it falls
+ * mid-week and `wholeWeek` is off. The day after Sunday when the whole week is already past.
+ */
+export function planFrom(weekStart: ISODate, today?: ISODate | null, wholeWeek = false): ISODate {
+  const monday = mondayOf(weekStart);
+  if (wholeWeek || !today || today <= monday) return monday;
+  return today > addDays(monday, 6) ? addDays(monday, 7) : today;
+}
+
+/** The plan week's days from `from` to Sunday. */
+export function planDates(weekStart: ISODate, from: ISODate): ISODate[] {
+  const monday = mondayOf(weekStart);
+  return Array.from({ length: 7 }, (_, i) => addDays(monday, i)).filter((d) => d >= from);
+}
+
+const engineMeal = (m: EngineMeal): EngineMeal => ({
+  ...(m.id ? { id: m.id } : {}),
+  local_date: m.local_date,
+  slot: m.slot,
+  position: m.position,
+  recipe_key: m.recipe_key,
+  servings: m.servings,
+  locked: m.locked,
+  reason: m.reason ?? null,
+  history: m.history ?? [],
+});
+
 /* ------------------------------------------------------------------ generate week */
 
 /**
- * Plan the whole week: 7 days × breakfast, lunch, dinner and `snacksPerDay` snacks. Locked
+ * Plan the week: each day × breakfast, lunch, dinner and `snacksPerDay` snacks — from `today`
+ * on when it falls mid-week (past days keep their meals; `wholeWeek` plans all 7). Locked
  * meals (and `fixedIds`) stay where they are and count toward variety and day totals. Each
  * pick's servings land near its slot target; each day is then balanced to ±12% kcal and ≥ 90%
- * protein where possible. Same context + seed → same plan.
+ * protein where possible. Same context + seed → same plan. Save `save`, not `meals`.
  */
 export function generateWeek(ctx: PlanContext): WeekResult {
   checkGoals(ctx.goals);
   const P = prepare(ctx);
-  const monday = mondayOf(ctx.weekStart);
-  const dates = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+  const from = planFrom(ctx.weekStart, ctx.today, ctx.wholeWeek);
+  const dates = planDates(ctx.weekStart, from);
   const fixedIds = new Set(ctx.fixedIds ?? []);
-  const kept = (ctx.meals ?? []).filter((m) => m.locked || (m.id && fixedIds.has(m.id)));
+  const kept = (ctx.meals ?? []).filter((m) => m.locked || (m.id && fixedIds.has(m.id)) || m.local_date < from);
   // regenerating a week: the meal being replaced in each place isn't picked there again (unless nothing else fits)
   const replaced = (ctx.meals ?? []).filter((m) => !kept.includes(m));
   const placed: Placed[] = kept.map((m) => ({ meal: m, recipe: P.byKey.get(m.recipe_key), fixed: true }));
   const warnings: string[] = [];
+  let unfilled = 0;
 
   for (const date of dates) {
     for (const { slot, position } of P.places) {
@@ -378,6 +429,7 @@ export function generateWeek(ctx: PlanContext): WeekResult {
       const before = replaced.find((m) => samePlace(m, { local_date: date, slot, position }));
       const res = (before && choose(P, { date, slot, position, placed, target, attempt: 0, exclude: new Set([before.recipe_key]) })) || choose(P, { date, slot, position, placed, target, attempt: 0 });
       if (!res) {
+        unfilled++;
         warnings.push(`Nothing in your recipes fits ${slot === "snack" ? "a snack" : slot} on ${date} with your current settings.`);
         continue;
       }
@@ -394,10 +446,13 @@ export function generateWeek(ctx: PlanContext): WeekResult {
 
   const days = dates.map((d) => summarize(P, placed, d));
   for (const d of days) if (d.meals && !d.proteinOk) warnings.push(`${d.date}: ${Math.round(d.planned.protein)} g protein planned, under 90% of your ${d.proteinGoal} g goal with the recipes your settings allow.`);
-  const meals = placed
-    .filter((p) => !p.fixed)
-    .map((p) => ({ ...p.meal, reason: p.candidate ? explainPick(p.candidate, { slot: p.meal.slot, learned: P.learned, nameOf: P.nameOf }, { servings: p.meal.servings, macros: macrosOf(p.recipe, p.meal.servings) }) : null }));
-  return { meals: sortMeals(meals), kept: sortMeals(kept), days, warnings };
+  const meals = sortMeals(
+    placed
+      .filter((p) => !p.fixed)
+      .map((p) => ({ ...p.meal, reason: p.candidate ? explainPick(p.candidate, { slot: p.meal.slot, learned: P.learned, nameOf: P.nameOf }, { servings: p.meal.servings, macros: macrosOf(p.recipe, p.meal.servings) }) : null })),
+  );
+  const keptMeals = sortMeals(kept.map(engineMeal));
+  return { meals, kept: keptMeals, save: sortMeals([...meals, ...keptMeals]), from, dates, days, unfilled, warnings };
 }
 
 const SLOT_ORDER: Record<Slot, number> = { breakfast: 0, lunch: 1, dinner: 2, snack: 3 };

@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { LIBRARY, getLibraryRecipe } from "../library";
 import { ingredientCount, recipeConflicts, recipeFeatures, recipeMacros } from "../recipe";
 import { DEFAULT_PREFS, type FeedbackEvent, type FeedbackReason, type FeedbackRow, type MealPrefs, type Recipe } from "../types";
-import { buildPool, dayTotals, generateWeek, lockMeal, moveMeal, regenerateMeal, repeatMeal, setServings, undoRegenerate, type EngineMeal, type PlanContext } from "./plan";
+import { WEEK_REPEAT_CAP } from "./constraints";
+import { buildPool, dayTotals, generateWeek, lockMeal, moveMeal, planFrom, regenerateMeal, repeatMeal, setServings, undoRegenerate, type EngineMeal, type PlanContext } from "./plan";
 
 const NOW = "2026-10-16T12:00:00Z";
 const WEEK = "2026-10-12"; // a Monday
@@ -230,6 +231,69 @@ describe("locked meals", () => {
         expect(m.recipe_key, `${seed} ${m.local_date} ${m.slot}`).not.toBe(was.recipe_key);
       }
     }
+  });
+});
+
+describe("planning the current week mid-week", () => {
+  const FRIDAY = "2026-10-16";
+  const before = withIds(generateWeek(ctx({ seed: "mid:a" })).meals);
+
+  it("plans from today on and leaves the days already past exactly as they were", () => {
+    const next = generateWeek(ctx({ seed: "mid:b", meals: before, today: FRIDAY }));
+    expect(next.from).toBe(FRIDAY);
+    expect(next.dates).toEqual(["2026-10-16", "2026-10-17", "2026-10-18"]);
+    expect(next.meals).toHaveLength(3 * 5);
+    for (const m of next.meals) expect(m.local_date >= FRIDAY).toBe(true);
+    const past = before.filter((m) => m.local_date < FRIDAY);
+    expect(next.kept).toEqual(past);
+    // what to save: the new picks plus the untouched past days (same ids, servings, reasons)
+    expect(next.save).toHaveLength(35);
+    for (const p of past) expect(next.save).toContainEqual(p);
+    expect(next.days.map((d) => d.date)).toEqual(next.dates);
+    // the past days still count for variety: nothing planned Mon–Thu comes back Fri–Sun
+    const pastKeys = new Set(past.map((m) => m.recipe_key));
+    for (const m of next.meals) expect(pastKeys.has(m.recipe_key), m.recipe_key).toBe(false);
+  });
+
+  it("plans the whole week when asked, and next week in full", () => {
+    expect(generateWeek(ctx({ seed: "mid:b", meals: before, today: FRIDAY, wholeWeek: true })).meals).toHaveLength(35);
+    const next = generateWeek(ctx({ weekStart: "2026-10-19", seed: "n", today: FRIDAY }));
+    expect(next.from).toBe("2026-10-19");
+    expect(next.meals).toHaveLength(35);
+    expect(planFrom(WEEK, "2026-10-12")).toBe(WEEK);
+    expect(planFrom(WEEK, "2026-10-20")).toBe("2026-10-19"); // the whole week is past: nothing to plan
+    expect(planFrom(WEEK, FRIDAY, true)).toBe(WEEK);
+    expect(planFrom(WEEK, null)).toBe(WEEK);
+  });
+
+  it("never puts a make-ahead recipe (overnight oats) on today", () => {
+    const oats = "lib:overnight-protein-oats";
+    const liked = [fb(oats, "thumbs_up"), fb(oats, "saved"), fb(oats, "logged", null, 2)];
+    let tomorrow = 0;
+    for (const seed of SEEDS) {
+      const w = generateWeek(ctx({ seed, today: FRIDAY, feedback: liked, favourites: [{ recipe_key: oats, repeat_ok: true }] }));
+      for (const m of w.meals) if (m.recipe_key === oats) expect(m.local_date, seed).not.toBe(FRIDAY);
+      tomorrow += w.meals.filter((m) => m.recipe_key === oats).length;
+      const regen = regenerateMeal(ctx({ seed, today: FRIDAY, meals: withIds(w.save), feedback: liked }), withIds(w.save).find((m) => m.local_date === FRIDAY && m.slot === "breakfast")!);
+      if (regen.ok) expect(regen.recipe.key).not.toBe(oats);
+    }
+    expect(tomorrow).toBeGreaterThan(0); // still planned on other days
+  });
+
+  it("never repeats one recipe twice in a day, even with very few recipes allowed", () => {
+    const tight: MealPrefs = { ...DEFAULT_PREFS, allergies: ["dairy", "egg", "gluten", "peanut", "tree_nut", "soy", "fish", "shellfish", "sesame"], diets: ["vegetarian"], equipment: ["microwave"], maxMinutes: 10 };
+    const w = generateWeek(ctx({ prefs: tight, seed: "tight" }));
+    const perDay = new Map<string, number>();
+    const perWeek = new Map<string, number>();
+    for (const m of w.meals) {
+      const k = `${m.local_date}|${m.recipe_key}`;
+      perDay.set(k, (perDay.get(k) ?? 0) + 1);
+      perWeek.set(m.recipe_key, (perWeek.get(m.recipe_key) ?? 0) + 1);
+    }
+    for (const [k, n] of perDay) expect(n, k).toBe(1);
+    for (const [k, n] of perWeek) expect(n, k).toBeLessThanOrEqual(WEEK_REPEAT_CAP);
+    expect(w.unfilled).toBe(7 * 5 - w.meals.length);
+    if (w.unfilled) expect(w.warnings.some((x) => x.startsWith("Nothing in your recipes fits"))).toBe(true);
   });
 });
 

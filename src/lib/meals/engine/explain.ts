@@ -7,7 +7,7 @@ import { ingredientInline } from "../ingredients";
 import { ingredientCount, recipeCostCad } from "../recipe";
 import type { Difficulty, FeedbackEvent, Macros, Recipe, Slot, WhyReason } from "../types";
 import { featureKind, featureShort, likedRecipesWith, type LearnedModel, type NameOf } from "./prefs";
-import { featuresOf, type ScoredCandidate, type ScorePart } from "./score";
+import { featureScalesOf, type ScoredCandidate, type ScorePart } from "./score";
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = { super_easy: "Super Easy", everyday: "Everyday", i_like_cooking: "I Like Cooking" };
 const SLOT_LABEL: Record<Slot, string> = { breakfast: "breakfast", lunch: "lunch", dinner: "dinner", snack: "a snack" };
@@ -32,13 +32,11 @@ function ownLikeText(counts: Partial<Record<FeedbackEvent, number>> | undefined)
   return null;
 }
 
-/** What this recipe's own feedback added to its taste score (same normalisation as scoring). */
+/** What this recipe's own feedback added to its taste score (same family scales as scoring). */
 function ownContribution(recipe: Recipe, learned: LearnedModel): number {
-  const feats = featuresOf(recipe);
-  if (!feats.length) return 0;
   let sum = 0;
-  for (const f of feats) for (const c of learned.contributions[f] ?? []) if (c.recipe_key === recipe.key) sum += c.value;
-  return sum / Math.sqrt(feats.length);
+  for (const [f, scale] of featureScalesOf(recipe)) for (const c of learned.contributions[f] ?? []) if (c.recipe_key === recipe.key) sum += c.value * scale;
+  return sum;
 }
 
 export interface ExplainContext {

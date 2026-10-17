@@ -2,16 +2,25 @@
 // feedback rows every time: nothing is invented and nothing is stored separately, so deleting
 // feedback (the "reset" in preferences) resets the model. Pure functions, no I/O.
 //
-//   w[f] += signal × decay(age) / sqrt(|features|)   for each feature f in the event's snapshot
-//   decay = 0.5^(age days / 60), weights clamped to [−3, 3].
+//   w[f] += signal × decay(age) × FAMILY_WEIGHT[family(f)] / sqrt(|features of that family|)
+//   for each TASTE feature f of the event's snapshot (cuisine, protein, group, base, style,
+//   dish, ing); decay = 0.5^(age days / 60), weights clamped to [−3, 3].
 //
-// Reasons change what is learned: "too complicated" / "too long" / "too expensive" move only the
-// effort, time or cost features (not taste) — never toward harder, longer or pricier meals, so
-// the easiest bucket of each is left alone — "don't like" is a full −1.0, "ate recently" only
-// puts the recipe on a 14-day cooldown.
+// Each family gets its own share, so one thumbs down moves "protein:tuna" and "dish:tuna-melt"
+// clearly (and reaches every tuna recipe), while the long tail of ingredients shares one share
+// instead of drowning them out. Scoring (score.ts) reads the weights back with the same family
+// scales.
+//
+// Taste signals (thumbs, favourites, logged, cooked, kept, regenerated, "don't like") never
+// touch the time:, effort: or cost: buckets: disliking a quick tuna melt is about tuna, not about
+// quick meals. Those buckets are learned ONLY from the explicit reasons — "too complicated" /
+// "too long" / "too expensive" — and only ever away from harder, longer or pricier meals (the
+// easiest bucket of each is never penalised). "Ate recently" only puts the recipe on a 14-day
+// cooldown.
 
 import { getLibraryRecipe } from "../library";
 import { ingredientInline, ingredientName } from "../ingredients";
+import { groupFeatures } from "../recipe";
 import type { FeedbackEvent, FeedbackReason, FeedbackRow } from "../types";
 
 /* ------------------------------------------------------------------ constants */
@@ -43,6 +52,59 @@ export const REASON_PENALTY = 0.8;
 export const DONT_LIKE_SIGNAL = -1.0;
 /** The simpler bias is the decayed count of "too complicated" (plus ½ per "make this easier"), capped. */
 export const SIMPLER_CAP = 3;
+
+/** Feature families: the prefix before ":" ("protein:tuna" → "protein"). */
+export type FeatureFamily = "cuisine" | "protein" | "group" | "base" | "style" | "dish" | "ing" | "time" | "effort" | "cost" | "other";
+const FAMILIES: readonly FeatureFamily[] = ["cuisine", "protein", "group", "base", "style", "dish", "ing", "time", "effort", "cost"];
+
+export function featureFamily(f: string): FeatureFamily {
+  const p = f.slice(0, Math.max(0, f.indexOf(":")));
+  return (FAMILIES as readonly string[]).includes(p) ? (p as FeatureFamily) : "other";
+}
+
+/**
+ * How much of one taste signal each family takes (learning), and how much a weight in that
+ * family moves a recipe's score (score.ts), both split over the features of that family.
+ * Specific families (the protein, the dish, the ingredients) carry the most; broad ones
+ * (cuisine: half the library is "american") the least, so a dislike reaches similar dishes
+ * without pushing whole cuisines away. Buckets are learned only from reasons.
+ */
+export const FAMILY_WEIGHT: Readonly<Record<FeatureFamily, number>> = {
+  protein: 0.5,
+  group: 0.35,
+  dish: 0.4,
+  ing: 0.45,
+  cuisine: 0.25,
+  style: 0.25,
+  base: 0.25,
+  other: 0.2,
+  time: 0.3,
+  effort: 0.3,
+  cost: 0.3,
+};
+
+/** The time:, effort: and cost: buckets: learned only from "too complicated / too long / too expensive". */
+export const isBucketFeature = (f: string) => {
+  const fam = featureFamily(f);
+  return fam === "time" || fam === "effort" || fam === "cost";
+};
+
+/**
+ * The taste features of a snapshot: no buckets, plus the groups its proteins imply (older
+ * snapshots were stored before `group:` features existed).
+ */
+export function tasteFeatures(features: readonly string[]): string[] {
+  const out = new Set(features.filter((f) => typeof f === "string" && f.length > 0 && !isBucketFeature(f)));
+  for (const g of groupFeatures(out)) out.add(g);
+  return [...out];
+}
+
+/** Each feature's share of a signal or score: FAMILY_WEIGHT[family] / sqrt(features in that family). */
+export function familyScales(features: readonly string[]): Map<string, number> {
+  const count = new Map<FeatureFamily, number>();
+  for (const f of features) count.set(featureFamily(f), (count.get(featureFamily(f)) ?? 0) + 1);
+  return new Map(features.map((f) => [f, FAMILY_WEIGHT[featureFamily(f)] / Math.sqrt(count.get(featureFamily(f)) ?? 1)]));
+}
 
 /** Events that count as the user liking a recipe, for naming liked recipes ("You liked Beef Tacos"). */
 const LIKE_EVENTS: ReadonlySet<FeedbackEvent> = new Set(["thumbs_up", "saved", "repeated", "logged", "cooked", "kept"]);
@@ -160,14 +222,13 @@ export function learnPrefs(rows: readonly FeedbackRow[], now: Date | string | nu
     seen.add(row.recipe_key);
     const d = decay(row.created_at, nowMs);
     const feats = [...new Set((row.features ?? []).filter((f) => typeof f === "string" && f.length > 0))];
-    const norm = feats.length ? 1 / Math.sqrt(feats.length) : 0;
     const reason = row.reason ?? null;
     const at = Date.parse(row.created_at);
 
-    // taste spread over every feature of the snapshot
+    // taste, spread over the snapshot's taste features family by family (never the buckets)
     if (!reason || !NON_TASTE.has(reason)) {
       const signal = reason === "dont_like" ? Math.min(DONT_LIKE_SIGNAL, SIGNAL[row.event]) : SIGNAL[row.event];
-      for (const f of feats) add(f, signal * d * norm, row);
+      for (const [f, scale] of familyScales(tasteFeatures(feats))) add(f, signal * d * scale, row);
     }
 
     // targeted lessons from reasons
@@ -245,9 +306,13 @@ const words = (slug: string) => slug.replace(/-/g, " ");
 
 export type FeatureKind = "cuisine" | "protein" | "base" | "style" | "dish" | "ingredient" | "time" | "effort" | "cost" | "other";
 
+const GROUP: Record<string, [label: string, short: string]> = { seafood: ["Fish and seafood", "fish and seafood"] };
+
+/** What a feature is about, for the UI. A protein group ("group:seafood") reads as a protein. */
 export function featureKind(f: string): FeatureKind {
   const p = f.slice(0, f.indexOf(":"));
   if (p === "ing") return "ingredient";
+  if (p === "group") return "protein";
   return (["cuisine", "protein", "base", "style", "dish", "time", "effort", "cost"] as const).find((k) => k === p) ?? "other";
 }
 
@@ -255,6 +320,7 @@ export function featureKind(f: string): FeatureKind {
 export function featureLabel(f: string): string {
   const i = f.indexOf(":");
   const v = i >= 0 ? f.slice(i + 1) : f;
+  if (f.startsWith("group:")) return GROUP[v]?.[0] ?? cap(words(v));
   switch (featureKind(f)) {
     case "cuisine":
       return CUISINE[v] ?? `${cap(words(v))} food`;
@@ -286,6 +352,7 @@ export function featureLabel(f: string): string {
 export function featureShort(f: string): string {
   const i = f.indexOf(":");
   const v = i >= 0 ? f.slice(i + 1) : f;
+  if (f.startsWith("group:")) return GROUP[v]?.[1] ?? words(v);
   switch (featureKind(f)) {
     case "cuisine":
       return v === "breakfast" ? "breakfast classics" : `${cap(words(v))} food`;

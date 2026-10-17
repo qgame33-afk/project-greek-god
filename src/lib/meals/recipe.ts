@@ -11,7 +11,7 @@ import {
   ingredientName,
   shortcutFor,
 } from "./ingredients";
-import type { Allergen, Diet, Equipment, IngredientKind, Macros, MealPrefs, Recipe, RecipeIngredient, Unit } from "./types";
+import type { Allergen, Diet, Equipment, IngredientKind, Macros, MakeAhead, MealPrefs, Recipe, RecipeIngredient, Unit } from "./types";
 
 /* ------------------------------------------------------------------ constants */
 
@@ -293,6 +293,21 @@ export function scaleIngredients(recipe: Pick<Recipe, "ingredients">, servings: 
   });
 }
 
+/* ------------------------------------------------------------------ make ahead */
+
+const OVERNIGHT = /\b(overnight|the night before)\b|\bat least (?:[6-9]|1\d|2[0-4]) hours\b/i;
+export const NIGHT_BEFORE: MakeAhead = { label: "Make the night before", hours: 8 };
+
+/**
+ * What has to be done ahead, if anything: the recipe's own `makeAhead`, or "Make the night
+ * before" when a step sits overnight or for 6+ hours (AI and simplified recipes written that
+ * way). Null for an ordinary recipe. Make-ahead recipes are never planned for today.
+ */
+export function makeAheadOf(recipe: Pick<Recipe, "steps"> & { makeAhead?: MakeAhead }): MakeAhead | null {
+  if (recipe.makeAhead) return recipe.makeAhead;
+  return recipe.steps?.some((s) => OVERNIGHT.test(s.text)) ? NIGHT_BEFORE : null;
+}
+
 /* ------------------------------------------------------------------ learning features */
 
 export function timeBucket(minutes: number): "quick" | "medium" | "long" {
@@ -304,11 +319,30 @@ export function effortBucket(ingredients: number): "few" | "some" | "many" {
 }
 
 /**
- * Learning features (docs/MEALS.md §4): the recipe's tags, `ing:<key>` for each non-staple,
- * non-optional ingredient, and `time:`, `effort:` and `cost:` buckets.
+ * Proteins that belong to a broader group people like or dislike as a whole: disliking tuna,
+ * shrimp and salmon should reach fish tacos too. Only seafood: liking chicken says nothing
+ * about turkey, and disliking pork says nothing about beef.
+ */
+export const PROTEIN_GROUPS: Readonly<Record<string, string>> = { tuna: "seafood", salmon: "seafood", fish: "seafood", cod: "seafood", shrimp: "seafood" };
+
+/** `group:<name>` features implied by a list of features or tags (protein:tuna → group:seafood). */
+export function groupFeatures(features: Iterable<string>): string[] {
+  const out = new Set<string>();
+  for (const f of features) {
+    const g = f.startsWith("protein:") ? PROTEIN_GROUPS[f.slice(8)] : undefined;
+    if (g) out.add(`group:${g}`);
+  }
+  return [...out];
+}
+
+/**
+ * Learning features (docs/MEALS.md §4): the recipe's tags, `group:` features its proteins imply
+ * (seafood), `ing:<key>` for each non-staple, non-optional ingredient, and `time:`, `effort:`
+ * and `cost:` buckets.
  */
 export function recipeFeatures(recipe: Pick<Recipe, "tags" | "ingredients" | "minutes" | "cost">): string[] {
   const out = new Set<string>(recipe.tags);
+  for (const g of groupFeatures(recipe.tags)) out.add(g);
   for (const l of coreIngredients(recipe)) out.add(`ing:${l.key}`);
   out.add(`time:${timeBucket(recipe.minutes)}`);
   out.add(`effort:${effortBucket(ingredientCount(recipe))}`);
@@ -469,6 +503,7 @@ export const RecipeSchema = z
     origin: z.enum(["library", "ai", "simplified", "custom"]),
     baseKey: z.string().regex(KEY_RE).optional(),
     easierKey: z.string().regex(/^lib:[a-z0-9][a-z0-9-]{0,99}$/).optional(),
+    makeAhead: z.strictObject({ label: z.string().trim().min(3).max(40), hours: z.number().min(0.25).max(48) }).optional(),
     nutrition: MacrosSchema.optional(),
     allergens: z.array(z.enum(ALLERGENS)).optional(),
     kinds: z.array(z.enum(KINDS)).optional(),

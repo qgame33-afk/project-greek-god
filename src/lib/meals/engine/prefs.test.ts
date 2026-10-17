@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getLibraryRecipe } from "../library";
 import { recipeFeatures } from "../recipe";
 import type { FeedbackEvent, FeedbackReason, FeedbackRow } from "../types";
-import { ATE_RECENTLY_DAYS, decay, featureLabel, featureShort, learnPrefs, likedRecipesWith, summarizeLearning, THUMBS_DOWN_DAYS } from "./prefs";
+import { ATE_RECENTLY_DAYS, decay, FAMILY_WEIGHT, featureKind, featureLabel, featureShort, learnPrefs, likedRecipesWith, summarizeLearning, THUMBS_DOWN_DAYS } from "./prefs";
 
 const NOW = Date.parse("2026-10-16T12:00:00Z");
 const daysAgo = (d: number) => new Date(NOW - d * 86_400_000).toISOString();
@@ -37,9 +37,31 @@ describe("learnPrefs: weights per docs/MEALS.md §4", () => {
     expect(m.simplerBias).toBe(0);
   });
 
-  it("thumbs up adds signal / sqrt(|features|) to every feature of the snapshot", () => {
-    const m = learnPrefs([row("x", "thumbs_up", { features: ["cuisine:italian", "base:pasta", "time:quick", "cost:1"] })], NOW);
-    for (const f of ["cuisine:italian", "base:pasta", "time:quick", "cost:1"]) expect(m.weights[f]).toBeCloseTo(1 / 2, 6);
+  it("a taste signal is shared family by family: FAMILY_WEIGHT / sqrt(features in that family)", () => {
+    const m = learnPrefs([row("x", "thumbs_up", { features: ["cuisine:italian", "base:pasta", "protein:beef", "ing:pasta-dry", "ing:ground-beef-lean", "time:quick", "cost:1"] })], NOW);
+    expect(m.weights["cuisine:italian"]).toBeCloseTo(FAMILY_WEIGHT.cuisine, 6);
+    expect(m.weights["base:pasta"]).toBeCloseTo(FAMILY_WEIGHT.base, 6);
+    expect(m.weights["protein:beef"]).toBeCloseTo(FAMILY_WEIGHT.protein, 6);
+    expect(m.weights["ing:pasta-dry"]).toBeCloseTo(FAMILY_WEIGHT.ing / Math.SQRT2, 6);
+    expect(m.weights["ing:ground-beef-lean"]).toBeCloseTo(FAMILY_WEIGHT.ing / Math.SQRT2, 6);
+  });
+
+  it("taste signals never teach the time, effort or cost buckets (only the explicit reasons do)", () => {
+    const quick = ["protein:tuna", "dish:tuna-melt", "time:quick", "effort:few", "cost:1"];
+    const slow = ["protein:beef", "dish:stew", "time:long", "effort:many", "cost:3"];
+    const events: FeedbackEvent[] = ["thumbs_down", "thumbs_up", "saved", "unsaved", "repeated", "logged", "cooked", "kept", "regenerated", "viewed"];
+    for (const event of events) {
+      for (const features of [quick, slow]) {
+        const w = learnPrefs([row("x", event, { features }), row("y", "regenerated", { reason: "dont_like", features })], NOW).weights;
+        for (const f of Object.keys(w)) expect(f, `${event} must not move ${f}`).not.toMatch(/^(time|effort|cost):/);
+      }
+    }
+    // a pile of dislikes of quick, cheap, simple meals leaves the easiest buckets untouched
+    const rows = ["lib:tuna-melts", "lib:tuna-salad-wraps", "lib:spicy-tuna-rice-bowl", "lib:garlic-butter-shrimp-rice", "lib:honey-garlic-salmon"].map((k, i) => row(k, "thumbs_down", { days: i }));
+    const w = learnPrefs(rows, NOW).weights;
+    for (const f of ["time:quick", "effort:few", "cost:1", "time:medium", "effort:some", "cost:2", "cost:3"]) expect(w[f], f).toBeUndefined();
+    expect(w["protein:tuna"]).toBeLessThan(-1);
+    expect(w["group:seafood"]).toBeLessThan(-1);
   });
 
   it("uses each event's signal and the 60-day decay", () => {
@@ -57,16 +79,16 @@ describe("learnPrefs: weights per docs/MEALS.md §4", () => {
       ["viewed", 0.05],
     ];
     for (const [event, signal] of cases) {
-      expect(learnPrefs([row("x", event, { features: feats })], NOW).weights["base:rice"] ?? 0, event).toBeCloseTo(signal, 6);
-      expect(learnPrefs([row("x", event, { features: feats, days: 60 })], NOW).weights["base:rice"] ?? 0, event).toBeCloseTo(signal / 2, 6);
+      expect(learnPrefs([row("x", event, { features: feats })], NOW).weights["base:rice"] ?? 0, event).toBeCloseTo(signal * FAMILY_WEIGHT.base, 6);
+      expect(learnPrefs([row("x", event, { features: feats, days: 60 })], NOW).weights["base:rice"] ?? 0, event).toBeCloseTo((signal * FAMILY_WEIGHT.base) / 2, 6);
     }
   });
 
   it("clamps to [-3, 3]", () => {
-    const rows = Array.from({ length: 10 }, () => row("x", "thumbs_up", { features: ["base:pasta"] }));
-    expect(learnPrefs(rows, NOW).weights["base:pasta"]).toBe(3);
-    const neg = Array.from({ length: 10 }, () => row("x", "thumbs_down", { features: ["base:pasta"] }));
-    expect(learnPrefs(neg, NOW).weights["base:pasta"]).toBe(-3);
+    const rows = Array.from({ length: 10 }, () => row("x", "thumbs_up", { features: ["protein:beef"] }));
+    expect(learnPrefs(rows, NOW).weights["protein:beef"]).toBe(3);
+    const neg = Array.from({ length: 10 }, () => row("x", "thumbs_down", { features: ["protein:beef"] }));
+    expect(learnPrefs(neg, NOW).weights["protein:beef"]).toBe(-3);
   });
 
   it("'too complicated' moves only effort/time features and builds the simpler bias", () => {
@@ -97,10 +119,14 @@ describe("learnPrefs: weights per docs/MEALS.md §4", () => {
     expect(exp.weights).toEqual({ "cost:3": -0.8 });
   });
 
-  it("'don't like' is a full -1.0 on every feature and keeps the recipe out for 90 days", () => {
+  it("'don't like' is a full -1.0 taste signal (protein groups included) and keeps the recipe out for 90 days", () => {
     const feats = ["cuisine:asian", "protein:fish", "base:rice", "time:quick"];
     const m = learnPrefs([row("lib:honey-garlic-salmon", "regenerated", { reason: "dont_like", features: feats })], NOW);
-    for (const f of feats) expect(m.weights[f]).toBeCloseTo(-0.5, 6);
+    expect(m.weights["cuisine:asian"]).toBeCloseTo(-FAMILY_WEIGHT.cuisine, 6);
+    expect(m.weights["protein:fish"]).toBeCloseTo(-FAMILY_WEIGHT.protein, 6);
+    expect(m.weights["group:seafood"]).toBeCloseTo(-FAMILY_WEIGHT.group, 6); // derived even for an old snapshot
+    expect(m.weights["base:rice"]).toBeCloseTo(-FAMILY_WEIGHT.base, 6);
+    expect(m.weights["time:quick"]).toBeUndefined();
     expect(m.blocked["lib:honey-garlic-salmon"]?.reason).toBe("dont_like");
   });
 
@@ -162,6 +188,9 @@ describe("labels", () => {
     expect(featureLabel("cost:1")).toBe("Cheaper meals ($)");
     expect(featureShort("protein:beef")).toBe("beef");
     expect(featureShort("cuisine:mexican")).toBe("Mexican food");
+    expect(featureLabel("group:seafood")).toBe("Fish and seafood");
+    expect(featureShort("group:seafood")).toBe("fish and seafood");
+    expect(featureKind("group:seafood")).toBe("protein");
   });
 });
 

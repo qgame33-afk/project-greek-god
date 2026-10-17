@@ -12,7 +12,7 @@ import { dislikeCovers } from "../ingredients";
 import { coreIngredients, ingredientCount, recipeCostCad, recipeFeatures, recipeMacros } from "../recipe";
 import type { Difficulty, Macros, MealPrefs, Recipe, Slot } from "../types";
 import type { Favourite } from "./constraints";
-import type { LearnedModel } from "./prefs";
+import { familyScales, type LearnedModel } from "./prefs";
 import { unitFor, type Rng } from "./rng";
 
 /* ------------------------------------------------------------------ targets */
@@ -153,6 +153,21 @@ export function featuresOf(recipe: Recipe): string[] {
   return f;
 }
 
+const scaleCache = new WeakMap<Recipe, Map<string, number>>();
+/**
+ * How much each learned weight moves this recipe's score: the family scale over the recipe's
+ * features in that family (prefs.ts FAMILY_WEIGHT), so a recipe is judged on its protein, dish,
+ * ingredients, cuisine… each, not on how many features it happens to have.
+ */
+export function featureScalesOf(recipe: Recipe): ReadonlyMap<string, number> {
+  let s = scaleCache.get(recipe);
+  if (!s) {
+    s = familyScales(featuresOf(recipe));
+    scaleCache.set(recipe, s);
+  }
+  return s;
+}
+
 const tagValues = (recipe: Recipe, prefix: string) => recipe.tags.filter((t) => t.startsWith(prefix)).map((t) => t.slice(prefix.length));
 
 /** Score one candidate. Assumes it already passed the hard filters (constraints.ts). */
@@ -197,11 +212,9 @@ export function scoreRecipe(recipe: Recipe, ctx: ScoreContext): ScoredCandidate 
   }
 
   /* ---- 3. taste: learned weights + explicit likes */
-  const feats = featuresOf(recipe);
-  const norm = feats.length ? 1 / Math.sqrt(feats.length) : 0;
-  for (const f of feats) {
+  for (const [f, scale] of featureScalesOf(recipe)) {
     const w = learned.weights[f];
-    if (w) push("taste", `learned:${f}`, w * norm, { feature: f, weight: r3(w) });
+    if (w) push("taste", `learned:${f}`, w * scale, { feature: f, weight: r3(w) });
   }
   const core = new Set(coreIngredients(recipe).map((l) => l.key));
   // a liked ingredient counts in its other forms too (liking chicken breast covers cooked strips)

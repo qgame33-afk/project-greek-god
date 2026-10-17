@@ -122,6 +122,7 @@ export const BREAKFAST = [
     slots: ["breakfast"],
     minutes: 5,
     difficulty: "super_easy",
+    makeAhead: { label: "Make the night before", hours: 8 },
     ingredients: [
       i("oats", 1, "cup"),
       i("milk-2", 1, "cup"),

@@ -76,10 +76,49 @@ describe("hard filters (constraints.ts)", () => {
     expect(exclusions(R("lib:beef-tacos"), { ...ctx, weekUses: used, favourites: noRepeat }).map((e) => e.kind)).toEqual(["used_this_week"]);
   });
 
-  it("relaxes repeats and the time cap when nothing fits, never allergies", () => {
+  it("keeps a Super Easy cook at their level unless they liked the harder recipe", () => {
+    const hard = R("lib:chicken-fajitas"); // everyday
+    expect(exclusions(hard, ctx).map((e) => e.kind)).toEqual(["above_level"]);
+    expect(exclusions(hard, { ...ctx, prefs: { ...DEFAULT_PREFS, difficulty: "everyday" } })).toEqual([]);
+    const liked = learnPrefs([{ recipe_key: hard.key, event: "thumbs_up", reason: null, ingredient: null, features: recipeFeatures(hard), created_at: NOW }], NOW);
+    expect(exclusions(hard, { ...ctx, learned: liked })).toEqual([]);
+    const fav = new Map([[hard.key, { recipe_key: hard.key, repeat_ok: true }]]);
+    expect(exclusions(hard, { ...ctx, favourites: fav })).toEqual([]);
+    expect(exclusions(hard, { ...ctx, relax: 1 })).toEqual([]);
+    // a thumbs-down elsewhere is not a like
+    const disliked = learnPrefs([{ recipe_key: "lib:tuna-melts", event: "thumbs_down", reason: null, ingredient: null, features: recipeFeatures(R("lib:tuna-melts")), created_at: NOW }], NOW);
+    expect(exclusions(hard, { ...ctx, learned: disliked }).map((e) => e.kind)).toEqual(["above_level"]);
+  });
+
+  it("never plans one recipe twice in a day, caps repeats at 3 a week and spaces them, in every tier", () => {
+    const shake = R("lib:protein-shake");
+    const sctxF = { slot: "snack" as const, date: "2026-10-14", prefs: DEFAULT_PREFS };
+    const sameDay = [{ recipe_key: shake.key, local_date: "2026-10-14" }];
+    for (const relax of [0, 1, 2, 3] as const) expect(exclusions(shake, { ...sctxF, weekUses: sameDay, relax }).map((e) => e.kind)).toContain("same_day");
+    const yesterday = [{ recipe_key: shake.key, local_date: "2026-10-13" }];
+    expect(exclusions(shake, { ...sctxF, weekUses: yesterday, relax: 3 }).map((e) => e.kind)).toEqual(["used_this_week"]);
+    const twoDaysAgo = [{ recipe_key: shake.key, local_date: "2026-10-12" }];
+    expect(exclusions(shake, { ...sctxF, weekUses: twoDaysAgo, relax: 1 }).map((e) => e.kind)).toEqual(["used_this_week"]);
+    expect(exclusions(shake, { ...sctxF, weekUses: twoDaysAgo, relax: 2 })).toEqual([]);
+    const three = ["2026-10-12", "2026-10-16", "2026-10-18"].map((local_date) => ({ recipe_key: shake.key, local_date }));
+    expect(exclusions(shake, { ...sctxF, weekUses: three, relax: 3 }).map((e) => e.kind)).toEqual(["repeat_cap"]);
+    const fav = new Map([[shake.key, { recipe_key: shake.key, repeat_ok: true }]]);
+    expect(exclusions(shake, { ...sctxF, weekUses: three, favourites: fav }).map((e) => e.kind)).toEqual(["repeat_cap"]);
+  });
+
+  it("never plans a make-ahead recipe for today", () => {
+    const oats = R("lib:overnight-protein-oats");
+    const b = { slot: "breakfast" as const, date: "2026-10-16", prefs: DEFAULT_PREFS };
+    expect(exclusions(oats, { ...b, today: "2026-10-16" })).toEqual([{ kind: "make_ahead", label: "Make the night before" }]);
+    for (const relax of [1, 2, 3] as const) expect(exclusions(oats, { ...b, today: "2026-10-16", relax }).map((e) => e.kind)).toEqual(["make_ahead"]);
+    expect(exclusions(oats, { ...b, today: "2026-10-15" })).toEqual([]);
+    expect(exclusions(oats, b)).toEqual([]);
+  });
+
+  it("relaxes the level, repeats and the time cap when nothing fits, never allergies", () => {
     const prefs = { ...DEFAULT_PREFS, allergies: ["gluten" as const], maxMinutes: 5 };
     const { recipes, relaxed } = candidatesFor(LIBRARY, { ...ctx, prefs });
-    expect(relaxed).toBe(2);
+    expect(relaxed).toBe(3);
     expect(recipes.length).toBeGreaterThan(0);
     for (const r of recipes) expect(hardAllowed(r, prefs)).toBe(true);
   });

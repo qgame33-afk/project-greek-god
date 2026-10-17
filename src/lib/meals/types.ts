@@ -105,10 +105,23 @@ export interface Recipe {
   baseKey?: string;
   /** Library recipes may declare their own hand-written easier version (a lib: key). */
   easierKey?: string;
+  /**
+   * Part of it is done ahead: overnight oats sit in the fridge overnight, eggs are boiled in a
+   * batch. `minutes` is the time on the day; `label` is the card badge ("Make the night before");
+   * `hours` is the lead time. The planner never puts it on today. Read it with `makeAheadOf()`.
+   */
+  makeAhead?: MakeAhead;
   /** Per ONE serving, computed by normalizeRecipe from the ingredient DB — never trusted from AI output. */
   nutrition?: Macros;
   allergens?: Allergen[]; // computed
   kinds?: IngredientKind[]; // computed
+}
+
+export interface MakeAhead {
+  /** Badge text, short: "Make the night before", "Boil the eggs ahead". */
+  label: string;
+  /** Lead time in hours (overnight oats 8, boiled eggs 0.5). */
+  hours: number;
 }
 
 /** Nutrition for a recipe at a given number of servings (estimates, labelled as such in the UI). */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getIngredient } from "../ingredients";
-import { ingredientCount, meetsSuperEasy, recipeAllowed, recipeMacros, scaleIngredients, superEasyIssues, validateRecipe } from "../recipe";
+import { ingredientCount, makeAheadOf, meetsSuperEasy, recipeAllowed, recipeMacros, scaleIngredients, superEasyIssues, validateRecipe } from "../recipe";
 import { DEFAULT_PREFS, type Diet, type Recipe, type Slot } from "../types";
 import { LIBRARY, LIBRARY_SOURCE, getLibraryRecipe, libraryForSlot } from "./index";
 
@@ -205,15 +205,33 @@ describe("steps, safety and equipment", () => {
     }
   });
 
-  it("timers are whole seconds and fit inside the recipe's time", () => {
+  it("timers are whole seconds and fit inside the recipe's time (plus its make-ahead lead time)", () => {
     for (const r of LIBRARY) {
       for (const s of r.steps) {
         if (s.timerSec == null) continue;
         expect(Number.isInteger(s.timerSec), r.key).toBe(true);
         expect(s.timerSec, r.key).toBeGreaterThan(0);
-        expect(s.timerSec, `${r.key}: "${s.text}"`).toBeLessThanOrEqual(r.minutes * 60);
+        expect(s.timerSec, `${r.key}: "${s.text}"`).toBeLessThanOrEqual((r.minutes + (r.makeAhead?.hours ?? 0) * 60) * 60);
       }
     }
+  });
+
+  it("make-ahead recipes say so (badge data) and the overnight ones are breakfasts", () => {
+    const ahead = LIBRARY.filter((r) => makeAheadOf(r));
+    expect(ahead.map((r) => r.key).sort()).toEqual(["lib:hard-boiled-eggs-orange", "lib:overnight-protein-oats"]);
+    expect(makeAheadOf(getLibraryRecipe("lib:overnight-protein-oats")!)).toEqual({ label: "Make the night before", hours: 8 });
+    for (const r of ahead) expect(r.makeAhead, `${r.key} declares it`).toBeDefined();
+    // an AI or simplified recipe written as "refrigerate overnight" is detected without the flag
+    expect(makeAheadOf({ steps: [{ text: "Stir, cover and refrigerate overnight." }] })?.label).toBe("Make the night before");
+    expect(makeAheadOf({ steps: [{ text: "Chill at least 8 hours." }] })).not.toBeNull();
+    expect(makeAheadOf({ steps: [{ text: "Let it rest 2 minutes, then eat." }] })).toBeNull();
+  });
+
+  it("boiled-egg snacks are Super Easy on the day, with the batch boil as make-ahead", () => {
+    const eggs = getLibraryRecipe("lib:hard-boiled-eggs-orange")!;
+    expect(eggs.difficulty).toBe("super_easy");
+    expect(eggs.minutes).toBeLessThanOrEqual(15);
+    expect(eggs.makeAhead?.label).toMatch(/ahead/i);
   });
 
   it("recipes that cook raw meat, poultry or fish carry a food-safety note with a real temperature", () => {
