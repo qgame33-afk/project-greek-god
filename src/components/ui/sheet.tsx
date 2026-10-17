@@ -59,11 +59,11 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
 
   // A phone sheet without a footer runs its body to the screen's bottom edge, so the body's
   // padding clears the home indicator. --sheet-pb is that padding: action bars that stick to the
-  // bottom inside the body (StickyFooter) pull themselves down by it.
+  // bottom inside the body (SheetFooterBar) pull themselves down by it.
   const sheetPb = footer || desktop ? "16px" : "calc(16px + var(--safe-bottom))";
   const body = (
     <>
-      <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-(--sheet-pb)", className)} style={{ "--sheet-pb": sheetPb } as CSSProperties}>
+      <div ref={clearStickyFooter} className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-(--sheet-pb)", className)} style={{ "--sheet-pb": sheetPb } as CSSProperties}>
         {children}
       </div>
       {footer && <div className="border-t border-line-hair bg-s2 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5">{footer}</div>}
@@ -111,6 +111,52 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
       </Drawer.Portal>
     </Drawer.Root>
   );
+}
+
+/**
+ * The primary action bar of a sheet whose action lives inside its scrolling body (so it can sit
+ * right under the form on tall screens): it sticks to the bottom edge, past the body's bottom
+ * padding. The Sheet keeps focused fields clear of it.
+ */
+export function SheetFooterBar({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      data-sheet-footer=""
+      className={cn(
+        "sticky bottom-[calc(var(--sheet-pb)*-1)] z-10 -mx-5 mb-[calc(var(--sheet-pb)*-1)] border-t border-line-hair bg-s2 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Ref for a sheet's scrolling body: while a SheetFooterBar is inside it, the body's
+ * scroll-padding-bottom is the bar's height, so a field the browser scrolls into view (on focus,
+ * or when the keyboard shrinks the viewport) lands above the bar instead of behind it.
+ */
+function clearStickyFooter(body: HTMLDivElement | null) {
+  if (!body) return;
+  let bar: HTMLElement | null = null;
+  const sync = () => {
+    const next = body.querySelector<HTMLElement>("[data-sheet-footer]");
+    if (next !== bar) {
+      if (bar) ro.unobserve(bar);
+      bar = next;
+      if (bar) ro.observe(bar);
+    }
+    body.style.scrollPaddingBottom = bar ? `${bar.offsetHeight + 12}px` : "";
+  };
+  const ro = new ResizeObserver(sync);
+  const mo = new MutationObserver(sync);
+  sync();
+  mo.observe(body, { childList: true, subtree: true });
+  return () => {
+    ro.disconnect();
+    mo.disconnect();
+  };
 }
 
 /** Small confirm dialog for destructive actions. */

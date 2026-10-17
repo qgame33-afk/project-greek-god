@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/controls";
 import { Field, Input, NumberInput } from "@/components/ui/field";
 import { Collapse } from "@/components/ui/misc";
-import { Sheet } from "@/components/ui/sheet";
+import { Sheet, SheetFooterBar } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { haptic } from "@/lib/haptics";
 import type { GroceryUse } from "@/lib/meals/engine";
@@ -221,11 +221,11 @@ function AddItemForm({ onAdd }: { onAdd: (v: { name: string; label: string | nul
           ))}
         </div>
       </div>
-      <div className="sticky bottom-[calc(var(--sheet-pb)*-1)] z-10 -mx-5 mb-[calc(var(--sheet-pb)*-1)] border-t border-line-hair bg-s2 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5">
+      <SheetFooterBar>
         <Button type="submit" variant="primary" size="lg" block>
           Add to list
         </Button>
-      </div>
+      </SheetFooterBar>
     </form>
   );
 }
@@ -266,7 +266,7 @@ function BudgetForm({ value, onSave }: { value: number | null; onSave: (v: numbe
       <Field label="Budget for this week" hint="Canadian dollars. Prices are rough estimates." error={error}>
         {(id) => <NumberInput id={id} value={text} onChange={(e) => (setText(e.target.value.replace(/[^\d.,]/g, "").slice(0, 7)), setError(null))} suffix="CAD" placeholder="150" enterKeyHint="done" />}
       </Field>
-      <div className="sticky bottom-[calc(var(--sheet-pb)*-1)] z-10 -mx-5 mb-[calc(var(--sheet-pb)*-1)] grid grid-cols-[auto_1fr] gap-3 border-t border-line-hair bg-s2 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5">
+      <SheetFooterBar className="grid grid-cols-[auto_1fr] gap-3">
         <Button type="button" variant="secondary" size="lg" onClick={() => onSave(null)} disabled={value == null}>
           <RotateCcw className="size-4" aria-hidden />
           No budget
@@ -274,7 +274,7 @@ function BudgetForm({ value, onSave }: { value: number | null; onSave: (v: numbe
         <Button type="submit" variant="primary" size="lg">
           Save budget
         </Button>
-      </div>
+      </SheetFooterBar>
     </form>
   );
 }

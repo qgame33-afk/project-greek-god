@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/controls";
 import { Field, Input, NumberInput } from "@/components/ui/field";
 import { Collapse } from "@/components/ui/misc";
-import { Sheet } from "@/components/ui/sheet";
+import { Sheet, SheetFooterBar } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { newId, useToday } from "@/lib/data/core";
 import { slotToMeal, useLogPlannedMeal, type LogPlannedMealResult } from "@/lib/data/meals";
@@ -201,14 +201,14 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
         </p>
       </div>
 
-      <div className="sticky bottom-[calc(var(--sheet-pb)*-1)] z-10 -mx-5 mb-[calc(var(--sheet-pb)*-1)] border-t border-line-hair bg-s2 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5">
+      <SheetFooterBar>
         <Button variant="primary" size="lg" block onClick={submit} loading={log.isPending} disabled={log.isPending}>
           Add to {label}
         </Button>
         <p className="mt-2 text-center text-[12px] font-medium text-fg-3">
           {date === today ? "Today" : shortDate(date)} · {parsed.ok ? `${parsed.macros.kcal.toLocaleString("en-US")} kcal · ${Math.round(parsed.macros.protein)} g protein` : "Check the numbers"}
         </p>
-      </div>
+      </SheetFooterBar>
     </div>
   );
 }

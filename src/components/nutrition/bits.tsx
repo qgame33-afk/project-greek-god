@@ -4,6 +4,7 @@ import { BadgeCheck, Star } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { DatabaseBadge, EstimateBadge, SourceBadge } from "@/components/ui/badge";
 import { ErrorNote } from "@/components/ui/misc";
+import { SheetFooterBar } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { MEALS, type Macros, type Meal } from "@/lib/nutrition";
 import { formatInt } from "@/lib/units";
@@ -148,16 +149,7 @@ export function focusFirstInvalid(root: HTMLElement | null) {
 
 /** Sticky action footer that lives inside a Sheet's scrolling body. */
 export function StickyFooter({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div
-      className={cn(
-        "sticky bottom-[calc(var(--sheet-pb)*-1)] z-10 -mx-5 mb-[calc(var(--sheet-pb)*-1)] mt-5 border-t border-line-hair bg-s2 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
+  return <SheetFooterBar className={cn("mt-5", className)}>{children}</SheetFooterBar>;
 }
 
 export function StarButton({ on, onToggle, label, className }: { on: boolean; onToggle: () => void; label: string; className?: string }) {
