@@ -58,7 +58,7 @@ export function TitleChapter({ d }: { d: ChronicleData }) {
   return (
     <div className="flex min-h-full flex-col items-center justify-center text-center">
       <div className="relative w-full">
-        <div className="mx-auto" style={{ width: "min(86%, 22rem, 44svh)" }}>
+        <div className="mx-auto" style={{ width: "clamp(9rem, calc((100svh - 24rem) * 0.75), min(86%, 22rem))" }}>
           <Statue p={d.gild} fromP={0} mode="chronicle" label={`Your statue as it stood at the end of ${month}: gilded to ${Math.round(d.gild * 100)} percent of the climb.`} />
         </div>
         {/* the bust fades into the night so the title can sit over its base */}
@@ -71,9 +71,9 @@ export function TitleChapter({ d }: { d: ChronicleData }) {
         </h1>
         <p className="t-verdict mt-2 text-stone">{d.title.subtitle}.</p>
       </div>
-      <dl className="mt-8 grid w-full grid-cols-3 divide-x divide-vein-2 @max-[24rem]:grid-cols-1 @max-[24rem]:divide-x-0 @max-[24rem]:divide-y">
+      <dl className="mt-6 grid w-full grid-cols-3 divide-x divide-vein-2 @max-[19rem]:grid-cols-1 @max-[19rem]:divide-x-0 @max-[19rem]:divide-y">
         {d.credits.map((c) => (
-          <div key={c.label} className="px-2 @max-[24rem]:py-2.5" aria-label={c.spoken}>
+          <div key={c.label} className="px-2 @max-[19rem]:py-2.5" aria-label={c.spoken}>
             <dt className="sr-only">{c.label}</dt>
             <dd aria-hidden className="t-num-l tnum text-ivory">
               {c.value}

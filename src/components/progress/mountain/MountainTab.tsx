@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Shelf } from "@/components/reviews/Shelf";
+import { cn } from "@/lib/cn";
 import { Segmented } from "@/components/ui/controls";
 import { ErrorNote, Skeleton } from "@/components/ui/misc";
 import { Tag } from "@/components/ui/tag";
@@ -14,7 +15,7 @@ import { localDateOf, parseISODate, type ISODate } from "@/lib/dates";
 import { useSwapIn, RISE_IN_PLACE } from "@/lib/motion";
 import { mountainExplain } from "@/lib/progress/ascent-copy";
 import { ZOOMS, defaultZoom, type Zoom } from "@/lib/progress/mountain";
-import { dayMonth, highWater, MIN_WEIGHINS, pace as paceOf, terraces as terracesOf, trendSeries } from "@/lib/progress/pace";
+import { dayMonth, highWater, MIN_WEIGHINS, pace as paceOf, paceCorridor, terraces as terracesOf, trendSeries } from "@/lib/progress/pace";
 import { round, toDisplayWeight, type WeightUnit } from "@/lib/units";
 import { SrTable } from "../kit";
 import { MountainChart } from "./MountainChart";
@@ -77,7 +78,7 @@ export function MountainTab() {
 
   return (
     <div className="grid grid-cols-1 gap-9 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-x-10">
-      <div className="min-w-0">
+      <div className="@container min-w-0">
         {/* 1. the verdict and its explanation */}
         <section aria-label="Pace" aria-describedby="mtn-aria">
           <h2 className="t-verdict text-ivory">{pc.sentence}</h2>
@@ -96,7 +97,9 @@ export function MountainTab() {
             <span className="mt-1 flex items-baseline gap-1.5">
               <span className="t-num-m tnum text-ivory">{trendLb != null ? w1(trendLb) : "—"}</span>
               {trendLb != null && <span className="t-meta text-stone">{unit}</span>}
-              {trendLb != null && <Tag kind="CALC" explain={`Mean of the ${pc.trend.n} weigh-in${pc.trend.n === 1 ? "" : "s"} in the 7 days ending ${dayMonth(pc.trend.end, today)}.`} className="ml-1" />}
+              {trendLb != null && (
+                <Tag kind="CALC" explain={`Mean of the ${pc.trend.n} weigh-in${pc.trend.n === 1 ? "" : "s"} in the 7 days ending ${dayMonth(pc.trend.end, today)}.`} className="ml-1" />
+              )}
             </span>
           </p>
           <p className="min-w-0">
@@ -104,15 +107,16 @@ export function MountainTab() {
             <span className="mt-1 flex items-baseline gap-1.5">
               <span className="t-num-s tnum text-ivory">{latest ? w1(latest.lb) : "—"}</span>
               <span className="t-meta text-stone">{latest ? scaleWhen(latest.date, latestRow?.measured_at ?? null, today) : "Weigh in to begin"}</span>
+              {latest && <Tag kind="LOG" className="ml-0.5" />}
             </span>
           </p>
           {pc.trend.end !== today && trendLb != null && <p className="t-meta w-full text-stone">Trend as of {dayMonth(pc.trend.end, today)} · weigh in to update</p>}
         </div>
 
         {/* 3. zoom + 4. the Mountain */}
-        <div className="mt-5 flex items-center justify-between gap-3">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="t-eyebrow">The mountain</h2>
-          <Segmented size="sm" ariaLabel="Chart range" value={zoom} onChange={setZoom} options={ZOOMS.map((z) => ({ value: z.key, label: z.label }))} className="w-48" />
+          <Segmented size="sm" ariaLabel="Chart range" value={zoom} onChange={setZoom} options={ZOOMS.map((z) => ({ value: z.key, label: z.label }))} className="w-48 max-w-full @max-[19rem]:w-full" />
         </div>
         <figure className="relative -mx-(--gutter) mt-2 md:mx-0">
           <div ref={chartRef} role="img" aria-label={pc.ariaLabel}>
@@ -142,7 +146,14 @@ export function MountainTab() {
             </span>
             <span className="mt-1 block">The ridge is decoration. The line is your trend.</span>
           </figcaption>
-          <SrTable caption={`Weigh-ins and 7-day trend in ${unit}`} head={["Date", "Scale", "7-day trend"]} rows={[...raw].reverse().slice(0, 28).map((w) => [dayMonth(w.date, today), w1(w.lb), trendByDate.has(w.date) ? w1(trendByDate.get(w.date)!) : "—"])} />
+          <SrTable
+            caption={`Weigh-ins and 7-day trend in ${unit}`}
+            head={["Date", "Scale", "7-day trend"]}
+            rows={[...raw]
+              .reverse()
+              .slice(0, 28)
+              .map((w) => [dayMonth(w.date, today), w1(w.lb), trendByDate.has(w.date) ? w1(trendByDate.get(w.date)!) : "—"])}
+          />
         </figure>
 
         {fresh && <p className="t-callout mt-4 text-stone">Weigh in each morning, after the bathroom and before food. Your trend, pace and terraces build from there.</p>}
@@ -150,14 +161,21 @@ export function MountainTab() {
 
       <div className="grid min-w-0 grid-cols-1 content-start gap-9">
         {/* 5. pace gauge + the calorie rule */}
-        <PaceGauge pace={pc} calorie={calorie} calories={profile.calorie_goal ?? null} unit={unit} today={today} />
+        <PaceGauge
+          pace={pc}
+          calorie={calorie}
+          calories={profile.calorie_goal ?? null}
+          unit={unit}
+          today={today}
+          startWindow={!pc.corridor && pc.trend.lb == null && pc.band && target ? paceCorridor(startLb, today, target, pc.band.min, pc.band.max) : null}
+        />
 
         {/* 6. terraces */}
         {ts.length > 0 && <TerraceTiles terraces={ts} today={today} unit={unit} needs={gild ? `needs ${gild}` : "needs a steady rate"} />}
 
         {/* 7. start · now · summit, 9. the best trend */}
-        <section aria-label="Start, now and summit">
-          <dl className="grid grid-cols-3 border-y border-vein">
+        <section aria-label="Start, now and summit" className="@container">
+          <dl className="grid grid-cols-3 border-y border-vein @max-[19rem]:grid-cols-1">
             <Stat label="Start" value={w1(startLb)} sub={dayMonth(startDate, today)} />
             <Stat label="Now" value={trendLb != null ? w1(trendLb) : "—"} sub={trendLb != null ? `${signed1(toDisplayWeight(trendLb - startLb, unit))} · trend` : "no trend yet"} divider />
             <Stat label="Summit" value={pc.band ? bandShort(pc.band, unit) : "—"} sub={target ? `by ${dayMonth(target, today)} ${target.slice(0, 4)}` : "set a target date"} divider />
@@ -181,7 +199,7 @@ export function MountainTab() {
 
 function Stat({ label, value, sub, divider }: { label: string; value: string; sub: string; divider?: boolean }) {
   return (
-    <div className={divider ? "border-l border-vein pl-3.5" : "pr-3"}>
+    <div className={cn("min-w-0", divider ? "border-l border-vein pl-3.5 @max-[19rem]:border-l-0 @max-[19rem]:border-t @max-[19rem]:pl-0" : "pr-3")}>
       <dt className="t-eyebrow pt-3">{label}</dt>
       <dd className="t-num-m tnum mt-1.5 whitespace-nowrap text-ivory">{value}</dd>
       <dd className="t-meta pb-3 text-stone">{sub}</dd>

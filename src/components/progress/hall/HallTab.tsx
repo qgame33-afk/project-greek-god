@@ -124,7 +124,7 @@ export function HallTab() {
       </section>
 
       {/* Strength */}
-      <section id="ascent-strength" aria-labelledby="hall-strength" className="min-w-0 scroll-mt-24">
+      <section id="ascent-strength" aria-labelledby="hall-strength" className="@container min-w-0 scroll-mt-24">
         <SectionTitle id="hall-strength" eyebrow="e1RM · first → latest" title="Strength" />
         {strength.isLoading ? (
           <div className="grid gap-2" aria-hidden>

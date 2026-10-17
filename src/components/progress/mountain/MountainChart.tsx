@@ -188,7 +188,7 @@ function Plot({
           {/* corridor: the rates that land in the band */}
           {g.corridor && (
             <>
-              <path d={g.corridor.path} style={{ fill: "rgb(242 235 221 / .06)" }} />
+              <path d={g.corridor.path} style={{ fill: "var(--ivory)", fillOpacity: 0.06 }} />
               <line x1={r1(g.corridor.origin.x)} y1={r1(g.corridor.origin.y)} x2={r1(g.corridor.upper.x)} y2={r1(g.corridor.upper.y)} style={{ stroke: "var(--ui-line)" }} strokeWidth={1} />
               <line x1={r1(g.corridor.origin.x)} y1={r1(g.corridor.origin.y)} x2={r1(g.corridor.lower.x)} y2={r1(g.corridor.lower.y)} style={{ stroke: "var(--ui-line)" }} strokeWidth={1} />
             </>

@@ -82,13 +82,25 @@ export function ChronicleStory({ month }: { month: ISODate }) {
   }, [stats, src.rows, src.profile, extras.loading, extras.planned, extras.loggedIds, extras.ritesDone, mealPrefs.prefs.snacksPerDay, month, today, unit]);
 
   const [chapter, setChapter] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    rootRef.current?.focus({ preventScroll: true });
+  }, []);
   const [paused, setPaused] = useState(false);
   const last = CHAPTERS.length - 1;
   const go = useCallback((n: number) => setChapter(Math.max(0, Math.min(last, n))), [last]);
 
   const close = useCallback(() => {
-    // back to wherever he came from (Ascent, Now, the index); a direct open lands on the index
-    if (typeof window !== "undefined" && window.history.length > 1 && document.referrer.startsWith(window.location.origin)) router.back();
+    // back to wherever he came from in the app (Ascent, Now, the index); a story opened directly
+    // (a reminder link, a reload) has nothing to go back to, so it lands on the index
+    let direct = true;
+    try {
+      const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+      direct = !nav || nav.name === window.location.href;
+    } catch {
+      /* no timing API: treat as direct */
+    }
+    if (!direct && window.history.length > 1) router.back();
     else router.replace("/reviews");
   }, [router]);
 
@@ -154,6 +166,7 @@ export function ChronicleStory({ month }: { month: ISODate }) {
       aria-modal="true"
       aria-roledescription="story"
       aria-label={data ? `${data.title.book}, ${data.title.film.toLowerCase()}. Chapter ${chapter + 1} of ${CHAPTERS.length}, ${CHAPTERS[chapter]}` : "The Chronicle"}
+      ref={rootRef}
       tabIndex={-1}
       onKeyDown={onKey}
       className="@container fixed inset-0 z-(--z-sheet) flex flex-col overflow-hidden text-ivory outline-none"
