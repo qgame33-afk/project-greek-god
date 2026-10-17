@@ -217,11 +217,17 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
             <ListChecks className="size-[22px]" aria-hidden />
           </button>
         </div>
-        {/* one segment per step: gold when done, outlined where you are */}
+        {/* one segment per step: gold when done, outlined where you are. Each is a 44px target:
+            the 24px row plus 10px above (up to the icon buttons) and 10px below (down to the timers). */}
         <ol className="mx-auto mt-1 flex max-w-[760px] gap-1 px-2" aria-label={`${checks.steps.length} of ${n} steps done`}>
           {recipe.steps.map((_, i) => (
             <li key={i} className="flex-1">
-              <button type="button" onClick={() => (finished ? (setFinished(false), goto(i)) : goto(i))} aria-label={`Go to step ${i + 1}${checks.steps.includes(i) ? ", done" : ""}`} className="group relative block h-6 w-full">
+              <button
+                type="button"
+                onClick={() => (finished ? (setFinished(false), goto(i)) : goto(i))}
+                aria-label={`Go to step ${i + 1}${checks.steps.includes(i) ? ", done" : ""}`}
+                className="group relative block h-6 w-full before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-['']"
+              >
                 <span
                   className={cn(
                     "absolute inset-x-0 top-1/2 h-[4px] -translate-y-1/2 rounded-full transition-colors duration-(--dur-base)",
@@ -348,7 +354,8 @@ function TimerRail({ recipeKey, current, onJump }: { recipeKey: string; current:
   const others = visibleTimers(all, now).filter((t) => t.recipeKey === recipeKey && t.step !== current);
   if (!others.length) return null;
   return (
-    <div className="no-scrollbar mx-auto flex max-w-[760px] gap-2 overflow-x-auto px-2 pt-2 pb-1">
+    // The rail's padding lets taps through to the step segments' hit area just above it.
+    <div className="no-scrollbar pointer-events-none mx-auto flex max-w-[760px] gap-2 overflow-x-auto px-2 pt-2.5 pb-1">
       {others.map((t) => {
         const ring = isDone(t, now);
         return (
@@ -357,7 +364,7 @@ function TimerRail({ recipeKey, current, onJump }: { recipeKey: string; current:
             type="button"
             onClick={() => onJump(t.step)}
             className={cn(
-              "press inline-flex h-11 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[13.5px] font-bold",
+              "press pointer-events-auto inline-flex h-11 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[13.5px] font-bold",
               ring ? "border-line-gold bg-gold-tint text-gold-200" : "border-line bg-s2 text-fg-2",
             )}
             aria-label={`Step ${t.step + 1} timer, ${ring ? "done" : `${clockText(timeLeft(t, now))} left`}. Go to step`}
