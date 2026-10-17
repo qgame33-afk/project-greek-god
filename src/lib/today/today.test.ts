@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PROGRAM_BY_KEY } from "@/lib/training/program";
-import { ascentProgress, bustFillLine, planRatePerWeek, trendCaption, trendTone } from "./ascent";
+import { ascentProgress, bustFillLine, planRatePerWeek, rangePlaque, trendCaption, trendTone } from "./ascent";
 import { dailyLine, fmtHours, type DailyLineInput } from "./daily-line";
 import { cardDelay, DAWN, DAWN_KEY, shouldPlayDawn } from "./dawn";
 import { kcalSummary, ofGoal, ratio } from "./fuel";
@@ -193,7 +193,7 @@ describe("dailyLine", () => {
     const trim = { level: "trim" as const, score: 2, adjustments: { ...adj, dropSets: 1, rir: "2–3" }, hasCheckin: true, pain: null };
     expect(dailyLine({ ...base, checkin: tired, readiness: trim })).toBe("Push A today, trimmed: one set fewer per exercise, RIR 2–3.");
     expect(dailyLine({ ...base, checkin: tired, readiness: { ...trim, level: "ease", score: 4 } })).toBe(
-      "Push A today, lighter: about 10% off the load, one set fewer per exercise, RIR 3.",
+      "Push A today, lighter: 10% less load, one set fewer, RIR 3.",
     );
     expect(dailyLine({ ...base, readiness: { ...trim, level: "go", score: 0 } })).toBe("Push A today as planned. Recovery markers look fine.");
     // pain never sits next to "markers look fine", and the caveat is said once
@@ -459,5 +459,13 @@ describe("valueHabitSpec — Today's value-habit sheet", () => {
     expect(parseHabitValue("12.5", valueHabitSpec("reading", { label: "Read", target: 20, unit: "pages" }, 8000))).toBe(12.5);
     expect(parseHabitValue("0", steps)).toBe(0);
     expect(formatHabitValue(6500, true)).toBe("6,500");
+  });
+});
+
+describe("rangePlaque", () => {
+  it("formats both ends of the climb to the same precision", () => {
+    expect(rangePlaque(163, 183, "lb")).toBe("163 → 183 lb");
+    expect(rangePlaque(163, 183, "kg")).toBe("73.9 → 83.0 kg");
+    expect(rangePlaque(163.5, 183, "lb")).toBe("163.5 → 183.0 lb");
   });
 });

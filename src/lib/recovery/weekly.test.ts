@@ -299,3 +299,27 @@ describe("weeklyReview", () => {
     expect(r.restDays).toBe(1);
   });
 });
+
+describe("one night logged on a Monday", () => {
+  const monday = (over: Partial<CheckinLite>) =>
+    weeklyReview(base({ today: WS, plannedDates: [], startDate: WS, checkins: [ci(WS, over)] }));
+
+  it("never calls short sleep and high soreness on track", () => {
+    const r = monday({ sleep_hours: 5, soreness: 4 });
+    const keep = r.recommendations.find((x) => x.key === "keep");
+    expect(keep?.title).toBe("Too early to call");
+    expect(keep?.reason).toBe("So far: 5 h of sleep, soreness 4/5. A few more check-ins will show whether the week needs a change.");
+    expect(r.recommendations.map((x) => x.reason).join(" ")).not.toMatch(/on track/);
+  });
+
+  it("6.25 h is still under the goal", () => {
+    const keep = monday({ sleep_hours: 6.25 }).recommendations.find((x) => x.key === "keep");
+    expect(keep?.reason).toMatch(/^So far: 6\.25 h of sleep\./);
+  });
+
+  it("an on-target night still reads as on track", () => {
+    const keep = monday({ sleep_hours: 7.75, soreness: 2 }).recommendations.find((x) => x.key === "keep");
+    expect(keep?.title).toBe("Stay the course");
+    expect(keep?.reason).toMatch(/^Sleep and soreness are on track\./);
+  });
+});

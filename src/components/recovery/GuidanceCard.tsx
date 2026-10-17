@@ -105,7 +105,8 @@ function GuidanceBody({
   isToday: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const step = STEP_OF[g.level];
+  // after the session the Train → Rest scale described a call that has been acted on
+  const step = g.session === "done" ? undefined : STEP_OF[g.level];
   const sleepExtra = isToday
     ? g.extras.find((e) => e.startsWith("Aim for"))
     : undefined;

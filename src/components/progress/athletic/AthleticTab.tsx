@@ -14,6 +14,8 @@ import { useToday } from "@/lib/data/core";
 import { useAthleticTests, useWeights, type AthleticTest } from "@/lib/data/body";
 import { useProfile } from "@/lib/data/profile";
 import { useVolleyball } from "@/lib/data/training";
+import { useRecovery } from "@/lib/data/recovery";
+import { volleyballEntries } from "@/lib/recovery/volleyball";
 import { weightStats } from "@/lib/bodyweight";
 import { addDays, shortDate } from "@/lib/dates";
 import { formatLoad, round, toDisplayLength, toDisplayWeight, type LengthUnit, type WeightUnit } from "@/lib/units";
@@ -40,6 +42,8 @@ export function AthleticTab() {
   const { weights } = useWeights();
   const strength = useStrengthSets();
   const vb = useVolleyball(addDays(today, -27), today);
+  // check-in "Volleyball this day" switches count too, as on Training and Recovery
+  const vbRec = useRecovery(addDays(today, -27), today);
   const actions = useProgressActions();
   const [detail, setDetail] = useState<TestType | null>(null);
 
@@ -48,7 +52,7 @@ export function AthleticTab() {
   const trendBw = stats.avg7 ?? stats.current;
   const squat = useMemo(() => summarizeLift((strength.data ?? []).filter((s) => s.exercise_slug === "back-squat")), [strength.data]);
   const ratio = squatToBodyweight(squat.bestE1rm, trendBw);
-  const freq = volleyballFrequency(vb.data ?? [], today);
+  const freq = volleyballFrequency(volleyballEntries(vb.data ?? [], vbRec.data ?? []), today);
   const vbTarget = profile?.volleyball_per_week ?? null;
 
   if (q.error) return <ErrorNote onRetry={() => qc.invalidateQueries({ queryKey: ["athletic"] })}>Couldn&apos;t load your tests. {(q.error as Error).message}</ErrorNote>;
@@ -125,10 +129,10 @@ export function AthleticTab() {
         <div className="card-instrument flex min-w-0 items-center justify-between gap-4 p-4">
           <StatTile
             label="Volleyball"
-            value={vb.isLoading ? "—" : freq.perWeek.toFixed(1)}
-            unit={vb.isLoading ? undefined : "/ wk"}
+            value={vb.isLoading || vbRec.isLoading ? "—" : freq.perWeek.toFixed(1)}
+            unit={vb.isLoading || vbRec.isLoading ? undefined : "/ wk"}
             size="md"
-            caption={`${freq.total} sessions in 4 weeks${vbTarget != null ? ` · plan ${vbTarget}/wk` : ""}`}
+            caption={`${freq.total} ${freq.total === 1 ? "session" : "sessions"} in 4 weeks${vbTarget != null ? ` · plan ${vbTarget}/wk` : ""}`}
           />
           <div className="flex h-10 w-[104px] shrink-0 items-end gap-1.5" role="img" aria-label={`Volleyball sessions per week, oldest first: ${freq.weeks.map((w) => w.count).join(", ")}`}>
             {freq.weeks.map((w) => (

@@ -58,6 +58,8 @@ export function dailyLine(i: DailyLineInput): string {
   const name = i.sessionName || planName || "Training";
 
   if (i.session === "active") {
+    // a recovery-day call still matters mid-session: the same words Recovery uses
+    if (i.readiness?.hasCheckin && i.readiness.level === "recover") return readinessLine({ ...i.readiness, session: "active" }, name)!;
     return `${name} is underway. Log every set, then refuel.`;
   }
 

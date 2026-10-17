@@ -21,6 +21,7 @@ export interface CheckinLite {
 export interface SessionLite {
   local_date: ISODate;
   status: string;
+  name?: string | null;
   sets_completed: number | string | null;
   total_volume_lb?: number | string | null;
 }
@@ -103,6 +104,23 @@ export interface Guidance {
   partialCheckin: boolean;
   /** Text of the pain note when one was logged for the date. */
   pain: string | null;
+  /**
+   * Today's workout: not started, underway or finished. Once it is underway or done the
+   * call speaks to that (never "move it to tomorrow" for a session already lifted).
+   */
+  session: SessionState;
+}
+
+export type SessionState = "none" | "active" | "done";
+
+/** The state of the date's workout from the sessions already loaded for readiness. */
+export function sessionStateOn(sessions: SessionLite[], date: ISODate): { state: SessionState; name: string | null } {
+  const on = sessions.filter((s) => s.local_date === date);
+  const done = on.find((s) => s.status === "done");
+  if (done) return { state: "done", name: done.name ?? null };
+  const active = on.find((s) => s.status === "active");
+  if (active) return { state: "active", name: active.name ?? null };
+  return { state: "none", name: null };
 }
 
 export const DISCLAIMER = "Not a medical assessment.";
@@ -189,7 +207,61 @@ export function volumeChange(sessions: SessionLite[], date: ISODate) {
 
 const pct = (r: number) => `${Math.round((r - 1) * 100)}%`;
 
+/**
+ * The day's call, aware of today's workout: the plan-level call from the logs, then, once
+ * the session is underway or finished, words that fit that (post-session recovery advice
+ * after it, "keep the rest light" during it). Reasons and extras are kept either way.
+ */
 export function computeGuidance(input: ReadinessInput): Guidance {
+  const g = planCall(input);
+  const { state, name: sessionName } = sessionStateOn(input.sessions, input.date);
+  if (state === "none") return g;
+  const name = sessionName ?? input.plan.name ?? "Today's session";
+  const goal = formatHours(input.sleepGoalH);
+  const calm: Adjustments = { dropSets: 0, rir: null, loadPct: null, skipJumps: false, rest: false };
+
+  if (state === "done") {
+    const hard = g.level === "recover" || g.level === "ease" || g.score >= THRESHOLDS.ease;
+    return {
+      ...g,
+      session: "done",
+      title: `${name} done`,
+      detail: hard
+        ? `Recovery tonight: protein with dinner, an easy walk and ${goal} h of sleep. Tomorrow's check-in sets the next call.`
+        : `Refuel tonight and aim for ${goal} h of sleep. Tomorrow's check-in sets the next call.`,
+      // the detail already says how long to sleep
+      extras: g.extras.filter((e) => !e.startsWith("Aim for")),
+      adjustments: calm,
+    };
+  }
+
+  // underway
+  if (g.level === "recover")
+    return {
+      ...g,
+      session: "active",
+      title: `Keep ${name} light`,
+      detail: "Your markers called for a recovery day. Finish with light sets at RIR 3–4, or stop early.",
+      adjustments: { ...g.adjustments, rest: false, dropSets: Math.max(1, g.adjustments.dropSets), rir: "3–4", loadPct: -10, skipJumps: true },
+    };
+  if (g.level === "rest")
+    return {
+      ...g,
+      session: "active",
+      title: `${name} underway`,
+      detail: "A rest day was planned. Keep it short and easy, well short of failure.",
+      adjustments: { ...calm, rir: "3–4" },
+    };
+  if (g.level === "unknown")
+    return {
+      ...g,
+      session: "active",
+      detail: `Sleep, energy and soreness say how hard to push the rest of ${name}.`,
+    };
+  return { ...g, session: "active" };
+}
+
+function planCall(input: ReadinessInput): Guidance {
   const { date, sleepGoalH: goal, plan } = input;
   const byDate = new Map(input.checkins.map((c) => [c.local_date, c]));
   const today = byDate.get(date) ?? null;
@@ -369,6 +441,7 @@ export function computeGuidance(input: ReadinessInput): Guidance {
     hasCheckin,
     partialCheckin,
     pain,
+    session: "none",
   });
 
   /* rest day: no training decision to make, just how to use it */
@@ -502,37 +575,41 @@ export function planLite(
 /**
  * The guidance as one sentence for other screens (Today's daily line, the Training start
  * card), so every screen says the same thing for the same check-in (SPEC §25). Null when
- * there's no check-in to go on, or nothing worth saying.
+ * there's no check-in to go on, or nothing worth saying. Kept short: every variant fits
+ * the Today hero in full on a 375 px phone (unit-tested).
  */
 export function readinessLine(
   g: Pick<Guidance, "level" | "score" | "adjustments"> & {
     pain?: string | null;
+    session?: SessionState;
   },
   session: string | null,
 ): string | null {
   const n = session ?? "Today's session";
   // A logged pain note travels with the call on every screen (not only on Recovery).
   const hurts = g.pain ? " Skip anything that hurts." : "";
-  const drop = g.adjustments.dropSets > 0 ? " and one set fewer per exercise" : "";
+  const drop = g.adjustments.dropSets > 0 ? ", one set fewer" : "";
+  if (g.session === "done") {
+    return g.level === "recover" || g.level === "ease" || g.score >= THRESHOLDS.ease
+      ? `${n} done. Recovery tonight: protein, an easy walk, an early night.`
+      : `${n} done. Refuel and sleep well tonight.`;
+  }
+  if (g.session === "active" && g.level === "recover") return `${n} underway: keep the rest light, RIR 3–4, or stop early.${hurts}`;
   switch (g.level) {
     case "recover":
       return `Recovery day suggested. Move ${n} to tomorrow: walk, mobility, sleep.`;
     case "ease":
-      return `${n} today, lighter: about 10% off the load, one set fewer per exercise, RIR 3.${hurts}`;
+      return `${n} today, lighter: 10% less load, one set fewer, RIR 3.${hurts}`;
     case "trim":
       return `${n} today, trimmed: one set fewer per exercise, RIR 2–3.${hurts}`;
     case "legs":
       return g.adjustments.skipJumps
-        ? `${n} today without the jumps${drop}. Legs are carrying volleyball fatigue.${hurts}`
-        : `${n} today with leg work at RIR 2–3${drop}. Legs are carrying volleyball fatigue.${hurts}`;
+        ? `${n} today without the jumps${drop}. Volleyball has tired your legs.${hurts}`
+        : `${n} today, leg work at RIR 2–3${drop}. Volleyball has tired your legs.${hurts}`;
     case "go":
-      return g.pain
-        ? `${n} today as planned, around the sore area.${hurts}`
-        : `${n} today as planned. Recovery markers look fine.`;
+      return g.pain ? `${n} today as planned, around the sore area.${hurts}` : `${n} today as planned. Recovery markers look fine.`;
     case "rest":
-      return g.score >= THRESHOLDS.ease
-        ? "Rest fully today. An easy walk at most, then sleep."
-        : null;
+      return g.score >= THRESHOLDS.ease ? "Rest fully today. An easy walk at most, then sleep." : null;
     default:
       return null;
   }

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { fetchAll, must, newId, sb, useToday, useUser, type Insert } from "@/lib/data/core";
 import { useProfile, useSaveProfile } from "@/lib/data/profile";
 import { useRecovery } from "@/lib/data/recovery";
+import { volleyballEntries } from "@/lib/recovery/volleyball";
 import {
   planFor,
   useAllSessions,
@@ -72,13 +73,16 @@ export function useTrainingWeek() {
     const sessions = sessionsQ.data ?? [];
     const volleyball = vbQ.data ?? [];
     const recovery = recQ.data ?? [];
+    // logged sessions plus check-in "Volleyball this day" switches: the count Recovery,
+    // readiness and Progress use, so the week strip never says "no volleyball" beside them
+    const volleyballDays = volleyballEntries(volleyball, recovery);
     const dates = weekDates(today);
-    const days = weekDays({ dates, plans: planLikes, sessions, volleyball, today });
+    const days = weekDays({ dates, plans: planLikes, sessions, volleyball: volleyballDays, today });
     const missed = missedWorkouts({ today, plans: planLikes, sessions, since: profile?.start_date ?? null });
-    const load7d = volleyballSessions7d(volleyball, today);
+    const load7d = volleyballSessions7d(volleyballDays, today);
     const vbAdvice = volleyballAdvice({ load7d, perWeek: profile?.volleyball_per_week ?? 2, recovery: latestRecovery(recovery), today });
     const deload = deloadAdvice({ sessions, recovery, today, mode: profile?.training_mode ?? "standard", historyFrom: addDays(today, -SESSIONS_BACK) });
-    return { plansRows, resolved, planLikes, resolve, sessions, volleyball, recovery, days, missed, load7d, vbAdvice, deload };
+    return { plansRows, resolved, planLikes, resolve, sessions, volleyball, volleyballDays, recovery, days, missed, load7d, vbAdvice, deload };
   }, [plansQ.data, sessionsQ.data, vbQ.data, recQ.data, profile, byKey, today, from, to]);
 
   const loading = profileLoading || templatesLoading || plansQ.isLoading || sessionsQ.isLoading;
