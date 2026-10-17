@@ -50,5 +50,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|images/|.*\\.(?:png|jpg|jpeg|svg|webp|ico|woff2?)$).*)"],
+  // public static files (icons, the /art statues and their credits) never need a session
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|images/|art/|.*\\.(?:png|jpg|jpeg|svg|webp|ico|woff2?)$).*)"],
 };

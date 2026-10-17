@@ -18,7 +18,7 @@ export function SignInForm() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(params.get("error") === "link" ? "That link has expired or was already used. Sign in or request a new one." : null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(params.get("deleted") === "1" ? "Account deleted. Everything is gone." : null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
