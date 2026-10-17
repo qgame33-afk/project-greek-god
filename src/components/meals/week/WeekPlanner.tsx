@@ -235,6 +235,10 @@ export function WeekPlanner() {
           setBusy(({ [meal.id]: _done, ...rest }) => rest);
           if (!res) return void toast.error("The planner is still loading. Try again in a moment.");
           if (!res.ok) return void toast(res.message, { description: "Loosening a preference gives the planner more to pick from." });
+          // another card's swap finished while this one ran: that one was kept, and its strip
+          // makes way for this one (latest: this callback's own render is stale by now)
+          const open = latest.current.strip;
+          if (open && open.mealId !== meal.id) latest.current.closeStrip("kept");
           update.mutate({ id: meal.id, patch: res.patch, weekStart: ws });
           const feedbackId = record(res.feedback);
           setStrip({ mealId: meal.id, from: placeOf(meal), feedbackId, shown: res.shown, phase: "ask", chosen: null, noted: null });
