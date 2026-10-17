@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PROGRAM_BY_KEY } from "@/lib/training/program";
-import { ascentProgress, bustFillLine, planRatePerWeek, rangePlaque, trendCaption, trendTone } from "./ascent";
+import { ascentProgress, bustFillLine, planRatePerWeek, rangePlaque } from "./ascent";
 import { dailyLine, fmtHours, type DailyLineInput } from "./daily-line";
 import { nextSession, planFacts, prescription, upcomingLabel } from "./plan";
 import { latestRecords } from "./records";
@@ -105,19 +105,8 @@ describe("ascentProgress — one p for the hero, bust and meter", () => {
     expect(bustFillLine(Number.NaN)).toBe(0);
   });
 
-  it("colours the weekly trend by the plan rate, not the sign", () => {
-    const r = planRatePerWeek(163, 183, "2026-10-16", "2027-08-01")!;
-    expect(r).toBeCloseTo(0.484, 2);
-    expect(trendTone(0.4, r)).toBe("good");
-    expect(trendTone(0.2, r)).toBe("neutral");
-    expect(trendTone(0.85, r)).toBe("neutral"); // between 1.6r and 2r
-    expect(trendTone(1.2, r)).toBe("warn");
-    expect(trendTone(-0.3, r)).toBe("neutral");
-    expect(trendTone(null, r)).toBe("neutral");
-    expect(trendTone(-0.4, -0.5)).toBe("good"); // cutting plan
-    expect(trendCaption("warn", 1.2, "+0.5 lb")).toBe("Faster than plan");
-    expect(trendCaption("neutral", 0.1, "+0.5 lb")).toBe("Plan +0.5 lb/wk");
-    expect(trendCaption("neutral", null, "+0.5 lb")).toBe("Needs 2 weeks of data");
+  it("plans the weekly rate from start to goal", () => {
+    expect(planRatePerWeek(163, 183, "2026-10-16", "2027-08-01")!).toBeCloseTo(0.484, 2);
   });
 });
 

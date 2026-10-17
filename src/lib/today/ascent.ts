@@ -1,8 +1,8 @@
 // "How far up the climb am I": the hero TARGET %, the Gilded Bust and the fluted meter all
 // read from ascentProgress(), which is built on the one trend in lib/progress/pace.ts.
 
-import { avgWindow, type WeighIn } from "@/lib/bodyweight";
-import { addDays, daysBetween, type ISODate } from "@/lib/dates";
+import type { WeighIn } from "@/lib/bodyweight";
+import { daysBetween, type ISODate } from "@/lib/dates";
 import { gildFraction, MIN_WEIGHINS, trendAt, type Pace, type PaceVerdict } from "@/lib/progress/pace";
 import { round, toDisplayWeight, type WeightUnit } from "@/lib/units";
 
@@ -20,11 +20,6 @@ export interface Ascent {
   avgEnd: ISODate;
   /** The trend weight p is computed from (null only before the first weigh-in). */
   trend: number | null;
-  /**
-   * @deprecated The 7-day-vs-previous-7-day change. Not a rate: show pace().rate instead
-   * (DESIGN-V2 §4.1.1). Kept for the exported shape only.
-   */
-  weeklyChange: number | null;
   /** goal − trend (or goal − start before any weigh-in). */
   toGo: number | null;
   start: number | null;
@@ -50,7 +45,6 @@ export function ascentProgress(startLb: number | null | undefined, goalLb: numbe
   const valid = weights.filter((w) => Number.isFinite(Number(w.weight_lb)) && Number(w.weight_lb) > 0 && w.local_date <= ref);
   const t = trendAt(valid, ref);
   const trend = t.lb;
-  const prevWeek = t.lb != null ? avgWindow(valid, addDays(t.end, -7)) : null;
   let p = 0;
   if (trend != null && start != null && goal != null) {
     p = goal === start ? 1 : clamp01((trend - start) / (goal - start));
@@ -63,7 +57,6 @@ export function ascentProgress(startLb: number | null | undefined, goalLb: numbe
     avgCount: t.n,
     avgEnd: t.end,
     trend,
-    weeklyChange: trend != null && prevWeek != null ? round(trend - prevWeek, 2) : null,
     toGo: goal == null ? null : trend != null ? round1(goal - trend) : start != null ? round1(goal - start) : null,
     start,
     goal,
@@ -84,28 +77,6 @@ export function planRatePerWeek(startLb: number | null, goalLb: number | null, s
 }
 
 export type TrendTone = "good" | "warn" | "neutral";
-
-/**
- * @deprecated Colours the old 7-day-vs-7-day change against the plan rate. Screens show the
- * pace verdict now (paceTone); kept until the last caller is rebuilt.
- */
-export function trendTone(weeklyChange: number | null, r: number | null): TrendTone {
-  if (weeklyChange == null || r == null || r === 0) return "neutral";
-  const dir = Math.sign(r);
-  const c = weeklyChange * dir;
-  const rr = Math.abs(r);
-  if (c > 2 * rr) return "warn";
-  if (c >= 0.5 * rr && c <= 1.6 * rr) return "good";
-  return "neutral";
-}
-
-/** @deprecated See trendTone. `planLabel` is the formatted plan rate ("+0.5 lb"). */
-export function trendCaption(tone: TrendTone, weeklyChange: number | null, planLabel: string | null): string {
-  if (weeklyChange == null) return "Needs 2 weeks of data";
-  if (tone === "warn") return "Faster than plan";
-  if (tone === "good") return "On plan";
-  return planLabel ? `Plan ${planLabel}/wk` : "No plan rate set";
-}
 
 /** The old screens' tone for a pace verdict: on pace or arrived reads good, faster than the corridor reads warn. */
 export function paceTone(verdict: PaceVerdict): TrendTone {

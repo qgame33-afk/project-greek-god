@@ -285,8 +285,10 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
       fact("bodyweight", "logged", "bw.count", "Weigh-ins logged", String(w.length), `${last14} in the last 14 days`);
       // §12 smart calorie check: the app's own rule, on the same rate
       const targetRate = req ?? round((p.goal_weight_lb - p.start_weight_lb) / Math.max(1, daysBetween(p.start_date, p.target_date) / 7), 2);
-      calorieCheck = calorieSuggestion(rt, today, targetRate, lastCalorieChange);
+      calorieCheck = calorieSuggestion(w, today, targetRate, lastCalorieChange, p.start_date);
       const cc = calorieCheck;
+      // the rule judges only weigh-ins since the last calorie change (when it falls in the 4 weeks)
+      const ccWindow = cc.kind !== "cooldown" && cc.since ? `since the calorie change on ${sd(cc.since)}` : "over the last 4 weeks";
       const ccValue =
         cc.kind === "insufficient"
           ? "Not enough data yet"
@@ -300,12 +302,12 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
       const water = cc.kind !== "insufficient" && cc.kind !== "cooldown" && cc.earlyWater ? " The rate includes early water and glycogen, so treat a fast early gain with caution." : "";
       const ccDetail =
         cc.kind === "insufficient"
-          ? `needs ≥8 weigh-ins spanning ≥14 days in the last 4 weeks; has ${cc.weighIns} weigh-ins over ${cc.daysOfData} days. Don't recommend a calorie change yet.`
+          ? `needs ≥8 weigh-ins spanning ≥14 days ${ccWindow}; has ${cc.weighIns} weigh-ins over ${cc.daysOfData} days. Don't recommend a calorie change yet.`
           : cc.kind === "cooldown"
             ? `calorie target changed ${sd(cc.lastChange)}; the app waits 14 days of new data before another change`
             : cc.kind === "on_track"
-              ? `rate over the last 4 weeks ${rate(cc.ratePerWeek)} vs target ${rate(cc.targetRate)}. Keep the calorie target.${water}`
-              : `rate over the last 4 weeks ${rate(cc.ratePerWeek)} vs target ${rate(cc.targetRate)}. The app's rule suggests ${signed(cc.delta, 0)} kcal/day (a modest step that needs the user's confirmation).${water}`;
+              ? `rate ${ccWindow} ${rate(cc.ratePerWeek)} vs target ${rate(cc.targetRate)}. Keep the calorie target.${water}`
+              : `rate ${ccWindow} ${rate(cc.ratePerWeek)} vs target ${rate(cc.targetRate)}. The app's rule suggests ${signed(cc.delta, 0)} kcal/day (a modest step that needs the user's confirmation).${water}`;
       fact("bodyweight", "logged", "bw.check", "Calorie check", ccValue, ccDetail);
       for (const m of monthlyWeights(w).slice(-12)) {
         fact("bodyweight", "logged", `bw.m.${m.month}`, `${monthLabel(m.month + "-01")} average`, bw(m.avg), `${m.n} weigh-ins; first ${bw(m.first.lb)} on ${sd(m.first.date)}, last ${bw(m.last.lb)} on ${sd(m.last.date)}`);

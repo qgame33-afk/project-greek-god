@@ -93,7 +93,7 @@ export function WeightTab() {
           <StatsCard busy={busy} stats={stats} pace={pc} plan={plan} planRate={planRate} unit={unit} disp={disp} today={today} />
         </div>
         <div className="order-4 min-w-0 empty:hidden lg:order-none">
-          <CalorieCard rate={pc.rate} plan={plan} planRate={planRate} unit={unit} />
+          <CalorieCard weights={weights} plan={plan} planRate={planRate} unit={unit} />
         </div>
       </div>
     </div>

@@ -34,11 +34,6 @@ describe("ascentProgress on the one trend", () => {
     expect(ascentProgress(163, 183, [], TODAY)).toMatchObject({ gild: 0, weighInsToGild: 4 });
     expect(ascentProgress(null, 183, four, TODAY).gild).toBe(0);
   });
-
-  it("weeklyChange keeps its old meaning for the exported shape", () => {
-    const rows = Array.from({ length: 14 }, (_, i) => w(addDays(TODAY, -13 + i), 166 + i * 0.1));
-    expect(ascentProgress(163, 183, rows, TODAY).weeklyChange).toBe(0.7);
-  });
 });
 
 describe("paceTone / paceCaption (old screens)", () => {

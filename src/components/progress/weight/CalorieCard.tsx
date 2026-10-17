@@ -10,8 +10,7 @@ import { Bar } from "@/components/ui/progress";
 import { Sheet } from "@/components/ui/sheet";
 import { useToday } from "@/lib/data/core";
 import { useGoalChanges, useProfile, useSaveProfile } from "@/lib/data/profile";
-import type { RateReading } from "@/lib/progress/pace";
-import { calorieSuggestion } from "@/lib/bodyweight";
+import { calorieSuggestion, type WeighIn } from "@/lib/bodyweight";
 import { localDateOf, shortDate } from "@/lib/dates";
 import { carbsForGoal } from "@/lib/nutrition";
 import { formatInt, toDisplayWeight, type WeightUnit } from "@/lib/units";
@@ -23,7 +22,7 @@ import { signed } from "../kit";
  * slope every screen shows); needs ≥ 8 weigh-ins over two weeks; suggests a modest change
  * when the pace is well off plan; never changes the goal without an explicit confirmation.
  */
-export function CalorieCard({ rate: reading, plan, planRate, unit }: { rate: RateReading; plan: PlanInput; planRate: number | null; unit: WeightUnit }) {
+export function CalorieCard({ weights, plan, planRate, unit }: { weights: WeighIn[]; plan: PlanInput; planRate: number | null; unit: WeightUnit }) {
   const today = useToday();
   const { profile } = useProfile();
   const changes = useGoalChanges();
@@ -36,7 +35,7 @@ export function CalorieCard({ rate: reading, plan, planRate, unit }: { rate: Rat
   }, [changes.data]);
 
   const target = Math.max(0.1, planRate ?? 0.46);
-  const sug = useMemo(() => calorieSuggestion(reading, today, target, lastCalChange), [reading, today, target, lastCalChange]);
+  const sug = useMemo(() => calorieSuggestion(weights, today, target, lastCalChange, plan.startDate), [weights, today, target, lastCalChange, plan.startDate]);
   const rate = (lb: number) => `${signed(toDisplayWeight(lb, unit), 2)} ${unit}/wk`;
 
   if (!profile || changes.isLoading) return null;
