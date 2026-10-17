@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BackLink } from "@/components/shell/BackLink";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChefHat, ChevronLeft, ChevronRight, Plus, WandSparkles } from "lucide-react";
@@ -82,7 +83,7 @@ export function RecipeScreen({ recipeKey }: { recipeKey: string }) {
   if (!recipe) {
     return (
       <div className="mx-auto max-w-[640px]">
-        <BackLink />
+        <MealPlanLink />
         {pool.error ? (
           <ErrorNote className="mt-4">Couldn&apos;t load your recipes. Check your connection.</ErrorNote>
         ) : (
@@ -331,7 +332,7 @@ function RecipeView({
   return (
     <div className="pb-6 lg:pb-10">
       <TimerAlarm sound={readTimerSound()} />
-      <BackLink />
+      <MealPlanLink />
 
       <div className="mt-1 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-8">
         {/* ---------------------------------------------------------------- main column */}
@@ -495,12 +496,12 @@ function Fact({ value, unit, label }: { value: number; unit?: string; label: str
   );
 }
 
-function BackLink() {
+function MealPlanLink() {
   return (
-    <Link href="/nutrition/meals" className="press -ml-2 inline-flex h-11 items-center gap-1 rounded-[12px] pr-3 text-[14px] font-semibold text-fg-2 hover:text-fg">
+    <BackLink href="/nutrition/meals" className="press -ml-2 inline-flex h-11 items-center gap-1 rounded-[12px] pr-3 text-[14px] font-semibold text-fg-2 hover:text-fg">
       <ChevronLeft className="size-5" aria-hidden />
       Meal plan
-    </Link>
+    </BackLink>
   );
 }
 

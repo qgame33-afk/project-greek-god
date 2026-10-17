@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BackLink } from "@/components/shell/BackLink";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Check, ChevronLeft, Copy, House, Pencil, Plus, RefreshCw, ShoppingBasket } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -61,10 +62,10 @@ export function GroceryScreen() {
 
   return (
     <div className="pb-4">
-      <Link href="/nutrition/meals" className="press -ml-2 inline-flex h-11 items-center gap-1 rounded-[12px] pr-3 text-[14px] font-semibold text-fg-2 hover:text-fg">
+      <BackLink href="/nutrition/meals" className="press -ml-2 inline-flex h-11 items-center gap-1 rounded-[12px] pr-3 text-[14px] font-semibold text-fg-2 hover:text-fg">
         <ChevronLeft className="size-5" aria-hidden />
         Meal plan
-      </Link>
+      </BackLink>
       <header className="mt-1 mb-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
           <p className="eyebrow mb-2">Meals · {weekRange(ws, today)}</p>

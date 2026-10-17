@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BackLink } from "@/components/shell/BackLink";
 import { useSearchParams } from "next/navigation";
 import { CalendarPlus, ChevronLeft, ChevronRight, Info, Plus, RefreshCw, ShoppingBasket, SlidersHorizontal, X, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -455,10 +456,10 @@ export function WeekPlanner() {
 
   return (
     <div className="mx-auto max-w-[1120px] pb-4">
-      <Link href="/nutrition" className="-ml-2 inline-flex h-11 items-center gap-1 rounded-[12px] pr-3 text-[14px] font-semibold text-fg-2 hover:text-fg">
+      <BackLink href="/nutrition" className="-ml-2 inline-flex h-11 items-center gap-1 rounded-[12px] pr-3 text-[14px] font-semibold text-fg-2 hover:text-fg">
         <ChevronLeft className="size-5" aria-hidden />
         Fuel
-      </Link>
+      </BackLink>
       <header className="mt-1 mb-5 flex items-end justify-between gap-3 lg:mb-7">
         <div className="min-w-0">
           <p className="eyebrow mb-2">Meals</p>

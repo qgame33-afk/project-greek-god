@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { BackLink } from "@/components/shell/BackLink";
+import { useGoUp } from "@/components/shell/trail";
+import { useSearchParams } from "next/navigation";
 import { Check, ChevronLeft, ChevronRight, ListChecks, Plus, RotateCcw, Sun, Timer, Volume2, VolumeX, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { MacroLine, recipeHref, servingsLabel, useRecipePool } from "@/components/meals/shared";
@@ -65,7 +67,6 @@ export function CookMode({ recipeKey }: { recipeKey: string }) {
 }
 
 function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal | null; servings: number }) {
-  const router = useRouter();
   const today = useToday();
   const n = recipe.steps.length;
   const checks = useChecks(checkScope(recipe.key, meal?.id));
@@ -79,6 +80,7 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
   const ingredients = useMemo(() => scaleIngredients(recipe, servings), [recipe, servings]);
   const macros = useMemo(() => recipeMacros(recipe, servings), [recipe, servings]);
   const backHref = `${recipeHref(recipe.key, meal?.id)}${!meal && servings !== 1 ? `?servings=${servings}` : ""}`;
+  const close = useGoUp(backHref);
 
   const setCurrent = checks.setCurrent;
   useEffect(() => setCurrent(index), [index, setCurrent]);
@@ -131,13 +133,13 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       if (e.key === "ArrowRight" && !finished) goto(index + 1);
       else if (e.key === "ArrowLeft" && !finished) goto(index - 1);
-      else if (e.key === "Escape") router.push(backHref);
+      else if (e.key === "Escape") close();
       else return;
       e.preventDefault();
     };
     window.addEventListener("keydown", on);
     return () => window.removeEventListener("keydown", on);
-  }, [goto, index, finished, router, backHref, logOpen, ingredientsOpen]);
+  }, [goto, index, finished, close, logOpen, ingredientsOpen]);
 
   /* swipe: the step follows the finger, then moves on or springs back */
   const dragEl = useRef<HTMLDivElement>(null);
@@ -184,9 +186,9 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
       {/* ------------------------------------------------------------------ top */}
       <header className="shrink-0 px-2 pt-[calc(var(--safe-top)+4px)] lg:px-6">
         <div className="mx-auto flex h-14 max-w-[760px] items-center gap-1">
-          <Link href={backHref} aria-label="Close cooking mode" className="press grid size-11 shrink-0 place-items-center rounded-[12px] text-fg-2 hover:bg-white/[.04] hover:text-fg">
+          <BackLink href={backHref} aria-label="Close cooking mode" className="press grid size-11 shrink-0 place-items-center rounded-[12px] text-fg-2 hover:bg-white/[.04] hover:text-fg">
             <X className="size-6" aria-hidden />
-          </Link>
+          </BackLink>
           <div className="min-w-0 flex-1 px-1 text-center">
             <p className="truncate text-[15px] font-bold leading-tight text-fg">{recipe.name}</p>
             <p className="mt-0.5 flex items-center justify-center gap-1.5 truncate text-[12px] font-semibold text-fg-3">
@@ -421,7 +423,7 @@ function Finished({
         <div className="mt-8 space-y-3">
           {lastLog ? (
             <Button asChild variant="primary" size="lg" block>
-              <Link href={backHref}>Back to recipe</Link>
+              <BackLink href={backHref}>Back to recipe</BackLink>
             </Button>
           ) : (
             <>
@@ -430,7 +432,7 @@ function Finished({
                 Add to today&apos;s food log
               </Button>
               <Button asChild variant="secondary" size="lg" block>
-                <Link href={backHref}>Back to recipe</Link>
+                <BackLink href={backHref}>Back to recipe</BackLink>
               </Button>
             </>
           )}

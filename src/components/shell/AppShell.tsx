@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ViewTransition, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { HeartPulse, Plus } from "lucide-react";
 import { Mark } from "@/components/art/Mark";
@@ -14,6 +14,7 @@ import { useUser } from "@/lib/data/core";
 import { cn } from "@/lib/cn";
 import { navDirection, prefersReducedMotion } from "@/lib/motion";
 import { PRIMARY_NAV, SECONDARY_NAV, headingUnderBar, hidesFab, isActive, isFocusRoute } from "./nav";
+import { useHistoryTrail } from "./trail";
 
 export function AppShell({ children }: { children: ReactNode }) {
   // Everything inside the app is per-user and per-timezone, so it renders on the client only.
@@ -48,6 +49,8 @@ function AppShellInner({ children }: { children: ReactNode }) {
   }, [loading, profile, pathname, router]);
 
   useNavDirection(pathname);
+  const search = useSearchParams().toString();
+  useHistoryTrail(search ? `${pathname}?${search}` : pathname);
 
   const showFab = !focus && !hidesFab(pathname) && !keyboard;
 
@@ -65,9 +68,11 @@ function AppShellInner({ children }: { children: ReactNode }) {
         {focus ? (
           // full height: a focus screen drawn with position: fixed (cooking mode) still has a
           // box for the transition to capture
-          <div className="min-h-dvh">{children}</div>
+          <div data-vt-page="" className="min-h-dvh">
+            {children}
+          </div>
         ) : (
-          <main className="pb-tabbar w-full pt-4 md:pl-[76px] md:pb-16 lg:pl-[248px] lg:pt-8">
+          <main data-vt-page="" className="pb-tabbar w-full pt-4 md:pl-[76px] md:pb-16 lg:pl-[248px] lg:pt-8">
             <div className="mx-auto w-full max-w-[1180px] px-4 md:px-6 lg:px-8">
               <OfflineBanner />
               <div>{children}</div>

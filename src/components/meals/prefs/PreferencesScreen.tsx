@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BackLink } from "@/components/shell/BackLink";
 import { Check, ChevronLeft, Plus, ShieldCheck, X } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -284,10 +284,10 @@ export function PreferencesScreen() {
 function Frame({ status, children }: { status?: string; children: ReactNode }) {
   return (
     <div className="mx-auto max-w-[1040px] pb-4">
-      <Link href="/nutrition/meals" className="-ml-2 inline-flex h-11 items-center gap-1 rounded-[12px] pr-3 text-[14px] font-semibold text-fg-2 hover:text-fg">
+      <BackLink href="/nutrition/meals" className="-ml-2 inline-flex h-11 items-center gap-1 rounded-[12px] pr-3 text-[14px] font-semibold text-fg-2 hover:text-fg">
         <ChevronLeft className="size-5" aria-hidden />
         Meals
-      </Link>
+      </BackLink>
       <header className="mt-1 mb-5 lg:mb-7">
         <p className="eyebrow mb-2">Meals</p>
         <h1 className="t-title">Preferences</h1>
