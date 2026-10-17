@@ -25,6 +25,7 @@ import { firstBenchmarks, sessionRecords } from "@/lib/workout/pr";
 import { groupSets, hasWeight, isTimed, setChip, trackingFor } from "@/lib/workout/session";
 import { comparisonLine, sessionTotals, volumeDeltaPct } from "@/lib/workout/summary";
 import { useNextWorkout, usePreviousSession, usePriorBests, usePriorHistory, type LiveData } from "../data";
+import { useNarrow } from "../gym/hooks";
 import { TimingMark } from "../gym/SetTower";
 import { useSessionWeek } from "./data";
 import { clearInscription, peekInscription, plannedFor } from "./flags";
@@ -130,9 +131,17 @@ export function Inscription({ data, onEdit }: { data: LiveData; onEdit: () => vo
   const heroFrom = hero ? Math.round(toDisplayWeight(hero.e1rm - hero.gain, unit)) : 0;
   const heroTo = hero ? Math.round(toDisplayWeight(hero.e1rm, unit)) : 0;
   const unitWord = unit === "kg" ? "kilograms" : "pounds";
+  const rootRef = useRef<HTMLDivElement>(null);
+  const big = useNarrow(rootRef, 20);
+  const eyebrow = (
+    <p className={cn("t-eyebrow !text-leaf-200 [letter-spacing:.3em]", big && "text-center", animate && "wk-rise-late")} style={animate ? { animationDelay: "750ms" } : undefined}>
+      New record
+    </p>
+  );
+  const unitLine = <p className={cn("t-eyebrow mt-2 !text-stone", big && "text-center")}>{unit} · est. 1-rep max</p>;
 
   return (
-    <div className="relative min-h-dvh overflow-x-clip bg-obsidian" onPointerDownCapture={skip}>
+    <div ref={rootRef} className="relative min-h-dvh overflow-x-clip bg-obsidian" onPointerDownCapture={skip}>
       {/* one light from above, and the marble's own veins at 4% */}
       <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 top-0 h-[86vh]", animate && "spot-in")}>
         <div className="absolute inset-0 bg-[radial-gradient(26%_88%_at_50%_0%,rgb(236_200_140/.13),transparent_78%)]" />
@@ -140,7 +149,7 @@ export function Inscription({ data, onEdit }: { data: LiveData; onEdit: () => vo
       </div>
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[url(/art/marble-veins.svg)] bg-[length:400px_400px] opacity-[.04]" />
 
-      <div className="wk-fade motion-keep relative mx-auto w-full max-w-col px-5" style={{ paddingTop: "var(--safe-top)", paddingBottom: "calc(var(--safe-bottom) + 112px)" }}>
+      <div className="wk-fade motion-keep relative mx-auto w-full max-w-col px-5" style={{ paddingTop: "var(--safe-top)", paddingBottom: "calc(var(--safe-bottom) + 7rem)" }}>
         <div className="flex h-[52px] items-center justify-end">
           <button type="button" onClick={() => setMenuOpen(true)} aria-label="Session options" className="press -mr-2 grid size-11 place-items-center rounded-full text-stone hover:text-ivory">
             <Ellipsis className="size-5" strokeWidth={1.6} />
@@ -160,19 +169,24 @@ export function Inscription({ data, onEdit }: { data: LiveData; onEdit: () => vo
 
         {hero ? (
           <section aria-label={`New record: ${hero.name}, estimated max ${heroTo} ${unitWord}, up ${formatGain(hero.gain, unit).replace("+", "")}`} className="mt-6">
-            <div aria-hidden className="relative mx-auto grid aspect-square w-full max-w-[300px] place-items-center">
+            {/* At large text sizes the eyebrow and unit leave the wreath (they would cross the
+                leaves) and the numeral is capped by the wreath's width, not the viewport's. */}
+            {big && eyebrow}
+            <div aria-hidden className="relative mx-auto grid aspect-square w-full max-w-[300px] place-items-center [container-type:inline-size]">
               <Laurel size={300} inscribe={animate} delay={100} leaves={11} className="absolute inset-0 size-full" />
               <div className="relative -mt-2 flex flex-col items-center">
-                <p className={cn("t-eyebrow !text-leaf-200 [letter-spacing:.3em]", animate && "wk-rise-late")} style={animate ? { animationDelay: "750ms" } : undefined}>
-                  New record
-                </p>
-                <p className="t-monument relative mt-2 overflow-hidden bg-[linear-gradient(180deg,var(--leaf-100),var(--leaf-300)_45%,var(--leaf-500))] bg-clip-text pb-1 text-transparent">
+                {!big && eyebrow}
+                <p
+                  className="t-monument relative mt-2 overflow-hidden bg-[linear-gradient(180deg,var(--leaf-100),var(--leaf-300)_45%,var(--leaf-500))] bg-clip-text pb-1 text-transparent"
+                  style={{ fontSize: `min(clamp(5.625rem, 26vw, 7.5rem), ${String(heroTo).length > 3 ? 27 : 36}cqw)` }}
+                >
                   <CountUp from={heroFrom} to={heroTo} play={animate} delay={950} duration={700} />
                   {animate && <span aria-hidden className="wk-sheen-late pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-[linear-gradient(100deg,transparent_15%,rgb(255_250_235/.55)_50%,transparent_85%)]" />}
                 </p>
-                <p className="t-eyebrow mt-2 !text-stone">{unit} · est. 1-rep max</p>
+                {!big && unitLine}
               </div>
             </div>
+            {big && unitLine}
             <p className="t-title-1 mt-2 text-center text-ivory">{hero.name}</p>
             <p className={cn("t-callout tnum mt-1.5 text-center text-stone", animate && "wk-rise-late")} style={animate ? { animationDelay: "2050ms" } : undefined}>
               {fmt(hero.weightLb)} × {hero.reps}
@@ -200,10 +214,10 @@ export function Inscription({ data, onEdit }: { data: LiveData; onEdit: () => vo
         )}
 
         {/* stats */}
-        <dl className="mt-8 grid grid-cols-3 divide-x divide-vein-2 text-center">
-          <Stat label="Duration" value={minutes == null ? "—" : String(minutes)} unit={minutes == null ? null : "min"} />
-          <Stat label="Sets" value={String(setsDone)} unit={planned && planned >= setsDone ? `/${planned}` : null} />
-          <Stat label="Moved" value={volumeLb > 0 ? formatInt(toDisplayWeight(volumeLb, unit)) : "—"} unit={volumeLb > 0 ? unit : null} />
+        <dl className={cn("mt-8 grid", big ? "grid-cols-1 divide-y divide-vein-2 border-y border-vein-2" : "grid-cols-3 divide-x divide-vein-2 text-center")}>
+          <Stat row={big} label="Duration" value={minutes == null ? "—" : String(minutes)} unit={minutes == null ? null : "min"} />
+          <Stat row={big} label="Sets" value={String(setsDone)} unit={planned && planned >= setsDone ? `/${planned}` : null} />
+          <Stat row={big} label="Moved" value={volumeLb > 0 ? formatInt(toDisplayWeight(volumeLb, unit)) : "—"} unit={volumeLb > 0 ? unit : null} />
         </dl>
         {compare && (
           <p className="t-meta mt-3 flex items-center justify-center gap-2 text-center text-stone">
@@ -220,7 +234,7 @@ export function Inscription({ data, onEdit }: { data: LiveData; onEdit: () => vo
               {groups.map((g) => {
                 const r = results?.find((x) => x.key === g.key) ?? null;
                 const t = trackingFor(getExercise(g.slug), g.working[0]?.target_unit);
-                return <LiftRow key={g.key} name={g.name} result={r} best={r ? setChip(r.best, t, fmt) : g.working.length ? setChip(g.working[0], t, fmt) : `W ${g.warmups.length}`} first={firsts.some((f) => f.slug === g.slug)} />;
+                return <LiftRow key={g.key} stacked={big} name={g.name} result={r} best={r ? setChip(r.best, t, fmt) : g.working.length ? setChip(g.working[0], t, fmt) : `W ${g.warmups.length}`} first={firsts.some((f) => f.slug === g.slug)} />;
               })}
             </ul>
           ) : (
@@ -254,11 +268,11 @@ export function Inscription({ data, onEdit }: { data: LiveData; onEdit: () => vo
         {week && (
           <section aria-label="This week" className="mt-9">
             <Colonnade key={templeLive ? "live" : "before"} days={templeLive ? week : week.map((d) => (d.date === session.local_date ? { ...d, done: false } : d))} height={96} />
-            <div className="t-eyebrow mt-3 flex justify-between gap-3">
+            <div className="t-eyebrow mt-3 flex flex-wrap justify-between gap-x-3 gap-y-1">
               <span>
                 Week · <span className="!text-leaf-300">{week.filter((d) => d.kind === "train" && d.done).length} of {week.filter((d) => d.kind === "train").length} raised</span>
               </span>
-              <span className="truncate text-right">{next ? `Next · ${next.inDays === 1 ? "tomorrow" : dayName(next.date, true)} · ${next.name}` : "Nothing scheduled this week"}</span>
+              <span className="ml-auto text-right">{next ? `Next · ${next.inDays === 1 ? "tomorrow" : dayName(next.date, true)} · ${next.name}` : "Nothing scheduled this week"}</span>
             </div>
           </section>
         )}
@@ -304,21 +318,23 @@ function heroTarget(groups: ReturnType<typeof groupSets>, slug: string): string 
   return repRange(s.target_rep_low, s.target_rep_high, s.target_unit);
 }
 
-function Stat({ label, value, unit }: { label: string; value: string; unit: string | null }) {
+/** One stat: a column under the hero, or a label-left row at large text sizes (`row`). */
+function Stat({ label, value, unit, row }: { label: string; value: string; unit: string | null; row?: boolean }) {
   return (
-    <div className="min-w-0 px-2">
+    <div className={cn("min-w-0", row ? "flex items-baseline justify-between gap-3 py-3" : "flex flex-col-reverse px-2")}>
+      <dt className={cn("t-eyebrow", !row && "mt-1")}>{label}</dt>
       <dd className="t-num-m tnum text-ivory">
         {value}
         {unit && <span className="t-meta ml-0.5 text-stone">{unit}</span>}
       </dd>
-      <dt className="t-eyebrow mt-1">{label}</dt>
     </div>
   );
 }
 
 const WORD = { record: "record", beat: "beat last", matched: "matched", below: "below last", first: "first benchmark" } as const;
 
-function LiftRow({ name, result, best, first }: { name: string; result: LiftResult | null; best: string; first: boolean }) {
+/** One lift: its mark, name and best set, and the delta and word at the right (`stacked` puts them under the name at large text sizes). */
+function LiftRow({ name, result, best, first, stacked }: { name: string; result: LiftResult | null; best: string; first: boolean; stacked?: boolean }) {
   const timing = result?.timing ?? (first ? "first" : null);
   const tone = timing === "record" || timing === "beat" ? "text-leaf-300" : timing === "below" ? "text-stone" : "text-ivory";
   const word = timing ? WORD[timing] : "logged";
@@ -330,13 +346,21 @@ function LiftRow({ name, result, best, first }: { name: string; result: LiftResu
         <TimingMark timing={timing} logged />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="t-title-3 block truncate text-ivory">{name}</span>
+        <span className={cn("t-title-3 block text-ivory", !stacked && "truncate")}>{name}</span>
         <span className="t-meta tnum block text-stone">best {best}</span>
+        {stacked && (
+          <span className="mt-1 flex flex-wrap items-baseline gap-x-2">
+            {delta && <span className={cn("t-num-s tnum", tone)}>{delta}</span>}
+            <span className={cn("t-tag", delta ? "text-ash" : tone)}>{word}</span>
+          </span>
+        )}
       </span>
-      <span className="shrink-0 text-right">
-        {delta && <span className={cn("t-num-s tnum block", tone)}>{delta}</span>}
-        <span className={cn("t-tag block", delta ? "mt-0.5 text-ash" : tone)}>{word}</span>
-      </span>
+      {!stacked && (
+        <span className="shrink-0 text-right">
+          {delta && <span className={cn("t-num-s tnum block", tone)}>{delta}</span>}
+          <span className={cn("t-tag block", delta ? "mt-0.5 text-ash" : tone)}>{word}</span>
+        </span>
+      )}
     </li>
   );
 }

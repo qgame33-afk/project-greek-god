@@ -38,8 +38,8 @@ export function RefuelCard({ date, endedAt, className }: { date: ISODate; endedA
           <span className="font-semibold text-ivory">Protein goal reached</span> · {r.eaten} of {r.goal} g today
         </p>
       ) : r.kind === "none" ? (
-        <div className="mt-2 flex items-center gap-3">
-          <p className="t-callout min-w-0 flex-1 text-stone">
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <p className="t-callout min-w-[min(100%,12rem)] flex-1 text-stone">
             <span className="t-num-s text-ivory">{r.gap} g</span> protein to go today
           </p>
           <Button variant="outline" size="sm" onClick={() => openOffering({ mode: "log", date })}>
@@ -80,9 +80,9 @@ function MealRow({ r, date }: { r: Refuel; date: ISODate }) {
   };
   return (
     <>
-      <div className="mt-2 flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="t-title-3 truncate text-ivory">
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <div className="min-w-[min(100%,12rem)] flex-1">
+          <p className="t-title-3 text-ivory">
             {m.recipe.name} <span className="font-medium text-stone">at {minuteTime(m.at)}</span>
           </p>
           <p className="t-meta mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-stone">

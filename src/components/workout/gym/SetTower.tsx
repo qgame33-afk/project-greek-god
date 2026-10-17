@@ -1,6 +1,7 @@
 "use client";
 
 import { Ellipsis, Plus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Laurel } from "@/components/art/Laurel";
 import { LaurelSprig, SealTick } from "@/components/art/icons";
 import { cn } from "@/lib/cn";
@@ -26,6 +27,45 @@ export interface TowerCell {
 
 /** §3.2.4: every mark is a glyph and a word, never red. */
 const WORD: Record<Exclude<SetTiming, null>, string> = { record: "record", beat: "beat last", matched: "matched", below: "below last", first: "first benchmark" };
+
+/**
+ * Type sizes for the cells' "load × work" line, largest first: the tower picks the largest pair
+ * every cell fits so the three values read at one size ("1,000×10" and "+17.5×10" drop a step
+ * rather than truncate). Per-character widths are the tabular digits measured at each size; a
+ * point or comma is about half a digit.
+ */
+const TIERS = [
+  { load: "t-num-l", work: "t-num-m", lw: 20, ww: 14 },
+  { load: "t-num-m", work: "t-num-s", lw: 14, ww: 11 },
+  { load: "t-num-s", work: "t-num-s", lw: 11, ww: 11 },
+] as const;
+
+function textWidth(text: string, digit: number) {
+  let w = 0;
+  for (const ch of text) w += ch === "." || ch === "," ? digit / 2 : digit;
+  return w;
+}
+
+export function towerTier(cells: Pick<TowerCell, "load" | "work">[], avail: number) {
+  const width = (c: Pick<TowerCell, "load" | "work">, t: (typeof TIERS)[number]) =>
+    c.load == null ? textWidth(c.work ?? "", t.lw) : textWidth(c.load, t.lw) + (c.work != null ? textWidth(`×${c.work}`, t.ww) : 0);
+  const i = TIERS.findIndex((t) => cells.every((c) => width(c, t) <= avail));
+  return i === -1 ? TIERS.length - 1 : i;
+}
+
+/** The cells' content width: a third of the tower less the gaps and the cell padding. */
+function useCellWidth() {
+  const ref = useRef<HTMLElement>(null);
+  const [w, setW] = useState(84);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setW(Math.floor((el.getBoundingClientRect().width - 16) / 3) - 24));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, w] as const;
+}
 
 /** The §3.2.4 glyph for a set timing (the word goes beside it). */
 export function TimingMark({ timing, logged }: { timing: SetTiming; logged: boolean }) {
@@ -59,8 +99,10 @@ function wordFor(c: TowerCell): { text: string; tone: string } | null {
  * last set the third cell adds a set. `list` is the AX layout.
  */
 export function SetTower({ cells, list, onSelect, onOptions, onAdd }: { cells: TowerCell[]; list: boolean; onSelect: (setId: string) => void; onOptions: (setId: string) => void; onAdd: () => void }) {
+  const [ref, avail] = useCellWidth();
+  const tier = TIERS[list ? 0 : towerTier(cells.filter((c) => c.kind === "set" || c.kind === "last"), avail)];
   return (
-    <section aria-label="Sets" className={cn("grid gap-2", list ? "grid-cols-1" : "grid-cols-3")}>
+    <section ref={ref} aria-label="Sets" className={cn("grid gap-2", list ? "grid-cols-1" : "grid-cols-3")}>
       {cells.map((c) => {
         if (c.kind === "add")
           return (
@@ -104,9 +146,9 @@ export function SetTower({ cells, list, onSelect, onOptions, onAdd }: { cells: T
             <span className={cn("relative block truncate", list ? "mt-1" : "mt-1", c.ghost && !c.current ? "text-stone" : "text-ivory")}>
               {c.load != null || c.work != null ? (
                 <>
-                  {c.load != null && <span className={cn(c.load.length > 3 && !list ? "t-num-m" : "t-num-l")}>{c.load}</span>}
+                  {c.load != null && <span className={tier.load}>{c.load}</span>}
                   {c.work != null && (
-                    <span className={cn(c.load != null && c.load.length > 3 && !list ? "t-num-s" : "t-num-m")}>
+                    <span className={c.load != null ? tier.work : tier.load}>
                       {c.load != null && <span className="text-ash">×</span>}
                       <span className={c.ghost && !c.current ? "text-stone" : "text-ivory"}>{c.work}</span>
                     </span>
