@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Chip, Scale, Stepper } from "@/components/ui/controls";
-import { Field, Input } from "@/components/ui/field";
+import { Field, Input, Label } from "@/components/ui/field";
 import { Sheet } from "@/components/ui/sheet";
 import { addDays, type ISODate } from "@/lib/dates";
 import type { Volleyball } from "@/lib/data/training";
@@ -60,7 +60,7 @@ function VolleyballForm({ date: initialDate, today, recent, onDone }: { date: IS
   return (
     <div className="space-y-6 pt-1">
       <div>
-        <p className="t-eyebrow mb-2 text-stone">Type</p>
+        <Label>Type</Label>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Type">
           {VB_KINDS.map((k) => (
             <Chip key={k.value} selected={kind === k.value} onClick={() => setKind(k.value)} className="justify-center">
@@ -71,7 +71,7 @@ function VolleyballForm({ date: initialDate, today, recent, onDone }: { date: IS
       </div>
 
       <div>
-        <p className="t-eyebrow mb-2 text-stone">Duration</p>
+        <Label>Duration</Label>
         <Stepper value={duration} onChange={setDuration} step={15} min={15} max={480} label="duration in minutes" format={(v) => (
           <>
             {v}

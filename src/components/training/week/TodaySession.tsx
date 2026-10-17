@@ -160,7 +160,8 @@ export function TodaySession({ week, onDay, className }: { week: Week; onDay: (d
       {legs && (
         <div className="mt-3 flex items-center gap-3 border-t border-vein pt-3 @max-[19rem]:flex-col @max-[19rem]:items-stretch">
           <p className="t-callout min-w-0 flex-1 text-stone">
-            <span className="text-ivory">Volleyball load is high.</span> Lighter legs: no jumps, one set off each leg lift. <Tag kind="RULE" explain={week.vbAdvice.reasons.join(" ")} />
+            <span className="text-ivory">{week.vbAdvice.reasons[0]}</span> Lighter legs: no jumps, one set off each leg lift.{" "}
+            <Tag kind="RULE" explain={`${week.vbAdvice.reasons.join(" ")} A suggestion: nothing changes unless you start the lighter session.`} />
           </p>
           <Button variant="outline" size="sm" disabled={starting} onClick={() => start({ template: t, date: today, mode: week.mode, lighterLegs: true })}>
             Start lighter
