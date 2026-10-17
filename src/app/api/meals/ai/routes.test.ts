@@ -192,9 +192,9 @@ describe("/api/meals/ai/simplify", () => {
     const res = await simplifyRoute.POST(post({ recipe: original, localDate: "2026-10-16" }));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ ok: true, recipe: { name: "Easier Chicken Alfredo with Jarred Sauce", origin: "simplified", baseKey: "lib:chicken-alfredo" } });
+    expect(body).toMatchObject({ ok: true, recipe: { name: "Easier Chicken Alfredo with Jarred Sauce", origin: "ai", baseKey: "lib:chicken-alfredo" } });
     expect(body.changes[0]).toBe("Ready-cooked chicken instead of raw");
-    expect(state.inserts[0].rows[0]).toMatchObject({ origin: "simplified", base_key: "lib:chicken-alfredo" });
+    expect(state.inserts[0].rows[0]).toMatchObject({ origin: "ai", base_key: "lib:chicken-alfredo" });
     expect(chargeUsage).toHaveBeenCalledWith(expect.anything(), "meals_ai", "2026-10-16");
   });
 

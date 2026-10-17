@@ -198,7 +198,7 @@ describe("acceptAISimplified", () => {
     const res = acceptAISimplified(raw, original, { prefs: everyday, id: ID });
     if (!res.ok) throw new Error(res.errors.join("; "));
     expect(res.recipe.name).toBe("Easier Chicken Alfredo with Jarred Sauce");
-    expect(res.recipe.origin).toBe("simplified");
+    expect(res.recipe.origin).toBe("ai");
     expect(res.recipe.baseKey).toBe(original.key);
     expect(ingredientCount(res.recipe)).toBeLessThan(ingredientCount(original));
     expect(recipeConflicts(res.recipe, everyday)).toEqual([]);

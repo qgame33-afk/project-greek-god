@@ -2,8 +2,8 @@
 // (engine/simplify.ts) runs first in the browser; this route is the fallback when that finds
 // nothing. Auth required; counts toward the daily meals_ai cap. The model's version is
 // validated exactly like new AI recipes, must be the same meal and genuinely easier, and its
-// nutrition is recomputed. An accepted version is stored in the user's recipes (origin
-// "simplified", base_key = the original). Without GEMINI_API_KEY: an honest 503.
+// nutrition is recomputed. An accepted version is stored in the user's recipes (origin "ai",
+// so it stays labelled AI; base_key = the original). Without GEMINI_API_KEY: an honest 503.
 
 import { randomUUID } from "node:crypto";
 import { aiErrorResponse, generateJSON, isMock } from "@/lib/ai/gemini";

@@ -392,7 +392,8 @@ export function acceptAIRecipe(raw: unknown, ctx: AcceptContext): AcceptResult {
 export function acceptAISimplified(raw: unknown, original: Recipe, ctx: Omit<AcceptContext, "origin" | "baseKey" | "slot" | "takenNames" | "enforceLevel">): AcceptResult {
   // the easier version keeps the dish's name, marked as easier
   const named = raw && typeof raw === "object" ? { ...(raw as Record<string, unknown>), name: easierName(original.name) } : raw;
-  const res = acceptAIRecipe(named, { ...ctx, origin: "simplified", baseKey: original.key, slot: original.slots[0], enforceLevel: false });
+  // stored as an AI recipe derived from the original, so it stays labelled AI wherever it shows
+  const res = acceptAIRecipe(named, { ...ctx, origin: "ai", baseKey: original.key, slot: original.slots[0], enforceLevel: false });
   if (!res.ok) return res;
   const r = res.recipe;
   const errors: string[] = [];
