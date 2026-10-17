@@ -129,22 +129,22 @@ function VbForm({ date, onDone }: { date: ISODate; onDone: () => void }) {
           onChange={setMinutes}
         >
           {minutes == null ? (
-            <span className="num-md text-fg-3">—</span>
+            <span className="t-num-m text-ash">—</span>
           ) : (
-            <span className="num-md">
+            <span className="t-num-m text-ivory">
               {minutes}
-              <span className="unit">min</span>
+              <span className="t-meta ml-1 text-stone">min</span>
             </span>
           )}
         </OptionalStepper>
-        <p className="mt-1.5 flex min-h-5 items-center justify-center gap-2 text-[12px] font-medium text-fg-3">
+        <p className="t-meta mt-1.5 flex min-h-5 items-center justify-center gap-2 text-ash">
           {minutes == null ? (
             "Not logged · ± starts at 60 min"
           ) : (
             <button
               type="button"
               onClick={() => setMinutes(null)}
-              className="-my-3 inline-flex h-11 items-center font-semibold text-fg-2 hover:text-fg"
+              className="-my-3 inline-flex h-11 items-center font-semibold text-stone underline decoration-ui-line underline-offset-4 hover:text-ivory"
               aria-label="Clear duration"
             >
               Clear

@@ -27,7 +27,7 @@ function dayTitle(d: ISODate, today: ISODate) {
   return `${dayName(d)}, ${shortDate(d, today)}`;
 }
 
-/** Week strip for choosing the check-in day: today by default, past days editable, never the future. */
+/** Week strip for choosing the ledger day: today by default, past days editable, never the future. A dot marks a logged check-in. */
 export function DateStrip({
   value,
   onChange,
@@ -83,10 +83,10 @@ export function DateStrip({
           className="flex-1"
           label={
             <span className="block">
-              <span className="block text-[15px] font-bold text-fg">
+              <span className="t-title-3 block text-ivory">
                 {dayTitle(value, today)}
               </span>
-              <span className="num-xs block text-[13px] text-fg-3">
+              <span className="t-meta tnum block text-stone">
                 {label}
               </span>
             </span>
@@ -115,35 +115,33 @@ export function DateStrip({
                 aria-pressed={selected}
                 aria-label={`${relativeDay(d, today)}${has ? ", check-in logged" : ""}${future ? ", upcoming" : early ? ", before your start date" : ""}`}
                 className={cn(
-                  "press relative flex h-[62px] w-full flex-col items-center justify-center gap-1 rounded-[14px] border transition-colors",
+                  "press relative flex h-16 w-full flex-col items-center justify-center gap-1 rounded-field transition-colors",
                   selected
-                    ? "border-line-strong bg-s3"
-                    : "border-transparent hover:bg-s2",
+                    ? "bg-m3 shadow-[inset_0_0_0_1.5px_var(--ivory)]"
+                    : "hover:bg-m1",
                   (future || early) && "pointer-events-none",
                 )}
               >
                 <span
                   className={cn(
-                    "text-[11px] font-bold tracking-[0.08em]",
+                    "t-eyebrow",
                     future || early
-                      ? "text-fg-dis"
+                      ? "text-disabled"
                       : selected
-                        ? "text-fg-2"
-                        : "text-fg-3",
+                        ? "text-ivory"
+                        : "text-ash",
                   )}
                 >
                   {LETTERS[i]}
                 </span>
                 <span
                   className={cn(
-                    "num text-[19px] font-semibold leading-none",
+                    "t-num-s leading-none",
                     future || early
-                      ? "text-fg-dis"
-                      : isToday
-                        ? "text-gold-300"
-                        : selected
-                          ? "text-fg"
-                          : "text-fg-2",
+                      ? "text-disabled"
+                      : selected || isToday
+                        ? "text-ivory"
+                        : "text-stone",
                   )}
                 >
                   {parseISODate(d).getDate()}
@@ -151,13 +149,13 @@ export function DateStrip({
                 <span
                   className={cn(
                     "size-1.5 rounded-full",
-                    has ? "bg-marble" : "bg-transparent",
+                    has ? "bg-stone" : "bg-transparent",
                   )}
                   aria-hidden
                 />
                 {isToday && !selected && (
                   <span
-                    className="absolute inset-x-3 bottom-0 h-[2px] rounded-full bg-gold-400/70"
+                    className="absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-ivory/60"
                     aria-hidden
                   />
                 )}

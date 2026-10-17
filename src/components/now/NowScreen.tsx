@@ -93,7 +93,8 @@ function NowContent({ data, m }: { data: NowData; m: NowModel }) {
     if (!wantDawn) return;
     const t = window.setTimeout(() => {
       cardRef.current?.scrollIntoView({ behavior: "auto", block: "center" });
-      cardRef.current?.querySelector<HTMLElement>("[role=radio], [role=spinbutton], button")?.focus({ preventScroll: true });
+      // land on the open question (not "Later"); the ring stays for keyboard users only
+      cardRef.current?.querySelector<HTMLElement>("[role=spinbutton], [role=radio][tabindex='0'], [role=radio]")?.focus({ preventScroll: true, focusVisible: false } as FocusOptions);
       router.replace(pathname, { scroll: false });
     }, 60);
     return () => window.clearTimeout(t);

@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Footprints, Flame, Play, Sparkle, Utensils } from "lucide-react";
+import { ChevronRight, Footprints, Flame, PersonStanding, Play, Sparkle, Utensils, Weight } from "lucide-react";
 import { useId, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Laurel } from "@/components/art/Laurel";
-import { SealTick, TrainColumn } from "@/components/art/icons";
+import { Moon, SealTick, TrainColumn } from "@/components/art/icons";
 import { useClearHabitLog } from "./useClearHabitLog";
 import { Button } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/controls";
@@ -132,7 +132,7 @@ function Shaft({ frac, earned }: { frac: number; earned: boolean }) {
 
 /* ------------------------------------------------------------------ rites */
 
-function riteGlyph(key: string) {
+export function riteGlyph(key: string) {
   if (key === "steps") return <Footprints className="size-5" strokeWidth={1.6} />;
   if (key === "calories") return <Flame className="size-5" strokeWidth={1.6} />;
   if (key === "water")
@@ -141,10 +141,15 @@ function riteGlyph(key: string) {
         <path d="M12 3.5s5.5 6.2 5.5 10.2a5.5 5.5 0 0 1-11 0C6.5 9.7 12 3.5 12 3.5z" />
       </svg>
     );
+  if (key === "workout") return <TrainColumn className="size-5" />;
+  if (key === "protein") return <Utensils className="size-5" strokeWidth={1.6} />;
+  if (key === "sleep") return <Moon className="size-5" />;
+  if (key === "weighin") return <Weight className="size-5" strokeWidth={1.6} />;
+  if (key === "mobility") return <PersonStanding className="size-5" strokeWidth={1.6} />;
   return <Sparkle className="size-5" strokeWidth={1.6} />;
 }
 
-const cleanLabel = (l: string) => l.replace(/\s*\(optional\)\s*/i, "").trim();
+export const cleanLabel = (l: string) => l.replace(/\s*\(optional\)\s*/i, "").trim();
 
 /**
  * Rites (docs/DESIGN-V2.md §3.1.1 item 5): the day's habits as seals. A check rite toggles with
@@ -316,8 +321,8 @@ function shortCaption(s: HabitStatus): string {
   return s.caption.replace(" of ", " / ").replace(/ kcal$/, "").replace(/^Goal /, "goal ");
 }
 
-/** Stepper form for a value rite: starts from today's value (never the goal); Undo restores exactly. */
-function ValueForm({ habitKey, spec, log, today, onDone }: { habitKey: string; spec: ValueHabitSpec; log: HabitLog | null; today: ISODate; onDone: () => void }) {
+/** Stepper form for a value rite: starts from that day's value (never the goal); Undo restores exactly. Also used by the Recovery ledger. */
+export function ValueForm({ habitKey, spec, log, today, onDone }: { habitKey: string; spec: ValueHabitSpec; log: HabitLog | null; today: ISODate; onDone: () => void }) {
   const set = useSetHabitLog();
   const clear = useClearHabitLog();
   const busy = useRef(false);
@@ -352,7 +357,7 @@ function ValueForm({ habitKey, spec, log, today, onDone }: { habitKey: string; s
     <div className="pb-4 pt-2 lg:pb-2">
       <Stepper label={spec.label} value={parsed ?? 0} step={spec.step} min={0} max={spec.max} onChange={(n) => setText(String(spec.integer ? Math.round(n) : Math.round(n * 10) / 10))}>
         <label htmlFor={inputId} className="block">
-          <span className="sr-only">{spec.label} today</span>
+          <span className="sr-only">{spec.label}</span>
           <input
             id={inputId}
             value={text}

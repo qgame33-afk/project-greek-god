@@ -84,7 +84,7 @@ describe("monthSummary", () => {
 describe("cellLabel", () => {
   it("reads naturally", () => {
     expect(cellLabel("2026-10-14", "high", 5, 8, true)).toBe(
-      "Wednesday, October 14: 5 of 8 missions, workout done",
+      "Wednesday, October 14: 5 of 8 rites kept, session done",
     );
     expect(cellLabel("2026-10-20", "future", 0, 0, false)).toBe(
       "Tuesday, October 20: upcoming",

@@ -1,79 +1,74 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ErrorNote, PageHeader, Skeleton } from "@/components/ui/misc";
+import { ChevronRight } from "lucide-react";
+import { TabHeader } from "@/components/shell/TabHeader";
+import { ErrorNote, Skeleton } from "@/components/ui/misc";
 import { useToday } from "@/lib/data/core";
 import { useProfile } from "@/lib/data/profile";
-import { useRecoveryDay } from "@/lib/data/recovery";
+import { useRecovery } from "@/lib/data/recovery";
 import { useSwapIn } from "@/lib/motion";
-import { useReadiness } from "@/lib/recovery/hooks";
-import {
-  addDays,
-  parseISODate,
-  toISODate,
-  weekStart,
-  type ISODate,
-} from "@/lib/dates";
-import { CheckInCard, type CheckInHandle } from "./CheckInCard";
+import { addDays, parseISODate, toISODate, weekStart, type ISODate } from "@/lib/dates";
 import { DateStrip } from "./DateStrip";
 import { GuidanceCard } from "./GuidanceCard";
 import { HabitsCard } from "./HabitsCard";
 import { HistoryCard } from "./HistoryCard";
-import { CardSkeleton, useEntrance } from "./parts";
+import { LedgerCheckIn, type CheckInHandle } from "./LedgerCheckIn";
+import { ReadinessHistory } from "./ReadinessHistory";
 import { WaterCard } from "./WaterCard";
 import { WeeklyReviewCard } from "./WeeklyReviewCard";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const EARLIEST_WEEKS_BACK = 104;
 
-/**
- * A `?date=` deep link, only when it is a real calendar day inside the editable range:
- * not in the future, not before the start date, not beyond the date strip's reach.
- */
-function validDateParam(
-  raw: string | null,
-  today: ISODate,
-  startDate: ISODate | null,
-): ISODate | null {
+/** A `?date=` deep link, only when it is a real calendar day inside the editable range. */
+function validDateParam(raw: string | null, today: ISODate, startDate: ISODate | null): ISODate | null {
   if (!raw || !ISO.test(raw)) return null;
   if (toISODate(parseISODate(raw)) !== raw) return null; // 2026-02-31
   if (raw > today) return null;
-  const earliest = addDays(weekStart(today), -7 * EARLIEST_WEEKS_BACK);
-  if (raw < earliest) return null;
+  if (raw < addDays(weekStart(today), -7 * EARLIEST_WEEKS_BACK)) return null;
   if (startDate && raw < startDate) return null;
   return raw;
 }
 
+/**
+ * The Recovery ledger (docs/DESIGN-V2.md §3.7): the history and editing that left Now. A check-in
+ * for any day (the same per-tap controls as Dawn), that day's readiness call, the last 14 nights,
+ * the rites and their editor (#habits), water by day and the week's end review.
+ * `/recovery?checkin=1` now opens the check-in on Now (`/?dawn=1`).
+ */
 export function RecoveryScreen() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const wantCheckin = params.get("checkin") === "1";
+  useEffect(() => {
+    if (wantCheckin) router.replace("/?dawn=1");
+  }, [wantCheckin, router]);
+  if (wantCheckin) return <RecoverySkeleton />;
+  return <Ledger />;
+}
+
+function Ledger() {
   const today = useToday();
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const { profile, loading, error: profileError, refetch: refetchProfile } = useProfile();
-  const enter = useEntrance();
-
-  const wantCheckin = params.get("checkin") === "1";
   const paramDate = params.get("date");
-  const [date, setDate] = useState<ISODate>(
-    () => validDateParam(paramDate, today, null) ?? today,
-  );
-  // Once the profile is known, a deep link to before the start date falls back to today.
+  const [date, setDate] = useState<ISODate>(() => validDateParam(paramDate, today, null) ?? today);
   const startDate = profile?.start_date ?? null;
   if (startDate && date < startDate && date !== today) setDate(today);
 
-  // Links into this screen while it is already open (Quick Log's Check-in tile, a
-  // ?date= link): follow them. A bare ?checkin=1 means today's check-in.
-  const query = params.toString();
-  const [seenQuery, setSeenQuery] = useState(query);
-  if (query !== seenQuery) {
-    setSeenQuery(query);
+  // a ?date= link while the ledger is open: follow it
+  const [seenParam, setSeenParam] = useState(paramDate);
+  if (paramDate !== seenParam) {
+    setSeenParam(paramDate);
     const d = validDateParam(paramDate, today, startDate);
     if (d) setDate(d);
-    else if (wantCheckin) setDate(today);
   }
-
-  // Follow midnight: if you were on "today", stay on today when the date rolls over.
+  // follow midnight when on "today"
   const [seenToday, setSeenToday] = useState(today);
   if (seenToday !== today) {
     setSeenToday(today);
@@ -81,139 +76,91 @@ export function RecoveryScreen() {
   }
 
   const checkin = useRef<CheckInHandle>(null);
+  const dayRef = useSwapIn<HTMLDivElement, ISODate>(date);
+  const recent = useRecovery(addDays(today, -13), today);
 
   const goToCheckin = useCallback(() => {
     const el = document.getElementById("checkin");
     if (!el) return;
-    const reduce = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
     window.setTimeout(() => checkin.current?.focus(), reduce ? 0 : 350);
   }, []);
-
-  const openDay = useCallback(
+  /** Choose the ledger's day (and keep it in the URL so a reload or share lands on it). */
+  const selectDay = useCallback(
     (d: ISODate) => {
       setDate(d);
+      setSeenParam(d === today ? null : d);
+      const next = new URLSearchParams(params.toString());
+      if (d === today) next.delete("date");
+      else next.set("date", d);
+      router.replace(next.size ? `${pathname}?${next}` : pathname, { scroll: false });
+    },
+    [params, pathname, router, today],
+  );
+  /** Choose a day from further down (history, calendar) and go to its check-in. */
+  const openDay = useCallback(
+    (d: ISODate) => {
+      selectDay(d);
       window.setTimeout(goToCheckin, 60);
     },
-    [goToCheckin],
+    [goToCheckin, selectDay],
   );
 
-  // /recovery?checkin=1 — scroll to and focus the check-in once everything above it has
-  // loaded (so nothing shifts it afterwards), then drop the flag.
-  const readiness = useReadiness(date);
-  const day = useRecoveryDay(date);
-  // another day slides in from the side it lives on (earlier = left)
-  const dayRef = useSwapIn<HTMLDivElement, ISODate>(date);
-  const settled = !loading && !readiness.loading && !day.loading;
-  const handled = useRef(false);
+  // /recovery#habits (Now's rites "Edit"): scroll there once the page has content
+  const ready = !loading && !!profile;
   useEffect(() => {
-    if (!wantCheckin) {
-      handled.current = false; // ready for the next ?checkin=1
-      return;
-    }
-    if (handled.current || !settled) return;
-    const t = window.setTimeout(() => {
-      handled.current = true;
-      goToCheckin();
-      const next = new URLSearchParams(params.toString());
-      next.delete("checkin");
-      router.replace(next.size ? `${pathname}?${next}` : pathname, {
-        scroll: false,
-      });
-    }, 120);
+    if (!ready || typeof window === "undefined" || window.location.hash !== "#habits") return;
+    const t = window.setTimeout(() => document.getElementById("habits")?.scrollIntoView({ block: "start" }), 120);
     return () => window.clearTimeout(t);
-  }, [wantCheckin, settled, goToCheckin, params, pathname, router]);
+  }, [ready]);
 
-  // A failed profile read must not leave the skeleton up forever: say so and offer a retry.
   if (!profile && profileError)
     return (
       <div className="pb-4">
-        <PageHeader eyebrow="Recovery" title="Recovery & Habits" className="mb-5" />
-        <ErrorNote onRetry={() => void refetchProfile()}>
-          Couldn&apos;t load your recovery settings. {(profileError as Error).message}
-        </ErrorNote>
+        <TabHeader eyebrow="Recovery" />
+        <h1 className="t-title-1 mb-5 text-ivory">Recovery ledger</h1>
+        <ErrorNote onRetry={() => void refetchProfile()}>Couldn&apos;t load your recovery settings. {(profileError as Error).message}</ErrorNote>
       </div>
     );
   if (loading || !profile) return <RecoverySkeleton />;
 
   const sleepGoal = Number(profile.sleep_goal_h);
+  const fresh = !recent.isLoading && (recent.data ?? []).length === 0;
 
   return (
     <div className="pb-4">
-      <div className="lg:mb-6 lg:flex lg:items-end lg:justify-between lg:gap-10">
-        <PageHeader
-          eyebrow="Recovery"
-          title="Recovery & Habits"
-          className="mb-5 lg:mb-1"
-        />
-        <DateStrip
-          value={date}
-          onChange={setDate}
-          today={today}
-          startDate={startDate}
-          className="lg:mb-0 lg:w-[440px] lg:shrink-0"
-        />
-      </div>
+      <TabHeader eyebrow="Recovery" />
+      <h1 className="t-title-1 text-ivory">Recovery ledger</h1>
+      <p className="t-callout mt-1.5 text-stone">Check-ins, readiness, rites and water, day by day.</p>
 
-      {/* Mobile: guidance → check-in → water → habits. Desktop: check-in left, the rest right. */}
-      <div
-        ref={dayRef}
-        className="flex flex-col gap-3 lg:grid lg:grid-cols-12 lg:items-start lg:gap-4"
-      >
-        <div className="contents lg:col-span-7 lg:block">
-          <CheckInCard
-            ref={checkin}
-            date={date}
-            today={today}
-            sleepGoal={sleepGoal}
-            className={`order-2 ${enter(1).className ?? ""}`}
-            style={enter(1).style}
-          />
+      {fresh && (
+        <Link href="/?dawn=1" className="press-soft mt-5 flex min-h-16 items-center gap-3 rounded-card bg-m1 px-4 py-3 shadow-(--e1)">
+          <span className="min-w-0 flex-1">
+            <span className="t-title-3 block text-ivory">Your first check-in starts this page</span>
+            <span className="t-meta mt-0.5 block text-stone">Three questions on Now, each morning. They land here.</span>
+          </span>
+          <ChevronRight className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
+        </Link>
+      )}
+
+      <DateStrip value={date} onChange={selectDay} today={today} startDate={startDate} className="mt-6" />
+
+      <div ref={dayRef} className="mt-6 grid gap-10 lg:grid-cols-2 lg:items-start lg:gap-12">
+        <div className="space-y-10">
+          <GuidanceCard date={date} today={today} onCheckin={goToCheckin} />
+          <LedgerCheckIn ref={checkin} date={date} today={today} sleepGoal={sleepGoal} />
         </div>
-        <div className="contents lg:col-span-5 lg:flex lg:flex-col lg:gap-4">
-          <GuidanceCard
-            date={date}
-            today={today}
-            onCheckin={goToCheckin}
-            className={`order-1 ${enter(0).className ?? ""}`}
-            style={enter(0).style}
-          />
-          <WaterCard
-            date={date}
-            today={today}
-            goalMl={profile.water_goal_ml}
-            className={`order-3 ${enter(2).className ?? ""}`}
-            style={enter(2).style}
-          />
-          <HabitsCard
-            date={date}
-            today={today}
-            onCheckin={goToCheckin}
-            className={`order-4 ${enter(3).className ?? ""}`}
-            style={enter(3).style}
-          />
+        <div className="space-y-10">
+          <ReadinessHistory today={today} selected={date} sleepGoal={sleepGoal} onOpenDay={openDay} />
+          <HabitsCard date={date} today={today} onCheckin={goToCheckin} />
+          <WaterCard date={date} today={today} goalMl={profile.water_goal_ml} startDate={startDate} onPickDay={selectDay} />
         </div>
       </div>
 
-      <div className="mb-3 mt-9 flex items-baseline justify-between lg:mt-10">
-        <h2 className="t-h2">History</h2>
-      </div>
-      <div className="grid gap-3 lg:grid-cols-12 lg:items-start lg:gap-4">
-        <HistoryCard
-          today={today}
-          startDate={startDate}
-          onOpenDay={openDay}
-          className={`lg:col-span-6 ${enter(4).className ?? ""}`}
-          style={enter(4).style}
-        />
-        <WeeklyReviewCard
-          today={today}
-          startDate={startDate}
-          className={`lg:col-span-6 ${enter(5).className ?? ""}`}
-          style={enter(5).style}
-        />
+      <div className="mt-12 grid gap-10 lg:grid-cols-2 lg:gap-12">
+        <WeeklyReviewCard today={today} startDate={startDate} />
+        <HistoryCard today={today} startDate={startDate} onOpenDay={openDay} />
       </div>
     </div>
   );
@@ -222,18 +169,11 @@ export function RecoveryScreen() {
 export function RecoverySkeleton() {
   return (
     <div className="pb-4" aria-busy>
-      <div className="mb-5">
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="mt-3 h-9 w-64" />
-      </div>
-      <Skeleton className="mb-5 h-[106px] w-full" />
-      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-12 lg:gap-4">
-        <CardSkeleton className="lg:col-span-7" lines={6} />
-        <div className="flex flex-col gap-3 lg:col-span-5 lg:gap-4">
-          <CardSkeleton lines={2} />
-          <CardSkeleton tall lines={1} />
-        </div>
-      </div>
+      <Skeleton className="h-9 w-56" />
+      <Skeleton className="mt-3 h-4 w-72" />
+      <Skeleton className="mt-6 h-[106px] w-full" />
+      <Skeleton className="mt-6 h-40 w-full" />
+      <Skeleton className="mt-6 h-72 w-full" />
     </div>
   );
 }

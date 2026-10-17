@@ -1,103 +1,67 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useRef, useState, type CSSProperties } from "react";
-import { CalendarClock, Droplets, RotateCcw, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { CardHeader } from "@/components/ui/card";
 import { NumberInput } from "@/components/ui/field";
-import { Skeleton } from "@/components/ui/misc";
-import { Ring } from "@/components/ui/ring";
+import { Meter } from "@/components/ui/meter";
+import { ErrorNote, Skeleton } from "@/components/ui/misc";
 import { Sheet } from "@/components/ui/sheet";
+import { cn } from "@/lib/cn";
 import { useUser } from "@/lib/data/core";
-import {
-  useWater,
-  useWaterMutations,
-  type WaterLog,
-} from "@/lib/data/nutrition";
-import {
-  localDateOf,
-  longDate,
-  relativeDay,
-  shortDate,
-  type ISODate,
-} from "@/lib/dates";
-import { haptic } from "@/lib/haptics";
+import { useDailyWater, useWater, useWaterMutations, type WaterLog } from "@/lib/data/nutrition";
+import { addDays, dateRange, dayName, localDateOf, parseISODate, relativeDay, shortDate, type ISODate } from "@/lib/dates";
 import { useRestoreWater } from "@/lib/recovery/hooks";
 import { formatInt, parseNumber } from "@/lib/units";
-import { cn } from "@/lib/cn";
 
-const QUICK = [250, 500, 750] as const;
-const SHOW = 4;
-const timeOf = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+const DAYS = 7;
+const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+const litres = (ml: number) => (ml / 1000).toFixed(1);
 
+/**
+ * Water history (docs/DESIGN-V2.md §3.7, §2.4): the last 7 days as meters in the water series (the
+ * one quick control lives on Now and Fuel), and the chosen day's entries — each removable with
+ * Undo, and a custom amount for a day that was missed.
+ */
 export function WaterCard({
   date,
   today,
   goalMl,
+  startDate,
+  onPickDay,
   className,
-  style,
 }: {
   date: ISODate;
   today: ISODate;
   goalMl: number;
+  /** Days before the programme started aren't shown as empty days. */
+  startDate?: ISODate | null;
+  onPickDay?: (d: ISODate) => void;
   className?: string;
-  style?: CSSProperties;
 }) {
-  const { logs, totalMl, loading } = useWater(date);
+  const weekAgo = addDays(today, -(DAYS - 1));
+  const from = startDate && startDate > weekAgo && startDate <= today ? startDate : weekAgo;
+  const days = useDailyWater(from, today);
+  const { logs, loading } = useWater(date);
   const { addMl, remove } = useWaterMutations(date);
   const restore = useRestoreWater();
   const qc = useQueryClient();
   const { userId } = useUser();
   const [customOpen, setCustomOpen] = useState(false);
-  const [showAll, setShowAll] = useState(false);
-  // Guards a burst of taps on Undo while a removal is in flight.
   const undoing = useRef<string | null>(null);
-
-  const p = goalMl > 0 ? totalMl / goalMl : 0;
-  const met = totalMl >= goalMl;
-  const left = Math.max(0, goalMl - totalMl);
-  const latest = logs.at(-1);
-  const when = relativeDay(date, today);
-  const isToday = date === today;
   const key = ["water", date, userId];
   const toastId = `water-${date}`;
   const cached = () => qc.getQueryData<WaterLog[]>(key) ?? [];
+  const byDate = new Map((days.data ?? []).map((r) => [r.local_date, Number(r.total_ml ?? 0)]));
+  const selectedTotal = logs.reduce((a, l) => a + l.amount_ml, 0);
 
-  const add = (ml: number) => {
-    const id = addMl(ml);
-    haptic(8);
-    // The total as it stands with this tap, read from the cache (not this render), so
-    // quick taps never show a stale number.
-    const total =
-      cached()
-        .filter((l) => l.id !== id)
-        .reduce((a, l) => a + l.amount_ml, 0) + ml;
-    toast(`+${formatInt(ml)} mL water`, {
-      id: toastId,
-      description: `${(total / 1000).toFixed(1)} of ${(goalMl / 1000).toFixed(1)} L ${isToday ? "today" : `for ${when.toLowerCase() === "yesterday" ? "yesterday" : when}`}`,
-      duration: 6000,
-      // Undo is bound to this tap's own row: it never removes a different entry.
-      action: { label: "Undo", onClick: () => undoTap(id) },
-    });
-  };
-
-  /**
-   * Resolves once the insert for this tap has settled. Deleting while the insert is still
-   * in flight would delete nothing, and the entry would come back when the insert lands.
-   */
+  /** Resolves once the insert for this tap has settled (deleting before it lands would delete nothing). */
   const inserted = (id: string) =>
     new Promise<void>((resolve) => {
       const mc = qc.getMutationCache();
-      const pending = () =>
-        mc
-          .findAll({ status: "pending" })
-          .some((m) => (m.state.variables as { id?: string } | undefined)?.id === id);
+      const pending = () => mc.findAll({ status: "pending" }).some((m) => (m.state.variables as { id?: string } | undefined)?.id === id);
       if (!pending()) return resolve();
       const unsub = mc.subscribe(() => {
         if (pending()) return;
@@ -106,223 +70,124 @@ export function WaterCard({
       });
     });
 
-  /** Remove one tap by id, if it still exists. Guards a burst of taps on Undo. */
-  const undoTap = (id: string, onRemoved?: () => void) => {
-    if (!cached().some((l) => l.id === id) || undoing.current === id) return;
-    undoing.current = id;
-    // hide it at once; the delete follows the insert
-    qc.setQueryData<WaterLog[]>(key, (rows) => rows?.filter((l) => l.id !== id));
-    void inserted(id).then(() =>
-      remove.mutate(id, {
-        onSuccess: onRemoved,
+  const removeOne = (log: WaterLog) => {
+    if (undoing.current === log.id) return;
+    undoing.current = log.id;
+    toast.dismiss(toastId);
+    qc.setQueryData<WaterLog[]>(key, (rows) => rows?.filter((l) => l.id !== log.id));
+    void inserted(log.id).then(() =>
+      remove.mutate(log.id, {
+        onSuccess: () => toast(`Removed ${formatInt(log.amount_ml)} mL`, { id: toastId, duration: 6000, action: { label: "Undo", onClick: () => restore.mutate(log) } }),
         onSettled: () => (undoing.current = null),
       }),
     );
   };
 
-  /** Removes the newest entry; any open water toast is now stale, so it goes too. */
-  const undoLast = () => {
-    const newest = [...cached()].sort((a, b) =>
-      a.logged_at.localeCompare(b.logged_at),
-    ).at(-1);
-    if (!newest) return;
-    toast.dismiss(toastId);
-    undoTap(newest.id);
+  const add = (ml: number) => {
+    const id = addMl(ml);
+    const total = cached().filter((l) => l.id !== id).reduce((a, l) => a + l.amount_ml, 0) + ml;
+    toast(`+${formatInt(ml)} mL water`, {
+      id: toastId,
+      description: `${litres(total)} of ${litres(goalMl)} L ${date === today ? "today" : `for ${relativeDay(date, today).toLowerCase()}`}`,
+      duration: 6000,
+      action: { label: "Undo", onClick: () => removeOne({ id, amount_ml: ml, local_date: date, logged_at: new Date().toISOString(), user_id: userId ?? "" } as WaterLog) },
+    });
   };
 
-  const removeOne = (log: WaterLog) => {
-    toast.dismiss(toastId);
-    undoTap(log.id, () =>
-      toast(`Removed ${formatInt(log.amount_ml)} mL`, {
-        id: toastId,
-        duration: 6000,
-        action: { label: "Undo", onClick: () => restore.mutate(log) },
-      }),
-    );
-  };
-
-  /** The tap's time, or when it was added for an entry logged to a past day afterwards. */
   const stamp = (l: WaterLog) => {
     const on = localDateOf(l.logged_at);
-    return on === l.local_date
-      ? timeOf(l.logged_at)
-      : `Added ${shortDate(on, today)}`;
+    return on === l.local_date ? timeOf(l.logged_at) : `added ${shortDate(on, today)}`;
   };
 
-  const shown = showAll
-    ? [...logs].reverse()
-    : [...logs].reverse().slice(0, SHOW);
-
   return (
-    <section
-      className={cn("card p-4 sm:p-5", className)}
-      style={style}
-      aria-labelledby={`water-${date}`}
-    >
-      <CardHeader title={<span id={`water-${date}`}>Water · {when}</span>} />
-      {!isToday && (
-        <p className="-mt-1 mb-3 flex items-center gap-2 text-[12.5px] font-semibold text-fg-2">
-          <CalendarClock className="size-4 shrink-0 text-fg-3" aria-hidden />
-          Adding to {longDate(date)}
-        </p>
-      )}
-      {loading ? (
-        <div className="flex items-center gap-4" aria-hidden>
-          <Skeleton className="size-[136px] rounded-full" />
-          <div className="grid flex-1 grid-cols-2 gap-2">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-12" />
-            ))}
-          </div>
+    <section aria-labelledby="water-title" className={className}>
+      <div className="mb-3 flex min-h-11 items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="t-eyebrow">Water · {relativeDay(date, today)}</p>
+          <h2 id="water-title" className="t-title-2 tnum mt-1 text-ivory">
+            {loading ? "—" : litres(selectedTotal)} of {litres(goalMl)} L
+          </h2>
         </div>
+        <span className="t-meta pb-1 text-stone">{from === weekAgo ? "Last 7 days" : "Since day 1"}</span>
+      </div>
+      {days.isLoading ? (
+        <Skeleton className="h-48 w-full" />
+      ) : days.error && !days.data ? (
+        <ErrorNote onRetry={() => void days.refetch()}>Couldn&apos;t load your water history.</ErrorNote>
       ) : (
-        <>
-          <div className="flex items-center gap-4 sm:gap-5">
-            <div className="flex shrink-0 flex-col items-center">
-              <Ring
-                value={p}
-                size="lg"
-                tone="lapis"
-                label={`Water ${(totalMl / 1000).toFixed(1)} of ${(goalMl / 1000).toFixed(1)} litres, ${Math.round(p * 100)} percent`}
-              >
-                <span className="num-md leading-none">
-                  {(totalMl / 1000).toFixed(1)}
-                  <span className="unit">L</span>
-                </span>
-                <span className="mt-1 text-[11px] font-semibold text-fg-3">
-                  of {(goalMl / 1000).toFixed(1)} L
-                </span>
-              </Ring>
-              <p
-                className={cn(
-                  "mt-2 text-center text-[12.5px] font-semibold",
-                  met ? "text-gold-300" : "text-fg-2",
-                )}
-              >
-                {met
-                  ? totalMl > goalMl
-                    ? `+${formatInt(totalMl - goalMl)} mL over`
-                    : "Goal met"
-                  : `${formatInt(left)} mL to go`}
-              </p>
-            </div>
-            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
-              {QUICK.map((ml) => (
-                <button
-                  key={ml}
-                  type="button"
-                  onClick={() => add(ml)}
-                  className="press num h-12 rounded-[12px] border border-lapis-line bg-lapis-tint text-[17px] font-semibold text-lapis-text transition-colors hover:bg-lapis/15"
-                  aria-label={`Add ${ml} millilitres`}
-                >
-                  +{ml}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setCustomOpen(true)}
-                className="press h-12 rounded-[12px] border border-line bg-s3 text-[14px] font-bold text-fg-2 transition-colors hover:text-fg"
-              >
-                Custom
-              </button>
-            </div>
-          </div>
-          <div className="mt-4 border-t border-line-hair pt-3">
-            <div className="flex items-center justify-between">
-              <p className="eyebrow">
-                {logs.length
-                  ? `${logs.length} ${logs.length === 1 ? "entry" : "entries"}`
-                  : "No water logged"}
-              </p>
-              {latest && (
-                <button
-                  type="button"
-                  onClick={undoLast}
-                  disabled={remove.isPending}
-                  className="-my-2 -mr-2 inline-flex h-11 items-center gap-1.5 px-2 text-[13px] font-bold text-gold-300 hover:text-gold-200 disabled:opacity-50"
-                >
-                  <RotateCcw className="size-3.5" /> Undo last
-                </button>
-              )}
-            </div>
-            {logs.length === 0 ? (
-              <p className="mt-1.5 flex items-start gap-2 text-[13px] leading-snug text-fg-3">
-                <Droplets
-                  className="mt-px size-4 shrink-0 text-lapis"
-                  aria-hidden
-                />
-                <span>
-                  Tap an amount when you drink. Each tap is its own entry.
-                </span>
-              </p>
-            ) : (
-              <ul className="mt-1">
-                {shown.map((l) => (
-                  <li
-                    key={l.id}
-                    className="flex h-11 items-center gap-3 border-b border-line-hair last:border-0"
+        <ul className="divide-y divide-vein border-y border-vein">
+          {dateRange(from, today)
+            .reverse()
+            .map((d) => {
+              const ml = d === date ? selectedTotal : (byDate.get(d) ?? 0);
+              const on = d === date;
+              return (
+                <li key={d}>
+                  <button
+                    type="button"
+                    onClick={() => onPickDay?.(d)}
+                    aria-pressed={on}
+                    aria-label={`${relativeDay(d, today)}: ${litres(ml)} of ${litres(goalMl)} litres`}
+                    className={cn("press-soft flex min-h-12 w-full items-center gap-3 text-left", on && "text-ivory")}
                   >
-                    <span
-                      className="size-1.5 shrink-0 rounded-full bg-lapis"
-                      aria-hidden
-                    />
-                    <span className="num-xs flex-1 text-fg">
-                      {formatInt(l.amount_ml)} mL
+                    <span className={cn("t-meta tnum w-14 shrink-0", on ? "font-semibold text-ivory" : "text-stone")}>
+                      {d === today ? "Today" : `${dayName(d, true)} ${parseISODate(d).getDate()}`}
                     </span>
-                    <span className="num-xs text-fg-3">{stamp(l)}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeOne(l)}
-                      className="-mr-2 grid size-11 place-items-center rounded-[12px] text-fg-3 hover:text-fg"
-                      aria-label={`Remove ${l.amount_ml} millilitres, ${stamp(l)}`}
-                    >
-                      <X className="size-4" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {logs.length > SHOW && (
-              <button
-                type="button"
-                onClick={() => setShowAll((s) => !s)}
-                className="mt-1 inline-flex h-11 items-center text-[13px] font-bold text-fg-2 hover:text-fg"
-              >
-                {showAll ? "Show less" : `Show all ${logs.length}`}
-              </button>
-            )}
-          </div>
-        </>
+                    <Meter value={ml} target={goalMl} tone="water" size="sm" label={`${litres(ml)} of ${litres(goalMl)} litres`} className="flex-1" />
+                    <span className={cn("t-meta tnum w-16 shrink-0 text-right", ml >= goalMl ? "text-ivory" : "text-ash")}>{litres(ml)} L</span>
+                  </button>
+                </li>
+              );
+            })}
+        </ul>
       )}
-      <CustomWaterSheet
-        open={customOpen}
-        onOpenChange={setCustomOpen}
-        onAdd={(ml) => add(ml)}
-      />
-    </section>
-  );
-}
 
-function CustomWaterSheet({
-  open,
-  onOpenChange,
-  onAdd,
-}: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  onAdd: (ml: number) => void;
-}) {
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange} title="Custom amount">
-      {open && (
-        <CustomForm
-          onAdd={(ml) => {
-            onAdd(ml);
-            onOpenChange(false);
-          }}
-        />
-      )}
-    </Sheet>
+      {/* the chosen day's entries */}
+      <div className="mt-4">
+        <div className="flex min-h-11 items-center justify-between gap-3">
+          <p className="t-eyebrow">
+            {logs.length ? `${logs.length} ${logs.length === 1 ? "entry" : "entries"}` : "No water logged"} · {relativeDay(date, today)}
+          </p>
+          <button type="button" onClick={() => setCustomOpen(true)} className="t-meta inline-flex min-h-11 items-center gap-1 font-semibold text-stone hover:text-ivory">
+            <Plus className="size-3.5" strokeWidth={1.8} aria-hidden /> Add an amount
+          </button>
+        </div>
+        {loading ? (
+          <Skeleton className="h-11 w-full" />
+        ) : (
+          logs.length > 0 && (
+            <ul className="divide-y divide-vein border-y border-vein">
+              {[...logs].reverse().map((l) => (
+                <li key={l.id} className="flex min-h-11 items-center gap-3">
+                  <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-water" />
+                  <span className="t-callout tnum flex-1 text-ivory">{formatInt(l.amount_ml)} mL</span>
+                  <span className="t-meta tnum text-ash">{stamp(l)}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeOne(l)}
+                    className="press -mr-2 grid size-11 place-items-center rounded-field text-ash hover:text-ivory"
+                    aria-label={`Remove ${l.amount_ml} millilitres, ${stamp(l)}`}
+                  >
+                    <X className="size-4" strokeWidth={1.6} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        )}
+      </div>
+
+      <Sheet open={customOpen} onOpenChange={setCustomOpen} title="Add water" description={relativeDay(date, today)}>
+        {customOpen && (
+          <CustomForm
+            onAdd={(ml) => {
+              add(ml);
+              setCustomOpen(false);
+            }}
+          />
+        )}
+      </Sheet>
+    </section>
   );
 }
 
@@ -331,10 +196,7 @@ function CustomForm({ onAdd }: { onAdd: (ml: number) => void }) {
   const [touched, setTouched] = useState(false);
   const ml = parseNumber(text);
   const valid = ml != null && Number.isInteger(ml) && ml >= 1 && ml <= 5000;
-  const error =
-    touched && text.trim() && !valid
-      ? "Enter a whole number from 1 to 5,000 mL."
-      : null;
+  const error = touched && text.trim() && !valid ? "Enter a whole number from 1 to 5,000 mL." : null;
   return (
     <form
       className="pt-1"
@@ -344,10 +206,7 @@ function CustomForm({ onAdd }: { onAdd: (ml: number) => void }) {
         if (valid) onAdd(ml!);
       }}
     >
-      <label
-        htmlFor="water-custom"
-        className="mb-1.5 block text-[13px] font-semibold text-fg-2"
-      >
+      <label htmlFor="water-custom" className="t-meta mb-1.5 block font-semibold text-stone">
         Amount
       </label>
       <NumberInput
@@ -359,36 +218,27 @@ function CustomForm({ onAdd }: { onAdd: (ml: number) => void }) {
         suffix="mL"
         value={text}
         aria-invalid={!!error || undefined}
-        onChange={(e) =>
-          setText(e.target.value.replace(/[^\d]/g, "").slice(0, 4))
-        }
+        onChange={(e) => setText(e.target.value.replace(/[^\d]/g, "").slice(0, 4))}
         onBlur={() => setTouched(true)}
       />
       {error && (
-        <p className="mt-1.5 text-[13px] font-medium text-danger" role="alert">
+        <p className="t-meta mt-1.5 text-cinnabar" role="alert">
           {error}
         </p>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
-        {[330, 355, 1000].map((v) => (
+        {[250, 330, 500, 1000].map((v) => (
           <button
             key={v}
             type="button"
             onClick={() => setText(String(v))}
-            className="press num h-9 rounded-full border border-lapis-line bg-lapis-tint px-3.5 text-[14px] font-semibold text-lapis-text"
+            className="press t-callout tnum h-11 rounded-full bg-m3 px-4 font-semibold text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory"
           >
             {formatInt(v)} mL
           </button>
         ))}
       </div>
-      <Button
-        type="submit"
-        variant="primary"
-        size="lg"
-        block
-        className="mt-6"
-        disabled={!valid}
-      >
+      <Button type="submit" variant="primary" size="lg" block className="mt-6" disabled={!valid}>
         Add water
       </Button>
     </form>

@@ -27,7 +27,7 @@ export function SleepGoalSheet({
       open={open}
       onOpenChange={onOpenChange}
       title="Sleep goal"
-      description="Used for guidance, the Sleep mission and weekly averages."
+      description="Used for the readiness call, the sleep rite and weekly averages."
     >
       {open && (
         <GoalForm current={current} onDone={() => onOpenChange(false)} />
@@ -57,12 +57,12 @@ function GoalForm({
         onChange={setValue}
         size="lg"
       >
-        <span className="num-xl">
+        <span className="t-dial text-ivory">
           {formatHours(value)}
-          <span className="unit">h</span>
+          <span className="t-meta ml-1 text-stone">h</span>
         </span>
       </Stepper>
-      <p className="mt-3 text-center text-[13px] text-fg-2">
+      <p className="t-callout mt-3 text-center text-stone">
         {formatSleep(value)} a night. Most lifters recover best on 7–9 h.
       </p>
       <Button
@@ -74,7 +74,7 @@ function GoalForm({
         loading={save.isPending}
         onClick={() =>
           save.mutate(
-            { values: { sleep_goal_h: value }, reason: "Edited on Recovery" },
+            { values: { sleep_goal_h: value }, reason: "Edited on the Recovery ledger" },
             {
               onSuccess: () => {
                 toast(`Sleep goal set to ${formatHours(value)} h`, {

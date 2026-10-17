@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/controls";
 import { Collapse } from "@/components/ui/misc";
 import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
-import { isOffline } from "@/lib/data/core";
+import { isOffline, useToday } from "@/lib/data/core";
 import { useRecovery, type RecoveryLog } from "@/lib/data/recovery";
 import { addDays, type ISODate } from "@/lib/dates";
 import { PAIN_MAX, SLEEP_MAX, storedSleep, type CheckinDraft } from "@/lib/recovery/checkin";
@@ -125,6 +125,7 @@ export function CheckIn({
       prefill={prefill.hours}
       goal={sleepGoal}
       onConfirm={(h) => answer({ sleep: h })}
+      onClear={variant === "ledger" ? () => answer({ sleep: null }) : undefined}
       saving={status.kind === "saving" && status.field === "sleep"}
     />
   );
@@ -197,6 +198,7 @@ export function CheckIn({
  */
 export function CheckInDetail({ date, open: initiallyOpen = false, ruled = true, className }: { date: ISODate; open?: boolean; ruled?: boolean; className?: string }) {
   const { row, values, status, answer } = useCheckinAnswers(date);
+  const today = useToday();
   const [detail, setDetail] = useState(initiallyOpen);
   const detailId = useId();
   const { quality, fatigue, stress, volleyball } = values;
@@ -223,8 +225,8 @@ export function CheckInDetail({ date, open: initiallyOpen = false, ruled = true,
           <ChipQuestion prompt="Stress" name="Stress" chips={STRESS} value={stress} onPick={(n) => answer({ stress: n })} small />
           <PainNote key={`${date}:${row?.pain_notes ?? ""}`} initial={row?.pain_notes ?? ""} onSave={(t) => answer({ pain: t })} />
           <div className="flex min-h-11 items-center justify-between gap-3">
-            <span className="t-callout text-ivory">Volleyball today</span>
-            <Switch checked={volleyball} onCheckedChange={(on) => answer({ volleyball: on })} label="Volleyball today" />
+            <span className="t-callout text-ivory">Volleyball {date === today ? "today" : "this day"}</span>
+            <Switch checked={volleyball} onCheckedChange={(on) => answer({ volleyball: on })} label={`Volleyball ${date === today ? "today" : "this day"}`} />
           </div>
         </div>
       </Collapse>
@@ -235,13 +237,33 @@ export function CheckInDetail({ date, open: initiallyOpen = false, ruled = true,
 
 /* ------------------------------------------------------------- questions */
 
-function SleepQuestion({ value, prefill, goal, onConfirm, saving }: { value: number | null; prefill: number | null; goal: number; onConfirm: (h: number) => void; saving: boolean }) {
+function SleepQuestion({
+  value,
+  prefill,
+  goal,
+  onConfirm,
+  onClear,
+  saving,
+}: {
+  value: number | null;
+  prefill: number | null;
+  goal: number;
+  onConfirm: (h: number) => void;
+  onClear?: () => void;
+  saving: boolean;
+}) {
   // the stepper starts at the logged value, else last week's median, else empty ("—", goal hint)
   const [draft, setDraft] = useState<number | null>(value ?? prefill);
   const [seen, setSeen] = useState(value);
   if (value !== seen) {
     setSeen(value);
     if (value != null) setDraft(value);
+  }
+  // the week's rows can land after mount: take the usual then, unless something is already set
+  const [seenPrefill, setSeenPrefill] = useState(prefill);
+  if (prefill !== seenPrefill) {
+    setSeenPrefill(prefill);
+    if (value == null && draft == null && prefill != null) setDraft(prefill);
   }
   const bump = (dir: 1 | -1) => setDraft((d) => Math.min(SLEEP_MAX, Math.max(0, (d ?? goal) + (d == null ? 0 : dir * SLEEP_STEP_H))));
   const onKey = (e: KeyboardEvent) => {
@@ -293,9 +315,25 @@ function SleepQuestion({ value, prefill, goal, onConfirm, saving }: { value: num
           {confirmed ? "Saved" : "Confirm"}
         </button>
       </div>
+      {onClear && value != null && (
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(null);
+            onClear();
+          }}
+          className="t-meta mt-1 inline-flex min-h-11 items-center font-semibold text-stone hover:text-ivory"
+          aria-label="Clear hours slept"
+        >
+          Clear
+        </button>
+      )}
     </div>
   );
 }
+
+/** A long single-word chip ("Exhausted") may break at a soft hyphen in a narrow fifth of the row. */
+const softHyphen = (c: string) => (c.length >= 9 && !c.includes(" ") ? `${c.slice(0, -3)}\u00AD${c.slice(-3)}` : c);
 
 /** A 1–5 question as a radio group of chips (a vertical list in the AX layout). */
 export function ChipQuestion({
@@ -310,7 +348,8 @@ export function ChipQuestion({
   name: string;
   chips: readonly string[];
   value: number | null;
-  onPick: (n: number) => void;
+  /** The chosen 1–5, or null when the chosen chip is tapped again (cleared). */
+  onPick: (n: number | null) => void;
   small?: boolean;
 }) {
   const id = useId();
@@ -345,13 +384,13 @@ export function ChipQuestion({
                   focusAt(i - 1);
                 }
               }}
-              onClick={() => onPick(i + 1)}
+              onClick={() => onPick(on ? null : i + 1)}
               className={cn(
-                "press flex min-h-11 items-center justify-center rounded-field px-1 text-center text-[length:max(13px,0.8125rem)] font-semibold leading-tight transition-colors @max-[19rem]:justify-start @max-[19rem]:px-4",
+                "press flex min-h-11 min-w-0 items-center justify-center rounded-field px-1 text-center text-[length:max(13px,0.8125rem)] font-semibold leading-tight transition-colors @max-[19rem]:justify-start @max-[19rem]:px-4",
                 on ? "bg-m4 text-ivory shadow-[inset_0_0_0_1.5px_var(--ivory)]" : "bg-m3 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory",
               )}
             >
-              {c}
+              {softHyphen(c)}
             </button>
           );
         })}

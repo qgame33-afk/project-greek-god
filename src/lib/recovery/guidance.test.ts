@@ -108,7 +108,7 @@ describe("computeGuidance", () => {
     expect(g.level).toBe("go");
     expect(g.title).toBe("Train as planned");
     expect(g.score).toBe(0);
-    expect(g.reasons[0]).toBe("Slept 8 of 8 h");
+    expect(g.reasons[0]).toBe("Slept 8 h of 8 h");
     expect(g.adjustments).toEqual({
       dropSets: 0,
       rir: null,
@@ -129,7 +129,7 @@ describe("computeGuidance", () => {
     );
     expect(g.adjustments.dropSets).toBe(1);
     expect(g.adjustments.rir).toBe("2–3");
-    expect(g.reasons[0]).toBe("Slept 6.5 of 8 h");
+    expect(g.reasons[0]).toBe("Slept 6 h 30 min of 8 h");
     expect(g.extras).toContain("Aim for 8 h tonight.");
   });
 
@@ -193,7 +193,7 @@ describe("computeGuidance", () => {
     expect(g.reasons).toEqual([
       "Volleyball yesterday",
       "Soreness 3/5",
-      "Slept 6.5 of 8 h",
+      "Slept 6 h 30 min of 8 h",
     ]);
   });
 

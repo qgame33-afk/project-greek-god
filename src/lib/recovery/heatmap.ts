@@ -1,4 +1,4 @@
-// Monthly consistency calendar. Gold only marks what was earned; an empty day is a quiet
+// Rites by month (the Recovery ledger). Leaf only marks a day where every rite was kept; an empty day is a quiet
 // surface, never red. Weeks start on Monday to match the training week.
 
 import {
@@ -102,7 +102,7 @@ export function cellLabel(
       : kind === "pre"
         ? "before your start date"
         : total
-          ? `${done} of ${total} missions`
-          : "no missions";
-  return `${longDate(date)}: ${base}${workout ? ", workout done" : ""}`;
+          ? `${done} of ${total} rites kept`
+          : "no rites";
+  return `${longDate(date)}: ${base}${workout ? ", session done" : ""}`;
 }

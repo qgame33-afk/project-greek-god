@@ -4,7 +4,7 @@
 // Training and Recovery screens all call `computeGuidance` with the same inputs.
 
 import { addDays, type ISODate } from "@/lib/dates";
-import { formatHours } from "./checkin";
+import { formatHours, formatSleep } from "./checkin";
 
 export interface CheckinLite {
   local_date: ISODate;
@@ -277,7 +277,7 @@ function planCall(input: ReadinessInput): Guidance {
     factors.push({
       key: "sleep",
       label: "Sleep",
-      value: `${formatHours(sleep)} of ${formatHours(goal)} h`,
+      value: `${formatSleep(sleep)} of ${formatHours(goal)} h`,
       points: sleepPts,
     });
   }
