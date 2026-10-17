@@ -202,6 +202,13 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   /* ----------------------------------------------------- accordion state */
 
   const [openRef, setOpenRef] = useState<string | null>(null);
+  const settleUntil = useRef(0);
+  const settleGuard = (e: React.MouseEvent) => {
+    if (performance.now() < settleUntil.current) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
   const currentKey = currentGroupKey(groups, skipped);
   const openGroup = (openRef ? groupOf.get(openRef) : undefined) ?? groups.find((g) => g.key === currentKey) ?? null;
   const upNext = live ? upNextSet(groups, openGroup?.key ?? null, skipped) : null;
@@ -521,6 +528,9 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       }
     }
     if (ag && isGroupComplete(ag) && ng && ng.key !== ag.key) {
+      // The accordion swaps and scrolls: a quick second tap must not land on whatever
+      // control moved under the thumb (the next exercise's "Add set").
+      settleUntil.current = performance.now() + 800;
       setOpenRef(ng.sets[0].id);
       scrollToGroup(ng.key);
     }
@@ -1096,7 +1106,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       />
 
       <div className="mx-auto w-full max-w-[1120px] px-3 pt-3 sm:px-4 lg:grid lg:grid-cols-[minmax(0,720px)_320px] lg:justify-center lg:gap-8 lg:px-6 lg:pt-6" style={{ paddingBottom: `calc(${bottomPad}px + var(--safe-bottom))` }}>
-        <main className="mx-auto w-full min-w-0 max-w-[720px] space-y-3 lg:mx-0" aria-label="Exercises">
+        <main className="mx-auto w-full min-w-0 max-w-[720px] space-y-3 lg:mx-0" aria-label="Exercises" onClickCapture={settleGuard}>
           {stale && (
             <div className="card-inset flex flex-col gap-3 border border-line-strong p-4" role="status">
               <div className="flex gap-3">

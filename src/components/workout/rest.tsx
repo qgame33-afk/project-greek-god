@@ -243,14 +243,33 @@ function DockButton({ label, onClick, children, className }: { label: string; on
   );
 }
 
+/**
+ * Swallows taps for a moment after the dock appears. It takes the keypad's place, so a quick
+ * second tap meant for "Log set" would otherwise land on Skip rest.
+ */
+export function useSettleGuard(ms = 450) {
+  const ready = useRef(Number.POSITIVE_INFINITY);
+  useEffect(() => {
+    ready.current = performance.now() + ms;
+  }, [ms]);
+  return (e: React.MouseEvent) => {
+    if (performance.now() < ready.current) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+}
+
 export function RestDock({ sessionId, rest, onFocus }: { sessionId: string; rest: RestState; onFocus: () => void }) {
   const a = restActions(sessionId);
   const now = useClockSec();
   const over = remainingSec(rest, now) === 0;
+  const guard = useSettleGuard();
   return (
     <div
       role="region"
       aria-label="Rest timer"
+      onClickCapture={guard}
       className="wk-up fixed inset-x-0 bottom-0 z-40 rounded-t-[20px] border-t border-line bg-s2 shadow-[var(--e3)] lg:hidden"
       style={{ paddingBottom: "var(--safe-bottom)" }}
     >
@@ -295,8 +314,9 @@ export function RestFocus({ sessionId, rest, onClose }: { sessionId: string; res
   }, [onClose]);
   const paused = rest.pausedRemaining != null;
   const next = rest.next;
+  const guard = useSettleGuard();
   return (
-    <div role="dialog" aria-modal="true" aria-label="Rest timer" className="wk-fade fixed inset-0 z-40 flex flex-col bg-bg-deep">
+    <div role="dialog" aria-modal="true" aria-label="Rest timer" onClickCapture={guard} className="wk-fade fixed inset-0 z-40 flex flex-col bg-bg-deep">
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] bg-[radial-gradient(70%_55%_at_50%_0%,rgb(213_172_103/.14),transparent_70%)]" />
       <div className="relative flex items-center justify-between px-3" style={{ paddingTop: "calc(var(--safe-top) + 6px)" }}>
         <button ref={closeRef} type="button" onClick={onClose} aria-label="Back to the workout" className="grid size-11 place-items-center rounded-[12px] text-fg-2 hover:text-fg">
