@@ -36,45 +36,48 @@ const ARROW = "press grid size-11 place-items-center rounded-full text-stone sha
 export function DayTitle({ date, today, onChange, calorieGoal, extra }: { date: ISODate; today: ISODate; onChange: (d: ISODate) => void; calorieGoal: number; extra?: ReactNode }) {
   const [picker, setPicker] = useState<{ open: boolean; nonce: number }>({ open: false, nonce: 0 });
   const atToday = date >= today;
+  // AX (a narrow container at large text): the name and date take the full width, the arrows sit under them
   return (
-    <div className="flex items-end justify-between gap-3">
-      <div className="min-w-0">
-        <h1 className="t-title-1 text-ivory">
-          <button
-            type="button"
-            onClick={() => setPicker((p) => ({ open: true, nonce: p.nonce + 1 }))}
-            aria-label={`${dayTitle(date, today)}, ${longDate(date)}. Choose a day`}
-            className="press-soft -mx-1 rounded-field px-1 text-left"
-          >
-            {dayTitle(date, today)}
+    <div className="@container">
+      <div className="flex items-end justify-between gap-3 @max-[19rem]:flex-col @max-[19rem]:items-start">
+        <div className="min-w-0 @max-[19rem]:w-full">
+          <h1 className="t-title-1 text-ivory">
+            <button
+              type="button"
+              onClick={() => setPicker((p) => ({ open: true, nonce: p.nonce + 1 }))}
+              aria-label={`${dayTitle(date, today)}, ${longDate(date)}. Choose a day`}
+              className="press-soft -mx-1 inline-flex min-h-11 items-center rounded-field px-1 text-left"
+            >
+              {dayTitle(date, today)}
+            </button>
+          </h1>
+          <p className="t-meta mt-1 truncate text-stone @max-[19rem]:whitespace-normal">
+            {dayLong(date, today)}
+            {date < today && " · past day"}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2" role="group" aria-label="Day">
+          <button type="button" onClick={() => onChange(addDays(date, -1))} aria-label="Previous day" className={ARROW}>
+            <ChevronLeft className="size-5" strokeWidth={1.6} />
           </button>
-        </h1>
-        <p className="t-meta mt-1 truncate text-stone">
-          {dayLong(date, today)}
-          {date < today && " · past day"}
-        </p>
+          <button type="button" onClick={() => onChange(addDays(date, 1))} disabled={atToday} aria-label="Next day" className={ARROW}>
+            <ChevronRight className="size-5" strokeWidth={1.6} />
+          </button>
+          {extra}
+        </div>
+        <Sheet open={picker.open} onOpenChange={keepOpenOnToast((o) => setPicker((p) => ({ ...p, open: o })))} title="Choose a day" description="Days with food logged are marked.">
+          <DayPicker
+            key={picker.nonce}
+            date={date}
+            today={today}
+            calorieGoal={calorieGoal}
+            onPick={(d) => {
+              onChange(d);
+              setPicker((p) => ({ ...p, open: false }));
+            }}
+          />
+        </Sheet>
       </div>
-      <div className="flex shrink-0 items-center gap-2" role="group" aria-label="Day">
-        <button type="button" onClick={() => onChange(addDays(date, -1))} aria-label="Previous day" className={ARROW}>
-          <ChevronLeft className="size-5" strokeWidth={1.6} />
-        </button>
-        <button type="button" onClick={() => onChange(addDays(date, 1))} disabled={atToday} aria-label="Next day" className={ARROW}>
-          <ChevronRight className="size-5" strokeWidth={1.6} />
-        </button>
-        {extra}
-      </div>
-      <Sheet open={picker.open} onOpenChange={keepOpenOnToast((o) => setPicker((p) => ({ ...p, open: o })))} title="Choose a day" description="Days with food logged are marked.">
-        <DayPicker
-          key={picker.nonce}
-          date={date}
-          today={today}
-          calorieGoal={calorieGoal}
-          onPick={(d) => {
-            onChange(d);
-            setPicker((p) => ({ ...p, open: false }));
-          }}
-        />
-      </Sheet>
     </div>
   );
 }

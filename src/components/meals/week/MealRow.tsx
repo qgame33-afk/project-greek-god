@@ -106,7 +106,7 @@ export function MealRow({
             >
               <p className={cn("t-eyebrow", next && "text-leaf-300")}>{busy ? "Finding another…" : eyebrow}</p>
               {recipe ? (
-                <Link href={recipeHref(meal.recipe_key, meal.id)} onClick={onOpen} className="press-soft mt-0.5 block t-title-3 text-ivory [overflow-wrap:anywhere]">
+                <Link href={recipeHref(meal.recipe_key, meal.id)} onClick={onOpen} className="press-soft hit-44 mt-0.5 block t-title-3 text-ivory [overflow-wrap:anywhere]">
                   {recipe.name}
                   {meal.servings !== 1 && <span className="t-callout ml-1.5 whitespace-nowrap text-stone">×{fractionText(meal.servings)}</span>}
                   {meal.locked && <Lock className="ml-1.5 inline size-3.5 align-[-1px] text-stone" strokeWidth={1.6} aria-label="locked" />}

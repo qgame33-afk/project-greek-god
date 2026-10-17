@@ -240,7 +240,7 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
       <p className="t-meta text-stone">
         {view.toBuy} {view.toBuy === 1 ? "item" : "items"} · {daysCovered} {daysCovered === 1 ? "day" : "days"} covered
       </p>
-      <div className="mt-3 flex items-end justify-between gap-4">
+      <div className="mt-3 flex items-end justify-between gap-4 @max-[19rem]:flex-wrap">
         <div>
           <p className="t-eyebrow">In the cart</p>
           <p className="mt-1.5 whitespace-nowrap">
@@ -259,7 +259,7 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
       <Meter className="mt-4" size="md" tone="ivory" value={view.inCart} target={view.toBuy || 1} label={`${view.inCart} of ${view.toBuy} in the cart`} />
       <p className="t-meta mt-2 text-stone">{allIn ? "Everything's in the cart." : `${view.toBuy - view.inCart} left to buy`}</p>
 
-      <div className="mt-4 flex items-start justify-between gap-3 border-t border-vein pt-3">
+      <div className="mt-4 flex items-start justify-between gap-3 border-t border-vein pt-3 @max-[19rem]:flex-col @max-[19rem]:gap-1">
         <div className="min-w-0">
           <p className="t-title-3 text-ivory">{money.headline}</p>
           <p className="t-meta mt-0.5 text-stone">{money.detail}</p>

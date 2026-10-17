@@ -199,18 +199,18 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
       <TimerAlarm sound={sound} />
       {/* ------------------------------------------------------------------ top */}
       <header className="shrink-0 px-2 pt-[calc(var(--safe-top)+4px)] lg:px-6">
-        <div className="mx-auto flex h-14 max-w-[760px] items-center gap-1">
+        <div className="mx-auto flex min-h-14 max-w-[760px] items-center gap-1">
           <BackLink href={backHref} aria-label="Close cooking mode" className="press grid size-11 shrink-0 place-items-center rounded-full text-stone hover:text-ivory">
             <X className="size-6" strokeWidth={1.6} aria-hidden />
           </BackLink>
           <div className="min-w-0 flex-1 px-1 text-center">
-            <p className="t-title-3 truncate text-ivory">{recipe.name}</p>
-            <p className="t-meta mt-0.5 flex items-center justify-center gap-1.5 truncate text-stone">
+            <p className="t-title-3 line-clamp-2 text-ivory">{recipe.name}</p>
+            <p className="t-meta mt-0.5 truncate text-stone">
               {servingsLabel(servings)}
               {wake === "on" && (
                 <>
-                  <span aria-hidden>·</span>
-                  <Sun className="size-3.5" strokeWidth={1.6} aria-hidden />
+                  <span aria-hidden> · </span>
+                  <Sun className="mr-1 inline size-3.5 align-[-0.125em]" strokeWidth={1.6} aria-hidden />
                   Screen stays on
                 </>
               )}
@@ -347,18 +347,18 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
           </main>
 
           {/* ---------------------------------------------------------------- bottom */}
-          <footer className="shrink-0 border-t border-vein px-4 pt-3 pb-[calc(12px+var(--safe-bottom))] lg:px-6 lg:pb-6">
+          <footer className="@container shrink-0 border-t border-vein px-4 pt-3 pb-[calc(12px+var(--safe-bottom))] lg:px-6 lg:pb-6">
             <div className="mx-auto flex max-w-[760px] gap-3">
               <Button variant="secondary" size="xl" className="w-16 shrink-0 rounded-btn p-0" onClick={prev} disabled={atStart} aria-label="Previous step">
                 <ChevronLeft className="size-7" strokeWidth={1.6} aria-hidden />
               </Button>
               {atEnd ? (
                 <Button variant="primary" size="xl" className="flex-1 rounded-btn" onClick={eatAndFinish} loading={quick.pending} aria-label={`Eaten: log ${servingsLabel(servings)} and finish`}>
-                  Eaten · log {servingsLabel(servings)}
+                  Eaten<span className="@max-[19rem]:hidden">&nbsp;· log {servingsLabel(servings)}</span>
                 </Button>
               ) : (
                 <Button variant="primary" size="xl" className="flex-1 rounded-btn" onClick={next}>
-                  Next step
+                  Next<span className="@max-[19rem]:hidden">&nbsp;step</span>
                   <ChevronRight className="size-6" strokeWidth={1.8} aria-hidden />
                 </Button>
               )}

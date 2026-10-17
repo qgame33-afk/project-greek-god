@@ -34,10 +34,10 @@ export function WaterRow({ date, today, goalMl, totalMl, unknown, className }: {
   const caption = unknown ? "Water didn't load" : goalMl <= 0 ? "No water goal set" : left <= 0 ? "Goal met" : `${waterToGo(goalMl, total)} to go`;
 
   return (
-    <div className={cn("flex items-end gap-3", className)}>
+    <div className={cn("flex items-end gap-3 @max-[19rem]:flex-col @max-[19rem]:items-stretch", className)}>
       <div className="min-w-0 flex-1">
         <p className="t-eyebrow">Water</p>
-        <p className="mt-1 whitespace-nowrap">
+        <p className="mt-1 whitespace-nowrap @max-[19rem]:whitespace-normal">
           <span className="t-num-s text-ivory">{unknown || totalMl == null ? "—" : liters(total)}</span>
           <span className="t-meta text-stone">
             {" "}
