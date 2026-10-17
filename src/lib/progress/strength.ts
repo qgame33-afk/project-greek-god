@@ -4,6 +4,7 @@
 
 import { addDays, type ISODate } from "@/lib/dates";
 import { e1rm as epley } from "@/lib/training/progression";
+import { beatsRecord } from "@/lib/workout/pr";
 import { round } from "@/lib/units";
 
 export interface StrengthSet {
@@ -71,7 +72,7 @@ export interface SessionSummary {
   /** Σ load × reps. */
   volume: number;
   totalReps: number;
-  /** Beat every earlier e1RM (requires earlier history). */
+  /** Beat every earlier e1RM by the record margin (requires earlier history). */
   pr: boolean;
   /** e1RM gain over the previous best when pr. */
   prGain: number | null;
@@ -127,7 +128,7 @@ export function summarizeLift(input: StrengthSet[]): LiftSummary {
     for (const s of list) {
       const e = setE1rm(s);
       if (e != null && (bestE == null || e > bestE)) bestE = e;
-      if (e != null && before != null && e > before && (!prSet || e > (setE1rm(prSet) ?? 0))) prSet = s;
+      if (e != null && before != null && beatsRecord(e, before) && (!prSet || e > (setE1rm(prSet) ?? 0))) prSet = s;
       if (load(s) > 0 && (top == null || load(s) > top)) top = load(s);
       if (repsOf(s) > 0 && (maxReps == null || repsOf(s) > maxReps)) maxReps = repsOf(s);
       volume += load(s) * repsOf(s);

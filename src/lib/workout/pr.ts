@@ -25,7 +25,9 @@ export type PRKind = "pr" | "first" | null;
  */
 export const PR_MIN_GAIN_LB = 1;
 
-const beats = (v: number, best: number) => v >= best + PR_MIN_GAIN_LB;
+/** The one record rule (the pr_events / exercise_daily views apply the same margin). */
+export const beatsRecord = (v: number, best: number) => v >= best + PR_MIN_GAIN_LB;
+const beats = beatsRecord;
 
 export function setE1rm(s: Pick<WSet, "kind" | "completed" | "weight_lb" | "reps">): number | null {
   if (s.kind !== "working" || !s.completed) return null;

@@ -137,7 +137,10 @@ function LiftRowView({ row, s, unit, first, onOpen }: { row: LiftRow; s: LiftSum
   const spark = s.sessions.map((x) => sessionMetric(x, mode)).filter((v): v is number => v != null);
   const fmt = (lb: number) => formatLoad(lb, unit, false);
   const best = (row.bodyweight ? (s.heaviest?.set ?? s.bestReps?.set) : (s.bestE1rmSet ?? s.heaviest?.set ?? s.bestReps?.set)) ?? null;
-  const recentPR = s.sessions.some((x) => x.pr && daysBetween(x.date, today) <= 14);
+  // The PR badge sits beside the record it refers to, never beside a set that wasn't one.
+  const lastPR = s.sessions.findLast((x) => x.pr && x.prSet);
+  const recentPR = !!lastPR && daysBetween(lastPR.date, today) <= 14;
+  const line = recentPR ? { set: lastPR.prSet!, date: lastPR.date } : best ? { set: best, date: s.lastDate! } : null;
   const logged = s.sessions.length > 0;
   const head = mode === "e1rm" ? s.bestE1rm : mode === "load" ? (s.heaviest?.weight ?? null) : (s.bestReps?.reps ?? null);
   return (
@@ -147,7 +150,7 @@ function LiftRowView({ row, s, unit, first, onOpen }: { row: LiftRow; s: LiftSum
           <span className={cn("block truncate text-[15px] font-bold", logged ? "text-fg" : "text-fg-2")}>{row.name}</span>
           <span className="flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-fg-3">
             {recentPR && <PRBadge />}
-            <span className="truncate">{logged && best ? `${formatSet(best, fmt, row.bodyweight)}${row.perHand ? " ea" : ""} · ${shortDate(s.lastDate!, today)}` : "Not logged yet"}</span>
+            <span className="truncate">{logged && line ? `${formatSet(line.set, fmt, row.bodyweight)}${row.perHand ? " ea" : ""} · ${shortDate(line.date, today)}` : "Not logged yet"}</span>
           </span>
         </span>
         {spark.length > 1 && <Sparkline values={spark} width={44} height={22} />}
