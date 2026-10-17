@@ -266,3 +266,32 @@ export function plannerContext(i: PlannerInputs): PlanContext | null {
     ...(i.seed ? { seed: i.seed } : {}),
   };
 }
+
+/* ------------------------------------------------------------------ planned vs logged */
+
+export interface PlanSplit {
+  /** The day card's heading: "Planned — not eaten" only while none of the day's meals is logged. */
+  label: string;
+  /** "Logged 2,612 · still planned 1,450 kcal", or null when nothing is logged yet. */
+  detail: string | null;
+  /** kcal of the day's meals already in the food log (as planned). */
+  loggedKcal: number;
+}
+
+/**
+ * What of a day's plan is already in the food log. Planned totals are never counted as eaten,
+ * so a day with logged meals can't be labelled "not eaten": it splits into logged and still
+ * planned. `ahead` is the total of the meals not logged yet.
+ */
+export function planSplit(total: Macros | undefined, ahead: Macros | undefined, meals: number, logged: number): PlanSplit {
+  if (!logged || !meals) return { label: "Planned — not eaten", detail: null, loggedKcal: 0 };
+  const all = total?.kcal ?? 0;
+  const left = logged >= meals ? 0 : (ahead?.kcal ?? 0);
+  const loggedKcal = Math.max(0, all - left);
+  const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
+  return {
+    label: "Planned",
+    detail: logged >= meals ? "All in your food log" : `Logged ${fmt(loggedKcal)} · still planned ${fmt(left)} kcal`,
+    loggedKcal,
+  };
+}

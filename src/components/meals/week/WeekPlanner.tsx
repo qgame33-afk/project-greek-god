@@ -118,6 +118,8 @@ export function WeekPlanner() {
   const dayMeals = useMemo(() => meals.filter((m) => m.local_date === selected), [meals, selected]);
   const snacks = dayMeals.filter((m) => m.slot === "snack");
   const loggedSet = useMemo(() => new Set(data.loggedIds), [data.loggedIds]);
+  // the part of each day's plan not in the food log yet ("still planned")
+  const aheadTotals = useMemo(() => dayTotals(meals.filter((m) => !loggedSet.has(m.id)), lookup), [meals, loggedSet, lookup]);
   // a rule added after planning (an allergy, a dislike) flags what it breaks from today on
   const conflicts = useMemo(
     () => conflictsInWeek(meals.filter((m) => m.local_date >= today && !loggedSet.has(m.id)), lookup, prefs),
@@ -543,7 +545,7 @@ export function WeekPlanner() {
 
               <div ref={dayRef} className="flex flex-col gap-3">
                 <DayHeading date={selected} today={today} />
-                <DayTotals planned={totals[selected]} goals={goals} meals={dayMeals.length} />
+                <DayTotals planned={totals[selected]} ahead={aheadTotals[selected]} goals={goals} meals={dayMeals.length} logged={dayMeals.filter((m) => loggedSet.has(m.id)).length} />
                 <div className="flex flex-col gap-3">
                   {orderedPlaces(dayMeals, missingMainSlots(dayMeals)).map((p, i) =>
                     p.kind === "empty" ? (

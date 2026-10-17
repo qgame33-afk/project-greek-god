@@ -4,6 +4,7 @@ import { getLibraryRecipe, LIBRARY } from "@/lib/meals/library";
 import { ingredientCount, recipeCostCad } from "@/lib/meals/recipe";
 import { DEFAULT_PREFS, type Recipe } from "@/lib/meals/types";
 import {
+  planSplit,
   conflictsInWeek,
   conflictText,
   currentThumb,
@@ -216,5 +217,21 @@ describe("strip and week notes", () => {
       { recipe_key: "lib:b", event: "thumbs_up" as const },
     ];
     expect(thumbRows(rows, "lib:a").map((r) => r.event)).toEqual(["thumbs_up", "thumbs_down"]);
+  });
+});
+
+describe("planned vs logged", () => {
+  const M = (kcal: number) => ({ kcal, protein: 0, carbs: 0, fat: 0 });
+  it("says not eaten only while nothing that day is logged", () => {
+    expect(planSplit(M(3277), M(3277), 5, 0)).toEqual({ label: "Planned — not eaten", detail: null, loggedKcal: 0 });
+  });
+  it("splits logged from still planned", () => {
+    expect(planSplit(M(4062), M(1450), 5, 2)).toEqual({ label: "Planned", detail: "Logged 2,612 · still planned 1,450 kcal", loggedKcal: 2612 });
+  });
+  it("says so when every meal is logged", () => {
+    expect(planSplit(M(3300), undefined, 4, 4)).toEqual({ label: "Planned", detail: "All in your food log", loggedKcal: 3300 });
+  });
+  it("handles a day with no meals", () => {
+    expect(planSplit(undefined, undefined, 0, 0).detail).toBeNull();
   });
 });

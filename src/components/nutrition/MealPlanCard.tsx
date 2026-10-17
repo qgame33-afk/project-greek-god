@@ -30,6 +30,10 @@ export function MealPlanCard({ className }: { className?: string }) {
   const mains = meals.filter((m) => m.slot !== "snack");
   const snacks = meals.filter((m) => m.slot === "snack");
   const total = dayTotals(meals, lookup)[today];
+  // meals already in the food log are counted in Fuel's eaten totals: the card shows what's left
+  const ahead = meals.filter((m) => !logged.logged[m.id]);
+  const left = dayTotals(ahead, lookup)[today];
+  const loggedCount = meals.length - ahead.length;
 
   return (
     <section className={cn("card-instrument overflow-hidden", className)} aria-labelledby="meal-plan-card-title">
@@ -60,11 +64,25 @@ export function MealPlanCard({ className }: { className?: string }) {
       ) : (
         <>
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-4 pt-1.5 pb-2 sm:px-5">
-            <p className="text-[13px] font-semibold text-fg-2">
-              <span className="num text-[17px] text-fg">{kcalText(total?.kcal ?? 0)}</span> kcal ·{" "}
-              <span className="num text-[17px] text-fg">{gramsText(total?.protein ?? 0)}</span> g protein
-            </p>
-            <PlanBadge>Planned · not eaten</PlanBadge>
+            {ahead.length === 0 ? (
+              <p className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-fg-2">
+                <Check className="size-4 text-success" aria-hidden />
+                All of today&apos;s planned meals are in your food log
+              </p>
+            ) : (
+              <>
+                <p className="text-[13px] font-semibold text-fg-2">
+                  <span className="num text-[17px] text-fg">{kcalText((loggedCount ? left : total)?.kcal ?? 0)}</span> kcal ·{" "}
+                  <span className="num text-[17px] text-fg">{gramsText((loggedCount ? left : total)?.protein ?? 0)}</span> g protein
+                </p>
+                <PlanBadge>{loggedCount ? "Still planned · not eaten" : "Planned · not eaten"}</PlanBadge>
+                {loggedCount > 0 && (
+                  <p className="w-full text-[12px] font-medium text-fg-3">
+                    {loggedCount} of {meals.length} {meals.length === 1 ? "meal" : "meals"} already logged · {kcalText(Math.max(0, (total?.kcal ?? 0) - (left?.kcal ?? 0)))} kcal
+                  </p>
+                )}
+              </>
+            )}
           </div>
           <ul className="divide-y divide-line-hair border-t border-line-hair">
             {mains.map((m) => (
