@@ -145,17 +145,22 @@ export function CheckIn({
       {variant === "dawn" ? (
         <>
           {chipLine.length > 0 && (
-            <ul className="flex flex-wrap gap-x-1 gap-y-1" aria-label="Answered">
-              {chipLine.map((c) => (
-                <li key={c.q}>
+            <ul className="-ml-1.5 flex flex-wrap items-center" aria-label="Answered">
+              {chipLine.map((c, i) => (
+                <li key={c.q} className="flex items-center">
+                  {i > 0 && (
+                    <span aria-hidden className="px-0.5 text-ash">
+                      ·
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => setEditing(c.q)}
                     aria-label={`${c.spoken}. Change`}
-                    className="press t-callout tnum inline-flex min-h-11 items-center gap-1.5 rounded-full px-2.5 text-leaf-300 hover:bg-white/[.03]"
+                    className="press tnum inline-flex min-h-11 items-center gap-1 rounded-full px-1.5 text-[length:max(14px,0.875rem)] font-semibold text-leaf-300 hover:bg-white/[.03]"
                   >
                     {c.text}
-                    <SealTick className="size-4" />
+                    <SealTick className="size-3.5" />
                   </button>
                 </li>
               ))}
@@ -384,9 +389,8 @@ function PainNote({ initial, onSave }: { initial: string; onSave: (t: string) =>
 export function ReadinessCall({ line }: { line: string | null }) {
   if (!line) return null;
   return (
-    <p className="t-callout flex flex-wrap items-center gap-x-2 gap-y-1 text-ivory">
-      <span>{line}</span>
-      <Tag kind="RULE" explain="From your check-in, last nights' sleep, volleyball and recent training (the readiness rule on the Recovery ledger)." />
+    <p className="t-callout text-ivory">
+      {line} <Tag kind="RULE" className="ml-1 align-[1px]" explain="From your check-in, recent nights' sleep, volleyball and training: the readiness rule the Recovery ledger shows." />
     </p>
   );
 }

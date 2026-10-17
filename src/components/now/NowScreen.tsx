@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Statue } from "@/components/art/Statue";
@@ -44,6 +45,20 @@ export function NowScreen() {
   return <NowContent data={data} m={data.model} />;
 }
 
+/**
+ * Queries restored from the offline cache (older than this page load) count as fresh for the
+ * staleTime, so an answer saved a second before a reload could show its old value. Now refetches
+ * those once, in the background, when it mounts.
+ */
+function useRefreshRestored() {
+  const qc = useQueryClient();
+  useEffect(() => {
+    // when this page started, on the same clock as dataUpdatedAt
+    const born = Date.now() - performance.now();
+    void qc.refetchQueries({ type: "active", predicate: (q) => q.state.dataUpdatedAt > 0 && q.state.dataUpdatedAt < born });
+  }, [qc]);
+}
+
 function subscribeResize(cb: () => void) {
   window.addEventListener("resize", cb);
   return () => window.removeEventListener("resize", cb);
@@ -59,6 +74,7 @@ function useShortViewport() {
 
 function NowContent({ data, m }: { data: NowData; m: NowModel }) {
   const { state, now, input } = useDayInput(m);
+  useRefreshRestored();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
