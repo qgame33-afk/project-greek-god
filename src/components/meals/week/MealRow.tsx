@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { AnimatePresence, m } from "motion/react";
 import { Lock, Plus } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { SealTick } from "@/components/art/icons";
 import { Button } from "@/components/ui/button";
 import { Coin } from "@/components/ui/coin";
@@ -67,6 +67,7 @@ export function MealRow({
   const next = status === "next";
   const eyebrow = [formatClock(at), role ?? title, next ? "next" : null].filter(Boolean).join(" · ");
   const ahead = recipe ? makeAheadOf(recipe) : null;
+  const [eatNote, setEatNote] = useState<string | null>(null);
   const eatenMeal: EatenMeal = { id: meal.id, slot: meal.slot, local_date: meal.local_date, servings: meal.servings, recipe, name: recipe?.name ?? "Planned meal", kcal: macros?.kcal ?? 0, protein: macros?.protein ?? 0, at };
 
   // a row low on the screen unfolds its strip under the capsule: bring it above the chrome
@@ -138,7 +139,7 @@ export function MealRow({
                 </Link>
               </Button>
             ) : (
-              <EatenButton meal={eatenMeal} onChanged={onEatenChanged} />
+              <EatenButton meal={eatenMeal} onChanged={onEatenChanged} onNote={setEatNote} />
             )}
             <button
               type="button"
@@ -161,6 +162,11 @@ export function MealRow({
           )}
         </div>
       </div>
+      {eatNote && !eaten && (
+        <p role="status" className="t-meta -mt-1 mb-2 ml-[3.25rem] text-right text-stone">
+          {eatNote}
+        </p>
+      )}
       {(conflict || ahead) && (
         <div className="-mt-1 mb-2 ml-[3.25rem] flex flex-col gap-1">
           {conflict && <p className="t-meta text-ivory">Doesn&apos;t fit your preferences now: {conflict}</p>}

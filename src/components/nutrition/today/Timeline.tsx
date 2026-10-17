@@ -336,6 +336,7 @@ function PlannedRow({ row, eaten, onMenu, onChanged }: { row: Extract<Row, { kin
   const coin: CoinState = missed ? "missed" : row.due ? "next" : "planned";
   const consequence = row.due ? ifYouAdd({ kcal: eaten.kcal, protein: eaten.protein }, { kcal: p.kcal, protein: p.protein }) : null;
   const eyebrow = [row.due ? "Next" : null, role].filter(Boolean).join(" · ");
+  const [note, setNote] = useState<string | null>(null);
   return (
     <div className={cn(row.due && "relative -ml-2 rounded-card bg-m2 pb-3 pl-2 pr-3 shadow-[inset_0_0_0_1px_var(--leaf-line),var(--e2)]")}>
       <RowFrame coin={<CoinCell state={coin} on={row.due ? "m2" : "night"} glyph={<MealIcon recipe={p.recipe} name={p.name} />} />} className={row.due ? "pt-3" : undefined}>
@@ -362,8 +363,13 @@ function PlannedRow({ row, eaten, onMenu, onChanged }: { row: Extract<Row, { kin
               </span>
             </span>
           </button>
-          <EatenButton meal={meal} gold={row.due} onChanged={onChanged} className="absolute bottom-0 right-0 @max-[19rem]:static @max-[19rem]:mt-1.5 @max-[19rem]:items-start" />
+          <EatenButton meal={meal} gold={row.due} onChanged={onChanged} onNote={setNote} className="absolute bottom-0 right-0 @max-[19rem]:static @max-[19rem]:mt-1.5 @max-[19rem]:items-start" />
         </div>
+        {note && (
+          <p role="status" className="t-meta mt-1.5 text-right text-stone @max-[19rem]:text-left">
+            {note}
+          </p>
+        )}
         {consequence && (
           <p className="t-meta mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-stone">
             <span aria-label={consequence.spoken}>{consequence.text}</span>

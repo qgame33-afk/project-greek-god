@@ -68,17 +68,26 @@ export function EatenButton({
   gold,
   className,
   onChanged,
+  onNote,
 }: {
   meal: EatenMeal;
   gold?: boolean;
   className?: string;
   /** Opens "Eaten, but changed" (the caller owns the sheet so ⋯ can open it too). */
   onChanged: () => void;
+  /**
+   * The inline note ("Offline · try again when you're back"). When given, the caller shows it in
+   * the row's own flow (the button often sits absolutely in a corner, where a note would cover the
+   * row's text); otherwise it shows under the button.
+   */
+  onNote?: (note: string | null) => void;
 }) {
   const today = useToday();
   const log = useLogPlannedMeal();
   const entryId = useRef<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
+  const [ownNote, setOwnNote] = useState<string | null>(null);
+  const note = onNote ? null : ownNote;
+  const setNote = (n: string | null) => (onNote ? onNote(n) : setOwnNote(n));
   const conflicts = useRecipeConflicts(meal.recipe);
   const allergy = conflicts.some((c) => c.kind === "allergy");
   const timer = useRef<number | null>(null);
