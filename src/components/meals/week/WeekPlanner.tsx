@@ -36,7 +36,7 @@ import { DayTotals } from "./DayTotals";
 import { DislikeSheet } from "./DislikeSheet";
 import { useAddPlannedMeals, usePlannerData, useRemovePlannedMeals } from "./hooks";
 import { MealMenuSheet } from "./MealMenuSheet";
-import { conflictsInWeek, currentThumb, dayFit, MAIN_SLOTS, missingMainSlots, notedText, reasonWantsRepick, thumbRows, weekNotes, weekRangeLabel, type Thumb } from "./model";
+import { conflictsInWeek, currentThumb, dayFit, MAIN_SLOTS, midWeekNote, missingMainSlots, notedText, reasonWantsRepick, thumbRows, weekNotes, weekRangeLabel, type Thumb } from "./model";
 import { ConflictBanner, EmptyWeek, NeedsGoals, prefsSummary } from "./Panels";
 import { EmptySlotCard, PlannedMealCard } from "./PlannedMealCard";
 import { RegenStrip, type StripPhase } from "./RegenStrip";
@@ -101,7 +101,7 @@ export function WeekPlanner() {
   const [confirmWeek, setConfirmWeek] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [appear, setAppear] = useState(0);
-  const [note, setNote] = useState<{ week: ISODate; text: string } | null>(null);
+  const [note, setNote] = useState<{ week: ISODate; text: string; wholeWeekOffer?: boolean } | null>(null);
   const [autoGen, setAutoGen] = useState<0 | 1 | null>(params.get("generate") === "1" ? 0 : null);
 
   /* ----------------------------------------------------------- derived */
@@ -294,8 +294,9 @@ export function WeekPlanner() {
 
   /* ------------------------------------------------------- the week */
 
-  async function generate(kind: "first" | "again") {
-    const ctx = makeContext({ seed: `${ws}:${Date.now()}` });
+  /** `fill`: plan the whole week but keep every meal already planned (the days before today get filled in). */
+  async function generate(kind: "first" | "again" | "fill", wholeWeek = false) {
+    const ctx = makeContext({ seed: `${ws}:${Date.now()}`, wholeWeek, keepIds: kind === "fill" ? meals.map((m) => m.id) : undefined });
     if (!ctx || generating) return;
     closeStrip("silent");
     setGenerating(true);
@@ -309,7 +310,8 @@ export function WeekPlanner() {
       return;
     }
     try {
-      await savePlan.mutateAsync({ weekStart: ws, meals: res.meals, settings: prefs, undoLabel: kind === "again" ? "Week regenerated" : false });
+      // `save`: the new picks plus the meals kept as they were (past days mid-week, locked, logged)
+      await savePlan.mutateAsync({ weekStart: ws, meals: res.save, settings: prefs, undoLabel: kind === "again" ? "Week regenerated" : kind === "fill" ? "Earlier days planned" : false });
       if (kind === "first") {
         toast("Week planned", {
           description: `${res.meals.length} meals. Nothing is logged until you add it.`,
@@ -317,8 +319,9 @@ export function WeekPlanner() {
           action: { label: "Undo", onClick: () => savePlan.mutate({ weekStart: ws, meals: [], keepLocked: false, undoLabel: false }) },
         });
       }
-      const text = weekNotes(res, MAIN_SLOTS.length + prefs.snacksPerDay);
-      setNote(text ? { week: ws, text } : null);
+      const mid = midWeekNote(ws, res.from, res.kept.some((m) => m.local_date < res.from));
+      const text = [mid?.text, weekNotes(res, MAIN_SLOTS.length + prefs.snacksPerDay)].filter(Boolean).join(" ");
+      setNote(text ? { week: ws, text, wholeWeekOffer: !!mid } : null);
       setAppear((n) => n + 1);
     } catch {
       /* the hook rolled back and said why */
@@ -454,6 +457,8 @@ export function WeekPlanner() {
   /* ---------------------------------------------------------- render */
 
   const range = weekRangeLabel(ws);
+  // the current week mid-week: generating plans from today on (the days before stay as they are)
+  const midWeek = offset === 0 ? midWeekNote(ws, today) : null;
   const loadingWeek = !data.planLoaded || data.profileLoading;
   const thumb = menuMeal ? currentThumb(feedback, menuMeal.recipe_key).thumb : null;
   const groceryLive = grocery.items.filter((i) => !i.removed);
@@ -526,13 +531,38 @@ export function WeekPlanner() {
           ) : !hasGoals ? (
             <NeedsGoals />
           ) : !hasWeek ? (
-            goals && <EmptyWeek range={range} goals={goals} prefs={prefs} prefsSaved={data.prefsSaved} ready={ready} busy={generating} onGenerate={() => void generate("first")} />
+            goals && (
+              <EmptyWeek
+                range={range}
+                goals={goals}
+                prefs={prefs}
+                prefsSaved={data.prefsSaved}
+                ready={ready}
+                busy={generating}
+                fromToday={!!midWeek}
+                onGenerate={() => void generate("first")}
+                onGenerateWhole={midWeek ? () => void generate("first", true) : undefined}
+              />
+            )
           ) : (
             <div className="flex flex-col gap-3">
               {note && note.week === ws && (
                 <div className="flex items-start gap-3 rounded-[14px] border border-lapis-line bg-lapis-tint py-2.5 pr-1 pl-3.5" role="status">
                   <Info className="mt-1 size-4 shrink-0 text-lapis-text" aria-hidden />
-                  <p className="min-w-0 flex-1 py-1 text-[13px] font-medium leading-snug text-fg-2">{note.text}</p>
+                  <div className="min-w-0 flex-1 py-1">
+                    <p className="text-[13px] font-medium leading-snug text-fg-2">{note.text}</p>
+                    {note.wholeWeekOffer && midWeek && (
+                      <button
+                        type="button"
+                        onClick={() => void generate("fill", true)}
+                        disabled={generating}
+                        className="press -ml-1 mt-1 inline-flex min-h-11 items-center gap-1 rounded-[10px] px-1 text-[13.5px] font-bold text-lapis-text hover:text-fg disabled:opacity-50"
+                      >
+                        Plan {midWeek.earlier} too
+                        <ChevronRight className="size-4" aria-hidden />
+                      </button>
+                    )}
+                  </div>
                   <button type="button" onClick={() => setNote(null)} aria-label="Dismiss" className="press grid size-11 shrink-0 place-items-center rounded-[12px] text-fg-3 hover:text-fg">
                     <X className="size-4" />
                   </button>
@@ -654,8 +684,9 @@ export function WeekPlanner() {
         title={`Regenerate ${offset === 0 ? "this" : "next"} week?`}
         body={
           <>
-            Every meal gets a new pick
-            {lockedCount || loggedCount ? <> except {[lockedCount ? `${lockedCount} locked` : "", loggedCount ? `${loggedCount} already logged` : ""].filter(Boolean).join(" and ")}</> : null}. You can undo it.
+            {midWeek ? `Every meal from today on gets a new pick` : "Every meal gets a new pick"}
+            {lockedCount || loggedCount ? <> except {[lockedCount ? `${lockedCount} locked` : "", loggedCount ? `${loggedCount} already logged` : ""].filter(Boolean).join(" and ")}</> : null}.
+            {midWeek ? ` ${midWeek.earlier} ${midWeek.earlier.includes(" to ") ? "stay" : "stays"} as planned.` : ""} You can undo it.
           </>
         }
         confirmLabel="Regenerate"

@@ -63,8 +63,9 @@ export function notedText(reason: FeedbackReason, repickedName?: string | null):
  * Honest notes after planning a week: places nothing fit, and days the allowed recipes can't
  * bring to 90% of the protein goal. Null when the week came out whole.
  */
-export function weekNotes(res: { meals: readonly unknown[]; kept: readonly unknown[]; days: readonly { meals: number; proteinOk: boolean }[] }, placesPerDay: number): string | null {
-  const unfilled = Math.max(0, 7 * placesPerDay - res.meals.length - res.kept.length);
+export function weekNotes(res: { meals: readonly unknown[]; kept: readonly unknown[]; days: readonly { meals: number; proteinOk: boolean }[]; unfilled?: number }, placesPerDay: number): string | null {
+  // the engine counts the places it couldn't fill on the days it planned (mid-week, from today)
+  const unfilled = res.unfilled ?? Math.max(0, 7 * placesPerDay - res.meals.length - res.kept.length);
   const lowProtein = res.days.filter((d) => d.meals > 0 && !d.proteinOk).length;
   const parts: string[] = [];
   if (unfilled) parts.push(`${unfilled} ${unfilled === 1 ? "meal has" : "meals have"} nothing that fits your settings`);
@@ -279,6 +280,10 @@ export interface PlannerInputs {
   /** Planned meals already added to the food log (kept by "regenerate week"). */
   loggedIds: readonly string[];
   seed?: string;
+  /** The user's local date: mid-week, the current week is planned from today on (no make-ahead today). */
+  today?: ISODate;
+  /** Plan every day of the week, the days already past included. */
+  wholeWeek?: boolean;
 }
 
 /** The engine's PlanContext from the hooks' data, or null while goals are missing. */
@@ -295,8 +300,28 @@ export function plannerContext(i: PlannerInputs): PlanContext | null {
     meals: i.meals,
     fixedIds: i.loggedIds,
     ...(i.seed ? { seed: i.seed } : {}),
+    ...(i.today ? { today: i.today } : {}),
+    ...(i.wholeWeek ? { wholeWeek: true } : {}),
   };
 }
+
+/**
+ * After planning the current week mid-week: which days were planned and which were left as
+ * they were ("Planned from Friday. Monday to Thursday stay as they were."), or null when the
+ * whole week was planned.
+ */
+export function midWeekNote(weekStart: ISODate, from: ISODate, earlierPlanned = true): { text: string; earlier: string } | null {
+  if (from <= weekStart || from > addDays(weekStart, 6)) return null;
+  const first = dayLong(weekStart);
+  const last = dayLong(addDays(from, -1));
+  const one = first === last;
+  const earlier = one ? first : `${first} to ${last}`;
+  const rest = earlierPlanned ? `${one ? "stays" : "stay"} as ${one ? "it was" : "they were"}` : `${one ? "isn't" : "aren't"} planned`;
+  return { text: `Planned from ${dayLong(from)}. ${earlier} ${rest}.`, earlier };
+}
+
+const DAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const dayLong = (d: ISODate) => DAY_LONG[parseISODate(d).getDay()];
 
 /* ------------------------------------------------------------------ planned vs logged */
 

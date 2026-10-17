@@ -5,6 +5,7 @@ import { ingredientCount, recipeConflicts, recipeCostCad } from "@/lib/meals/rec
 import { DEFAULT_PREFS, type Recipe } from "@/lib/meals/types";
 import {
   planSplit,
+  midWeekNote,
   conflictLines,
   conflictTitle,
   conflictsInWeek,
@@ -252,5 +253,32 @@ describe("conflict lines for the recipe and cooking screens", () => {
     const c = recipeConflicts(pb, { allergies: [], diets: [], dislikedIngredients: [], equipment: ["microwave", "stovetop", "oven", "toaster", "blender", "kettle", "air_fryer", "grill"] });
     expect(conflictLines(c)).toEqual([]);
     expect(conflictTitle(c)).toBeNull();
+  });
+});
+
+describe("planning from today mid-week", () => {
+  const ws = "2026-10-12";
+  it("says which days were planned and which stayed", () => {
+    expect(midWeekNote(ws, "2026-10-16")?.text).toBe("Planned from Friday. Monday to Thursday stay as they were.");
+    expect(midWeekNote(ws, "2026-10-13")?.text).toBe("Planned from Tuesday. Monday stays as it was.");
+    expect(midWeekNote(ws, "2026-10-16")?.earlier).toBe("Monday to Thursday");
+    expect(midWeekNote(ws, "2026-10-16", false)?.text).toBe("Planned from Friday. Monday to Thursday aren't planned.");
+    expect(midWeekNote(ws, "2026-10-13", false)?.text).toBe("Planned from Tuesday. Monday isn't planned.");
+  });
+  it("is quiet for a whole week or a week already over", () => {
+    expect(midWeekNote(ws, ws)).toBeNull();
+    expect(midWeekNote(ws, "2026-10-19")).toBeNull();
+  });
+  it("passes today and the whole-week choice to the engine, which plans only the days ahead", () => {
+    const pool = buildPool([]);
+    const base = { weekStart: ws, goals: { kcal: 3300, protein: 185 }, prefs: DEFAULT_PREFS, pool, feedback: [], favourites: [], history: [], meals: [], loggedIds: [], seed: "t" };
+    const fromToday = plannerContext({ ...base, today: "2026-10-16" })!;
+    expect(fromToday.today).toBe("2026-10-16");
+    const res = generateWeek(fromToday);
+    expect(res.from).toBe("2026-10-16");
+    expect(new Set(res.meals.map((m) => m.local_date))).toEqual(new Set(["2026-10-16", "2026-10-17", "2026-10-18"]));
+    const whole = generateWeek(plannerContext({ ...base, today: "2026-10-16", wholeWeek: true })!);
+    expect(whole.from).toBe(ws);
+    expect(new Set(whole.meals.map((m) => m.local_date)).size).toBe(7);
   });
 });

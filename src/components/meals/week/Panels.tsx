@@ -30,7 +30,9 @@ export function EmptyWeek({
   prefsSaved,
   ready,
   busy,
+  fromToday = false,
   onGenerate,
+  onGenerateWhole,
 }: {
   range: string;
   goals: DayGoals;
@@ -38,7 +40,10 @@ export function EmptyWeek({
   prefsSaved: boolean;
   ready: boolean;
   busy: boolean;
+  /** Mid-week: Generate plans today to Sunday; `onGenerateWhole` plans all seven days. */
+  fromToday?: boolean;
   onGenerate: () => void;
+  onGenerateWhole?: () => void;
 }) {
   return (
     <section className="card-accent relative overflow-hidden px-5 pt-7 pb-5 text-center sm:px-8" aria-labelledby="empty-week-title">
@@ -48,7 +53,7 @@ export function EmptyWeek({
         Plan {range}
       </h2>
       <p className="relative mx-auto mt-2 max-w-[36ch] text-[14px] leading-relaxed text-fg-2">
-        Seven days of easy, familiar meals sized to <span className="font-bold text-fg">{kcalText(goals.kcal)} kcal</span> and{" "}
+        {fromToday ? "Today to Sunday:" : "Seven days of"} easy, familiar meals sized to <span className="font-bold text-fg">{kcalText(goals.kcal)} kcal</span> and{" "}
         <span className="font-bold text-fg">{goals.protein} g protein</span> a day. Nothing goes in your food log until you eat it.
       </p>
       <p className="relative mt-4 text-[12.5px] font-semibold text-fg-3">{prefsSummary(prefs)}</p>
@@ -63,6 +68,11 @@ export function EmptyWeek({
         Generate my week
       </Button>
       {!ready && !busy && <p className="relative mt-2 text-[12px] font-medium text-fg-3">Loading your preferences…</p>}
+      {fromToday && onGenerateWhole && ready && (
+        <button type="button" onClick={onGenerateWhole} disabled={busy} className="press relative mt-2 inline-flex min-h-11 items-center rounded-[12px] px-3 text-[13.5px] font-bold text-fg-2 hover:text-fg disabled:opacity-50">
+          Plan the whole week instead
+        </button>
+      )}
     </section>
   );
 }

@@ -76,7 +76,7 @@ export function usePlannerData(offset: number) {
    * week's meals; `prefs` overrides the stored prefs (a dislike added a moment ago).
    */
   const makeContext = useCallback(
-    (opts: { seed?: string; meals?: WeekPlan["meals"]; prefs?: MealPrefs } = {}) =>
+    (opts: { seed?: string; meals?: WeekPlan["meals"]; prefs?: MealPrefs; wholeWeek?: boolean; keepIds?: readonly string[] } = {}) =>
       ready
         ? plannerContext({
             weekStart: ws,
@@ -87,11 +87,14 @@ export function usePlannerData(offset: number) {
             favourites: favs.favourites,
             history: history ?? [],
             meals: opts.meals ?? plan.meals,
-            loggedIds,
+            loggedIds: opts.keepIds ? [...loggedIds, ...opts.keepIds] : loggedIds,
             seed: opts.seed,
+            // mid-week the current week is planned from today on; make-ahead meals never land on today
+            today: week.today,
+            wholeWeek: opts.wholeWeek,
           })
         : null,
-    [ready, ws, goals, prefsQ.prefs, recipes.pool, feedback, favs.favourites, history, plan.meals, loggedIds],
+    [ready, ws, goals, prefsQ.prefs, recipes.pool, feedback, favs.favourites, history, plan.meals, loggedIds, week.today],
   );
 
   return {
