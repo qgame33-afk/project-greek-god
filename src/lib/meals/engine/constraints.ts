@@ -123,7 +123,7 @@ export function isAllowed(recipe: Recipe, ctx: FilterContext): boolean {
  * — never allergies, diets, dislikes, equipment, blocks, explicit exclusions, a second use on
  * the same day or a make-ahead recipe on today. `relaxed` says how far it had to go.
  */
-export function candidatesFor(pool: readonly Recipe[], ctx: Omit<FilterContext, "relax">, min = 3): { recipes: Recipe[]; relaxed: 0 | 1 | 2 | 3 } {
+export function candidatesFor(pool: readonly Recipe[], ctx: Omit<FilterContext, "relax">, min = 2): { recipes: Recipe[]; relaxed: 0 | 1 | 2 | 3 } {
   // each tier allows a superset of the one before, so the last tier is the widest
   let recipes: Recipe[] = [];
   for (const relax of [0, 1, 2, 3] as const) {

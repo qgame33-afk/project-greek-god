@@ -780,6 +780,7 @@ export function simplifyRecipe(recipe: Recipe, opts: SimplifyOptions = {}): Simp
     blurb: "",
     origin: "simplified" as const,
     baseKey: recipe.key,
+    ...(recipe.makeAhead ? { makeAhead: recipe.makeAhead } : {}),
   };
   draft.difficulty = meetsSuperEasy(draft) ? "super_easy" : minutes <= 30 && recipe.difficulty === "i_like_cooking" ? "everyday" : recipe.difficulty;
   const after = { minutes, ingredients: ingredientCount(draft), steps: steps.length };

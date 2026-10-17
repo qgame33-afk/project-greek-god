@@ -174,6 +174,17 @@ describe("variety", () => {
     expect(getLibraryRecipe("lib:cheeseburger-oven-fries")!.ingredients.some((l) => l.key === "fries-frozen")).toBe(true);
   });
 
+  it("a vegetarian Super Easy cook (with peanut and shellfish allergies) has two weeks of different lunches and dinners", () => {
+    const prefs = { ...DEFAULT_PREFS, diets: ["vegetarian" as Diet], allergies: ["peanut" as const, "shellfish" as const] };
+    const mains = new Set<string>();
+    for (const slot of ["lunch", "dinner"] as Slot[]) {
+      const ok = libraryForSlot(slot).filter((r) => r.difficulty === "super_easy" && recipeAllowed(r, prefs));
+      expect(ok.length, slot).toBeGreaterThanOrEqual(12);
+      ok.forEach((r) => mains.add(r.key));
+    }
+    expect(mains.size).toBeGreaterThanOrEqual(14); // 7 lunches + 7 dinners, none twice
+  });
+
   it("every common diet can still fill a week in every slot", () => {
     const needs: [Diet, Slot, number][] = [
       ["vegetarian", "breakfast", 7], ["vegetarian", "lunch", 7], ["vegetarian", "dinner", 7], ["vegetarian", "snack", 7],

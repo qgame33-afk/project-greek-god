@@ -298,6 +298,21 @@ describe("planning the current week mid-week", () => {
   });
 });
 
+describe("vegetarian weeks", () => {
+  it("never repeat a lunch or dinner and stay Super Easy (peanut and shellfish allergies too)", () => {
+    const prefs: MealPrefs = { ...DEFAULT_PREFS, diets: ["vegetarian"], allergies: ["peanut", "shellfish"] };
+    for (const seed of SEEDS.slice(0, 8)) {
+      const w = generateWeek(ctx({ prefs, seed }));
+      const mains = w.meals.filter((m) => m.slot === "lunch" || m.slot === "dinner");
+      expect(mains).toHaveLength(14);
+      expect(new Set(mains.map((m) => m.recipe_key)).size, seed).toBe(14);
+      // at most the last dinner of the week reaches past Super Easy, when the easy ones are used up
+      const harder = mains.filter((m) => lookup(m.recipe_key)!.difficulty !== "super_easy");
+      expect(harder.length, seed).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
 describe("the week's grocery list", () => {
   it("stays short and cheap: ingredients are reused across the week, one line per food", () => {
     let lines = 0;
