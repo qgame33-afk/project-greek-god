@@ -92,15 +92,25 @@ function locate(path: string): { section: string; depth: number; index: number }
   return { section: p, depth: segments(p), index: -1 };
 }
 
+/** Full-screen focus routes that open as a layer over whatever was open: the live workout, cooking mode. */
+const LAYERS = ["/workout", "/nutrition/meals/cook"];
+
+function layerOf(path: string) {
+  const p = clean(path);
+  return LAYERS.find((l) => p === l || p.startsWith(l + "/")) ?? null;
+}
+
 export function navDirection(from: string | null | undefined, to: string): NavDirection {
   if (!from) return "none";
   const a = locate(from);
   const b = locate(to);
   if (clean(from) === clean(to)) return "none";
   if (a.section === "/onboarding" || b.section === "/onboarding") return "fade";
-  // The live workout is a full-screen layer over whatever was open.
-  if (b.section === "/workout" && a.section !== "/workout") return "push";
-  if (a.section === "/workout" && b.section !== "/workout") return "pop";
+  // Focus layers slide in over the screen you were on and back out to wherever you go next.
+  const la = layerOf(from);
+  const lb = layerOf(to);
+  if (lb && lb !== la) return "push";
+  if (la && la !== lb) return "pop";
   if (a.section === b.section) return b.depth > a.depth ? "push" : b.depth < a.depth ? "pop" : "fade";
   // Into another section's detail page (Roadmap → a monthly review): still a push.
   if (b.depth > 0) return "push";

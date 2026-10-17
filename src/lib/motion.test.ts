@@ -29,6 +29,13 @@ describe("navDirection", () => {
     expect(navDirection("/workout/start", "/workout/abc")).toBe("fade");
   });
 
+  it("slides cooking mode in and out as a layer, like the workout", () => {
+    expect(navDirection("/nutrition/meals/recipe/lib:eggs", "/nutrition/meals/cook/lib:eggs")).toBe("push");
+    expect(navDirection("/nutrition/meals/cook/lib:eggs?meal=x", "/nutrition/meals/recipe/lib:eggs?meal=x")).toBe("pop");
+    expect(navDirection("/nutrition/meals/cook/lib:eggs", "/nutrition/meals")).toBe("pop");
+    expect(navDirection("/nutrition/meals/cook/lib:eggs", "/nutrition/meals/cook/lib:toast")).toBe("fade");
+  });
+
   it("crossfades same-depth swaps, onboarding and unknown routes", () => {
     expect(navDirection("/reviews/2026-09", "/reviews/2026-08")).toBe("fade");
     expect(navDirection("/onboarding", "/")).toBe("fade");
