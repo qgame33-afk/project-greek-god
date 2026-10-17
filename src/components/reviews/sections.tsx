@@ -3,25 +3,15 @@
 import Link from "next/link";
 import { Camera, ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
-import { LoggedBadge, PRBadge } from "@/components/ui/badge";
-import { Card, CardAction, CardHeader } from "@/components/ui/card";
+import { CardAction } from "@/components/ui/card";
+import { RecordMark } from "@/components/ui/record-mark";
+import { Tag } from "@/components/ui/tag";
 import { useSignedUrls } from "@/lib/data/body";
 import { cn } from "@/lib/cn";
 import { shortDate } from "@/lib/dates";
 import type { MonthWeightSeries, ReviewStats } from "@/lib/reviews/compute";
-import {
-  formatBodyweight,
-  formatDelta,
-  formatInt,
-  formatLength,
-  formatLiters,
-  formatLoad,
-  round,
-  toDisplayWeight,
-  type LengthUnit,
-  type WeightUnit,
-} from "@/lib/units";
-import { FiveScale, Metric, Sub } from "./kit";
+import { formatBodyweight, formatDelta, formatInt, formatLength, formatLiters, formatLoad, round, toDisplayWeight, type LengthUnit, type WeightUnit } from "@/lib/units";
+import { FiveScale, LedgerHead, Metric, Sub } from "./kit";
 import { WeightChart } from "./WeightChart";
 
 /** "1 day" / "2 days" — a review on the 1st of the month must not read "1 days". */
@@ -36,73 +26,31 @@ const POSE: Record<string, string> = {
   flex_back: "Flex back",
   other: "Other",
 };
-const W = (lb: number | null, unit: WeightUnit) =>
-  lb == null ? "—" : formatBodyweight(lb, unit, false);
+const W = (lb: number | null, unit: WeightUnit) => (lb == null ? "—" : formatBodyweight(lb, unit, false));
 
 /* --------------------------------------------------------------- physical */
 
-export function PhysicalCard({
-  s,
-  unit,
-  lengthUnit,
-  series,
-  className,
-}: {
-  s: ReviewStats;
-  unit: WeightUnit;
-  lengthUnit: LengthUnit;
-  series: MonthWeightSeries | null;
-  className?: string;
-}) {
+export function PhysicalCard({ s, unit, lengthUnit, series, className }: { s: ReviewStats; unit: WeightUnit; lengthUnit: LengthUnit; series: MonthWeightSeries | null; className?: string }) {
   const p = s.physical;
   const m = p.measurements;
-  const ahead =
-    p.change != null &&
-    p.plannedChange != null &&
-    p.change >= p.plannedChange * 0.5 &&
-    p.change <= p.plannedChange * 1.6 &&
-    p.plannedChange > 0;
+  const ahead = p.change != null && p.plannedChange != null && p.change >= p.plannedChange * 0.5 && p.change <= p.plannedChange * 1.6 && p.plannedChange > 0;
   return (
-    <Card className={cn("review-card", className)}>
-      <CardHeader
-        title="Physical"
-        action={p.weighIns > 0 ? <LoggedBadge /> : undefined}
-      />
+    <section className={cn("review-card min-w-0", className)}>
+      <LedgerHead numeral="I" title="The body" action={p.weighIns > 0 ? <Tag kind="LOG" /> : undefined} />
       <div className="review-metrics grid grid-cols-2 gap-x-4 gap-y-5">
-        <Metric
-          label="Start of month"
-          value={W(p.monthStartAvg, unit)}
-          unit={unit}
-          caption={
-            p.monthStartDate
-              ? `7-day avg from ${shortDate(p.monthStartDate, s.window.to)}`
-              : "No weigh-ins yet"
-          }
-        />
+        <Metric label="Start of month" value={W(p.monthStartAvg, unit)} unit={unit} caption={p.monthStartDate ? `7-day avg from ${shortDate(p.monthStartDate, s.window.to)}` : "No weigh-ins yet"} />
         <Metric
           label={s.window.complete ? "End of month" : "Current"}
           value={W(p.monthEndAvg, unit)}
           unit={unit}
-          caption={
-            p.monthEndDate
-              ? `7-day avg to ${shortDate(p.monthEndDate, s.window.to)}`
-              : "Log a weigh-in to start"
-          }
+          caption={p.monthEndDate ? `7-day avg to ${shortDate(p.monthEndDate, s.window.to)}` : "Log a weigh-in to start"}
         />
         <Metric
           label="Monthly change"
-          value={
-            p.change == null
-              ? "—"
-              : formatDelta(p.change, unit).replace(` ${unit}`, "")
-          }
+          value={p.change == null ? "—" : formatDelta(p.change, unit).replace(` ${unit}`, "")}
           unit={unit}
           tone={ahead ? "good" : "neutral"}
-          compare={
-            p.plannedChange != null
-              ? `${ahead ? "On track · plan" : "Plan"} ${formatDelta(p.plannedChange, unit)}`
-              : undefined
-          }
+          compare={p.plannedChange != null ? `${ahead ? "On track · plan" : "Plan"} ${formatDelta(p.plannedChange, unit)}` : undefined}
           caption={
             p.change == null
               ? p.weighIns
@@ -114,61 +62,33 @@ export function PhysicalCard({
                 : "7-day averages, start to end"
           }
         />
-        <Metric
-          label="Weigh-ins"
-          value={p.weighIns || "—"}
-          caption={
-            p.weighIns
-              ? `${s.window.days} ${days(s.window.days)} in this review`
-              : "None this month"
-          }
-        />
+        <Metric label="Weigh-ins" value={p.weighIns || "—"} caption={p.weighIns ? `${s.window.days} ${days(s.window.days)} in this review` : "None this month"} />
       </div>
       {series && <WeightChart series={series} unit={unit} />}
       {p.startWeight != null && p.monthEndAvg != null && (
-        <p className="review-sub mt-5 rounded-[12px] bg-s3/60 px-3.5 py-3 text-[13px] font-medium leading-relaxed text-fg-2">
-          <span className="text-fg">{formatDelta(p.fromStart, unit)}</span>{" "}
-          since the start ({formatBodyweight(p.startWeight, unit)}).{" "}
+        <p className="review-sub mt-5 rounded-field bg-m3/60 px-3.5 py-3 t-meta font-medium leading-relaxed text-stone">
+          <span className="text-ivory">{formatDelta(p.fromStart, unit)}</span> since the start ({formatBodyweight(p.startWeight, unit)}).{" "}
           {p.toGoal != null && p.toGoal > 0 && (
             <>
-              <span className="text-fg">
-                {formatBodyweight(p.toGoal, unit)}
-              </span>{" "}
-              to the {formatBodyweight(p.goalWeight, unit)} goal.
+              <span className="text-ivory">{formatBodyweight(p.toGoal, unit)}</span> to the {formatBodyweight(p.goalWeight, unit)} goal.
             </>
           )}
           {p.toGoal != null && p.toGoal <= 0 && <>Goal weight reached.</>}
         </p>
       )}
 
-      <Sub
-        title="Measurements"
-        aside={
-          m.date
-            ? m.previousDate
-              ? `${shortDate(m.date, s.window.to)} vs ${shortDate(m.previousDate, s.window.to)}`
-              : shortDate(m.date, s.window.to)
-            : undefined
-        }
-      >
+      <Sub title="Measurements" aside={m.date ? (m.previousDate ? `${shortDate(m.date, s.window.to)} vs ${shortDate(m.previousDate, s.window.to)}` : shortDate(m.date, s.window.to)) : undefined}>
         {m.fields.length === 0 ? (
           <EmptyLine href="/progress?tab=body" action="Measure">
-            No measurements yet. Tape the same spots each month to see change
-            the scale can&apos;t show.
+            No measurements yet. Tape the same spots each month to see change the scale can&apos;t show.
           </EmptyLine>
         ) : (
           <>
-            {!m.updatedThisMonth && (
-              <p className="mb-2 text-[12.5px] font-medium text-fg-3">
-                Nothing new this month. Showing your latest entry.
-              </p>
-            )}
+            {!m.updatedThisMonth && <p className="mb-2 t-meta font-medium text-stone">Nothing new this month. Showing your latest entry.</p>}
             <dl className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
               {m.fields.map((f) => {
                 const pct = f.key === "body_fat_pct";
-                const val = pct
-                  ? `${round(f.value, 1)}%`
-                  : formatLength(f.value, lengthUnit);
+                const val = pct ? `${round(f.value, 1)}%` : formatLength(f.value, lengthUnit);
                 const delta =
                   f.change == null || f.change === 0
                     ? null
@@ -176,27 +96,11 @@ export function PhysicalCard({
                       ? `${f.change > 0 ? "+" : "−"}${Math.abs(round(f.change, 1))}%`
                       : `${f.change > 0 ? "+" : "−"}${formatLength(Math.abs(f.change), lengthUnit)}`;
                 return (
-                  <div
-                    key={f.key}
-                    className="flex min-h-11 items-center justify-between gap-3 border-b border-line-hair last:border-0 sm:[&:nth-last-child(2)]:border-0"
-                  >
-                    <dt className="text-[14px] font-semibold text-fg-2">
-                      {f.label}
-                    </dt>
+                  <div key={f.key} className="flex min-h-11 items-center justify-between gap-3 border-b border-vein last:border-0 sm:[&:nth-last-child(2)]:border-0">
+                    <dt className="t-callout font-semibold text-stone">{f.label}</dt>
                     <dd className="flex items-baseline gap-2.5">
-                      {delta && (
-                        <span
-                          className={cn(
-                            "text-[12px] font-bold",
-                            f.growthIsGood && f.change! > 0
-                              ? "text-success"
-                              : "text-fg-3",
-                          )}
-                        >
-                          {delta}
-                        </span>
-                      )}
-                      <span className="num-xs text-[16px] text-fg">{val}</span>
+                      {delta && <span className={cn("t-meta font-bold", f.growthIsGood && f.change! > 0 ? "text-leaf-300" : "text-stone")}>{delta}</span>}
+                      <span className="t-num-s tnum text-ivory">{val}</span>
                     </dd>
                   </div>
                 );
@@ -206,17 +110,10 @@ export function PhysicalCard({
         )}
       </Sub>
 
-      <Sub
-        title="Progress photos"
-        aside={
-          p.photos.count
-            ? `${p.photos.count} photo${p.photos.count === 1 ? "" : "s"}`
-            : undefined
-        }
-      >
+      <Sub title="Progress photos" aside={p.photos.count ? `${p.photos.count} photo${p.photos.count === 1 ? "" : "s"}` : undefined}>
         <ReviewPhotos s={s} />
       </Sub>
-    </Card>
+    </section>
   );
 }
 
@@ -234,17 +131,13 @@ function ReviewPhotos({ s }: { s: ReviewStats }) {
     );
   }
   return (
-    <Link
-      href="/progress?tab=photos"
-      className="press-soft group block"
-      aria-label="Open progress photos"
-    >
+    <Link href="/progress?tab=photos" className="press-soft group block" aria-label="Open progress photos">
       <div className="grid grid-cols-4 gap-2">
         {items.map((it) => {
           const url = urls.data?.[it.storage_path];
           return (
             <figure key={it.id} className="min-w-0">
-              <div className="relative aspect-[3/4] overflow-hidden rounded-[10px] border border-gold-800/70 bg-s3">
+              <div className="relative aspect-[3/4] overflow-hidden rounded-field border border-leaf-line bg-m3">
                 {url ? (
                   // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL from private storage
                   <img
@@ -255,15 +148,11 @@ function ReviewPhotos({ s }: { s: ReviewStats }) {
                     decoding="async"
                   />
                 ) : (
-                  <Camera
-                    className="absolute left-1/2 top-1/2 size-5 -translate-x-1/2 -translate-y-1/2 text-fg-3"
-                    aria-hidden
-                  />
+                  <Camera className="absolute left-1/2 top-1/2 size-5 -translate-x-1/2 -translate-y-1/2 text-stone" aria-hidden />
                 )}
               </div>
-              <figcaption className="mt-1.5 truncate text-[11px] font-semibold text-fg-3">
-                {POSE[it.pose] ?? it.pose} ·{" "}
-                {shortDate(it.local_date, s.window.to)}
+              <figcaption className="mt-1.5 truncate t-meta font-semibold text-stone">
+                {POSE[it.pose] ?? it.pose} · {shortDate(it.local_date, s.window.to)}
               </figcaption>
             </figure>
           );
@@ -273,25 +162,11 @@ function ReviewPhotos({ s }: { s: ReviewStats }) {
   );
 }
 
-function EmptyLine({
-  children,
-  href,
-  action,
-}: {
-  children: ReactNode;
-  href: string;
-  action: string;
-}) {
+function EmptyLine({ children, href, action }: { children: ReactNode; href: string; action: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[12px] bg-s3/60 py-2 pl-3.5 pr-1.5">
-      <p className="text-[13px] font-medium leading-snug text-fg-2">
-        {children}
-      </p>
-      <Link
-        href={href}
-        data-print="hide"
-        className="inline-flex h-11 shrink-0 items-center gap-0.5 px-2 text-[13px] font-bold text-gold-300 hover:text-gold-200"
-      >
+    <div className="flex items-center justify-between gap-3 rounded-field bg-m3/60 py-2 pl-3.5 pr-1.5">
+      <p className="t-meta font-medium leading-snug text-stone">{children}</p>
+      <Link href={href} data-print="hide" className="inline-flex h-11 shrink-0 items-center gap-0.5 px-2 t-meta font-bold text-leaf-300 hover:text-leaf-200">
         {action}
         <ChevronRight className="size-4" aria-hidden />
       </Link>
@@ -301,19 +176,12 @@ function EmptyLine({
 
 /* --------------------------------------------------------------- training */
 
-export function TrainingCard({
-  s,
-  unit,
-  className,
-}: {
-  s: ReviewStats;
-  unit: WeightUnit;
-  className?: string;
-}) {
+export function TrainingCard({ s, unit, className }: { s: ReviewStats; unit: WeightUnit; className?: string }) {
   const t = s.training;
   return (
-    <Card className={cn("review-card", className)}>
-      <CardHeader
+    <section className={cn("review-card min-w-0", className)}>
+      <LedgerHead
+        numeral="II"
         title="Training"
         action={
           t.sessions > 0 ? (
@@ -324,123 +192,61 @@ export function TrainingCard({
         }
       />
       <div className="review-metrics grid grid-cols-2 gap-x-4 gap-y-5">
+        <Metric label="Sessions" value={t.sessions || (t.planned ? "0" : "—")} caption={t.avgSessionMin ? `${t.avgSessionMin} min average` : undefined} />
         <Metric
-          label="Workouts"
-          value={t.sessions || (t.planned ? "0" : "—")}
-          compare={t.planned ? `of ${t.planned} planned` : undefined}
-          caption={
-            t.avgSessionMin ? `${t.avgSessionMin} min average` : undefined
-          }
+          label="Planned days sealed"
+          value={t.planned ? `${t.plannedDone} of ${t.planned}` : "—"}
+          caption={s.recovery.consistency.weeks ? `${s.recovery.consistency.weeksOnPlan} of ${s.recovery.consistency.weeks} ${weeks(s.recovery.consistency.weeks)} on plan` : undefined}
         />
-        <Metric
-          label="Adherence"
-          value={t.adherencePct ?? "—"}
-          unit={t.adherencePct != null ? "%" : undefined}
-          caption={
-            s.recovery.consistency.weeks
-              ? `${s.recovery.consistency.weeksOnPlan} of ${s.recovery.consistency.weeks} ${weeks(s.recovery.consistency.weeks)} on plan`
-              : undefined
-          }
-        />
-        <Metric
-          label="Working sets"
-          value={t.workingSets ? formatInt(t.workingSets) : "—"}
-          caption={t.workingSets ? "Completed, warm-ups excluded" : undefined}
-        />
-        <Metric
-          label="Volume"
-          value={
-            t.volumeLb ? formatInt(toDisplayWeight(t.volumeLb, unit)) : "—"
-          }
-          unit={t.volumeLb ? unit : undefined}
-          caption={t.volumeLb ? "Load × reps" : undefined}
-        />
+        <Metric label="Working sets" value={t.workingSets ? formatInt(t.workingSets) : "—"} caption={t.workingSets ? "Completed, warm-ups excluded" : undefined} />
+        <Metric label="Volume" value={t.volumeLb ? formatInt(toDisplayWeight(t.volumeLb, unit)) : "—"} unit={t.volumeLb ? unit : undefined} caption={t.volumeLb ? "Load × reps" : undefined} />
       </div>
 
       {t.weeks.some((w) => w.planned > 0 || w.done > 0) && (
-        <Sub title="Week by week" aside="Gold = done">
+        <Sub title="Week by week" aside="Leaf = sealed">
           <ul className="space-y-2">
-            {t.weeks.filter((w) => w.planned > 0 || w.done > 0 || w.extra > 0).map((w) => {
-              const slots = Math.max(w.planned, w.done);
-              return (
-                <li
-                  key={w.weekStart}
-                  className="grid grid-cols-[64px_1fr_44px] items-center gap-3"
-                >
-                  <span className="text-[12.5px] font-semibold text-fg-3">
-                    {shortDate(w.weekStart, s.window.to)}
-                  </span>
-                  <span
-                    className="flex gap-1.5"
-                    role="img"
-                    aria-label={`Week of ${shortDate(w.weekStart, s.window.to)}: ${w.done} of ${w.planned} planned sessions`}
-                  >
-                    {Array.from({ length: Math.max(slots, 1) }, (_, i) => (
-                      <span
-                        key={i}
-                        className={cn(
-                          "h-3.5 max-w-7 flex-1 rounded-[4px]",
-                          i < w.done
-                            ? "bg-[image:var(--grad-progress)]"
-                            : slots === 0
-                              ? "border border-dashed border-line"
-                              : "border border-line-strong",
-                        )}
-                      />
-                    ))}
-                  </span>
-                  <span className="num-xs text-right text-fg-2">
-                    {w.done}/{w.planned}
-                  </span>
-                </li>
-              );
-            })}
+            {t.weeks
+              .filter((w) => w.planned > 0 || w.done > 0 || w.extra > 0)
+              .map((w) => {
+                const slots = Math.max(w.planned, w.done);
+                return (
+                  <li key={w.weekStart} className="grid grid-cols-[4rem_1fr_2.75rem] items-center gap-3">
+                    <span className="t-meta font-semibold text-stone">{shortDate(w.weekStart, s.window.to)}</span>
+                    <span className="flex gap-1.5" role="img" aria-label={`Week of ${shortDate(w.weekStart, s.window.to)}: ${w.done} of ${w.planned} planned sessions`}>
+                      {Array.from({ length: Math.max(slots, 1) }, (_, i) => (
+                        <span key={i} className={cn("h-3.5 max-w-7 flex-1 rounded-xs", i < w.done ? "bg-leaf-300" : slots === 0 ? "border border-dashed border-ui-line" : "border border-ui-line")} />
+                      ))}
+                    </span>
+                    <span className="t-num-s tnum text-right text-stone">
+                      {w.done}/{w.planned}
+                    </span>
+                  </li>
+                );
+              })}
           </ul>
         </Sub>
       )}
 
-      <Sub
-        title="Personal records"
-        aside={
-          t.prs.count
-            ? `${t.prs.count} record set${t.prs.count === 1 ? "" : "s"}`
-            : undefined
-        }
-      >
+      <Sub title="Personal records" aside={t.prs.count ? `${t.prs.count} record set${t.prs.count === 1 ? "" : "s"}` : undefined}>
         {t.prs.items.length === 0 ? (
-          <p className="text-[13px] font-medium leading-relaxed text-fg-3">
-            {t.sessions
-              ? "No new records this month. Records need earlier history to beat, so they come in waves."
-              : "Records appear here once you log sessions."}
+          <p className="t-meta font-medium leading-relaxed text-stone">
+            {t.sessions ? "No new records this month. Records need earlier history to beat, so they come in waves." : "Records appear here once you log sessions."}
           </p>
         ) : (
-          <ul className="divide-y divide-line-hair">
+          <ul className="divide-y divide-vein">
             {t.prs.items.slice(0, 5).map((r) => (
-              <li
-                key={r.slug}
-                className="flex min-h-12 items-center gap-3 py-1.5"
-              >
-                <PRBadge />
+              <li key={r.slug} className="flex min-h-12 items-center gap-3 py-1.5">
+                <RecordMark compact label="" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-semibold text-fg">
-                    {r.name}
-                  </span>
-                  <span className="block text-[12px] font-medium text-fg-3">
-                    {r.weight != null && r.reps != null
-                      ? `${formatLoad(r.weight, unit, false)} × ${r.reps} · `
-                      : ""}
+                  <span className="block truncate t-callout font-semibold text-ivory">{r.name}</span>
+                  <span className="block t-meta font-medium text-stone">
+                    {r.weight != null && r.reps != null ? `${formatLoad(r.weight, unit, false)} × ${r.reps} · ` : ""}
                     {shortDate(r.date, s.window.to)}
                   </span>
                 </span>
                 <span className="text-right">
-                  <span className="num-xs block text-fg">
-                    {formatLoad(r.e1rm, unit)}
-                  </span>
-                  {r.gain != null && (
-                    <span className="block text-[11.5px] font-bold text-gold-300">
-                      {formatDelta(r.gain, unit)} e1RM
-                    </span>
-                  )}
+                  <span className="t-num-s tnum block text-ivory">{formatLoad(r.e1rm, unit)}</span>
+                  {r.gain != null && <span className="block t-meta font-bold text-leaf-300">{formatDelta(r.gain, unit)} e1RM</span>}
                 </span>
               </li>
             ))}
@@ -450,52 +256,28 @@ export function TrainingCard({
 
       {t.lifts.length > 0 && (
         <Sub title="Strength" aside="e1RM, first → last session">
-          <ul className="divide-y divide-line-hair">
+          <ul className="divide-y divide-vein">
             {t.lifts.map((l) => (
-              <li
-                key={l.slug}
-                className="flex min-h-11 items-center gap-3 py-1.5"
-              >
-                <span className="line-clamp-2 min-w-0 flex-1 text-[14px] font-semibold leading-snug text-fg-2">
-                  {l.name}
+              <li key={l.slug} className="flex min-h-11 items-center gap-3 py-1.5">
+                <span className="line-clamp-2 min-w-0 flex-1 t-callout font-semibold leading-snug text-stone">{l.name}</span>
+                <span className="t-num-s tnum shrink-0 text-stone">
+                  {formatLoad(l.startE1rm, unit, false)} → <span className="text-ivory">{formatLoad(l.endE1rm, unit, false)}</span>
                 </span>
-                <span className="num-xs shrink-0 text-fg-3">
-                  {formatLoad(l.startE1rm, unit, false)} →{" "}
-                  <span className="text-fg">
-                    {formatLoad(l.endE1rm, unit, false)}
-                  </span>
-                </span>
-                <span
-                  className={cn(
-                    "w-16 shrink-0 text-right text-[12px] font-bold",
-                    l.change > 0 ? "text-success" : "text-fg-3",
-                  )}
-                >
-                  {l.change === 0 ? "Flat" : formatDelta(l.change, unit)}
-                </span>
+                <span className={cn("w-16 shrink-0 text-right t-meta font-bold", l.change > 0 ? "text-leaf-300" : "text-stone")}>{l.change === 0 ? "Flat" : formatDelta(l.change, unit)}</span>
               </li>
             ))}
           </ul>
         </Sub>
       )}
-    </Card>
+    </section>
   );
 }
 
 /* -------------------------------------------------------------- nutrition */
 
-export function NutritionCard({
-  s,
-  className,
-}: {
-  s: ReviewStats;
-  className?: string;
-}) {
+export function NutritionCard({ s, className }: { s: ReviewStats; className?: string }) {
   const n = s.nutrition;
-  const max = Math.max(
-    n.calorieTarget * 1.25,
-    ...n.weeks.map((w) => w.avgCalories ?? 0),
-  );
+  const max = Math.max(n.calorieTarget * 1.25, ...n.weeks.map((w) => w.avgCalories ?? 0));
   const hasPartial = n.weeks.some((w) => w.days > 0 && w.days < 3);
   // name the two weeks the trend actually compares (first and last with 3+ logged days)
   const trendLabel =
@@ -503,77 +285,37 @@ export function NutritionCard({
       ? `${shortDate(n.trendFrom, s.window.to)} → ${shortDate(n.trendTo, s.window.to)} · ${n.trend === "flat" ? "steady" : `${(n.trendDelta ?? 0) > 0 ? "+" : "−"}${formatInt(Math.abs(n.trendDelta ?? 0))} kcal`}`
       : undefined;
   return (
-    <Card className={cn("review-card", className)}>
-      <CardHeader
-        title="Nutrition"
-        action={
-          n.daysLogged > 0 ? (
-            <span className="text-[12px] font-semibold text-fg-3">
-              Logged days only
-            </span>
-          ) : undefined
-        }
-      />
+    <section className={cn("review-card min-w-0", className)}>
+      <LedgerHead numeral="III" title="Fuel" action={n.daysLogged > 0 ? <span className="t-meta font-semibold text-stone">Logged days only</span> : undefined} />
       <div className="review-metrics grid grid-cols-2 gap-x-4 gap-y-5">
         <Metric
           label="Avg calories"
           value={n.avgCalories != null ? formatInt(n.avgCalories) : "—"}
           unit={n.avgCalories != null ? "kcal" : undefined}
           compare={`Target ${formatInt(n.calorieTarget)}`}
-          caption={
-            n.daysLogged
-              ? `On target ${n.calorieHitDays} of ${n.daysLogged} ${days(n.daysLogged)}`
-              : undefined
-          }
+          caption={n.daysLogged ? `On target ${n.calorieHitDays} of ${n.daysLogged} ${days(n.daysLogged)}` : undefined}
         />
         <Metric
           label="Avg protein"
           value={n.avgProtein ?? "—"}
           unit={n.avgProtein != null ? "g" : undefined}
           compare={`Target ${n.proteinTarget} g`}
-          caption={
-            n.daysLogged
-              ? `Hit ${n.proteinHitDays} of ${n.daysLogged} ${days(n.daysLogged)}`
-              : undefined
-          }
+          caption={n.daysLogged ? `Hit ${n.proteinHitDays} of ${n.daysLogged} ${days(n.daysLogged)}` : undefined}
         />
-        <Metric
-          label="Days logged"
-          value={n.daysLogged || "0"}
-          compare={`of ${n.daysInWindow}`}
-          caption={
-            n.avgCarbs != null
-              ? `${n.avgCarbs} g carbs · ${n.avgFat} g fat avg`
-              : undefined
-          }
-        />
+        <Metric label="Days logged" value={n.daysLogged || "0"} compare={`of ${n.daysInWindow}`} caption={n.avgCarbs != null ? `${n.avgCarbs} g carbs · ${n.avgFat} g fat avg` : undefined} />
         <Metric
           label="Water"
-          value={
-            n.waterAvgMl != null
-              ? formatLiters(n.waterAvgMl).replace(" L", "")
-              : "—"
-          }
+          value={n.waterAvgMl != null ? formatLiters(n.waterAvgMl).replace(" L", "") : "—"}
           unit={n.waterAvgMl != null ? "L" : undefined}
           compare={`Goal ${formatLiters(n.waterGoalMl)}`}
-          caption={
-            n.waterDays
-              ? `Reached on ${n.waterGoalDays} of ${n.waterDays} ${days(n.waterDays)}`
-              : undefined
-          }
+          caption={n.waterDays ? `Reached on ${n.waterGoalDays} of ${n.waterDays} ${days(n.waterDays)}` : undefined}
         />
       </div>
 
       {n.daysLogged === 0 ? (
-        <div className="mt-5 flex items-center justify-between gap-3 rounded-[12px] bg-s3/60 py-2 pl-3.5 pr-1.5">
-          <p className="text-[13px] font-medium text-fg-2">
-            No food logged in this period.
-          </p>
-          <Link
-            href="/nutrition?add=1"
-            data-print="hide"
-            className="inline-flex h-11 shrink-0 items-center px-2 text-[13px] font-bold text-gold-300"
-          >
+        <div className="mt-5 flex items-center justify-between gap-3 rounded-field bg-m3/60 py-2 pl-3.5 pr-1.5">
+          <p className="t-meta font-medium text-stone">No food logged in this period.</p>
+          <Link href="/nutrition?add=1" data-print="hide" className="inline-flex h-11 shrink-0 items-center px-2 t-meta font-bold text-leaf-300">
             Log food
           </Link>
         </div>
@@ -581,24 +323,15 @@ export function NutritionCard({
         <Sub title="Intake by week" aside={trendLabel}>
           <ul className="space-y-3">
             {n.weeks.map((w) => {
-              const p =
-                w.avgCalories != null ? Math.min(1, w.avgCalories / max) : 0;
+              const p = w.avgCalories != null ? Math.min(1, w.avgCalories / max) : 0;
               const target = n.calorieTarget / max;
               const partial = w.days > 0 && w.days < 3;
               return (
-                <li
-                  key={w.weekStart}
-                  className={cn(
-                    "grid grid-cols-[64px_1fr] items-center gap-3",
-                    partial && "opacity-60",
-                  )}
-                >
-                  <span className="text-[12.5px] font-semibold text-fg-3">
-                    {shortDate(w.weekStart, s.window.to)}
-                  </span>
+                <li key={w.weekStart} className="grid grid-cols-[4rem_1fr] items-center gap-3">
+                  <span className="t-meta font-semibold text-stone">{shortDate(w.weekStart, s.window.to)}</span>
                   <div className="min-w-0">
                     <div
-                      className="relative h-2 overflow-hidden rounded-full bg-white/[.07]"
+                      className="relative h-2 overflow-hidden rounded-full bg-m4"
                       role="img"
                       aria-label={
                         w.avgCalories != null
@@ -606,30 +339,14 @@ export function NutritionCard({
                           : "No food logged"
                       }
                     >
-                      {w.avgCalories != null && (
-                        <div
-                          className="absolute inset-0 rounded-full bg-[image:var(--grad-progress)]"
-                          style={{ transform: `translateX(${(p - 1) * 100}%)` }}
-                        />
-                      )}
-                      <span
-                        className="absolute inset-y-[-2px] w-[2px] bg-fg/70"
-                        style={{ left: `calc(${target * 100}% - 1px)` }}
-                        aria-hidden
-                      />
+                      {w.avgCalories != null && <div className={cn("absolute inset-0 rounded-full", partial ? "hatch" : "bg-stone")} style={{ transform: `translateX(${(p - 1) * 100}%)` }} />}
+                      <span className="absolute inset-y-[-2px] w-[2px] bg-ivory" style={{ left: `calc(${target * 100}% - 1px)` }} aria-hidden />
                     </div>
-                    <p className="mt-1 flex justify-between gap-2 text-[12px] font-medium text-fg-3">
-                      <span className="shrink-0">
-                        {w.days
-                          ? `${w.days} day${w.days === 1 ? "" : "s"}${partial ? " · partial" : ""}`
-                          : "Not logged"}
-                      </span>
+                    <p className="mt-1 flex justify-between gap-2 t-meta font-medium text-stone">
+                      <span className="shrink-0">{w.days ? `${w.days} day${w.days === 1 ? "" : "s"}${partial ? " · partial" : ""}` : "Not logged"}</span>
                       {w.avgCalories != null && (
                         <span className="truncate tabular-nums">
-                          <span className="text-fg-2">
-                            {formatInt(w.avgCalories)} kcal
-                          </span>{" "}
-                          · {w.avgProtein} g protein
+                          <span className="text-stone">{formatInt(w.avgCalories)} kcal</span> · {w.avgProtein} g protein
                         </span>
                       )}
                     </p>
@@ -638,31 +355,24 @@ export function NutritionCard({
               );
             })}
           </ul>
-          <p className="mt-3 text-[12px] font-medium leading-relaxed text-fg-3">
-            The white tick is your {formatInt(n.calorieTarget)} kcal target.
-            {hasPartial &&
-              n.trend &&
-              " The trend compares weeks with 3 or more logged days."}
+          <p className="mt-3 t-meta font-medium leading-relaxed text-stone">
+            The ivory tick is your {formatInt(n.calorieTarget)} kcal target; hatched weeks have under 3 logged days.
+            {hasPartial && n.trend && " The trend compares weeks with 3 or more logged days."}
           </p>
         </Sub>
       )}
-    </Card>
+    </section>
   );
 }
 
 /* --------------------------------------------------------------- recovery */
 
-export function RecoveryCard({
-  s,
-  className,
-}: {
-  s: ReviewStats;
-  className?: string;
-}) {
+export function RecoveryCard({ s, className }: { s: ReviewStats; className?: string }) {
   const r = s.recovery;
   return (
-    <Card className={cn("review-card", className)}>
-      <CardHeader
+    <section className={cn("review-card min-w-0", className)}>
+      <LedgerHead
+        numeral="IV"
         title="Recovery"
         action={
           r.checkIns > 0 ? (
@@ -678,85 +388,35 @@ export function RecoveryCard({
           value={r.avgSleep ?? "—"}
           unit={r.avgSleep != null ? "h" : undefined}
           compare={`Goal ${r.sleepGoal} h`}
-          caption={
-            r.sleepNights
-              ? `Goal met ${r.nightsAtGoal} of ${r.sleepNights} nights`
-              : undefined
-          }
+          caption={r.sleepNights ? `Goal met ${r.nightsAtGoal} of ${r.sleepNights} nights` : undefined}
         />
-        <Metric
-          label="Check-ins"
-          value={r.checkIns || "0"}
-          compare={`of ${s.window.days} ${days(s.window.days)}`}
-          caption={r.painDays ? `${r.painDays} with a pain note` : undefined}
-        />
+        <Metric label="Check-ins" value={r.checkIns || "0"} compare={`of ${s.window.days} ${days(s.window.days)}`} caption={r.painDays ? `${r.painDays} with a pain note` : undefined} />
         <Metric
           label="Sessions / week"
           value={r.consistency.avgSessionsPerWeek ?? "—"}
-          caption={
-            r.consistency.weeks
-              ? `${r.consistency.weeksOnPlan} of ${r.consistency.weeks} ${weeks(r.consistency.weeks)} at 80%+ of plan`
-              : undefined
-          }
+          caption={r.consistency.weeks ? `${r.consistency.weeksOnPlan} of ${r.consistency.weeks} ${weeks(r.consistency.weeks)} at 80%+ of plan` : undefined}
         />
-        <Metric
-          label="Volleyball"
-          value={r.volleyballDays || "0"}
-          unit="days"
-        />
+        <Metric label="Volleyball" value={r.volleyballDays || "0"} unit="days" />
       </div>
       <Sub title="Reported, average" aside="1 low · 5 high">
         {r.checkIns === 0 ? (
-          <div className="flex items-center justify-between gap-3 rounded-[12px] bg-s3/60 py-2 pl-3.5 pr-1.5">
-            <p className="text-[13px] font-medium text-fg-2">
-              No check-ins in this period.
-            </p>
-            <Link
-              href="/recovery?checkin=1"
-              data-print="hide"
-              className="inline-flex h-11 shrink-0 items-center px-2 text-[13px] font-bold text-gold-300"
-            >
+          <div className="flex items-center justify-between gap-3 rounded-field bg-m3/60 py-2 pl-3.5 pr-1.5">
+            <p className="t-meta font-medium text-stone">No check-ins in this period.</p>
+            <Link href="/recovery?checkin=1" data-print="hide" className="inline-flex h-11 shrink-0 items-center px-2 t-meta font-bold text-leaf-300">
               Check in
             </Link>
           </div>
         ) : (
           <div>
-            <FiveScale
-              label="Sleep quality"
-              value={r.avgQuality}
-              low="poor"
-              high="great"
-            />
-            <FiveScale
-              label="Energy"
-              value={r.avgEnergy}
-              low="drained"
-              high="fresh"
-            />
-            <FiveScale
-              label="Fatigue"
-              value={r.avgFatigue}
-              low="fresh"
-              high="drained"
-            />
-            <FiveScale
-              label="Soreness"
-              value={r.avgSoreness}
-              low="none"
-              high="very sore"
-            />
-            <FiveScale
-              label="Stress"
-              value={r.avgStress}
-              low="calm"
-              high="high"
-            />
-            <p className="mt-2 text-[12px] font-medium text-fg-3">
-              Self-reported. A guide for planning, not a medical assessment.
-            </p>
+            <FiveScale label="Sleep quality" value={r.avgQuality} low="poor" high="great" />
+            <FiveScale label="Energy" value={r.avgEnergy} low="drained" high="fresh" />
+            <FiveScale label="Fatigue" value={r.avgFatigue} low="fresh" high="drained" />
+            <FiveScale label="Soreness" value={r.avgSoreness} low="none" high="very sore" />
+            <FiveScale label="Stress" value={r.avgStress} low="calm" high="high" />
+            <p className="mt-2 t-meta font-medium text-stone">Self-reported. A guide for planning, not a medical assessment.</p>
           </div>
         )}
       </Sub>
-    </Card>
+    </section>
   );
 }

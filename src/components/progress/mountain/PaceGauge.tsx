@@ -63,7 +63,7 @@ export function PaceGauge({ pace, calorie, calories, unit, today }: { pace: Pace
         <div className="absolute inset-x-0 top-5 h-1.5 rounded-full bg-m3" />
         {g.window && (
           <div
-            className="absolute top-[17px] h-3.5 rounded-[4px] shadow-[inset_0_0_0_1.5px_var(--ivory)]"
+            className="absolute top-[17px] h-3.5 rounded-xs shadow-[inset_0_0_0_1.5px_var(--ivory)]"
             style={{ left: pct(g.window.from), width: pct(Math.max(0.01, g.window.to - g.window.from)) }}
           />
         )}
@@ -75,7 +75,7 @@ export function PaceGauge({ pace, calorie, calories, unit, today }: { pace: Pace
         ))}
         {g.rate != null && (
           <span className="absolute top-[13px] -translate-x-1/2" style={{ left: pct(Math.min(1, Math.max(0, g.rate))) }}>
-            <span className="block size-[15px] rotate-45 rounded-[2px] border-2 border-night bg-leaf-100 shadow-(--glow)" />
+            <span className="block size-[15px] rotate-45 rounded-xs border-2 border-night bg-leaf-100 shadow-(--glow)" />
           </span>
         )}
       </div>

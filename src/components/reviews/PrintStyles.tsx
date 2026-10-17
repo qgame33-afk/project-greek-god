@@ -22,6 +22,14 @@ const CSS = `
     --line-hair: #ece6d9; --line: #ddd5c5; --line-strong: #c9bfa9; --line-gold: #b89a62;
     --gold-50: #8a6a35; --gold-200: #7d5c2e; --gold-300: #7d5c2e; --gold-400: #7d5c2e; --gold-800: #c9b48a;
     --lapis-text: #1f4f99; --lapis-line: #9db8e0; --success: #23744a; --s-marble: #8b857a;
+    /* the Olympus tokens, ink on paper (leaf prints as bronze, the AI tag as ink blue) */
+    --night: #fff; --obsidian: #fff; --m1: #fff; --m2: #fff; --m3: #f5f2eb; --m4: #ece7dc; --m5: #e4ddcf;
+    --vein: #ece6d9; --vein-2: #ddd5c5; --vein-3: #c9bfa9; --ui-line: #9a917f;
+    --ivory: #17120a; --stone: #3f434a; --ash: #5d636c; --disabled: #9a917f;
+    --leaf-100: #8a6a35; --leaf-200: #7d5c2e; --leaf-300: #7d5c2e; --leaf-400: #7d5c2e; --leaf-500: #6b4f27; --leaf-600: #5c4421; --leaf-700: #c9b48a;
+    --leaf-line: #b89a62; --leaf-tint: #f4ecdc;
+    --aegean: #1f4f99; --aegean-line: #9db8e0; --aegean-tint: #eef3fb; --cinnabar: #a3361f;
+    --spot: none;
     --grad-card: linear-gradient(#fff, #fff);
     --grad-spotlight: linear-gradient(#fff, #fff);
     --grad-monument-border: linear-gradient(180deg, #b89a62, #e5dccb);
@@ -40,6 +48,7 @@ const CSS = `
   #pgg-review .card-monument, #pgg-review article, #pgg-review .review-sub, #pgg-review .review-metrics, #pgg-review figure { break-inside: avoid; page-break-inside: avoid; }
   #pgg-review .review-card > div:first-child, #pgg-review .review-subhead { break-after: avoid; page-break-after: avoid; }
   #pgg-review .card-monument { background: #fff !important; border: 1px solid #b89a62 !important; }
+  #pgg-review .hatch { background-image: repeating-linear-gradient(135deg, #9a917f 0 1.5px, transparent 1.5px 5px) !important; }
   #pgg-review .review-priorities { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
   #pgg-review .review-priorities article { padding: 12px !important; }
   #pgg-review section[aria-labelledby="priorities-title"] { margin-top: 16px !important; break-inside: avoid; }

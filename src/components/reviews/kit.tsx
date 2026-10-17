@@ -3,16 +3,14 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { SuggestedBadge } from "@/components/ui/badge";
+import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
 import { shortDate, type ISODate } from "@/lib/dates";
 import type { Priority } from "@/lib/reviews/compute";
 
 /** "Sep 11 – Sep 30" */
 export function rangeLabel(from: ISODate, to: ISODate) {
-  return from === to
-    ? shortDate(from, to)
-    : `${shortDate(from, to)} – ${shortDate(to, to)}`;
+  return from === to ? shortDate(from, to) : `${shortDate(from, to)} – ${shortDate(to, to)}`;
 }
 
 /** Stable JSON (sorted keys) so a snapshot from jsonb compares equal to fresh stats. */
@@ -22,10 +20,7 @@ export function stableStringify(v: unknown): string {
     return `{${Object.keys(v as Record<string, unknown>)
       .sort()
       .filter((k) => (v as Record<string, unknown>)[k] !== undefined)
-      .map(
-        (k) =>
-          `${JSON.stringify(k)}:${stableStringify((v as Record<string, unknown>)[k])}`,
-      )
+      .map((k) => `${JSON.stringify(k)}:${stableStringify((v as Record<string, unknown>)[k])}`)
       .join(",")}}`;
   }
   return JSON.stringify(v ?? null);
@@ -64,65 +59,28 @@ export function Metric({
   const missing = value == null || value === "—";
   return (
     <div className={cn("min-w-0", className)}>
-      <p className="eyebrow truncate">{label}</p>
-      <p
-        className={cn(
-          "mt-2 truncate",
-          size === "lg" ? "num-lg" : "num-md",
-          missing && "text-fg-3",
-        )}
-      >
+      <p className="t-eyebrow truncate">{label}</p>
+      <p className={cn("mt-2 truncate", size === "lg" ? "t-num-l tnum" : "t-num-m tnum", missing && "text-stone")}>
         {missing ? "—" : value}
-        {!missing && unit && <span className="unit">{unit}</span>}
+        {!missing && unit && <span className="t-meta ml-1 font-medium text-stone">{unit}</span>}
       </p>
-      {compare != null && (
-        <p
-          className={cn(
-            "mt-1.5 truncate text-[12px] font-semibold",
-            tone === "good" ? "text-success" : "text-fg-2",
-          )}
-        >
-          {compare}
-        </p>
-      )}
-      {caption != null && (
-        <p className="mt-1 text-[12px] leading-snug font-medium text-fg-3">
-          {caption}
-        </p>
-      )}
+      {compare != null && <p className={cn("mt-1.5 truncate t-meta font-semibold", tone === "good" ? "text-leaf-300" : "text-stone")}>{compare}</p>}
+      {caption != null && <p className="mt-1 t-meta leading-snug font-medium text-stone">{caption}</p>}
     </div>
   );
 }
 
-export function SubHead({
-  children,
-  aside,
-}: {
-  children: ReactNode;
-  aside?: ReactNode;
-}) {
+export function SubHead({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
-    <div className="review-subhead mb-2.5 mt-6 flex items-baseline justify-between gap-3 border-t border-line-hair pt-4">
-      <h3 className="eyebrow shrink-0">{children}</h3>
-      {aside && (
-        <span className="min-w-0 truncate text-right text-[12px] font-medium text-fg-3">
-          {aside}
-        </span>
-      )}
+    <div className="review-subhead mb-2.5 mt-6 flex items-baseline justify-between gap-3 border-t border-vein pt-4">
+      <h3 className="t-eyebrow shrink-0">{children}</h3>
+      {aside && <span className="min-w-0 truncate text-right t-meta font-medium text-stone">{aside}</span>}
     </div>
   );
 }
 
 /** A titled block inside a review card. Printing keeps each block on one page. */
-export function Sub({
-  title,
-  aside,
-  children,
-}: {
-  title: ReactNode;
-  aside?: ReactNode;
-  children: ReactNode;
-}) {
+export function Sub({ title, aside, children }: { title: ReactNode; aside?: ReactNode; children: ReactNode }) {
   return (
     <section className="review-sub">
       <SubHead aside={aside}>{title}</SubHead>
@@ -131,93 +89,67 @@ export function Sub({
   );
 }
 
-/** 1–5 average as five segments (neutral marble — high soreness is information, not a failure). */
-export function FiveScale({
-  label,
-  value,
-  low,
-  high,
-}: {
-  label: string;
-  value: number | null;
-  low: string;
-  high: string;
-}) {
+/** 1–5 average as five segments (neutral stone — high soreness is information, not a failure). */
+export function FiveScale({ label, value, low, high }: { label: string; value: number | null; low: string; high: string }) {
   const v = value ?? 0;
   return (
     <div className="grid grid-cols-[minmax(84px,1fr)_minmax(0,1.4fr)_auto] items-center gap-3 py-1.5">
-      <span className="text-[13px] font-semibold text-fg-2">{label}</span>
-      <span
-        className="flex gap-1"
-        role="img"
-        aria-label={
-          value == null
-            ? `${label}: not logged`
-            : `${label} ${value} of 5, ${low} to ${high}`
-        }
-      >
+      <span className="t-meta font-semibold text-stone">{label}</span>
+      <span className="flex gap-1" role="img" aria-label={value == null ? `${label}: not logged` : `${label} ${value} of 5, ${low} to ${high}`}>
         {[1, 2, 3, 4, 5].map((i) => {
           const fill = Math.max(0, Math.min(1, v - (i - 1)));
           return (
-            <span
-              key={i}
-              className="relative h-2 flex-1 overflow-hidden rounded-full bg-white/[.07]"
-            >
-              <span
-                className="absolute inset-y-0 left-0 rounded-full bg-marble/80"
-                style={{ width: `${fill * 100}%` }}
-              />
+            <span key={i} className="relative h-2 flex-1 overflow-hidden rounded-full bg-m4">
+              <span className="absolute inset-y-0 left-0 rounded-full bg-stone" style={{ width: `${fill * 100}%` }} />
             </span>
           );
         })}
       </span>
-      <span
-        className={cn(
-          "num-xs w-12 text-right",
-          value == null ? "text-fg-3" : "text-fg",
-        )}
-      >
-        {value == null ? "—" : value.toFixed(1)}
-      </span>
+      <span className={cn("t-num-s tnum w-12 text-right", value == null ? "text-stone" : "text-ivory")}>{value == null ? "—" : value.toFixed(1)}</span>
     </div>
   );
 }
 
 export function EvidenceChip({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex h-7 items-center rounded-[8px] border border-line bg-s3/70 px-2 text-[12px] font-semibold text-fg-2 tabular-nums">
-      {children}
-    </span>
-  );
+  return <span className="inline-flex h-7 items-center rounded-field border border-vein-2 bg-m3/70 px-2 t-meta font-semibold text-stone tabular-nums">{children}</span>;
 }
 
-/** A SUGGESTED next-month adjustment (lapis, never gold, never applied automatically). */
+/** A RULE-based next-month suggestion (from the numbers, never applied automatically). */
 export function PriorityCard({ p, index }: { p: Priority; index: number }) {
   return (
-    <article className="relative flex h-full flex-col rounded-[20px] border border-lapis-line bg-[linear-gradient(180deg,rgb(111_163_236/.07),rgb(111_163_236/.02))] p-4 sm:p-5">
+    <article className="relative flex h-full flex-col border-t border-vein-2 pt-4">
       <div className="flex items-center justify-between gap-2">
-        <SuggestedBadge />
-        <span className="num-xs text-lapis-text/70" aria-hidden>
-          {String(index + 1).padStart(2, "0")}
+        <span className="t-title-2 text-leaf-300" aria-hidden>
+          {["I", "II", "III", "IV"][index] ?? index + 1}
         </span>
+        <Tag kind="RULE" />
       </div>
-      <h3 className="t-h3 mt-3">{p.title}</h3>
-      <p className="mt-1.5 text-[14px] leading-relaxed text-fg-2">{p.detail}</p>
+      <h3 className="t-title-3 mt-2 text-ivory">{p.title}</h3>
+      <p className="t-callout mt-1.5 text-stone">{p.detail}</p>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {p.evidence.map((e) => (
           <EvidenceChip key={e}>{e}</EvidenceChip>
         ))}
       </div>
       {p.action && (
-        <Link
-          href={p.action.href}
-          data-print="hide"
-          className="mt-auto -mb-2 inline-flex h-11 items-center gap-1 self-start pt-3 text-[13px] font-bold text-lapis-text hover:text-[#b3cff5]"
-        >
+        <Link href={p.action.href} data-print="hide" className="t-callout mt-auto -mb-2 inline-flex h-11 items-center gap-1 self-start pt-3 font-semibold text-leaf-300 hover:text-leaf-200">
           {p.action.label}
           <ArrowUpRight className="size-3.5" aria-hidden />
         </Link>
       )}
     </article>
+  );
+}
+
+/** A ledger chapter's head: a Roman numeral, the title in the voice, an optional action. */
+export function LedgerHead({ numeral, title, action }: { numeral: string; title: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="mb-4 flex items-end justify-between gap-3 border-b border-vein-2 pb-3">
+      <h2 className="min-w-0">
+        <span className="t-eyebrow block text-leaf-300">{numeral}</span>
+        <span className="t-title-2 mt-1 block text-ivory">{title}</span>
+      </h2>
+      {action}
+    </div>
   );
 }
