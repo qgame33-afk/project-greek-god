@@ -15,7 +15,7 @@ import { addDays, dayName, shortDate } from "@/lib/dates";
 import { useToday } from "@/lib/data/core";
 import { useExerciseBests, useExerciseDaily, useExerciseSets } from "@/lib/data/training";
 import { getExercise } from "@/lib/training/library";
-import { MUSCLE_LABEL, sessionsFromSets, strengthSeries } from "@/lib/training/volume";
+import { MUSCLE_LABEL, sessionsFromSets, strengthSeries, usesE1rm } from "@/lib/training/volume";
 import { formatInt, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
 import { fmtLoadValue, fmtVolume, plural } from "./format";
 import { useCustomExercises, useExercisePRs, useUnits } from "./hooks";
@@ -137,7 +137,7 @@ function Detail({ slug }: { slug: string }) {
               ) : sets.error ? (
                 <ErrorNote onRetry={() => sets.refetch()}>Couldn&apos;t load the sets.</ErrorNote>
               ) : (
-                <SessionList rows={sets.data ?? []} unit={unit} today={today} prIds={new Set((prs.data ?? []).map((p) => p.set_id ?? ""))} timed={timed} />
+                <SessionList rows={sets.data ?? []} unit={unit} today={today} prIds={new Set((prs.data ?? []).map((p) => p.set_id ?? ""))} timed={timed} showE1rm={usesE1rm(daily.data ?? [])} />
               )}
             </Card>
           )}
@@ -278,12 +278,14 @@ function dateOfBest(daily: Daily[], pick: (d: Daily) => number | null): string |
 function StatSheet({ unit, timed, best, daily, today }: { unit: WeightUnit; timed: boolean; best: Best | null; daily: Daily[]; today: string }) {
   const has = (best?.total_sets ?? 0) > 0;
   const when = (d: string | null) => (d ? shortDate(d, today) : undefined);
+  // High-rep work only gets an e1RM on its odd short (usually missed) set: not a best.
+  const e1rm = usesE1rm(daily) ? best?.best_e1rm_lb : null;
   const cells: { label: string; value: string; unit?: string; caption?: string }[] = [
     {
       label: "Best e1RM",
-      value: best?.best_e1rm_lb ? fmtLoadValue(best.best_e1rm_lb, unit) : "—",
-      unit: best?.best_e1rm_lb ? unit : undefined,
-      caption: best?.best_e1rm_lb ? when(dateOfBest(daily, (d) => d.best_e1rm_lb)) : has ? "Not a load lift" : undefined,
+      value: e1rm ? fmtLoadValue(e1rm, unit) : "—",
+      unit: e1rm ? unit : undefined,
+      caption: e1rm ? when(dateOfBest(daily, (d) => d.best_e1rm_lb)) : has ? (best?.best_weight_lb ? "High-rep lift" : "Not a load lift") : undefined,
     },
     {
       label: "Heaviest",
@@ -476,12 +478,14 @@ function SessionList({
   today,
   prIds,
   timed,
+  showE1rm,
 }: {
   rows: Parameters<typeof sessionsFromSets>[0];
   unit: WeightUnit;
   today: string;
   prIds: Set<string>;
   timed: boolean;
+  showE1rm: boolean;
 }) {
   const [limit, setLimit] = useState(8);
   const sessions = useMemo(() => sessionsFromSets(rows), [rows]);
@@ -496,7 +500,7 @@ function SessionList({
                 {dayName(s.date, true)}, {shortDate(s.date, today)}
               </p>
               <p className="num text-[13px] text-fg-3">
-                {s.topE1rm ? `e1RM ${fmtLoadValue(s.topE1rm, unit)} · ` : ""}
+                {showE1rm && s.topE1rm ? `e1RM ${fmtLoadValue(s.topE1rm, unit)} · ` : ""}
                 {s.volumeLb > 0 ? fmtVolume(s.volumeLb, unit) : plural(s.sets.length, "set")}
               </p>
             </div>

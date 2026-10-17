@@ -59,6 +59,8 @@ export interface LibraryExercise {
   perHand?: boolean;
   /** True when reps are counted per side (split squats, single-arm work). */
   perSide?: boolean;
+  /** Has a real bodyweight version (split squats, lunges): a 0 lb set is valid. */
+  bodyweightOk?: boolean;
   /** 3–5 short imperative steps. */
   instructions: string[];
   /** 2–4 cues that keep the lift safe and effective. */

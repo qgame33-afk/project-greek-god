@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PastSet } from "@/lib/training/progression";
+import { getExercise, LIBRARY } from "@/lib/training/library";
 import { mkSet } from "./fixtures";
 import {
   cellText,
@@ -219,10 +220,17 @@ describe("validation", () => {
     expect(zeroLoadOk({ equipment: "barbell" }, "weight_reps")).toBe(false);
     expect(zeroLoadOk({ equipment: "cable" }, "weight_reps")).toBe(false);
     expect(zeroLoadOk({ equipment: "machine" }, "weight_reps")).toBe(false);
-    expect(zeroLoadOk({ equipment: "dumbbell" }, "weight_reps")).toBe(true); // bodyweight split squats
+    expect(zeroLoadOk({ equipment: "dumbbell" }, "weight_reps")).toBe(false); // a 0 lb dumbbell press is a typo
+    expect(zeroLoadOk({ equipment: "dumbbell", bodyweightOk: true }, "weight_reps")).toBe(true); // bodyweight split squats
     expect(zeroLoadOk({ equipment: "dumbbell" }, "weight_time")).toBe(false); // a carry needs a load
     expect(zeroLoadOk({ equipment: "bodyweight" }, "bodyweight_reps")).toBe(true);
     expect(zeroLoadOk(undefined, "weight_reps")).toBe(true);
+  });
+
+  it("only the library's bodyweight-version dumbbell lifts take a 0 load", () => {
+    const zero = LIBRARY.filter((e) => e.equipment === "dumbbell" && zeroLoadOk(e, e.tracking)).map((e) => e.slug);
+    expect(zero.sort()).toEqual(["bulgarian-split-squat", "walking-lunge"]);
+    expect(validateCell("weight", "0", "lb", "weight_reps", zeroLoadOk(getExercise("incline-db-press"), "weight_reps"))).toEqual({ ok: false, error: "Weight must be above 0 lb." });
   });
 
   it("converts kg to stored pounds and accepts blanks", () => {

@@ -1546,6 +1546,7 @@ export const LIBRARY: LibraryExercise[] = [
     increment: 5,
     perHand: true,
     perSide: true,
+    bodyweightOk: true,
     instructions: [
       "Stand about two feet in front of a bench and rest the top of your back foot on it.",
       "Hold dumbbells at your sides and brace your core.",
@@ -1571,6 +1572,7 @@ export const LIBRARY: LibraryExercise[] = [
     increment: 5,
     perHand: true,
     perSide: true,
+    bodyweightOk: true,
     instructions: [
       "Hold dumbbells at your sides and stand tall.",
       "Step forward into a long stride and lower until your back knee nearly touches the floor.",

@@ -13,6 +13,7 @@ import {
   strengthSeries,
   substituteExercise,
   templateSummary,
+  usesE1rm,
   validateTemplate,
   weeklySetsByMuscle,
 } from "./volume";
@@ -191,6 +192,15 @@ describe("exercise history", () => {
     expect(jumps).toMatchObject({ metric: "reps", bars: "sets" });
     expect(jumps.points[0]).toMatchObject({ value: 3, bar: 3 });
     expect(strengthSeries([]).points).toEqual([]);
+  });
+
+  it("does not chart e1RM for high-rep work that only has it on the odd short set", () => {
+    // Cable lateral raise at 12–20: one 22.5×11 miss is the only day with an e1RM.
+    const raise = [day("2026-10-02", null, 25, 16, 1200, 3), day("2026-10-09", null, 25, 18, 1300, 3), day("2026-10-16", 30.8, 22.5, 11, 700, 3)];
+    expect(usesE1rm(raise)).toBe(false);
+    expect(strengthSeries(raise).metric).toBe("weight");
+    expect(usesE1rm([day("2026-10-02", 222, 180, 7, 3600, 3), day("2026-10-09", null, 135, 15, 2000, 3)])).toBe(true);
+    expect(usesE1rm([])).toBe(false);
   });
 
   it("groups sets by session, newest first", () => {
