@@ -6,7 +6,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Timer } from "lucide-react";
-import { hidesFab } from "@/components/shell/nav";
+import { hidesFab, hidesLiveDock } from "@/components/shell/nav";
 import { cn } from "@/lib/cn";
 import { useToday } from "@/lib/data/core";
 import { useProfile } from "@/lib/data/profile";
@@ -25,9 +25,10 @@ export function LiveDock() {
   const s = active.data;
   const resumeOnScreen = useTodayResumeVisible(pathname === "/" && !!s);
   // Hidden on focus/chat routes (they own the bottom edge) and while Today's own Resume button is on screen.
-  const hidden = !s || hidesFab(pathname) || pathname.startsWith("/sign-in") || resumeOnScreen;
+  const hidden = !s || hidesLiveDock(pathname) || pathname.startsWith("/sign-in") || resumeOnScreen;
   if (hidden) return null;
-  return <LiveDockBar sessionId={s.id} name={s.name} startedAt={s.started_at} localDate={s.local_date} />;
+  // Beside the quick-log button where there is one; full width where the screen has none.
+  return <LiveDockBar sessionId={s.id} name={s.name} startedAt={s.started_at} localDate={s.local_date} besideFab={!hidesFab(pathname)} />;
 }
 
 /** True while Today's workout-card Resume button ([data-today-resume]) is in the viewport. */
@@ -63,7 +64,7 @@ function useTodayResumeVisible(enabled: boolean) {
 }
 
 /** The bar itself, for a shell that decides visibility on its own (e.g. a sidebar card). */
-export function LiveDockBar({ sessionId, name, startedAt, localDate }: { sessionId: string; name: string; startedAt: string; localDate: string }) {
+export function LiveDockBar({ sessionId, name, startedAt, localDate, besideFab = true }: { sessionId: string; name: string; startedAt: string; localDate: string; besideFab?: boolean }) {
   const router = useRouter();
   const today = useToday();
   const { profile } = useProfile();
@@ -88,7 +89,8 @@ export function LiveDockBar({ sessionId, name, startedAt, localDate }: { session
         data-live-dock
         className={cn(
           "wk-up press-soft fixed z-[35] flex h-[52px] items-center gap-2.5 overflow-hidden rounded-[16px] border border-line bg-s2 pl-4 pr-2.5 text-left shadow-[var(--e2)]",
-          "left-3 right-[80px] bottom-[calc(var(--tabbar-h)+var(--safe-bottom)+14px)]",
+          "left-3 bottom-[calc(var(--tabbar-h)+var(--safe-bottom)+14px)]",
+          besideFab ? "right-[80px]" : "right-3",
           "md:left-auto md:right-6 md:bottom-6 md:w-[360px]",
           "lg:left-4 lg:right-auto lg:bottom-[104px] lg:w-[216px]",
         )}

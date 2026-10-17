@@ -31,14 +31,16 @@ export function isFocusRoute(pathname: string) {
   return pathname.startsWith("/workout/") || pathname.startsWith("/onboarding") || pathname.startsWith("/nutrition/meals/cook/");
 }
 
-/** Routes where the quick-log FAB would cover a composer or primary action (the recipe screen's START COOKING dock, the grocery list's row menus). */
+/** Routes that own the bottom edge (focus screens, chat composers): no live-workout dock there. */
+export function hidesLiveDock(pathname: string) {
+  return isFocusRoute(pathname) || pathname.startsWith("/coach") || pathname.startsWith("/nutrition/coach") || pathname.startsWith("/nutrition/scan");
+}
+
+/**
+ * Routes where the quick-log FAB would cover a composer or primary action: the above, plus the
+ * recipe screen's START COOKING dock and the grocery list's row menus. (The live-workout dock
+ * stays on those two: the cooking dock lifts above it.)
+ */
 export function hidesFab(pathname: string) {
-  return (
-    isFocusRoute(pathname) ||
-    pathname.startsWith("/coach") ||
-    pathname.startsWith("/nutrition/coach") ||
-    pathname.startsWith("/nutrition/scan") ||
-    pathname.startsWith("/nutrition/meals/recipe/") ||
-    pathname.startsWith("/nutrition/meals/grocery")
-  );
+  return hidesLiveDock(pathname) || pathname.startsWith("/nutrition/meals/recipe/") || pathname.startsWith("/nutrition/meals/grocery");
 }
