@@ -36,10 +36,11 @@ export function isFocusRoute(pathname: string) {
 
 /**
  * Routes where the floating capsule and the Offering button hide: focus routes, plus the scanner
- * (focus-like: it owns the bottom edge, but keeps the top bar as its way back until Fuel adds one).
+ * and the Food coach. Both draw a full-screen layer on phones (FocusScreen) with their own back
+ * button and a control along the bottom edge (shutter, composer) that the chrome would cover.
  */
 export function hidesCapsule(pathname: string) {
-  return isFocusRoute(pathname) || pathname.startsWith("/nutrition/scan");
+  return isFocusRoute(pathname) || pathname.startsWith("/nutrition/scan") || pathname.startsWith("/nutrition/coach");
 }
 
 /** Routes where the live slot never shows: the workout itself and the other full-screen routes. */

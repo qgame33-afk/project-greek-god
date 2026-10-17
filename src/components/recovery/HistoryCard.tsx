@@ -41,7 +41,7 @@ const CELL: Record<CellKind, string> = {
   empty: "bg-s3 text-fg-3",
   low: "bg-[rgb(213_172_103/.18)] text-fg-2",
   mid: "bg-[rgb(213_172_103/.35)] text-fg",
-  high: "bg-[rgb(213_172_103/.55)] text-fg",
+  high: "bg-[rgb(213_172_103/.5)] text-fg", // .5, not .55: ivory day numbers stay at AA (5:1) on it
   full: "bg-[image:var(--grad-leaf)] text-ink",
 };
 

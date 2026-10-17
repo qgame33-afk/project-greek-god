@@ -73,7 +73,8 @@ export function Providers({ children }: { children: ReactNode }) {
             <Toaster
               position="top-center"
               offset={{ top: "calc(env(safe-area-inset-top) + 10px)" }}
-              mobileOffset={{ top: "calc(env(safe-area-inset-top) + 10px)" }}
+              // under the 52 px header row (✦ and the avatar), never over it (DESIGN-V2 §3.13)
+              mobileOffset={{ top: "calc(env(safe-area-inset-top) + 60px)" }}
               visibleToasts={2}
               duration={4000}
               theme="dark"

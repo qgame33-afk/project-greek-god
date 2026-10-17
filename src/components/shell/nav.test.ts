@@ -40,12 +40,15 @@ describe("the v2 shell", () => {
     ]);
     expect(SECONDARY_NAV.map((n) => n.href)).toEqual(["/coach", "/reviews", "/recovery", "/settings"]);
   });
-  it("hides the capsule on focus routes and the scanner, and the live slot on the workout", () => {
+  it("hides the capsule on focus routes, the scanner and the Food coach, and the live slot on the workout", () => {
     expect(hidesCapsule("/workout/abc")).toBe(true);
     expect(hidesCapsule("/nutrition/scan")).toBe(true);
+    expect(hidesCapsule("/nutrition/coach")).toBe(true); // its full-screen composer sits on the bottom edge
     expect(hidesCapsule("/onboarding")).toBe(true);
     expect(hidesCapsule("/nutrition")).toBe(false);
+    expect(hidesCapsule("/coach")).toBe(false); // its composer sits above the capsule
     expect(hidesLiveSlot("/workout/abc")).toBe(true);
+    expect(hidesLiveSlot("/nutrition/coach")).toBe(true);
     expect(hidesLiveSlot("/training")).toBe(false);
   });
   it("takes the avatar initial from the display name, never the email", () => {

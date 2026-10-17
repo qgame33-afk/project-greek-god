@@ -190,14 +190,15 @@ function TestTile({ type, tests, unit, onOpen, onLog }: { type: TestType; tests:
       <p className="eyebrow truncate">{def.short}</p>
       <div>
         <div className="mt-2 flex items-end justify-between gap-2">
-          <p className="flex items-baseline gap-1.5 whitespace-nowrap">
-            <span className="num-md">
+          {/* the value never wraps; the record mark wraps under it when the tile is narrow, so the sparkline stays inside the card */}
+          <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+            <span className="num-md whitespace-nowrap">
               {v.value}
               <span className="unit [font-size:max(12px,0.4em)]!">{v.unit}</span>
             </span>
             {latestIsPR && <PRBadge className="self-center" />}
           </p>
-          {series.length > 1 && <Sparkline values={series.map((r) => Number(r.value) * (def.better === "lower" ? -1 : 1))} tone="verdigris" width={44} height={20} className="mb-0.5" />}
+          {series.length > 1 && <Sparkline values={series.map((r) => Number(r.value) * (def.better === "lower" ? -1 : 1))} tone="verdigris" width={44} height={20} className="mb-0.5 shrink-0" />}
         </div>
         <p className={cn("mt-1 truncate text-[12px] font-semibold", better ? "text-success" : "text-fg-2")}>
           {change != null ? `${signed(type === "sprint" ? change : toDisplayLength(change, unit), type === "sprint" ? 2 : unit === "cm" ? 1 : 2)} since ${shortDate(first!.local_date, today)}` : def.better ? "First benchmark" : "Reference"}

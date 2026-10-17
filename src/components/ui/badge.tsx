@@ -123,9 +123,13 @@ export function SuggestedBadge({ className, children, kind }: { className?: stri
   );
 }
 
-/** A record → the laurel RecordMark. */
+/**
+ * A record → the laurel RecordMark, labelled "PR" so it keeps the old badge's footprint: the
+ * old callers set it inline beside a value in tight rows (athletic tiles, lift rows), where the
+ * full word pushed sparklines out of their cards. New screens use <RecordMark /> directly.
+ */
 export function PRBadge({ className }: { className?: string }) {
-  return <RecordMark compact className={className} />;
+  return <RecordMark compact label="PR" className={className} />;
 }
 
 export function OptionalBadge({ className, children }: { className?: string; children?: ReactNode }) {
