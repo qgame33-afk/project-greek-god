@@ -17,7 +17,7 @@ export function BlockStrip({ block, today, programStart, className }: { block: B
   const n = weeks.length;
   const sinceWord = since.kind === "deload" ? "since your last deload" : since.kind === "start" ? "since you started" : "in the loaded history";
   const head = deloading ? "Deload week" : hardWeeks === 0 ? "Block" : `${hardWeeks} hard ${hardWeeks === 1 ? "week" : "weeks"}`;
-  const right = deloading ? "Back to standard next week" : weeksToWindow === 0 ? "Deload window" : `Deload window in ${weeksToWindow} hard ${weeksToWindow === 1 ? "week" : "weeks"}`;
+  const right = deloading ? "Back to standard next week" : weeksToWindow === 0 ? "Deload window reached" : `Deload window in ${weeksToWindow} hard ${weeksToWindow === 1 ? "week" : "weeks"}`;
   const aria =
     `Training block ${sinceWord}, ${shortDate(since.kind === "start" && programStart ? programStart : since.week, today)}: ${n} ${n === 1 ? "week" : "weeks"}, ${hardWeeks} hard in a row. ` +
     (deloading ? "This is a deload week." : weeksToWindow === 0 ? "The deload window is reached." : `The deload window comes after ${DELOAD_WINDOW} hard weeks; ${weeksToWindow} to go.`);
