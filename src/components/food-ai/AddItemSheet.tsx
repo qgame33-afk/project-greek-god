@@ -130,14 +130,15 @@ export function AddItemSheet({ open, onOpenChange, onAdd }: { open: boolean; onO
     close(false);
   };
 
+  // secondary, not gold: this only adds to the unsaved review; `Confirm & add` is the one gold key
   const footer =
     tab === "search" ? (
-      <Button variant="primary" size="lg" block disabled={!pickedMacros} onClick={addPicked}>
-        Add item
+      <Button variant="secondary" size="lg" block disabled={!pickedMacros} onClick={addPicked}>
+        Add to the review
       </Button>
     ) : (
-      <Button variant="primary" size="lg" block disabled={!manualOk} onClick={addManual}>
-        Add item
+      <Button variant="secondary" size="lg" block disabled={!manualOk} onClick={addManual}>
+        Add to the review
       </Button>
     );
 
@@ -159,7 +160,7 @@ export function AddItemSheet({ open, onOpenChange, onAdd }: { open: boolean; onO
           {!picked ? (
             <>
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-fg-3" aria-hidden />
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[1.125rem] -translate-y-1/2 text-ash" strokeWidth={1.6} aria-hidden />
                 <Input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
@@ -170,13 +171,13 @@ export function AddItemSheet({ open, onOpenChange, onAdd }: { open: boolean; onO
                   autoComplete="off"
                   autoFocus
                 />
-                {busy && <Spinner className="absolute right-3.5 top-1/2 -translate-y-1/2 text-fg-3" />}
+                {busy && <Spinner className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ash" />}
               </div>
-              {shown?.status === "partial" && <p className="mt-2 text-[12px] text-fg-3">One database didn&apos;t answer. Showing what came back.</p>}
-              {shown?.status === "unavailable" && <p className="mt-2 text-[12px] text-fg-3">The food databases aren&apos;t answering right now. Use Manual.</p>}
-              {shown?.status === "demo_key" && <p className="mt-2 text-[12px] text-fg-3">USDA is on a shared demo key, so lookups may be limited.</p>}
-              {err && <p className="mt-2 text-[13px] text-danger">{err}</p>}
-              <ul className="mt-3 space-y-1.5">
+              {shown?.status === "partial" && <p className="t-meta mt-2 text-stone">One database didn&apos;t answer. Showing what came back.</p>}
+              {shown?.status === "unavailable" && <p className="t-meta mt-2 text-stone">The food databases aren&apos;t answering right now. Use Manual.</p>}
+              {shown?.status === "demo_key" && <p className="t-meta mt-2 text-stone">USDA is on a shared demo key, so lookups may be limited.</p>}
+              {err && <p className="t-meta mt-2 text-cinnabar">{err}</p>}
+              <ul className="mt-3 divide-y divide-vein border-y border-vein">
                 {shown?.results.slice(0, 14).map((r) => (
                   <li key={r.id}>
                     <button
@@ -185,50 +186,50 @@ export function AddItemSheet({ open, onOpenChange, onAdd }: { open: boolean; onO
                         setPicked(r);
                         setGrams(String(r.servingGrams && r.servingGrams !== 100 ? r.servingGrams : 100));
                       }}
-                      className="press-soft flex w-full items-center gap-3 rounded-[12px] bg-s3 px-3 py-2.5 text-left hover:bg-s4"
+                      className="press-soft flex min-h-14 w-full items-center gap-3 py-2 text-left"
                     >
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[14px] font-semibold text-fg">{r.name}</span>
-                        <span className="block truncate text-[12px] text-fg-3">
+                        <span className="t-callout block truncate font-semibold text-ivory">{r.name}</span>
+                        <span className="t-meta block truncate text-stone">
                           {r.brand ? `${r.brand} · ` : ""}
                           {r.sourceName === "USDA FoodData Central" ? "USDA" : "Open Food Facts"}
                         </span>
                       </span>
                       <span className="shrink-0 text-right">
-                        <span className="num block text-[16px] text-fg">{r.per100g ? fmtKcal(r.per100g.calories) : "—"}</span>
-                        <span className="block text-[11px] text-fg-3">kcal/100 g</span>
+                        <span className="t-num-s block text-ivory">{r.per100g ? fmtKcal(r.per100g.calories) : "—"}</span>
+                        <span className="t-tag block normal-case tracking-normal text-ash">kcal/100 g</span>
                       </span>
                     </button>
                   </li>
                 ))}
               </ul>
               {shown && !shown.results.length && !busy && (
-                <p className="mt-4 text-center text-[13px] text-fg-2">No matches. Try fewer words, or add it manually.</p>
+                <p className="t-callout mt-4 text-center text-stone">No matches. Try fewer words, or add it manually.</p>
               )}
             </>
           ) : (
             <div className="space-y-4">
-              <div className="card-inset p-3.5">
-                <p className="text-[15px] font-bold text-fg">{picked.name}</p>
-                {picked.brand && <p className="text-[13px] text-fg-2">{picked.brand}</p>}
+              <div className="rounded-field bg-m2 p-3.5 shadow-[inset_0_0_0_1px_var(--vein-2)]">
+                <p className="t-title-3 text-ivory">{picked.name}</p>
+                {picked.brand && <p className="t-meta text-stone">{picked.brand}</p>}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <DatabaseBadge name={`${picked.sourceName === "USDA FoodData Central" ? "USDA" : "Open Food Facts"} ↗`} url={picked.sourceUrl} />
-                  {picked.per100g && <span className="text-[12px] text-fg-3">{fmtKcal(picked.per100g.calories)} kcal per 100 g</span>}
+                  {picked.per100g && <span className="t-meta text-stone">{fmtKcal(picked.per100g.calories)} kcal per 100 g</span>}
                 </div>
               </div>
               <Field label="Amount eaten" hint={picked.servingLabel ?? undefined}>
                 {(id) => <NumberInput id={id} value={grams} onChange={(e) => setGrams(e.target.value)} suffix="g" enterKeyHint="done" />}
               </Field>
               {pickedMacros && (
-                <div className="flex items-baseline justify-between">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                   <span>
-                    <span className="num-md">{fmtKcal(pickedMacros.calories)}</span>
-                    <span className="unit !text-[12px]">kcal</span>
+                    <span className="t-num-s text-ivory">{fmtKcal(pickedMacros.calories)}</span>
+                    <span className="t-meta ml-1 text-stone">kcal</span>
                   </span>
                   <MacroTrio m={pickedMacros} />
                 </div>
               )}
-              <button type="button" onClick={() => setPicked(null)} className="h-11 text-[13px] font-bold text-gold-300">
+              <button type="button" onClick={() => setPicked(null)} className="press t-callout -ml-1 inline-flex h-11 items-center rounded-field px-1 font-semibold text-stone hover:text-ivory">
                 Choose a different food
               </button>
             </div>

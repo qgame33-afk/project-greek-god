@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { ChevronDown, Minus, Plus, Trash } from "lucide-react";
-import { cn } from "@/lib/cn";
 import { MULT_STEP, multLabel, withGrams, withEstimate, withMultiplier, type EditableItem } from "@/lib/ai/food-edit";
 import { PREPARATIONS } from "@/lib/ai/food-schemas";
 import { ItemBadge, MacroTrio, fmtKcal } from "../parts";
@@ -42,7 +41,7 @@ export function ScanItemCard({
   const prepOptions = PREPARATIONS.includes(item.preparation as (typeof PREPARATIONS)[number]) ? PREPARATIONS : [item.preparation, ...PREPARATIONS];
 
   return (
-    <article className="card-instrument p-3.5 sm:p-4" aria-label={item.name}>
+    <article className="py-4 first:pt-1" aria-label={item.name}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <label className="sr-only" htmlFor={`name-${item.key}`}>
@@ -54,7 +53,7 @@ export function ScanItemCard({
             maxLength={80}
             onChange={(e) => onChange({ ...item, name: e.target.value })}
             onBlur={(e) => !e.target.value.trim() && onChange({ ...item, name: "Food item" })}
-            className="-mx-1.5 h-10 w-[calc(100%+12px)] rounded-[10px] border border-transparent bg-transparent px-1.5 text-[17px] font-bold text-fg outline-none transition-colors hover:border-line focus:border-gold-400 focus:bg-s3"
+            className="t-title-3 -mx-1.5 h-11 w-[calc(100%+0.75rem)] rounded-field border border-transparent bg-transparent px-1.5 text-ivory outline-none transition-colors duration-(--dur-fast) hover:border-vein-3 focus:border-leaf-300 focus:bg-m1"
             enterKeyHint="done"
             autoComplete="off"
           />
@@ -64,11 +63,11 @@ export function ScanItemCard({
               // 44px tall hit area around a 28px pill; the native select is the invisible layer on top
               <span className="group relative -my-2 inline-flex h-11 items-center">
                 <span
-                  className="pointer-events-none inline-flex h-7 items-center gap-1 rounded-full border border-line bg-s3 pl-2.5 pr-2 text-[12px] font-semibold text-fg-2 transition-colors group-hover:text-fg group-has-[:focus-visible]:border-gold-400"
+                  className="t-meta pointer-events-none inline-flex h-7 items-center gap-1 rounded-full bg-m3 pl-2.5 pr-2 font-semibold text-stone shadow-[inset_0_0_0_1px_var(--vein-3)] transition-colors group-hover:text-ivory group-has-[:focus-visible]:shadow-[inset_0_0_0_1.5px_var(--leaf-300)]"
                   aria-hidden
                 >
                   {prepLabel(item.preparation)}
-                  <ChevronDown className="size-3.5 text-fg-3" />
+                  <ChevronDown className="size-3.5 text-ash" strokeWidth={1.6} />
                 </span>
                 <select
                   value={item.preparation}
@@ -85,52 +84,52 @@ export function ScanItemCard({
               </span>
             )}
             {/* the AI's words describe the portion it saw; once rescaled, the stepper row is the truth */}
-            {item.portion && item.mult === 1 && <span className="truncate text-[12px] font-medium text-fg-3">{item.portion}</span>}
+            {item.portion && item.mult === 1 && <span className="t-meta min-w-0 truncate text-stone">{item.portion}</span>}
           </div>
         </div>
         <button
           type="button"
           onClick={onRemove}
           aria-label={`Remove ${item.name}`}
-          className="press -mr-1 -mt-0.5 grid size-11 shrink-0 place-items-center rounded-[12px] text-fg-3 hover:bg-white/5 hover:text-fg"
+          className="press -mr-2 grid size-11 shrink-0 place-items-center rounded-field text-stone hover:text-ivory"
         >
-          <Trash className="size-[18px]" />
+          <Trash className="size-[1.125rem]" strokeWidth={1.6} />
         </button>
       </div>
 
-      <div className="mt-3 flex items-end justify-between gap-3">
-        <p className="leading-none" aria-label={`${fmtKcal(item.macros.calories)} calories`}>
-          <span className="num-md">{fmtKcal(item.macros.calories)}</span>
-          <span className="unit !text-[12px]">kcal</span>
+      <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p aria-label={`${fmtKcal(item.macros.calories)} calories`}>
+          <span className="t-num-s text-ivory">{fmtKcal(item.macros.calories)}</span>
+          <span className="t-meta ml-1 text-stone">kcal</span>
         </p>
         <MacroTrio m={item.macros} />
       </div>
 
-      {item.note && <p className="mt-2 text-[12px] font-medium leading-snug text-fg-3">{item.note}</p>}
+      {item.note && <p className="t-meta mt-2 text-stone">{item.note}</p>}
       {item.source && (
-        <p className="mt-2 flex items-center gap-2 text-[12px] font-medium text-fg-3">
+        <p className="t-meta mt-1 flex items-center gap-2 text-stone">
           <span className="min-w-0 truncate" title={item.source.label}>
             Matched: {item.source.label}
           </span>
           <button
             type="button"
             onClick={() => onChange(withEstimate(item))}
-            className="-my-2 h-9 shrink-0 px-1 font-bold text-fg-2 underline decoration-line-strong underline-offset-2 hover:text-fg"
+            className="press inline-flex h-11 shrink-0 items-center px-1 font-semibold text-ivory underline decoration-vein-3 underline-offset-4 hover:decoration-ui-line"
           >
             Not this
           </button>
         </p>
       )}
 
-      <div className="mt-3 flex items-center gap-2 border-t border-line-hair pt-3" role="group" aria-label={`Portion of ${item.name}`}>
+      <div className="mt-3 flex items-center gap-2 border-t border-vein pt-3" role="group" aria-label={`Portion of ${item.name}`}>
         <StepBtn label={`Smaller portion of ${item.name}`} onClick={() => step(-1)} disabled={item.mult <= MULT_STEP}>
-          <Minus className="size-5" />
+          <Minus className="size-5" strokeWidth={1.6} />
         </StepBtn>
         <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
-          <span className="num-sm min-w-[3ch] text-right" aria-live="polite">
+          <span className="t-num-s min-w-[3ch] text-right text-ivory" aria-live="polite">
             {multLabel(item.mult)}
           </span>
-          <span className="text-fg-3" aria-hidden>
+          <span className="text-ash" aria-hidden>
             ·
           </span>
           <label className="flex items-center gap-1">
@@ -145,15 +144,13 @@ export function ScanItemCard({
               inputMode="decimal"
               enterKeyHint="done"
               autoComplete="off"
-              className={cn(
-                "num h-10 w-[68px] rounded-[10px] border border-line-field bg-s3 px-2 text-center text-[17px] text-fg outline-none focus:border-gold-400 focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)]",
-              )}
+              className="tnum h-11 w-[4.5rem] rounded-field border border-ui-line bg-m1 px-2 text-center text-[length:max(17px,1.0625rem)] font-semibold text-ivory outline-none transition-[border-color,box-shadow] placeholder:text-ash focus:border-leaf-300 focus:shadow-[0_0_0_3px_var(--leaf-tint)]"
             />
-            <span className="text-[13px] font-semibold text-fg-3">g</span>
+            <span className="t-meta font-semibold text-stone">g</span>
           </label>
         </div>
         <StepBtn label={`Larger portion of ${item.name}`} onClick={() => step(1)} disabled={item.mult >= 8}>
-          <Plus className="size-5" />
+          <Plus className="size-5" strokeWidth={1.6} />
         </StepBtn>
       </div>
     </article>
@@ -167,7 +164,7 @@ function StepBtn({ label, onClick, disabled, children }: { label: string; onClic
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="press grid size-[52px] shrink-0 place-items-center rounded-[12px] bg-s3 text-fg-2 hover:text-fg active:bg-s4 disabled:opacity-30"
+      className="press grid size-12 shrink-0 place-items-center rounded-field bg-m3 text-stone shadow-[inset_0_0_0_1px_var(--vein-3)] hover:text-ivory active:bg-m4 disabled:opacity-30"
     >
       {children}
     </button>
