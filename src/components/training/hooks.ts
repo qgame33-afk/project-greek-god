@@ -9,9 +9,11 @@ import { useRecovery } from "@/lib/data/recovery";
 import { volleyballEntries } from "@/lib/recovery/volleyball";
 import {
   planFor,
+  scheduleOf,
   useAllSessions,
   useDayPlans,
   useSessions,
+  useSetsInRange,
   useTemplates,
   useVolleyball,
   type DayPlan,
@@ -20,8 +22,14 @@ import {
   type StoredTemplate,
   type Volleyball,
 } from "@/lib/data/training";
-import { addDays, dateRange, shortDate, weekDates, type ISODate } from "@/lib/dates";
+import { sessionsSealed } from "@/lib/adherence";
+import { addDays, dateRange, shortDate, weekDates, weekStart, type ISODate } from "@/lib/dates";
+import { blockStrip, programWeek } from "@/lib/training/block";
 import type { Mode } from "@/lib/training/progression";
+import { historyTimings, sessionTimingCounts } from "@/lib/training/timing-history";
+import { modeTemplate } from "@/lib/training/volume";
+import { plannedSetsByZone, setsByZone, zoneRows } from "@/lib/training/volume-zones";
+import { sealedDays } from "@/lib/training/week";
 import {
   deloadAdvice,
   latestRecovery,
@@ -81,11 +89,30 @@ export function useTrainingWeek() {
     const missed = missedWorkouts({ today, plans: planLikes, sessions, since: profile?.start_date ?? null });
     const load7d = volleyballSessions7d(volleyballDays, today);
     const vbAdvice = volleyballAdvice({ load7d, perWeek: profile?.volleyball_per_week ?? 2, recovery: latestRecovery(recovery), today });
-    const deload = deloadAdvice({ sessions, recovery, today, mode: profile?.training_mode ?? "standard", historyFrom: addDays(today, -SESSIONS_BACK) });
-    return { plansRows, resolved, planLikes, resolve, sessions, volleyball, volleyballDays, recovery, days, missed, load7d, vbAdvice, deload };
+    const mode = profile?.training_mode ?? "standard";
+    const historyFrom = addDays(today, -SESSIONS_BACK);
+    const deload = deloadAdvice({ sessions, recovery, today, mode, historyFrom });
+    // the honest block: weeks that happened since the last deload or the programme start
+    const block = blockStrip({ sessions, today, programStart: profile?.start_date ?? null, historyFrom, mode });
+    // "4/6 raised": the same days Now counts (one volleyball swap per week counts as sealed)
+    const sealed = sessionsSealed(
+      sealedDays({
+        dates,
+        planKey: (d) => resolve(d).key,
+        schedule: scheduleOf(profile ?? undefined),
+        sessions,
+        volleyballDates: volleyballDays.map((v) => v.local_date),
+        programStart: profile?.start_date ?? null,
+      }),
+      today,
+    );
+    const weekNo = programWeek(profile?.start_date ?? null, today);
+    return { plansRows, resolved, planLikes, resolve, sessions, volleyball, volleyballDays, recovery, days, dates, missed, load7d, vbAdvice, deload, block, sealed, weekNo };
   }, [plansQ.data, sessionsQ.data, vbQ.data, recQ.data, profile, byKey, today, from, to]);
 
   const loading = profileLoading || templatesLoading || plansQ.isLoading || sessionsQ.isLoading;
+  /** Everything the Week draws in its first frame (so nothing pops in and shifts it). */
+  const weekReady = !loading && !recQ.isLoading && !vbQ.isLoading;
   const error = plansQ.error ?? sessionsQ.error ?? null;
   const refetch = () => {
     plansQ.refetch();
@@ -93,7 +120,74 @@ export function useTrainingWeek() {
     vbQ.refetch();
     recQ.refetch();
   };
-  return { today, profile, byKey, templates, mode: (profile?.training_mode ?? "standard") as Mode, loading, error, refetch, ...derived };
+  return { today, profile, byKey, templates, mode: (profile?.training_mode ?? "standard") as Mode, loading, weekReady, error, refetch, ...derived };
+}
+
+/* --------------------------------------------------------- weekly volume */
+
+/**
+ * Hard sets per zone this week so far (Mon → today, completed working sets) and the sets the
+ * still-open planned sessions of the week would add, in the current mode.
+ */
+export function useWeekVolume(week: ReturnType<typeof useTrainingWeek>) {
+  const from = weekStart(week.today);
+  const q = useSetsInRange(from, week.today);
+  const open = useMemo(() => {
+    const out: { date: ISODate; template: StoredTemplate }[] = [];
+    for (const d of week.dates) {
+      if (d < week.today) continue;
+      const p = week.resolve(d);
+      if (!p.template) continue;
+      if (week.sessions.some((s) => s.local_date === d && (s.status === "done" || s.status === "active"))) continue;
+      out.push({ date: d, template: p.template });
+    }
+    return out;
+  }, [week]);
+  const rows = useMemo(() => {
+    const done = setsByZone(q.data ?? []);
+    const planned = plannedSetsByZone(
+      open.map((o) => o.template),
+      week.mode,
+    );
+    // real sets, not the zone sum (a squat set counts toward quads and glutes but is one set)
+    const plannedTotal = open.reduce((n, o) => n + modeTemplate(o.template, week.mode).exercises.reduce((a, e) => a + e.sets, 0), 0);
+    return { rows: zoneRows(done, planned), other: done.other, plannedTotal };
+  }, [q.data, open, week.mode]);
+  return { ...rows, open, loading: q.isLoading, error: q.error, refetch: () => q.refetch() };
+}
+
+/* ---------------------------------------------------- timing over history */
+
+/** Every completed working set (set_history), oldest first. Feeds History's timing summaries. */
+export function useAllSetHistory() {
+  const { userId } = useUser();
+  return useQuery({
+    queryKey: ["sets-range", "all", userId],
+    enabled: !!userId,
+    queryFn: async () => fetchAll((a, b) => sb().from("set_history").select("id,session_id,exercise_slug,local_date,set_index,weight_lb,reps,duration_sec,completed_at").order("local_date").range(a, b)),
+  });
+}
+
+/** "3 records · 8 beat last" per session: setTiming over the whole history, modes from the sessions. */
+export function useSessionTimings() {
+  const sets = useAllSetHistory();
+  const sessions = useAllSessions();
+  const counts = useMemo(() => {
+    if (!sets.data || !sessions.data) return null;
+    const modes = new Map(sessions.data.map((s) => [s.id, s.mode as Mode]));
+    return sessionTimingCounts(sets.data, historyTimings(sets.data, (id) => modes.get(id)));
+  }, [sets.data, sessions.data]);
+  return { counts, loading: sets.isLoading || sessions.isLoading };
+}
+
+/** Per-day bests of every exercise since `from` (28-day sparklines in the library). */
+export function useRecentDaily(from: ISODate) {
+  const { userId } = useUser();
+  return useQuery({
+    queryKey: ["exercise-daily", "since", from, userId],
+    enabled: !!userId,
+    queryFn: async () => fetchAll((a, b) => sb().from("exercise_daily").select("*").gte("local_date", from).order("local_date").range(a, b)),
+  });
 }
 
 /* ------------------------------------------------------------ day plans */
@@ -400,6 +494,33 @@ export function useSessionDelete() {
 export type { StoredTemplate };
 
 export const MODE_LABEL: Record<Mode, string> = { standard: "Standard", intro: "Intro volume", deload: "Deload" };
+
+/** Change profile.training_mode with Undo; double taps are ignored. Resolves true when saved. */
+export function useSetTrainingMode() {
+  const { profile } = useProfile();
+  const save = useSaveProfile();
+  const busy = useRef(false);
+  const current = (profile?.training_mode ?? "standard") as Mode;
+  const setMode = async (m: Mode) => {
+    if (m === current || busy.current) return false;
+    busy.current = true;
+    const prev = current;
+    try {
+      await save.mutateAsync({ values: { training_mode: m } });
+    } catch {
+      return false;
+    } finally {
+      busy.current = false;
+    }
+    toast.success(m === "deload" ? "Deload week on" : `${MODE_LABEL[m]} mode on`, {
+      description: "Applies to workouts you start from now on.",
+      duration: 6000,
+      action: { label: "Undo", onClick: () => save.mutateAsync({ values: { training_mode: prev } }).catch(() => {}) },
+    });
+    return true;
+  };
+  return { mode: current, setMode, pending: save.isPending };
+}
 
 /** Exercises the user created themselves (the built-in library ships with the app). */
 export function useCustomExercises() {

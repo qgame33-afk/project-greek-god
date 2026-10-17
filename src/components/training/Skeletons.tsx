@@ -1,34 +1,33 @@
 import { Skeleton } from "@/components/ui/misc";
+import { WeekSkeleton } from "./week/WeekSkeleton";
 
-/** Shape-matched placeholder for /training while the route's client code and data load. */
+/** /training while the route's client code loads: the segments and the Week's shape. */
 export function TrainingSkeleton() {
   return (
-    <div aria-hidden>
-      <div className="mb-6">
-        <Skeleton className="h-3 w-28" />
-        <Skeleton className="mt-3 h-9 w-44" />
-      </div>
-      <div className="grid gap-3 lg:grid-cols-12 lg:gap-4">
-        <Skeleton className="h-[236px] rounded-[20px] lg:col-span-7" />
-        <Skeleton className="h-[300px] rounded-[20px] lg:col-span-5" />
-      </div>
-      <Skeleton className="mt-8 h-11 w-full rounded-[12px] lg:max-w-[480px]" />
+    <div aria-hidden className="pb-4">
+      <Skeleton className="mb-6 h-11 w-full rounded-field lg:max-w-sm" />
+      <WeekSkeleton />
     </div>
   );
 }
 
+/** An exercise or template page while it loads: back link, title, the stat row and the chart. */
 export function DetailSkeleton() {
   return (
     <div aria-hidden>
-      <Skeleton className="h-11 w-28 rounded-[12px]" />
-      <Skeleton className="mt-6 h-3 w-32" />
+      <Skeleton className="h-11 w-28 rounded-field" />
+      <Skeleton className="mt-5 h-3 w-36" />
       <Skeleton className="mt-3 h-9 w-64" />
-      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-[92px] rounded-[16px]" />
+      <div className="mt-3 flex gap-2">
+        <Skeleton className="h-7 w-16 rounded-full" />
+        <Skeleton className="h-7 w-20 rounded-full" />
+      </div>
+      <div className="mt-6 grid grid-cols-2 gap-px sm:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-21 rounded-none" />
         ))}
       </div>
-      <Skeleton className="mt-4 h-[280px] rounded-[20px]" />
+      <Skeleton className="mt-8 h-80 rounded-card" />
     </div>
   );
 }

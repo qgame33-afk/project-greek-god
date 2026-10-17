@@ -2,25 +2,35 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
+import { TabHeader } from "@/components/shell/TabHeader";
 import { Segmented } from "@/components/ui/controls";
-import { ErrorNote, PageHeader } from "@/components/ui/misc";
-import { addDays, dayName, longDate, parseISODate, toISODate, type ISODate } from "@/lib/dates";
+import { addDays, parseISODate, toISODate, type ISODate } from "@/lib/dates";
 import type { Session } from "@/lib/data/training";
 import { useSwapIn } from "@/lib/motion";
 import { DaySheet } from "./DaySheet";
-import { ExercisesTab } from "./ExercisesTab";
-import { HistoryTab } from "./HistoryTab";
-import { LegAdviceCard, MissedCard, NextWorkoutCard, WeekCard } from "./HubCards";
 import { PLAN_AHEAD, PLAN_BACK, useAllPREvents, useTrainingWeek, useUnits } from "./hooks";
+import { LiftsTab, type LiftsView } from "./lifts/LiftsTab";
 import { ProgramTab } from "./ProgramTab";
 import { SessionSheet } from "./SessionSheet";
 import { TrainingSkeleton } from "./Skeletons";
 import { useMounted } from "./useMounted";
 import { VolleyballSheet } from "./VolleyballSheet";
+import { WeekTab } from "./week/WeekTab";
 
-type Tab = "program" | "history" | "exercises";
-const TABS: Tab[] = ["program", "history", "exercises"];
-const TAB_LABEL: Record<Tab, string> = { program: "Program", history: "History", exercises: "Exercises" };
+type Tab = "week" | "program" | "lifts";
+const TABS: Tab[] = ["week", "program", "lifts"];
+const TAB_LABEL: Record<Tab, string> = { week: "Week", program: "Program", lifts: "Lifts" };
+
+/**
+ * The tab a URL asks for (docs/DESIGN-V2.md §2.3): week by default; the old `history` and
+ * `exercises` tabs open Lifts on that view.
+ */
+export function tabFromParams(tab: string | null, view: string | null): { tab: Tab; view: LiftsView } {
+  if (tab === "history") return { tab: "lifts", view: "history" };
+  if (tab === "exercises") return { tab: "lifts", view: "library" };
+  const t: Tab = tab && (TABS as string[]).includes(tab) ? (tab as Tab) : "week";
+  return { tab: t, view: view === "history" ? "history" : "library" };
+}
 
 /**
  * A real calendar date in YYYY-MM-DD (rejects 2026-02-31 and friends) inside the window the
@@ -33,9 +43,9 @@ function validDay(d: string | null, today: ISODate): ISODate | null {
 }
 
 /**
- * /training — the week as a colonnade, today's workout, quiet catch-up for missed sessions,
- * lapis advice for heavy volleyball weeks, then Program | History | Exercises.
- * Deep links: ?tab=history|exercises, ?day=YYYY-MM-DD (opens that day's sheet).
+ * /training — Train (docs/DESIGN-V2.md §3.4): Week · Program · Lifts.
+ * Deep links: ?tab=week|program|lifts (&view=library|history), the old ?tab=history|exercises,
+ * and ?day=YYYY-MM-DD (opens that day's sheet on any tab).
  */
 export function TrainingHub() {
   const mounted = useMounted();
@@ -48,15 +58,14 @@ function Hub() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const tabParam = params.get("tab") as Tab | null;
-  const tab: Tab = tabParam && TABS.includes(tabParam) ? tabParam : "program";
+  const { tab, view } = tabFromParams(params.get("tab"), params.get("view"));
   const dayParam = params.get("day");
   // switching sections slides the panel in from the side of the tab that was picked
   const panelRef = useSwapIn<HTMLDivElement, number>(TABS.indexOf(tab));
 
   const [day, setDay] = useState<ISODate | null>(() => validDay(dayParam, week.today));
   const [dayOpen, setDayOpen] = useState(!!day);
-  // A new ?day= while the hub is already mounted (e.g. from the Today colonnade) opens it too.
+  // A new ?day= while the hub is already mounted (e.g. from Now) opens it too.
   const [seenParam, setSeenParam] = useState(dayParam);
   if (dayParam !== seenParam) {
     setSeenParam(dayParam);
@@ -72,11 +81,13 @@ function Hub() {
   const prs = useAllPREvents();
   const prSetIds = useMemo(() => new Set((prs.data ?? []).map((p) => p.set_id).filter((x): x is string => !!x)), [prs.data]);
 
-  const setParam = useCallback(
-    (k: string, v: string | null) => {
+  const setParams = useCallback(
+    (patch: Record<string, string | null>) => {
       const sp = new URLSearchParams(params.toString());
-      if (v == null) sp.delete(k);
-      else sp.set(k, v);
+      for (const [k, v] of Object.entries(patch)) {
+        if (v == null) sp.delete(k);
+        else sp.set(k, v);
+      }
       const qs = sp.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
@@ -89,46 +100,24 @@ function Hub() {
   };
   const onDayOpenChange = (o: boolean) => {
     setDayOpen(o);
-    if (!o && dayParam) setParam("day", null);
+    if (!o && dayParam) setParams({ day: null });
   };
-
-  const missed = week.missed[0];
 
   return (
     <div className="pb-4">
-      <PageHeader eyebrow={`${dayName(week.today)} · ${longDate(week.today).split(", ")[1]}`} title="Training" />
+      <TabHeader eyebrow="Train" oracle={{ kind: "train", label: oracleLabel(week) }} />
+      <Segmented
+        ariaLabel="Train sections"
+        value={tab}
+        onChange={(v) => setParams({ tab: v === "week" ? null : v, view: null })}
+        options={TABS.map((t) => ({ value: t, label: TAB_LABEL[t] }))}
+        className="mb-6 lg:max-w-sm"
+      />
 
-      {week.error && (
-        <ErrorNote className="mb-4" onRetry={week.refetch}>
-          Couldn&apos;t load this week. Check your connection.
-        </ErrorNote>
-      )}
-
-      <div className="grid gap-3 lg:grid-cols-12 lg:gap-4">
-        <WeekCard
-          week={week}
-          onDay={openDay}
-          onVolleyball={() => setVb({ open: true, date: week.today })}
-          className="lg:col-span-7"
-        />
-        <NextWorkoutCard week={week} onDay={openDay} className="lg:col-span-5" />
-        {!week.loading && missed && <MissedCard week={week} missed={missed} className="lg:col-span-6" />}
-        {!week.loading && <LegAdviceCard week={week} className={missed ? "lg:col-span-6" : "lg:col-span-12"} />}
-      </div>
-
-      <div className="sticky top-[calc(52px+var(--safe-top))] z-10 -mx-4 mt-8 bg-[rgb(8_9_12/.97)] px-4 py-2 md:static md:mx-0 md:bg-transparent md:px-0 md:py-0 lg:max-w-[480px]">
-        <Segmented
-          ariaLabel="Training sections"
-          value={tab}
-          onChange={(v) => setParam("tab", v === "program" ? null : v)}
-          options={TABS.map((t) => ({ value: t, label: TAB_LABEL[t] }))}
-        />
-      </div>
-
-      <div ref={panelRef} className="mt-5" role="tabpanel" aria-label={TAB_LABEL[tab]}>
+      <div ref={panelRef} role="tabpanel" aria-label={TAB_LABEL[tab]}>
+        {tab === "week" && <WeekTab week={week} onDay={openDay} onLogVolleyball={() => setVb({ open: true, date: week.today })} />}
         {tab === "program" && <ProgramTab week={week} />}
-        {tab === "history" && <HistoryTab week={week} onStartToday={() => openDay(week.today)} />}
-        {tab === "exercises" && <ExercisesTab today={week.today} />}
+        {tab === "lifts" && <LiftsTab week={week} view={view} onView={(v) => setParams({ tab: "lifts", view: v === "library" ? null : v })} onStartToday={() => openDay(week.today)} />}
       </div>
 
       <DaySheet
@@ -150,4 +139,10 @@ function Hub() {
       <SessionSheet session={session} open={sessionOpen} onOpenChange={setSessionOpen} prSetIds={prSetIds} unit={unit} />
     </div>
   );
+}
+
+function oracleLabel(week: ReturnType<typeof useTrainingWeek>) {
+  const t = week.resolve(week.today).template;
+  const n = week.weekNo ? `Week ${week.weekNo}` : "This week";
+  return t ? `${n} · ${t.name} today` : `${n} · rest day`;
 }
