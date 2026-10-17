@@ -165,3 +165,19 @@ export function useOnline(): boolean {
     () => true,
   );
 }
+
+/* ---------------------------------------------------------------- minute */
+
+function subscribeMinute(cb: () => void) {
+  const id = window.setInterval(cb, 20000);
+  return () => window.clearInterval(id);
+}
+
+/** The wall clock in whole minutes: re-renders once a minute, for slow checks (staleness). */
+export function useNowMinute(): number {
+  return useSyncExternalStore(
+    subscribeMinute,
+    () => Math.floor(Date.now() / 60000),
+    () => 0,
+  );
+}

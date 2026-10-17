@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PastSet } from "@/lib/training/progression";
 import { mkSet } from "./fixtures";
 import { groupSets } from "./session";
-import { comparisonLine, durationSec, effectiveEnd, improvements, lastCompletedAt, sessionTotals, volumeDeltaPct } from "./summary";
+import { comparisonLine, durationSec, effectiveEnd, improvements, isStaleSession, lastCompletedAt, sessionTotals, volumeDeltaPct } from "./summary";
 
 describe("session totals", () => {
   it("counts working volume only", () => {
@@ -46,6 +46,24 @@ describe("duration", () => {
         mkSet({ completed: false, completed_at: null }),
       ]),
     ).toBe("2026-10-16T18:50:00Z");
+  });
+});
+
+describe("stale sessions", () => {
+  // Started 23:45 Toronto (03:45Z) on Oct 16; it is now Oct 17 locally.
+  const started = "2026-10-17T03:45:00Z";
+  it("a workout that runs past midnight is not stale while sets are being logged", () => {
+    expect(isStaleSession("2026-10-16", "2026-10-17", started, "2026-10-17T04:01:00Z", Date.parse("2026-10-17T04:03:00Z"))).toBe(false);
+    expect(isStaleSession("2026-10-16", "2026-10-17", started, null, Date.parse("2026-10-17T04:03:00Z"))).toBe(false);
+  });
+
+  it("goes stale once nothing has been logged for the idle window", () => {
+    expect(isStaleSession("2026-10-16", "2026-10-17", started, "2026-10-17T04:01:00Z", Date.parse("2026-10-17T06:02:00Z"))).toBe(true);
+    expect(isStaleSession("2026-10-15", "2026-10-17", "2026-10-15T22:00:00Z", null, Date.parse("2026-10-17T12:00:00Z"))).toBe(true);
+  });
+
+  it("today's session is never stale", () => {
+    expect(isStaleSession("2026-10-17", "2026-10-17", started, null, Date.parse("2026-10-18T03:00:00Z"))).toBe(false);
   });
 });
 

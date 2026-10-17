@@ -51,6 +51,17 @@ export function effectiveEnd(startedAt: string, nowMs: number, lastCompletedAt: 
   return Math.max(start, nowMs);
 }
 
+/**
+ * A live session from an earlier day that has gone quiet (nothing logged for the idle
+ * window): it asks to be finished or discarded. A workout that simply runs past midnight
+ * is not stale while sets are still being logged.
+ */
+export function isStaleSession(localDate: string, today: string, startedAt: string, lastCompleted: string | null, nowMs: number): boolean {
+  if (localDate >= today) return false;
+  const last = Math.max(Date.parse(startedAt), lastCompleted ? Date.parse(lastCompleted) : 0);
+  return nowMs - last > IDLE_MS;
+}
+
 export function durationSec(startedAt: string, endMs: number) {
   return Math.max(0, Math.round((endMs - Date.parse(startedAt)) / 1000));
 }

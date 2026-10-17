@@ -59,7 +59,7 @@ import {
   type ExerciseGroup,
   type Ghost,
 } from "@/lib/workout/session";
-import { durationSec, effectiveEnd, lastCompletedAt, sessionTotals } from "@/lib/workout/summary";
+import { durationSec, effectiveEnd, isStaleSession, lastCompletedAt, sessionTotals } from "@/lib/workout/summary";
 import { emptyJournal, isNetworkError } from "@/lib/workout/sync";
 import type { CellField, Tracking, WSession, WSet } from "@/lib/workout/types";
 import { unlockAudio } from "./audio";
@@ -69,7 +69,7 @@ import { NumberPad } from "./NumberPad";
 import { RestDock, RestFocus, RestPanel, RestWatcher, useClockSec } from "./rest";
 import type { RowView } from "./SetGrid";
 import { DiscardSheet, ExerciseMenuSheet, FinishSheet, HowToSheet, NoteSheet, PickExerciseSheet, SetSheetActions } from "./sheets";
-import { clearSessionStores, getDeviceCopy, getRest, markMoment, setRest, setSkipped, useOnline, useRest, useSkipped } from "./stores";
+import { clearSessionStores, getDeviceCopy, getRest, markMoment, setRest, setSkipped, useNowMinute, useOnline, useRest, useSkipped } from "./stores";
 import { WorkoutTopBar } from "./TopBar";
 
 const NO_GHOST: Ghost = { weight: null, work: null, weightSource: null, workSource: null };
@@ -969,7 +969,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
 
   /* -------------------------------------------------------------- render */
 
-  const stale = live && session.local_date !== today;
+  const minute = useNowMinute();
+  const stale = live && isStaleSession(session.local_date, today, session.started_at, lastCompletedAt(sets), minute * 60000);
   const warmupShown = live && !stale && !!template?.warmup?.length;
   const warmExpanded = warmOpen ?? !warmAutoClosed;
   const restShown = live && !!rest && !padOpen && !desktop;
