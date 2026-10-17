@@ -351,9 +351,24 @@ function NoteForm({ initial, onSave, onDone, extra }: { initial: string; onSave:
 
 /* ------------------------------------------------------------ set sheet */
 
-export function SetSheetActions({ warm, canToggle, onToggleKind, onRemove }: { warm: boolean; canToggle: boolean; onToggleKind: () => void; onRemove: () => void }) {
+export function SetSheetActions({
+  warm,
+  canToggle,
+  logged,
+  onToggleKind,
+  onUnlog,
+  onRemove,
+}: {
+  warm: boolean;
+  canToggle: boolean;
+  logged?: boolean;
+  onToggleKind: () => void;
+  onUnlog?: () => void;
+  onRemove: () => void;
+}) {
   return (
-    <div className="-mx-2 flex flex-col gap-0.5 border-t border-line-hair pt-2">
+    <div className="-mx-2 flex flex-col gap-0.5 border-t border-vein pt-2">
+      {logged && onUnlog && <MenuItem icon={<Undo2 className="size-[18px]" />} label="Unlog set" hint="Keeps its numbers; it just isn't logged" onClick={onUnlog} />}
       {canToggle && <MenuItem icon={<Flame className="size-[18px]" />} label={warm ? "Make it a working set" : "Make it a warm-up set"} onClick={onToggleKind} />}
       <MenuItem icon={<Trash className="size-[18px]" />} label="Remove set" tone="danger" onClick={onRemove} />
     </div>

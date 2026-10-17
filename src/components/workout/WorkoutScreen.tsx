@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { EmptyArt } from "@/components/art/Motifs";
+import { TrainColumn } from "@/components/art/icons";
 import { Button } from "@/components/ui/button";
-import { Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
+import { ErrorNote, Skeleton } from "@/components/ui/misc";
 import { useLiveSession } from "./data";
+import { Inscription } from "./inscription/Inscription";
 import { LiveWorkout } from "./LiveWorkout";
-import { SessionSummary } from "./SessionSummary";
 import { ToastsBelowTopBar, WorkoutStyles } from "./styles";
 
-/** /workout/[id]: the live session, its summary once finished, or a clear dead end. */
+/** /workout/[id]: Gym Mode for a live session, the Inscription once sealed, or a clear dead end. */
 export function WorkoutScreen({ id }: { id: string }) {
   const q = useLiveSession(id);
   const [editing, setEditing] = useState(false);
@@ -26,20 +26,20 @@ export function WorkoutScreen({ id }: { id: string }) {
   else if (!q.data)
     body = (
       <Centered>
-        <Empty art={<EmptyArt kind="column" size={56} />} title="This workout doesn't exist" action={<Button asChild variant="secondary"><Link href="/training">Go to Training</Link></Button>}>
+        <DeadEnd title="This workout doesn't exist" href="/training" action="Go to Train">
           It may have been deleted, or the link is from another account.
-        </Empty>
+        </DeadEnd>
       </Centered>
     );
   else if (q.data.session.status === "discarded")
     body = (
       <Centered>
-        <Empty art={<EmptyArt kind="column" size={56} />} title="This workout was discarded" action={<Button asChild variant="secondary"><Link href="/">Back to Today</Link></Button>}>
+        <DeadEnd title="This workout was discarded" href="/" action="Back to Now">
           Its sets don&apos;t count toward history, records or volume.
-        </Empty>
+        </DeadEnd>
       </Centered>
     );
-  else if (q.data.session.status === "done" && !editing) body = <SessionSummary data={q.data} onEdit={() => setEditing(true)} />;
+  else if (q.data.session.status === "done" && !editing) body = <Inscription data={q.data} onEdit={() => setEditing(true)} />;
   else body = <LiveWorkout key={editing ? "edit" : "live"} data={q.data} mode={q.data.session.status === "done" ? "edit" : "live"} onDoneEditing={() => setEditing(false)} />;
 
   return (
@@ -52,40 +52,61 @@ export function WorkoutScreen({ id }: { id: string }) {
 }
 
 function Centered({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto grid min-h-dvh max-w-[440px] place-items-center px-4">{children}</div>;
+  return <div className="mx-auto grid min-h-dvh max-w-col place-items-center bg-obsidian px-5">{children}</div>;
 }
 
+function DeadEnd({ title, href, action, children }: { title: string; href: string; action: string; children: React.ReactNode }) {
+  return (
+    <div className="text-center">
+      <TrainColumn aria-hidden className="mx-auto size-12 text-ash" strokeWidth={1.2} />
+      <h1 className="t-title-2 mt-5 text-ivory">{title}</h1>
+      <p className="t-callout mx-auto mt-2 max-w-[18rem] text-stone">{children}</p>
+      <Button asChild variant="secondary" size="lg" className="mt-6">
+        <Link href={href}>{action}</Link>
+      </Button>
+    </div>
+  );
+}
+
+/** The Gym Mode layout in outline while the session loads (no spinner on first paint). */
 export function WorkoutSkeleton({ label }: { label?: string }) {
   return (
-    <div className="min-h-dvh bg-bg" aria-busy="true" aria-label={label ?? "Loading workout"}>
-      <div className="chrome sticky top-0 z-20 border-b border-line-hair" style={{ paddingTop: "var(--safe-top)" }}>
-        <div className="mx-auto flex h-[52px] max-w-[1120px] items-center gap-3 px-3">
-          <Skeleton className="size-9 rounded-[12px]" />
+    <div data-mode="gym" className="min-h-dvh bg-obsidian" aria-busy="true" aria-label={label ?? "Loading workout"}>
+      <div className="mx-auto max-w-col px-3" style={{ paddingTop: "var(--safe-top)" }}>
+        <div className="flex h-(--topbar-h) items-center gap-2">
+          <Skeleton className="size-11 rounded-full" />
           <div className="flex flex-1 flex-col items-center gap-1.5">
-            {label ? <p className="t-h2 text-[15px] text-fg-2">{label}</p> : <Skeleton className="h-4 w-24" />}
-            <Skeleton className="h-3 w-12" />
+            {label ? <p className="t-eyebrow !text-ivory [letter-spacing:.2em]">{label}</p> : <Skeleton className="h-3 w-16" />}
+            <Skeleton className="h-3.5 w-10" />
           </div>
-          <Skeleton className="h-10 w-20 rounded-[12px]" />
+          <Skeleton className="h-11 w-20 rounded-full" />
         </div>
+        <Skeleton className="mx-1 mt-1 h-1 rounded-full" />
       </div>
-      <div className="mx-auto max-w-[720px] space-y-3 px-3 pt-4">
-        <Skeleton className="h-[56px] rounded-[16px]" />
-        <div className="card-instrument space-y-3 p-3">
-          <Skeleton className="h-6 w-2/3" />
-          <Skeleton className="h-4 w-1/2" />
-          <div className="flex gap-2">
-            <Skeleton className="h-7 w-20 rounded-full" />
-            <Skeleton className="h-7 w-16 rounded-full" />
-            <Skeleton className="h-7 w-20 rounded-full" />
-          </div>
-          <Skeleton className="h-16 rounded-[12px]" />
+      <div className="mx-auto max-w-col space-y-3 px-4 pt-8">
+        <Skeleton className="h-3 w-40" />
+        <Skeleton className="h-9 w-3/4" />
+        <Skeleton className="h-5 w-2/3" />
+        <Skeleton className="mx-auto !mt-8 aspect-[200/112] w-full max-w-[300px] rounded-t-full" />
+        <div className="grid grid-cols-3 gap-2 pt-2">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-[52px] rounded-[10px]" />
+            <Skeleton key={i} className="h-14 rounded-btn" />
           ))}
         </div>
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-[56px] rounded-[16px]" />
-        ))}
+        <div className="grid grid-cols-3 gap-2">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-[76px] rounded-btn" />
+          ))}
+        </div>
+      </div>
+      <div className="fixed inset-x-0 bottom-0 rounded-t-sheet bg-m1 px-3 pt-3" style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}>
+        <div className="mx-auto max-w-col space-y-2">
+          <div className="grid grid-cols-[1.42fr_1fr] gap-2">
+            <Skeleton className="h-16 rounded-btn" />
+            <Skeleton className="h-16 rounded-btn" />
+          </div>
+          <Skeleton className="h-16 rounded-btn" />
+        </div>
       </div>
     </div>
   );

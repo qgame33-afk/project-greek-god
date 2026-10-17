@@ -27,7 +27,12 @@ const CSS = `
 .wk-glow{animation:wk-blink 500ms var(--ease-out) 1 both}
 .wk-up{animation:wk-up 320ms var(--ease-sheet) 1 both}
 .wk-fade{animation:wk-fade 160ms var(--ease-out) 1 both}
-.wk-rise{animation:wk-rise 420ms var(--ease-gold) 1 both}
+.wk-rise{animation:wk-rise 220ms var(--ease-out) 1 both}
+.wk-rise-late{animation:wk-rise 320ms var(--ease-out) 0ms 1 both}
+.wk-sheen-late{animation:wk-sheen 900ms var(--ease-out) 1850ms 1 both}
+@keyframes wk-edge{0%{opacity:0}35%{opacity:.35}100%{opacity:0}}
+.wk-edge{animation:wk-edge 400ms var(--ease-out) 1 both}
+::view-transition-group(session-title){animation-duration:220ms;animation-timing-function:var(--ease-out)}
 .wk-ghost{text-decoration-line:underline;text-decoration-style:dotted;text-decoration-thickness:1.5px;text-underline-offset:4px;text-decoration-color:rgb(138 145 156/.8)}
 @media (prefers-reduced-motion:reduce){
   /* the rest ring and meter carry information, so they keep draining */
@@ -45,13 +50,13 @@ export function WorkoutStyles() {
 
 /**
  * Toasts are top-centre app-wide, but on the workout's focus screens that is exactly where the
- * minimise chevron, FINISH, the rest focus-mode close button and the summary's Edit sets live —
- * a "Set 2 logged · UNDO" toast would sit on FINISH for six seconds after every set. While a
- * workout screen is mounted, toasts drop just below its 52px top bar. A plain (non-hoisted)
- * <style>, so it disappears with the screen.
+ * minimise chevron, Finish and the Inscription's ⋯ live — a "Set 2 logged · Undo" toast would sit
+ * on Finish for six seconds after every set. While a workout screen is mounted, toasts drop just
+ * below its top bar (over the frieze, --gym-toast-top), and below a record banner while one
+ * shows. A plain (non-hoisted) <style>, so it disappears with the screen.
  */
 export function ToastsBelowTopBar() {
   return (
-    <style>{`[data-sonner-toaster][data-y-position="top"]{--offset-top:calc(var(--safe-top) + 62px)!important;--mobile-offset-top:calc(var(--safe-top) + 62px)!important}`}</style>
+    <style>{`[data-sonner-toaster][data-y-position="top"]{--offset-top:var(--gym-toast-top, calc(var(--safe-top) + 56px))!important;--mobile-offset-top:var(--gym-toast-top, calc(var(--safe-top) + 56px))!important}`}</style>
   );
 }

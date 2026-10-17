@@ -1,16 +1,17 @@
 "use client";
 
+// Gym Mode (docs/DESIGN-V2.md §3.2): the live workout. This component is the controller — it
+// keeps every piece of the workout's state and logic exactly as it was (the outbox-backed set
+// writes, the device copy and multi-device resync, the keypad, logging, rest, finish and
+// discard) and hands plain values and callbacks to the presentational parts in ./gym/*.
+
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronDown, Plus, TriangleAlert } from "lucide-react";
-import { LaurelBullet } from "@/components/art/Motifs";
+import { CloudOff, Plus, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/field";
-import { Collapse } from "@/components/ui/misc";
 import { useMediaQuery } from "@/components/ui/sheet";
-import { cn } from "@/lib/cn";
 import { friendlyError, must, sb, useToday, useUser } from "@/lib/data/core";
 import { drained, useOutbox } from "@/lib/data/outbox";
 import { useProfile } from "@/lib/data/profile";
@@ -20,11 +21,12 @@ import { haptic } from "@/lib/haptics";
 import { getExercise } from "@/lib/training/library";
 import { groupSessions, modeRir, plannedSetCount, suggest, type Mode, type PastSet } from "@/lib/training/progression";
 import type { LibraryExercise, TemplateExercise, TemplateKey } from "@/lib/training/types";
-import { formatInt, formatLoad, toDisplayWeight, type WeightUnit } from "@/lib/units";
-import { formatGain, modeLabel, repRange, targetChips } from "@/lib/workout/copy";
+import { formatLoad, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
+import { formatGain, modeLabel, muscleLabel, repRange, suggestionReason, targetChips } from "@/lib/workout/copy";
+import { changedPlate, endsAt as endsAtOf, friezeSegments, gymDate, lastRealSession, loadText, runningBest, targetLine } from "@/lib/workout/gym";
 import { autoAdvances, nextCell, nudgeStep, padNudge, padPress, type PadKey } from "@/lib/workout/numpad";
-import { platesLabel } from "@/lib/workout/plates";
-import { classifyLog, prSetIds, sessionRecords, type PriorBest } from "@/lib/workout/pr";
+import { platesFor, platesLabel } from "@/lib/workout/plates";
+import { classifyLog, sessionRecords, type PriorBest } from "@/lib/workout/pr";
 import { parsePrefs } from "@/lib/workout/prefs";
 import { defaultRestSec, startRest } from "@/lib/workout/rest";
 import {
@@ -33,6 +35,7 @@ import {
   currentGroupKey,
   defaultTargets,
   fieldsFor,
+  firstOpenSet,
   ghostFor,
   groupSets,
   groupState,
@@ -62,19 +65,35 @@ import {
 } from "@/lib/workout/session";
 import { durationSec, effectiveEnd, isStaleSession, lastCompletedAt, sessionTotals } from "@/lib/workout/summary";
 import { emptyJournal, isNetworkError } from "@/lib/workout/sync";
+import { recordReps, timingsForGroup, type SetTiming } from "@/lib/workout/timing";
 import type { CellField, Tracking, WSession, WSet } from "@/lib/workout/types";
 import { unlockAudio } from "./audio";
 import { applyPush, fetchPriorBests, fetchPriorHistory, invalidateTraining, liveKey, mergeLive, newSetRow, usePriorBests, usePriorHistory, useSessionOps, useSessionSync, type LiveData } from "./data";
-import { CollapsedExercise, OpenExercise } from "./ExerciseBlock";
+import { Frieze, GymTopBar } from "./gym/GymTopBar";
+import { useHeightVar, useNarrow, useWakeLock } from "./gym/hooks";
+import { LiftHeader, type Carrot } from "./gym/LiftHeader";
+import { LiftsSheet, type LiftRow } from "./gym/LiftsSheet";
+import { Plates } from "./gym/Plates";
+import { RecordBanner, type Moment } from "./gym/RecordBanner";
+import { RestDial } from "./gym/RestDial";
+import { SealPanel } from "./gym/SealPanel";
+import { SetTower, type TowerCell } from "./gym/SetTower";
+import { ThumbDeck, type DeckField, type DeckKey } from "./gym/ThumbDeck";
+import { markInscription, rememberPlanned } from "./inscription/flags";
 import { NumberPad } from "./NumberPad";
-import { RestDock, RestFocus, RestPanel, RestWatcher, useClockSec } from "./rest";
-import type { RowView } from "./SetGrid";
-import { DiscardSheet, ExerciseMenuSheet, FinishSheet, HowToSheet, NoteSheet, PickExerciseSheet, SetSheetActions } from "./sheets";
+import { RestWatcher } from "./rest";
+import { DiscardSheet, ExerciseMenuSheet, HowToSheet, NoteSheet, PickExerciseSheet, SetSheetActions } from "./sheets";
 import { clearSessionStores, getDeviceCopy, getRest, markMoment, setRest, setSkipped, useNowMinute, useOnline, useRest, useSkipped } from "./stores";
-import { WorkoutTopBar } from "./TopBar";
+import { useTypicalMinutes } from "./typical";
 
 const NO_GHOST: Ghost = { weight: null, work: null, weightSource: null, workSource: null };
 const nowSec = () => Math.floor(Date.now() / 1000);
+// Event-time clocks (taps, guards). Read inside handlers only; wrapped so the compiler's purity
+// check, which cannot see that the deck's callbacks never run during render, stays quiet.
+const nowMs = () => Date.now();
+const perfMs = () => performance.now();
+/** A second tap on the seal key this soon after a seal is a double tap, not the next set. */
+const SEAL_GUARD_MS = 600;
 
 interface GroupInfo {
   lib: LibraryExercise | undefined;
@@ -101,6 +120,8 @@ function snap(s: WSet, keys: readonly (keyof Snapshot)[] = SNAP_KEYS): Snapshot 
   for (const k of keys) o[k] = s[k];
   return o as Snapshot;
 }
+
+const BAR = { lb: 45, kg: 20 } as const;
 
 export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mode: "live" | "edit"; onDoneEditing?: () => void }) {
   const router = useRouter();
@@ -129,9 +150,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const skipped = useMemo(() => new Set(skippedArr), [skippedArr]);
   const rest = useRest(live ? id : null);
 
-  const desktop = useMediaQuery("(min-width: 1024px)");
   const fine = useMediaQuery("(min-width: 768px) and (pointer: fine)");
-  const showPrev = useMediaQuery("(min-width: 400px)");
   const inline = prefs.systemKeyboard || fine;
   const fmt = useCallback((lb: number) => formatLoad(lb, unit, false), [unit]);
 
@@ -193,19 +212,15 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     return m;
   }, [groups, info]);
 
-  const prIds = useMemo(() => {
-    const out = new Set<string>();
-    if (!bests) return out;
-    for (const g of groups) for (const x of prSetIds(g, bests[g.slug])) out.add(x);
-    return out;
-  }, [groups, bests]);
+  /* ----------------------------------------------- the lift on screen */
 
-  /* ----------------------------------------------------- accordion state */
-
+  // `openRef` (a set id) picks the lift shown; without it, the first lift still to do.
   const [openRef, setOpenRef] = useState<string | null>(null);
+  // The set the deck logs: chosen in the tower, else the shown lift's first unlogged set.
+  const [selId, setSelId] = useState<string | null>(null);
   const settleUntil = useRef(0);
   const settleGuard = (e: React.MouseEvent) => {
-    if (performance.now() < settleUntil.current) {
+    if (perfMs() < settleUntil.current) {
       e.preventDefault();
       e.stopPropagation();
     }
@@ -216,79 +231,24 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const counts = sessionCounts(groups);
   const anyLogged = sets.some((s) => s.completed);
 
-  /* ------------------------------------------------ warm-up card collapse */
-
-  // The warm-up card collapses after the first logged set. Collapsing ~350px of steps above
-  // the set grid would yank the next ✓ out from under the thumb (a quick second tap then hits
-  // a different control), so the collapse is paired with an equal scroll adjustment. When the
-  // page isn't scrolled far enough to absorb it, the collapse waits until it can happen
-  // invisibly (more scrolling, or the next programmatic scroll to an exercise).
-  const [warmOpen, setWarmOpen] = useState<boolean | null>(null);
-  const [warmAutoClosed, setWarmAutoClosed] = useState(anyLogged);
-  const warmRef = useRef<HTMLElement>(null);
-  const warmShift = useRef<{ before: number; compensate: boolean } | null>(null);
-
-  const collapseWarm = useCallback((compensate: boolean) => {
-    const el = warmRef.current;
-    warmShift.current = el ? { before: el.getBoundingClientRect().height, compensate } : null;
-    setWarmAutoClosed(true);
-  }, []);
-
-  useLayoutEffect(() => {
-    const shift = warmShift.current;
-    const el = warmRef.current;
-    warmShift.current = null;
-    if (!shift || !el || !shift.compensate) return;
-    const delta = shift.before - el.getBoundingClientRect().height;
-    if (delta > 0) window.scrollBy({ top: -delta, behavior: "instant" });
-  }, [warmAutoClosed]);
-
-  const warmPending = anyLogged && !warmAutoClosed;
-  useEffect(() => {
-    if (!warmPending) return;
-    const el = warmRef.current;
-    // Nothing on screen changes when the card isn't rendered or the user chose its state.
-    if (!el || warmOpen !== null) {
-      setWarmAutoClosed(true);
-      return;
-    }
-    const delta = () => el.getBoundingClientRect().height - 56;
-    const tryCollapse = () => {
-      if (window.scrollY < delta()) return false;
-      collapseWarm(true);
-      return true;
-    };
-    if (tryCollapse()) return;
-    const onScroll = () => {
-      if (tryCollapse()) window.removeEventListener("scroll", onScroll);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [warmPending, warmOpen, collapseWarm]);
-
-  /** Before scrolling to an exercise, settle a pending collapse so the target doesn't move. */
-  const settleWarm = useCallback(() => {
-    if (warmPending) collapseWarm(false);
-  }, [warmPending, collapseWarm]);
-
   const scrollToGroup = useCallback((key: string) => {
-    settleWarm();
-    window.setTimeout(() => {
-      const el = document.querySelector(`[data-group="${CSS.escape(key)}"]`);
-      el?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
-    }, 60);
-  }, [settleWarm]);
+    void key; // one lift is on screen at a time: bring its header back into view
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }), 60);
+  }, []);
 
   const openGroupKey = (g: ExerciseGroup) => {
     setOpenRef(g.sets[0]?.id ?? null);
+    setSelId(null);
     scrollToGroup(g.key);
   };
 
   /* ------------------------------------------------------- transient UI */
 
-  const [sheenId, setSheenId] = useState<string | null>(null);
-  const [pulseId, setPulseId] = useState<string | null>(null);
-  const [flashId, setFlashId] = useState<string | null>(null);
+  const [momentSetId, setMomentSetId] = useState<string | null>(null);
+  const [moment, setMoment] = useState<Moment | null>(null);
+  const [keyPulse, setKeyPulse] = useState(0);
+  const [, setPulseId] = useState<string | null>(null);
+  const [, setFlashId] = useState<string | null>(null);
   // One entry per cell (`${setId}:${field}`): fixing one cell never hides another's error.
   const [errors, setErrorsState] = useState<CellErrors>({});
   const errorsRef = useRef(errors);
@@ -296,9 +256,6 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     errorsRef.current = withCellError(errorsRef.current, setId, field, error);
     setErrorsState(errorsRef.current);
   };
-  // Focus mode belongs to one rest period (keyed by its start), so it never reopens by itself.
-  const [focusFor, setFocusFor] = useState<number | null>(null);
-  const setFocus = (on: boolean) => setFocusFor(on ? (getRest(id)?.startSec ?? null) : null);
   const blink = (setter: (v: string | null) => void, value: string, ms: number) => {
     setter(value);
     window.setTimeout(() => setter(null), ms);
@@ -332,7 +289,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     const cur = set[col] == null ? null : Number(set[col]);
     if (cur !== r.stored) {
       ops.updateSet(set.id, { [col]: r.stored });
-      if (set.completed) toast(`${nameOf(set)} updated`);
+      // one toast per set, however many steps it takes
+      if (set.completed) toast(`${nameOf(set)} updated`, { id: `wk-upd-${set.id}` });
     }
     return null;
   };
@@ -367,6 +325,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     const s = freshSet(set.id) ?? set;
     const g = groupOf.get(s.id);
     const t = g ? info.get(g.key)!.tracking : "weight_reps";
+    // the deck follows the keypad's row, so the seal key logs what was typed
+    if (g && g.key === openGroup?.key) setSelId(s.id);
     setPad({ setId: s.id, field, text: cellText(s, field, t, unit), fresh: true, error: null });
     scrollRow(s.id);
   };
@@ -374,9 +334,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const closePad = () => {
     if (!pad) return;
     if (!commitPad(pad)) return;
-    const key = `${pad.setId}:${pad.field}`;
     setPad(null);
-    window.requestAnimationFrame(() => (document.querySelector(`[data-cell="${CSS.escape(key)}"]`) as HTMLElement | null)?.focus({ preventScroll: true }));
   };
 
   const rowsOf = (g: ExerciseGroup) => g.sets.map((s) => s.id);
@@ -396,6 +354,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     const s = freshSet(target.setId);
     if (!s) return setPad(null);
     const t = info.get(groupOf.get(s.id)!.key)!.tracking;
+    if (s.id !== p.setId) setSelId(s.id);
     setPad({ setId: s.id, field: target.field, text: cellText(s, target.field, t, unit), fresh: true, error: null });
     scrollRow(s.id);
   };
@@ -445,7 +404,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     // A draft in the keypad (on any row) is written first, so nothing typed is ever lost.
     if (pad && !commitPad(pad)) return;
     const set = freshSet(input.id) ?? input;
-    const t0 = Date.now();
+    const t0 = nowMs();
     if (t0 - (taps.current.get(set.id) ?? 0) < 450) return; // double-tap guard
     taps.current.set(set.id, t0);
     if (set.completed) return unlog(set);
@@ -469,11 +428,12 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     const before = snap(set, ["weight_lb", "reps", "duration_sec", "completed", "completed_at"]);
     ops.updateSet(set.id, res.values);
     setPad(null);
+    setSelId(null);
     if (prefs.haptics) haptic(10);
 
     const logged: WSet = { ...set, ...res.values };
-    const loadText = setLoadText(logged, inf.tracking, fmt, unit);
-    toast(`${nameOf(set)} logged · ${loadText}`, {
+    const loadText_ = setLoadText(logged, inf.tracking, fmt, unit);
+    toast(`${nameOf(set)} logged · ${loadText_}`, {
       action: {
         label: "Undo",
         onClick: () => {
@@ -484,19 +444,18 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       duration: 6000,
     });
 
-    // Records: only against real prior history, once per exercise per session.
+    // Records: only against real prior history, once per exercise per session (§3.2.6).
     if (live && set.kind === "working" && bests) {
       const c = classifyLog(logged, g, bests[g.slug]);
       if (c.kind === "pr" && markMoment(id, g.slug)) {
-        blink(setSheenId, set.id, 900);
+        const e = Math.round(toDisplayWeight(c.e1rm!, unit));
+        const gain = formatGain(c.gain ?? 1, unit);
+        const unitWord = unit === "kg" ? "kilograms" : "pounds";
+        setMoment({ kind: "record", id: t0, name: g.name, e1rm: String(e), gain, spoken: `New record. ${g.name} ${loadText_.replace(" × ", " for ")}, estimated max ${e} ${unitWord}, up ${gain.replace("+", "")}.` });
+        blink(setMomentSetId, set.id, 1300);
         if (prefs.haptics) haptic([12, 50, 18]);
-        toast(`New record · ${g.name} · ${loadText}`, {
-          description: `e1RM ${Math.round(toDisplayWeight(c.e1rm!, unit))} ${unit}${c.gain ? ` · ${formatGain(c.gain, unit)} over your best` : ""}`,
-          icon: <LaurelBullet size={16} />,
-          duration: 5000,
-        });
       } else if (c.kind === "first" && markMoment(id, g.slug)) {
-        toast(`First benchmark · ${g.name}`, { description: `${loadText}. Next time, this is the number to beat.`, duration: 5000 });
+        setMoment({ kind: "first", id: t0, name: g.name, spoken: `First benchmark. ${g.name} ${loadText_.replace(" × ", " for ")}. Next time, this is the number to beat.` });
       }
     }
 
@@ -516,22 +475,21 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
         const shown = { weight_lb: nx.weight_lb ?? gh.weight, reps: isTimed(ninf.tracking) ? null : (nx.reps ?? gh.work), duration_sec: isTimed(ninf.tracking) ? (nx.duration_sec ?? gh.work) : null };
         const hasLoad = (hasWeight(ninf.tracking) && shown.weight_lb != null) || (isTimed(ninf.tracking) ? shown.duration_sec != null : shown.reps != null);
         const started = startRest(nowSec(), restFor(set, inf), {
-            sessionId: id,
-            fromSetId: set.id,
-            exercise: g.name,
-            next: { setId: nx.id, exercise: ng.name, set: nx.kind === "warmup" ? "Warm-up" : `Set ${setLabel(ng, nx)}`, load: hasLoad ? setLoadText(shown, ninf.tracking, fmt, unit) : null },
-          });
+          sessionId: id,
+          fromSetId: set.id,
+          exercise: g.name,
+          next: { setId: nx.id, exercise: ng.name, set: nx.kind === "warmup" ? "Warm-up" : `Set ${setLabel(ng, nx)}`, load: hasLoad ? setLoadText(shown, ninf.tracking, fmt, unit) : null },
+        });
         setRest(id, started);
-        setFocusFor(prefs.restFocus && !desktop ? started.startSec : null);
       } else {
         setRest(id, null);
-        toast("Every set is logged. Finish when you're ready.");
+        toast("Every set is logged. Seal when you're ready.");
       }
     }
     if (ag && isGroupComplete(ag) && ng && ng.key !== ag.key) {
-      // The accordion swaps and scrolls: a quick second tap must not land on whatever
-      // control moved under the thumb (the next exercise's "Add set").
-      settleUntil.current = performance.now() + 800;
+      // The next lift takes the screen; a quick second tap must not land on a control that
+      // just moved under the thumb.
+      settleUntil.current = perfMs() + 800;
       setOpenRef(ng.sets[0].id);
       scrollToGroup(ng.key);
     }
@@ -547,22 +505,20 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       return;
     }
     taps.current.delete(s.id);
+    lastSeal.current = nowMs();
     logSet(s);
   };
 
   /* ----------------------------------------------------- rest finished */
 
-  const onRestDone = useCallback(
-    (r: { next: { setId: string | null } | null }) => {
-      const target = r.next?.setId;
-      if (!target) return;
-      settleWarm();
-      window.setTimeout(() => document.querySelector(`[data-set="${CSS.escape(target)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 60);
-      setPulseId(target);
-      window.setTimeout(() => setPulseId(null), 1300);
-    },
-    [settleWarm],
-  );
+  const onRestDone = useCallback((r: { next: { setId: string | null } | null }) => {
+    const target = r.next?.setId;
+    if (!target) return;
+    window.setTimeout(() => document.querySelector(`[data-set="${CSS.escape(target)}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 60);
+    setPulseId(target);
+    window.setTimeout(() => setPulseId(null), 1300);
+  }, []);
+  const onRestZero = useCallback(() => setKeyPulse((n) => n + 1), []);
 
   /* ----------------------------------------------------- set operations */
 
@@ -589,6 +545,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     ops.insertSets([row]);
     if (skipped.size) setSkipped(id, skippedArr.filter((x) => !g.sets.some((s) => s.id === x)));
     setOpenRef(row.id);
+    setSelId(row.id);
     toast(kind === "warmup" ? `Warm-up set added · ${g.name}` : `Set ${g.working.length + 1} added`, {
       action: { label: "Undo", onClick: () => ops.deleteSets([row.id]) },
       duration: 6000,
@@ -600,6 +557,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     ops.deleteSets([set.id]);
     if (getRest(id)?.fromSetId === set.id) setRest(id, null);
     if (pad?.setId === set.id) setPad(null);
+    if (selId === set.id) setSelId(null);
     toast(`${nameOf(set)} removed`, { action: { label: "Undo", onClick: () => ops.insertSets([set]) }, duration: 6000 });
   };
 
@@ -619,7 +577,6 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     const before = changes.map((c) => ({ id: c.id, values: { exercise_order: setMap.get(c.id)!.exercise_order } }));
     ops.updateSets(changes.map((c) => ({ id: c.id, values: { exercise_order: c.exercise_order } })));
     toast(`${g.name} moved ${dir < 0 ? "up" : "down"}`, { action: { label: "Undo", onClick: () => ops.updateSets(before) }, duration: 6000 });
-    window.setTimeout(() => document.querySelector(`[data-set="${CSS.escape(g.sets[0].id)}"]`)?.closest("[data-group]")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 80);
   };
 
   const toggleSkip = (g: ExerciseGroup) => {
@@ -635,9 +592,12 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     if (!ids.length) return;
     setSkipped(id, [...new Set([...skippedArr, ...ids])]);
     if (pad && ids.includes(pad.setId)) setPad(null);
-    if (openGroup?.key === g.key) setOpenRef(null);
+    if (openGroup?.key === g.key) {
+      setOpenRef(null);
+      setSelId(null);
+    }
     toast(`Skipped ${g.name}`, {
-      description: "Its unlogged sets are dropped when you finish.",
+      description: "Its unlogged sets are dropped when you seal.",
       action: { label: "Undo", onClick: () => setSkipped(id, skippedArr) },
       duration: 6000,
     });
@@ -652,6 +612,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     ops.updateSet(target.id, isTimed(inf.tracking) ? { weight_lb: src.weight_lb, duration_sec: src.duration_sec } : { weight_lb: hasWeight(inf.tracking) ? src.weight_lb : null, reps: src.reps });
     blink(setFlashId, target.id, 420);
     if (pad?.setId === target.id) setPad(null);
+    setSelId(target.id);
+    toast(`Last time's set ${index + 1} copied into ${nameOf(target)}`, { id: `wk-copy-${target.id}` });
   };
 
   /* ---------------------------------------------- replace / add exercise */
@@ -721,6 +683,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       );
       if (pad && open.some((s) => s.id === pad.setId)) setPad(null);
       setOpenRef(open[0].id);
+      setSelId(null);
       setPicker(null);
       toast(`Replaced with ${lib.name}`, {
         description: hasLogged ? `Logged sets stay with ${g.name}.` : undefined,
@@ -761,7 +724,9 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       );
       ops.insertSets(rows);
       setOpenRef(rows[0].id);
+      setSelId(null);
       setPicker(null);
+      setLiftsOpen(false);
       scrollToGroup(`${order}:${lib.slug}`);
       toast(`Added ${lib.name}`, { action: { label: "Undo", onClick: () => ops.deleteSets(rows.map((r) => r.id)) }, duration: 6000 });
     } finally {
@@ -776,6 +741,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const [picker, setPicker] = useState<{ mode: "replace" | "add"; key?: string } | null>(null);
   const [noteFor, setNoteFor] = useState<string | null>(null); // set id
   const [setMenu, setSetMenu] = useState<string | null>(null); // set id
+  const [liftsOpen, setLiftsOpen] = useState(false);
   const menuGroup = groups.find((g) => g.key === menuKey) ?? null;
   const pickerGroup = picker?.key ? (groups.find((g) => g.key === picker.key) ?? null) : null;
 
@@ -812,7 +778,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const openFinish = () => {
     setFinishError(null);
     setFinishOpen(true);
-    void ops.sync(); // the sheet's count includes sets logged on another device
+    void ops.sync(); // the panel's count includes sets logged on another device
   };
   const busy = useRef(false);
 
@@ -823,6 +789,9 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     setSaving(true);
     setFinishError(null);
     setPad(null);
+    // The Inscription shows "14 of 17 planned sets" — the plan is only known before the seal
+    // drops the unlogged sets, so it is noted on this device now.
+    if (live) rememberPlanned(id, counts.total);
     try {
       if (typeof navigator !== "undefined" && navigator.onLine === false) throw new Error("offline");
       if (!(await drained(10000))) throw new Error("offline");
@@ -863,7 +832,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
           session.local_date,
         ).catch(() => null));
       const prCount = priors ? sessionRecords(groupSets(fresh), priors).length : session.pr_count;
-      const endMs = effectiveEnd(session.started_at, Date.now(), lastCompletedAt(fresh));
+      const endMs = effectiveEnd(session.started_at, nowMs(), lastCompletedAt(fresh));
       const counts = { total_volume_lb: totals.volumeLb, sets_completed: totals.setsCompleted, pr_count: prCount, notes: finalNotes };
       const values = live && !endedElsewhere ? { status: "done", ended_at: new Date(endMs).toISOString(), duration_sec: durationSec(session.started_at, endMs), ...counts } : counts;
       let q = sb().from("workout_sessions").update(values).eq("id", id);
@@ -874,6 +843,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       // Undo on a "Set 3 logged" toast still on screen would now unlog a set of a saved
       // session behind its totals: per-set undos end when the session is saved.
       toast.dismiss();
+      // The Inscription plays its moment once, for the seal that just happened.
+      if (live && !endedElsewhere) markInscription(id);
       ops.setData({ session: finalSession, sets: fresh });
       invalidateTraining(qc);
       setFinishOpen(false);
@@ -886,9 +857,10 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       const offline = msg === "offline" || isNetworkError(msg);
-      const text = offline ? "No connection. Every set is safe on this device — save again when you're back online." : `Couldn't save: ${msg} Every set is still on this device.`;
+      const text = offline ? "No connection. Every set is safe on this device — seal again when you're back online." : `Couldn't save: ${msg} Every set is still on this device.`;
       setFinishError(text);
-      if (!live) toast.error("Couldn't save the changes", { description: text });
+      if (live) setFinishOpen(true);
+      else toast.error("Couldn't save the changes", { description: text });
     } finally {
       busy.current = false;
       setSaving(false);
@@ -989,130 +961,290 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   // appear) and only this device's own unconfirmed changes are re-sent.
   useSessionSync(ops, live);
 
-  /* -------------------------------------------------------------- render */
+  /* ----------------------------------------------------------- the view */
 
+  const rootRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLElement>(null);
+  const deckRef = useRef<HTMLDivElement>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const narrow = useNarrow(rootRef);
+  const awake = useWakeLock(live);
+  const typical = useTypicalMinutes(session.template_key);
   const minute = useNowMinute();
   const stale = live && isStaleSession(session.local_date, today, session.started_at, lastCompletedAt(sets), minute * 60000);
-  const warmupShown = live && !stale && !!template?.warmup?.length;
-  const warmExpanded = warmOpen ?? !warmAutoClosed;
-  const restShown = live && !!rest && !padOpen && !desktop;
-  const totals = sessionTotals(sets);
-  const plaques = bests ? sessionRecords(groups, bests) : [];
+  const lastSeal = useRef(0);
 
-  const segments = groups.map((g) => ({ key: g.key, state: groupState(g, skipped), current: g.key === openGroup?.key }));
-  const padSet = pad ? setMap.get(pad.setId) : undefined;
-  const padGroup = pad ? groupOf.get(pad.setId) : undefined;
-  const padInfo = padGroup ? info.get(padGroup.key) : undefined;
+  const lift = openGroup ?? groups.at(-1) ?? null;
+  const inf = lift ? info.get(lift.key) : undefined;
+  const t: Tracking = inf?.tracking ?? "weight_reps";
+  const selSet = selId ? setMap.get(selId) : undefined;
+  const deckSet: WSet | null = (selSet && lift && groupOf.get(selSet.id)?.key === lift.key ? selSet : undefined) ?? (lift ? (firstOpenSet(lift) ?? lift.sets.at(-1) ?? null) : null);
+  const deckGhost = deckSet ? (ghosts.get(deckSet.id) ?? NO_GHOST) : NO_GHOST;
+  const plaques = useMemo(() => (bests ? sessionRecords(groups, bests) : []), [groups, bests]);
 
-  const bottomPad = padOpen ? 412 : restShown ? 140 : 48;
-
-  const renderGroup = (g: ExerciseGroup, i: number) => {
-    const inf = info.get(g.key)!;
-    const state = groupState(g, skipped);
-    const isOpen = openGroup?.key === g.key && state !== "skipped";
-    const hasPR = g.working.some((s) => prIds.has(s.id));
-    if (!isOpen) {
-      const doneLine = g.working.filter((s) => s.completed).map((s) => setChip(s, inf.tracking, fmt));
-      const warmLine = g.warmups.filter((s) => s.completed).map((s) => setChip(s, inf.tracking, fmt));
-      const detail =
-        state === "done" && g.total === 0
-          ? `Warm-up · ${warmLine.join(" · ")}`
-          : state === "done"
-            ? `${g.done}/${g.total} · ${doneLine.join(" · ")}`
-            : `${g.done ? `${g.done}/${g.total} logged · ` : ""}${g.total} × ${repRange(g.working[0]?.target_rep_low ?? null, g.working[0]?.target_rep_high ?? null, g.working[0]?.target_unit ?? null)}`;
-      return (
-        <CollapsedExercise
-          key={g.key}
-          group={g}
-          state={state}
-          index={i + 1}
-          detail={detail}
-          pr={hasPR}
-          onOpen={() => openGroupKey(g)}
-          onResume={() => toggleSkip(g)}
-        />
-      );
+  useHeightVar(headRef, "--gym-head-h");
+  useHeightVar(deckRef, "--gym-deck-h", !!deckSet && !padOpen);
+  // Toasts ("Set 1 logged · Undo") sit just under the top bar, over the frieze; while a record
+  // banner shows they drop below it, so the moment and its Undo never cover each other.
+  useEffect(() => {
+    const root = document.documentElement;
+    const el = bannerRef.current;
+    if (!moment || !el) {
+      root.style.setProperty("--gym-toast-top", "calc(var(--safe-top) + var(--topbar-h) + 4px)");
+      return;
     }
-    const carrier = noteCarrier(g);
-    const rows: RowView[] = g.sets.map((s) => {
-      const pos = g.working.findIndex((x) => x.id === s.id);
-      const past = pos >= 0 ? inf.last[pos] : undefined;
-      return {
-        set: s,
-        label: setLabel(g, s),
-        ghost: ghosts.get(s.id) ?? NO_GHOST,
-        prev: past ? setChip(past, inf.tracking, fmt) : null,
-        upNext: upNext?.id === s.id,
-        pr: prIds.has(s.id),
-        sheen: sheenId === s.id,
-        pulse: pulseId === s.id,
-        flash: flashId === s.id,
-        error: rowErrorFields(errors, s.id).map((f) => errors[`${s.id}:${f}`])[0] ?? null,
-        errorFields: rowErrorFields(errors, s.id),
-        showNote: s.id !== carrier?.id,
-      };
-    });
-    const first = g.working[0] ?? g.sets[0];
-    const prior = bests?.[g.slug];
-    return (
-      <OpenExercise
-        key={g.key}
-        group={g}
-        lib={inf.lib}
-        tracking={inf.tracking}
-        unit={unit}
-        chips={targetChips({ sets: g.total, low: first?.target_rep_low ?? null, high: first?.target_rep_high ?? null, unit: first?.target_unit ?? null, rir: first?.target_rir ?? null, restSec: first?.rest_sec ?? null })}
-        note={carrier?.notes ?? null}
-        templateNote={inf.templateNote}
-        suggestion={suggestions.get(g.key) ?? null}
-        suggestionLoading={historyQ.isLoading}
-        lastLabel={inf.lastDate ? `Last · ${shortDate(inf.lastDate)}` : null}
-        lastChips={inf.last.map((s, j) => ({ key: `${s.session_id}:${j}`, text: setChip(s, inf.tracking, fmt) }))}
-        firstBenchmark={!!prior && prior.sets === 0 && g.done > 0}
-        rows={rows}
-        showPrev={showPrev}
-        inline={inline}
-        pad={pad && !inline && groupOf.get(pad.setId)?.key === g.key ? { setId: pad.setId, field: pad.field, text: pad.text } : null}
-        padOpen={padOpen}
-        fmt={fmt}
-        onMenu={() => setMenuKey(g.key)}
-        onHowTo={() => setHowTo({ slug: g.slug, name: g.name, note: inf.templateNote })}
-        onNote={() => carrier && setNoteFor(carrier.id)}
-        onLastChip={(j) => copyPast(g, j)}
-        onAddSet={() => addSet(g)}
-        onCell={openCell}
-        onCheck={logSet}
-        onSetMenu={(s) => setSetMenu(s.id)}
-        onPrev={(s) => copyPast(g, g.working.findIndex((x) => x.id === s.id))}
-        onCommit={writeCell}
-        onEnter={(s, f) => {
-          const target = nextCell(rowsOf(g), { setId: s.id, field: f }, fieldsOfSet);
-          if (target) (document.querySelector(`[data-cell="${CSS.escape(`${target.setId}:${target.field}`)}"]`) as HTMLInputElement | null)?.focus();
-        }}
-      />
-    );
+    const set = () => root.style.setProperty("--gym-toast-top", `${Math.ceil(el.getBoundingClientRect().bottom + 8)}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [moment]);
+  useEffect(
+    () => () => {
+      document.documentElement.style.removeProperty("--gym-toast-top");
+    },
+    [],
+  );
+
+  // A new current set always sits in view, never under the deck (§3.2.1).
+  const deckId = deckSet?.id ?? null;
+  useEffect(() => {
+    if (!deckId) return;
+    const t = window.setTimeout(() => {
+      const el = document.querySelector(`[data-set="${CSS.escape(deckId)}"]`);
+      const deck = deckRef.current?.getBoundingClientRect().top ?? window.innerHeight;
+      const r = el?.getBoundingClientRect();
+      if (r && (r.bottom > deck - 4 || r.top < 0)) el!.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [deckId]);
+
+  // The shown lift moved away (removed, replaced): forget a selection that no longer applies.
+  if (selId && !setMap.has(selId)) setSelId(null);
+
+  /* deck values */
+  const typedLoad = deckSet?.weight_lb != null ? Number(deckSet.weight_lb) : null;
+  const shownLoadLb = typedLoad ?? deckGhost.weight;
+  const typedWork = deckSet ? (isTimed(t) ? deckSet.duration_sec : deckSet.reps) : null;
+  const shownWork = typedWork ?? deckGhost.work;
+  const displayLoad = shownLoadLb == null ? null : round(toDisplayWeight(shownLoadLb, unit), 1);
+  const loadStep = nudgeStep("weight", { incrementLb: inf?.lib?.increment ?? 5, unit, timed: isTimed(t) });
+  const workStep = nudgeStep("work", { incrementLb: 5, unit, timed: isTimed(t) });
+
+  const stepLoad = (dir: 1 | -1) => {
+    if (!deckSet) return;
+    const s = freshSet(deckSet.id) ?? deckSet;
+    const g = ghosts.get(s.id) ?? NO_GHOST;
+    const curLb = s.weight_lb != null ? Number(s.weight_lb) : g.weight;
+    const base = curLb == null ? null : round(toDisplayWeight(curLb, unit), 1);
+    const start = inf?.lib?.equipment === "barbell" ? BAR[unit] : 0;
+    const next = base == null ? (dir > 0 ? Math.max(start, loadStep) : start) : Math.max(0, round(base + dir * loadStep, 1));
+    if (base != null && next === base) return;
+    writeCell(s, "weight", String(next));
   };
+  const stepWork = (dir: 1 | -1) => {
+    if (!deckSet) return;
+    const s = freshSet(deckSet.id) ?? deckSet;
+    const g = ghosts.get(s.id) ?? NO_GHOST;
+    const cur = (isTimed(t) ? s.duration_sec : s.reps) ?? g.work;
+    const base = cur == null ? null : Number(cur);
+    const next = base == null ? (s.target_rep_low ?? workStep) : Math.max(workStep, base + dir * workStep);
+    if (base != null && next === base) return;
+    writeCell(s, "work", String(next));
+  };
+
+  const loadField: DeckField | null =
+    deckSet && hasWeight(t)
+      ? {
+          text: displayLoad == null ? "—" : loadText(shownLoadLb, unit),
+          value: displayLoad,
+          ghost: typedLoad == null,
+          unitLabel: t === "bodyweight_reps" ? `+${unit}` : inf?.lib?.perHand ? `${unit} / hand` : unit,
+          unitWord: unit === "kg" ? "kilograms" : "pounds",
+          name: t === "bodyweight_reps" ? "Added load" : "Load",
+          step: loadStep,
+          min: 0,
+          max: unit === "kg" ? 680 : 1500,
+          onStep: stepLoad,
+          onOpen: () => openCell(deckSet, "weight"),
+          onCommit: inline ? (raw) => writeCell(freshSet(deckSet.id) ?? deckSet, "weight", raw) : undefined,
+          editText: cellText(deckSet, "weight", t, unit),
+          invalid: !!errors[`${deckSet.id}:weight`],
+        }
+      : null;
+  const workField: DeckField = {
+    text: shownWork == null ? "—" : String(shownWork),
+    value: shownWork == null ? null : Number(shownWork),
+    ghost: typedWork == null,
+    unitLabel: isTimed(t) ? "sec" : inf?.lib?.perSide || deckSet?.target_unit === "each" ? "reps / side" : "reps",
+    unitWord: isTimed(t) ? "seconds" : "reps",
+    name: isTimed(t) ? "Seconds" : "Reps",
+    step: workStep,
+    min: 1,
+    max: isTimed(t) ? 900 : 100,
+    onStep: stepWork,
+    onOpen: () => deckSet && openCell(deckSet, "work"),
+    onCommit: inline && deckSet ? (raw) => writeCell(freshSet(deckSet.id) ?? deckSet, "work", raw) : undefined,
+    editText: deckSet ? cellText(deckSet, "work", t, unit) : "",
+    invalid: !!(deckSet && errors[`${deckSet.id}:work`]),
+  };
+  const deckError = deckSet ? (rowErrorFields(errors, deckSet.id).map((f) => errors[`${deckSet.id}:${f}`])[0] ?? null) : null;
+
+  const deckLabel = deckSet && lift ? (deckSet.kind === "warmup" ? "warm-up" : `set ${setLabel(lift, deckSet)}`) : "";
+  const shownText = deckSet && (shownLoadLb != null || shownWork != null) ? setLoadText({ weight_lb: shownLoadLb, reps: isTimed(t) ? null : shownWork, duration_sec: isTimed(t) ? shownWork : null }, t, fmt, unit) : null;
+  const sealDeck = () => {
+    if (!deckSet) return;
+    const now = nowMs();
+    if (now - lastSeal.current < SEAL_GUARD_MS) return;
+    lastSeal.current = now;
+    logSet(deckSet);
+  };
+  const toUpNext = () => {
+    if (!upNext) return;
+    setOpenRef(upNext.id);
+    setSelId(null);
+    scrollToGroup("");
+  };
+  const allLogged = live && !upNext;
+  const upNextGroup = upNext ? groupOf.get(upNext.id) : undefined;
+  let deckKey: DeckKey;
+  if (deckSet && !deckSet.completed) deckKey = { kind: "seal", label: `${live ? "Seal" : "Save"} ${deckLabel}`, detail: shownText, onPress: sealDeck, pulse: keyPulse };
+  else if (allLogged) deckKey = { kind: "hold", label: `Hold to seal ${session.name}`, onHold: () => void finish(), onTap: openFinish, pulse: keyPulse };
+  else if (live && upNext && upNextGroup)
+    deckKey = {
+      kind: "nav",
+      label: upNextGroup.key === lift?.key ? `Back to ${upNext.kind === "warmup" ? "warm-up" : `set ${setLabel(upNextGroup, upNext)}`}` : `Up next · ${upNextGroup.name}`,
+      onPress: toUpNext,
+    };
+  else {
+    // editing a past session: walk the sets, then save
+    const order = groups.flatMap((g) => g.sets);
+    const i = deckSet ? order.findIndex((s) => s.id === deckSet.id) : -1;
+    const nextSet = i >= 0 ? order[i + 1] : undefined;
+    deckKey = nextSet
+      ? {
+          kind: "nav",
+          label: "Next set",
+          onPress: () => {
+            setOpenRef(nextSet.id);
+            setSelId(nextSet.id);
+          },
+        }
+      : { kind: "seal", label: "Save changes", detail: null, onPress: () => void finish(), pulse: keyPulse, disabled: saving };
+  }
+
+  /* tower */
+  const timings = lift ? timingsForGroup(lift.working, bests?.[lift.slug], historyQ.data?.[lift.slug] ?? [], sessionMode) : new Map<string, { timing: SetTiming }>();
+  const cellFor = (s: WSet): TowerCell => {
+    const g = ghosts.get(s.id) ?? NO_GHOST;
+    const w = s.weight_lb != null ? Number(s.weight_lb) : s.completed ? null : g.weight;
+    const work = (isTimed(t) ? s.duration_sec : s.reps) ?? (s.completed ? null : g.work);
+    const ghost = !s.completed && s.weight_lb == null && (isTimed(t) ? s.duration_sec : s.reps) == null;
+    const label = s.kind === "warmup" ? "Warm-up" : `Set ${lift ? setLabel(lift, s) : ""}`;
+    const timing = s.completed && s.kind === "working" ? (timings.get(s.id)?.timing ?? null) : null;
+    const loadStr = hasWeight(t) && w != null && (w > 0 || t !== "bodyweight_reps") ? `${t === "bodyweight_reps" ? "+" : ""}${loadText(w, unit)}` : null;
+    const workStr = work == null ? null : isTimed(t) ? `${work} s` : String(work);
+    const current = s.id === deckSet?.id;
+    const word = s.completed ? (timing ? { record: "record", beat: "beat last time", matched: "matched last time", below: "below last time", first: "first benchmark" }[timing as string] : "logged") : current ? "this set" : "up next";
+    const spokenLoad = loadStr ? `${loadStr} ${unit === "kg" ? "kilograms" : "pounds"}${workStr ? ` for ${workStr}` : ""}` : (workStr ?? "no values yet");
+    return {
+      key: s.id,
+      kind: "set",
+      setId: s.id,
+      label,
+      load: loadStr,
+      work: workStr,
+      ghost,
+      current,
+      logged: s.completed,
+      timing,
+      moment: momentSetId === s.id,
+      spoken: `${label}, ${spokenLoad}${ghost && !s.completed ? ", suggested" : ""}, ${word}`,
+    };
+  };
+  const towerCells: TowerCell[] = (() => {
+    if (!lift || !deckSet) return [];
+    const list = lift.sets;
+    const di = list.findIndex((s) => s.id === deckSet.id);
+    const add: TowerCell = { key: "add", kind: "add", label: "Add set", load: null, work: null, ghost: false, current: false, logged: false, timing: null, spoken: "Add set" };
+    if (di <= 0) {
+      const past = inf?.last[0];
+      const lastCell: TowerCell = {
+        key: "last",
+        kind: "last",
+        label: "Last time",
+        load: past && hasWeight(t) && past.weight_lb ? `${t === "bodyweight_reps" ? "+" : ""}${loadText(past.weight_lb, unit)}` : null,
+        work: past ? (isTimed(t) ? `${past.duration_sec ?? 0} s` : String(past.reps ?? 0)) : null,
+        ghost: true,
+        current: false,
+        logged: false,
+        timing: null,
+        spoken: past ? `Last time, set 1, ${setChip(past, t, fmt)} · ${gymDate(past.local_date).slice(4)}` : "No previous session",
+      };
+      return [lastCell, cellFor(list[0]), list[1] ? cellFor(list[1]) : add];
+    }
+    return [cellFor(list[di - 1]), cellFor(list[di]), list[di + 1] ? cellFor(list[di + 1]) : add];
+  })();
+
+  /* lift header */
+  const suggestion = lift ? (suggestions.get(lift.key) ?? null) : null;
+  const target = suggestion && lift ? targetLine(suggestion, lastRealSession(historyQ.data?.[lift.slug] ?? []), fmt, t) : null;
+  const prior = lift ? bests?.[lift.slug] : undefined;
+  const firstBenchmark = !!prior && prior.sets === 0 && lift?.working.length !== 0 && deckSet?.kind === "working";
+  let carrot: Carrot | null = null;
+  if (lift && deckSet && deckSet.kind === "working" && !deckSet.completed && t === "weight_reps" && prior && prior.sets > 0) {
+    const rr = recordReps(shownLoadLb, runningBest(prior, lift.working.filter((s) => s.completed), deckSet.id));
+    if (rr) carrot = { reps: rr.reps, e1rm: String(Math.round(toDisplayWeight(rr.e1rm, unit))), best: String(Math.round(toDisplayWeight(rr.best, unit))) };
+  }
+  const carrier = lift ? noteCarrier(lift) : null;
+
+  /* plates */
+  const barbell = inf?.lib?.equipment === "barbell" && hasWeight(t);
+  const plateLoad = barbell && displayLoad != null ? platesFor(displayLoad, unit) : null;
+  const posInWorking = lift && deckSet ? lift.working.findIndex((s) => s.id === deckSet.id) : -1;
+  const lastSameLb = inf?.last[Math.max(0, posInWorking)]?.weight_lb ?? inf?.last[0]?.weight_lb ?? null;
+  const plateChange = plateLoad && deckSet?.kind === "working" && lastSameLb != null ? changedPlate(displayLoad, round(toDisplayWeight(Number(lastSameLb), unit), 1), unit) : null;
+  const plateOk = plateLoad && platesLabel(displayLoad!, unit) != null;
+
+  /* frieze */
+  const segments = friezeSegments(groups, deckSet?.kind === "working" ? deckSet.id : null, skipped);
+  const ends = live && !stale ? endsAtOf(session.started_at, typical) : null;
+
+  /* lifts sheet */
+  const liftRows: LiftRow[] = groups.map((g, i) => {
+    const gi = info.get(g.key)!;
+    const state = groupState(g, skipped);
+    const doneLine = g.working.filter((s) => s.completed).map((s) => setChip(s, gi.tracking, fmt));
+    return {
+      key: g.key,
+      index: i + 1,
+      name: g.name,
+      state,
+      current: g.key === lift?.key,
+      detail: g.done ? `${g.done}/${g.total} · ${doneLine.join(" · ")}` : `${g.total} × ${repRange(g.working[0]?.target_rep_low ?? null, g.working[0]?.target_rep_high ?? null, g.working[0]?.target_unit ?? null)}`,
+      record: plaques.some((p) => p.slug === g.slug),
+    };
+  });
 
   const setMenuSet = setMenu ? setMap.get(setMenu) : undefined;
   const noteSet = noteFor ? setMap.get(noteFor) : undefined;
-  const upNextGroup = upNext ? groupOf.get(upNext.id) : undefined;
-  const idleNext =
-    upNext && upNextGroup
-      ? `${upNextGroup.name} · ${upNext.kind === "warmup" ? "Warm-up" : `Set ${setLabel(upNextGroup, upNext)}`}`
-      : null;
+  const plannedRest = deckSet && inf && deckSet.kind === "working" && !deckSet.completed ? restFor(deckSet, inf) : null;
+  const offlineLine = !isOnline || (outbox.pending > 0 && isNetworkError(outbox.error));
+  const showDeck = !!deckSet && !padOpen;
 
   return (
-    // overflow-anchor:none — scroll adjustments are made explicitly (see the warm-up collapse),
-    // so the browser's own anchoring must not apply a second one.
-    <div className="min-h-dvh bg-bg [overflow-anchor:none]">
+    // overflow-anchor:none — scroll adjustments are made explicitly, so the browser's own
+    // anchoring must not apply a second one.
+    <div ref={rootRef} data-mode="gym" className="min-h-dvh bg-obsidian [overflow-anchor:none]">
       {live && <RestWatcher sessionId={id} chimeOn={prefs.restChime} hapticsOn={prefs.haptics} onDone={onRestDone} />}
-      <WorkoutTopBar
+      <GymTopBar
+        ref={headRef}
         name={session.name}
         startedAt={session.started_at}
-        dateLabel={live && !stale ? null : `${dayName(session.local_date, true)} · ${shortDate(session.local_date)}`}
-        segments={segments}
+        dateLabel={live && !stale ? null : gymDate(session.local_date)}
+        awake={awake}
         finishLabel={live ? "Finish" : "Done"}
-        minimizeLabel={live ? "Minimise workout" : "Back to summary"}
+        minimizeLabel={live ? "Minimise workout" : "Back to the session"}
         minimizeIcon={live ? "down" : "close"}
         onMinimize={() => {
           if (pad) commitPad(pad);
@@ -1125,165 +1257,191 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
           if (live) openFinish();
           else void finish();
         }}
-        sync={{ pending: outbox.pending, offline: !isOnline || (outbox.pending > 0 && isNetworkError(outbox.error)), error: outbox.error }}
+        frieze={
+          groups.length > 0 && (
+            <Frieze
+              segments={segments}
+              done={counts.done}
+              total={counts.total}
+              endsAt={ends}
+              typicalMin={typical}
+              templateName={template?.name ?? session.name}
+              onOpen={() => setLiftsOpen(true)}
+            />
+          )
+        }
       />
 
-      <div className="mx-auto w-full max-w-[1120px] px-3 pt-3 sm:px-4 lg:grid lg:grid-cols-[minmax(0,720px)_320px] lg:justify-center lg:gap-8 lg:px-6 lg:pt-6" style={{ paddingBottom: `calc(${bottomPad}px + var(--safe-bottom))` }}>
-        <main className="mx-auto w-full min-w-0 max-w-[720px] space-y-3 lg:mx-0" aria-label="Exercises" onClickCapture={settleGuard}>
-          {stale && (
-            <div className="card-inset flex flex-col gap-3 border border-line-strong p-4" role="status">
-              <div className="flex gap-3">
-                <TriangleAlert className="mt-0.5 size-5 shrink-0 text-gold-300" aria-hidden />
-                <div>
-                  <p className="text-[15px] font-bold text-fg">This session is from {dayName(session.local_date)}, {shortDate(session.local_date)}</p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-fg-2">
-                    {counts.done ? `Finish it to save the ${counts.done} ${counts.done === 1 ? "set" : "sets"} you logged, or discard it.` : "Nothing was logged. Discard it, or finish what you did."}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline-gold" onClick={openFinish}>
-                  Finish
-                </Button>
-                <Button variant="ghost" onClick={() => setDiscardOpen(true)}>
-                  Discard
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {live && (
-            <div className="flex items-center gap-2 px-1 pb-0.5 pt-1 text-[13px] font-medium text-fg-2">
-              <span
-                className={cn(
-                  "inline-flex h-6 shrink-0 items-center rounded-[6px] border px-2 text-[10.5px] font-bold uppercase tracking-[0.1em]",
-                  sessionMode === "standard" ? "border-line text-fg-3" : "border-lapis-line text-lapis-text",
-                )}
-              >
-                {modeLabel(sessionMode)}
-              </span>
-              <span className="min-w-0 flex-1 truncate">{template?.subtitle || "Custom session"}</span>
-              <span className="num shrink-0 text-[15px] text-fg">
-                {counts.done}
-                <span className="text-fg-3">/{counts.total} sets</span>
-              </span>
-            </div>
-          )}
-
-          {warmupShown && (
-            <section ref={warmRef} className="card-instrument overflow-hidden" aria-label="Warm-up">
-              <button
-                type="button"
-                onClick={() => setWarmOpen(!warmExpanded)}
-                aria-expanded={warmExpanded}
-                aria-controls="wk-warmup"
-                className="flex min-h-[56px] w-full items-center gap-3 px-4 text-left"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="eyebrow block">Warm-up</span>
-                  <span className="mt-0.5 block text-[14px] font-semibold text-fg">
-                    {template!.warmup.length} steps · about 10 min{anyLogged ? " · done" : ""}
-                  </span>
-                </span>
-                <ChevronDown className={cn("size-5 text-fg-3 transition-[rotate] duration-(--dur-base) ease-out", warmExpanded && "rotate-180")} aria-hidden />
-              </button>
-              <Collapse open={warmExpanded} id="wk-warmup">
-                <ol className="space-y-2.5 border-t border-line-hair px-4 pb-4 pt-3.5">
-                  {template!.warmup.map((w, i) => (
-                    <li key={i} className="flex gap-3 text-[13.5px] leading-[1.45]">
-                      <span className="num w-4 shrink-0 pt-px text-[14px] font-semibold text-gold-600">{i + 1}</span>
-                      <p className="min-w-0 text-fg-2">
-                        <span className="font-bold text-fg">{w.label}.</span> {w.detail}
-                      </p>
-                    </li>
-                  ))}
-                  <li className="pl-7 pt-0.5 text-[12.5px] leading-relaxed text-fg-3">Sharp or joint pain is a stop sign. Swap or skip the exercise — never train through it.</li>
-                </ol>
-              </Collapse>
-            </section>
-          )}
-
-          {groups.length ? (
-            groups.map(renderGroup)
-          ) : (
-            <div className="card-inset px-5 py-8 text-center">
-              <p className="text-[15px] font-bold text-fg">No exercises in this session</p>
-              <p className="mt-1 text-[13px] text-fg-2">Add one from the library to start logging.</p>
-            </div>
-          )}
-
-          <Button variant="secondary" block className="h-[52px]" onClick={() => setPicker({ mode: "add" })}>
-            <Plus className="size-4" aria-hidden /> Add exercise
-          </Button>
-
-          {!desktop && <SessionNotes notes={notes} onChange={setNotes} onBlur={() => ops.updateSession({ notes: notes.trim() || null })} />}
-
-          {live && (
-            <div className="flex justify-center pt-2">
-              <button type="button" onClick={() => setDiscardOpen(true)} className="h-12 rounded-[12px] px-4 text-[14px] font-bold text-fg-3 hover:text-danger">
-                Discard workout
-              </button>
-            </div>
-          )}
-        </main>
-
-        {desktop && (
-          <aside className="hidden lg:block" aria-label="Session">
-            <div className="sticky top-[calc(var(--safe-top)+80px)] space-y-4">
-              {live && <RestPanel sessionId={id} rest={rest} idleNext={idleNext} onFocus={() => setFocus(true)} />}
-              <section className="card-instrument grid grid-cols-2 gap-x-4 gap-y-5 p-5" aria-label="Session stats">
-                <DeskStat label="Elapsed">{live && !stale ? <ElapsedValue startedAt={session.started_at} /> : <span>{session.duration_sec ? Math.round(session.duration_sec / 60) : "—"}<span className="unit">min</span></span>}</DeskStat>
-                <DeskStat label="Sets">
-                  {counts.done}
-                  <span className="unit">/ {counts.total}</span>
-                </DeskStat>
-                <DeskStat label="Volume">
-                  {totals.volumeLb ? formatInt(toDisplayWeight(totals.volumeLb, unit)) : "—"}
-                  {totals.volumeLb > 0 && <span className="unit">{unit}</span>}
-                </DeskStat>
-                <DeskStat label="Records">{plaques.length || "—"}</DeskStat>
-              </section>
-              <SessionNotes notes={notes} onChange={setNotes} onBlur={() => ops.updateSession({ notes: notes.trim() || null })} />
-            </div>
-          </aside>
+      <main
+        className="relative mx-auto w-full max-w-col px-4"
+        style={{ paddingBottom: padOpen ? "calc(412px + var(--safe-bottom))" : showDeck ? "calc(var(--gym-deck-h, 168px) + 20px)" : "calc(var(--safe-bottom) + 32px)" }}
+        aria-label="Workout"
+        onClickCapture={settleGuard}
+      >
+        {moment && (
+          <div ref={bannerRef} className="absolute inset-x-4 top-2 z-10">
+            <RecordBanner moment={moment} rest={rest} onDismiss={() => setMoment(null)} />
+          </div>
         )}
-      </div>
 
-      {/* Docks: the keypad and the rest dock never overlap. */}
-      {padOpen && pad && padSet && padGroup && padInfo && (
-        <NumberPad
-          title={`${pad.field === "weight" ? (padInfo.tracking === "bodyweight_reps" ? "Added load" : "Weight") : pad.field === "rir" ? "RIR" : isTimed(padInfo.tracking) ? "Seconds" : "Reps"} · ${padSet.kind === "warmup" ? "Warm-up" : `Set ${setLabel(padGroup, padSet)}`} · ${padGroup.name}`}
-          text={pad.text}
-          ghost={ghostTextFor(pad)}
-          unitLabel={pad.field === "weight" ? unit : pad.field === "rir" ? "RIR" : isTimed(padInfo.tracking) ? "s" : "reps"}
-          field={pad.field}
-          error={pad.error}
-          step={nudgeStep(pad.field, { incrementLb: padInfo.lib?.increment ?? 5, unit, timed: isTimed(padInfo.tracking) })}
-          lastText={lastValueFor(pad)}
-          plates={
-            pad.field === "weight" && padInfo.lib?.equipment === "barbell" && !pad.error
-              ? platesLabel(Number(pad.text || ghostTextFor(pad) || 0), unit)
-              : null
-          }
-          logLabel={padSet.completed ? "Save" : "Log set"}
-          onKey={padKey}
-          onNudge={(d) => {
-            const base = pad.text !== "" && !pad.fresh ? pad.text : pad.text || ghostTextFor(pad) || "0";
-            setPad({ ...pad, text: padNudge(base, d, pad.field), fresh: false, error: null });
-          }}
-          onLast={() => {
-            const v = lastValueFor(pad);
-            if (v != null) setPad({ ...pad, text: v, fresh: false, error: null });
-          }}
-          onNext={() => advance(pad)}
-          onLog={padLog}
-          onClose={closePad}
+        {offlineLine && (
+          <p className="t-meta flex min-h-8 items-center gap-2 text-stone" role="status">
+            <CloudOff className="size-3.5 shrink-0" strokeWidth={1.8} aria-hidden />
+            Offline · {outbox.pending > 0 ? `${outbox.pending} ${outbox.pending === 1 ? "change" : "changes"} waiting to sync` : "sets are kept on this phone"}
+          </p>
+        )}
+
+        {stale && (
+          <div className="mt-3 rounded-card bg-m1 p-4 shadow-[inset_0_0_0_1px_var(--vein-3)]" role="status">
+            <div className="flex gap-3">
+              <TriangleAlert className="mt-0.5 size-5 shrink-0 text-stone" strokeWidth={1.6} aria-hidden />
+              <div>
+                <p className="t-title-3 text-ivory">
+                  This session is from {dayName(session.local_date)}, {shortDate(session.local_date)}
+                </p>
+                <p className="t-callout mt-1 text-stone">
+                  {counts.done ? `Seal it to keep the ${counts.done} ${counts.done === 1 ? "set" : "sets"} you logged, or discard it.` : "Nothing was logged. Discard it, or seal what you did."}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={openFinish}>
+                Seal
+              </Button>
+              <Button variant="ghost" onClick={() => setDiscardOpen(true)}>
+                Discard
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {lift && inf ? (
+          <>
+            <LiftHeader
+              index={groups.indexOf(lift) + 1}
+              count={groups.length}
+              muscles={(inf.lib?.primary ?? []).map(muscleLabel)}
+              modeWord={sessionMode !== "standard" ? modeLabel(sessionMode) : null}
+              name={lift.name}
+              target={target}
+              targetLoading={historyQ.isLoading}
+              reason={suggestion ? suggestionReason(suggestion, t, unit) : null}
+              chips={targetChips({ sets: lift.total, low: lift.working[0]?.target_rep_low ?? null, high: lift.working[0]?.target_rep_high ?? null, unit: lift.working[0]?.target_unit ?? null, rir: lift.working[0]?.target_rir ?? null, restSec: lift.working[0]?.rest_sec ?? null })}
+              lastLabel={inf.lastDate ? `Last · ${shortDate(inf.lastDate)}` : null}
+              lastChips={inf.last.map((s, j) => ({ key: `${s.session_id}:${j}`, text: setChip(s, inf.tracking, fmt) }))}
+              onLastChip={(j) => copyPast(lift, j)}
+              templateNote={inf.templateNote}
+              note={carrier?.notes ?? null}
+              onNote={() => carrier && setNoteFor(carrier.id)}
+              warmup={live && !stale && groups.indexOf(lift) === 0 && template?.warmup?.length ? { steps: template.warmup, done: anyLogged } : null}
+              carrot={carrot}
+              firstBenchmark={firstBenchmark}
+              onSwap={() => setPicker({ mode: "replace", key: lift.key })}
+              onHowTo={inf.lib ? () => setHowTo({ slug: lift.slug, name: lift.name, note: inf.templateNote }) : null}
+              onMenu={() => setMenuKey(lift.key)}
+            />
+
+            {live && <RestDial sessionId={id} rest={rest} plannedSec={plannedRest} variant={narrow ? "bar" : "arc"} onZero={onRestZero} />}
+
+            <div className="mt-3 space-y-4">
+              <SetTower
+                cells={towerCells}
+                list={narrow}
+                onSelect={(sid) => {
+                  if (pad && !commitPad(pad)) return;
+                  setPad(null);
+                  setSelId(sid);
+                }}
+                onOptions={(sid) => setSetMenu(sid)}
+                onAdd={() => addSet(lift)}
+              />
+              {plateLoad && plateOk && <Plates load={plateLoad} unit={unit} change={plateChange} drawing={!narrow && plateLoad.perSide.length <= 6} />}
+            </div>
+          </>
+        ) : (
+          <div className="py-16 text-center">
+            <p className="t-title-2 text-ivory">No lifts in this session</p>
+            <p className="t-callout mt-2 text-stone">Add one from the library to start logging.</p>
+            <Button variant="secondary" size="lg" className="mt-6" onClick={() => setPicker({ mode: "add" })}>
+              <Plus className="size-4" aria-hidden /> Add exercise
+            </Button>
+          </div>
+        )}
+      </main>
+
+      {showDeck && (
+        <ThumbDeck
+          ref={deckRef}
+          load={loadField}
+          work={workField}
+          stacked={narrow}
+          error={deckError}
+          deckKey={deckKey}
+          hidden={finishOpen}
+          inputId={deckSet ? deckSet.id : ""}
         />
       )}
-      {restShown && rest && <RestDock sessionId={id} rest={rest} onFocus={() => setFocus(true)} />}
-      {live && rest && focusFor === rest.startSec && <RestFocus sessionId={id} rest={rest} onClose={() => setFocus(false)} />}
+
+      {padOpen && pad && (() => {
+        const padSet = setMap.get(pad.setId);
+        const padGroup = groupOf.get(pad.setId);
+        const padInfo = padGroup ? info.get(padGroup.key) : undefined;
+        if (!padSet || !padGroup || !padInfo) return null;
+        return (
+          <NumberPad
+            title={`${pad.field === "weight" ? (padInfo.tracking === "bodyweight_reps" ? "Added load" : "Weight") : pad.field === "rir" ? "RIR" : isTimed(padInfo.tracking) ? "Seconds" : "Reps"} · ${padSet.kind === "warmup" ? "Warm-up" : `Set ${setLabel(padGroup, padSet)}`} · ${padGroup.name}`}
+            text={pad.text}
+            ghost={ghostTextFor(pad)}
+            unitLabel={pad.field === "weight" ? unit : pad.field === "rir" ? "RIR" : isTimed(padInfo.tracking) ? "s" : "reps"}
+            field={pad.field}
+            error={pad.error}
+            step={nudgeStep(pad.field, { incrementLb: padInfo.lib?.increment ?? 5, unit, timed: isTimed(padInfo.tracking) })}
+            lastText={lastValueFor(pad)}
+            plates={pad.field === "weight" && padInfo.lib?.equipment === "barbell" && !pad.error ? platesLabel(Number(pad.text || ghostTextFor(pad) || 0), unit) : null}
+            logLabel={padSet.completed ? "Save" : live ? "Seal set" : "Save set"}
+            onKey={padKey}
+            onNudge={(d) => {
+              const base = pad.text !== "" && !pad.fresh ? pad.text : pad.text || ghostTextFor(pad) || "0";
+              setPad({ ...pad, text: padNudge(base, d, pad.field), fresh: false, error: null });
+            }}
+            onLast={() => {
+              const v = lastValueFor(pad);
+              if (v != null) setPad({ ...pad, text: v, fresh: false, error: null });
+            }}
+            onNext={() => advance(pad)}
+            onLog={padLog}
+            onClose={closePad}
+          />
+        );
+      })()}
 
       {/* Sheets */}
+      <LiftsSheet
+        open={liftsOpen}
+        onOpenChange={setLiftsOpen}
+        title={session.name}
+        description={`${groups.length} ${groups.length === 1 ? "lift" : "lifts"} · ${counts.done} of ${counts.total} sets`}
+        rows={liftRows}
+        live={live}
+        notes={notes}
+        onNotes={setNotes}
+        onNotesBlur={() => ops.updateSession({ notes: notes.trim() || null })}
+        onPick={(key) => {
+          const g = groups.find((x) => x.key === key);
+          if (g) openGroupKey(g);
+          setLiftsOpen(false);
+        }}
+        onResume={(key) => {
+          const g = groups.find((x) => x.key === key);
+          if (g) toggleSkip(g);
+          setLiftsOpen(false);
+        }}
+        onAdd={() => setPicker({ mode: "add" })}
+        onDiscard={() => {
+          setLiftsOpen(false);
+          setDiscardOpen(true);
+        }}
+      />
       {menuGroup && (
         <ExerciseMenuSheet
           open={!!menuGroup}
@@ -1345,6 +1503,11 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
             <SetSheetActions
               warm={setMenuSet.kind === "warmup"}
               canToggle
+              logged={setMenuSet.completed}
+              onUnlog={() => {
+                setSetMenu(null);
+                unlog(setMenuSet);
+              }}
               onToggleKind={() => {
                 const k = setMenuSet.kind === "warmup" ? "working" : "warmup";
                 ops.updateSet(setMenuSet.id, { kind: k });
@@ -1361,14 +1524,20 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
           }
         />
       )}
-      <FinishSheet
+      <SealPanel
         open={finishOpen}
         onOpenChange={setFinishOpen}
+        name={session.name}
         logged={sets.filter((s) => s.completed && s.kind === "working").length}
+        planned={counts.total}
         unlogged={sets.filter((s) => !s.completed).length}
         saving={saving}
         error={finishError}
-        onSave={finish}
+        onSeal={() => void finish()}
+        onLogFirst={() => {
+          setFinishOpen(false);
+          toUpNext();
+        }}
         onDiscard={() => {
           setFinishOpen(false);
           setDiscardOpen(true);
@@ -1376,45 +1545,5 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       />
       <DiscardSheet open={discardOpen} onOpenChange={setDiscardOpen} logged={counts.done} busy={discarding} onConfirm={discard} />
     </div>
-  );
-}
-
-function ElapsedValue({ startedAt }: { startedAt: string }) {
-  const now = useClockSec();
-  const m = Math.max(0, Math.floor((now - Math.floor(Date.parse(startedAt) / 1000)) / 60));
-  return (
-    <span>
-      {m}
-      <span className="unit">min</span>
-    </span>
-  );
-}
-
-function DeskStat({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <p className="eyebrow">{label}</p>
-      <p className="num-md mt-1.5 truncate text-fg">{children}</p>
-    </div>
-  );
-}
-
-function SessionNotes({ notes, onChange, onBlur }: { notes: string; onChange: (v: string) => void; onBlur: () => void }) {
-  return (
-    <section className="card-instrument p-4" aria-label="Session notes">
-      <label htmlFor="session-notes" className="eyebrow mb-2 block">
-        Session notes
-      </label>
-      <Textarea
-        id="session-notes"
-        value={notes}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlur}
-        placeholder="Energy, sleep, anything that affected today"
-        rows={3}
-        maxLength={2000}
-        className="min-h-20 bg-s2"
-      />
-    </section>
   );
 }
