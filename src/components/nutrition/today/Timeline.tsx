@@ -351,14 +351,14 @@ function PlannedRow({ row, eaten, onMenu, onChanged }: { row: Extract<Row, { kin
               {p.name}
               {p.servings !== 1 && <span className="t-callout ml-1.5 whitespace-nowrap text-stone">×{fractionText(p.servings)}</span>}
             </span>
-            <span className="t-meta flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 pr-[5.5rem] text-stone">
+            <span className="t-meta flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 pr-[5.5rem] text-stone @max-[19rem]:min-h-0 @max-[19rem]:pr-0 @max-[19rem]:pt-1">
               <span className="tnum">
                 {formatInt(p.kcal)} kcal · {Math.round(p.protein)} g{missed ? " · not logged" : ""}
               </span>
               <Tag kind="PLAN" />
             </span>
           </button>
-          <EatenButton meal={meal} gold={row.due} onChanged={onChanged} className="absolute bottom-0 right-0" />
+          <EatenButton meal={meal} gold={row.due} onChanged={onChanged} className="absolute bottom-0 right-0 @max-[19rem]:static @max-[19rem]:mt-1.5 @max-[19rem]:items-start" />
         </div>
         {consequence && (
           <p className="t-meta mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-stone">

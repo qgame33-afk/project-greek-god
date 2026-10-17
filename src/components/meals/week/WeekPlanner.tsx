@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { BackLink } from "@/components/shell/BackLink";
 import { useSearchParams } from "next/navigation";
-import { CalendarPlus, ChevronLeft, ChevronRight, Info, Plus, RefreshCw, ShoppingBasket, SlidersHorizontal, X, type LucideIcon } from "lucide-react";
+import { CalendarPlus, ChefHat, ChevronRight, Moon, Plus, RefreshCw, ShoppingBasket, SlidersHorizontal, X, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { useTypicalDurations } from "@/components/training/hooks";
 import { Segmented } from "@/components/ui/controls";
 import { ErrorNote, Skeleton } from "@/components/ui/misc";
-import { Confirm } from "@/components/ui/sheet";
+import { Confirm, Sheet } from "@/components/ui/sheet";
+import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
 import { newId } from "@/lib/data/core";
 import {
@@ -17,6 +18,7 @@ import {
   useDeletePlannedMeal,
   useGroceryItems,
   usePlan,
+  usePlannedPortions,
   useSaveMealPrefs,
   useSavePlan,
   useToggleFavourite,
@@ -24,27 +26,40 @@ import {
   type NewFeedback,
   type PlanMeal,
 } from "@/lib/data/meals";
-import { addDays, dayName, shortDate, type ISODate } from "@/lib/dates";
+import { useProfile } from "@/lib/data/profile";
+import { planFor, useDayPlans, useTemplates, useVolleyball } from "@/lib/data/training";
+import { addDays, dayName, parseISODate, shortDate, type ISODate } from "@/lib/dates";
+import { planFollowed, planFollowedLabel } from "@/lib/adherence";
+import { coinStatus, mosaicRows, nextMealId, placeKey, planAverage, planPercent, type CoinStatus } from "@/lib/fuel/mosaic";
 import { dayTotals, feedbackFor, generateWeek, lockMeal, moveMeal, regenerateMeal, regenerateReasonFeedback, repeatMeal, type EngineMeal } from "@/lib/meals/engine";
 import { ingredientName } from "@/lib/meals/ingredients";
-import { recipeFeatures } from "@/lib/meals/recipe";
+import { makeAheadOf, recipeFeatures, recipeMacros } from "@/lib/meals/recipe";
 import type { FeedbackReason, MealPrefs, Slot } from "@/lib/meals/types";
 import { useSwapIn } from "@/lib/motion";
-import { SLOT_LABEL } from "../shared/format";
-import { DayList, DayStrip, type DayInfo } from "./DayPicker";
-import { DayTotals } from "./DayTotals";
+import { plannedTime, type MealRole } from "@/lib/now/meal-times";
+import { effectiveTrainAt, formatClock, parseAppPrefs, toMinutes } from "@/lib/prefs";
+import { estimateDurationMin } from "@/lib/training/program";
+import { formatInt } from "@/lib/units";
+import { useMinuteNow } from "@/components/nutrition/today/useFuelDay";
+import { useEatenChanged } from "../shared/EatenButton";
+import { SLOT_LABEL, slotTitle } from "../shared/format";
+import { recipeHref } from "../shared/RecipeCard";
 import { DislikeSheet } from "./DislikeSheet";
 import { useAddPlannedMeals, usePlannerData, useRemovePlannedMeals } from "./hooks";
 import { MealMenuSheet } from "./MealMenuSheet";
-import { conflictsInWeek, currentThumb, dayFit, MAIN_SLOTS, midWeekNote, missingMainSlots, notedText, reasonWantsRepick, thumbRows, weekNotes, weekRangeLabel, type Thumb } from "./model";
+import { EmptySlotRow, MealRow } from "./MealRow";
+import { Mosaic, type MosaicDay } from "./Mosaic";
+import { conflictsInWeek, currentThumb, MAIN_SLOTS, midWeekNote, missingMainSlots, notedText, reasonWantsRepick, thumbRows, weekNotes, weekRangeLabel, type Thumb } from "./model";
 import { ConflictBanner, EmptyWeek, NeedsGoals, prefsSummary } from "./Panels";
-import { EmptySlotCard, PlannedMealCard } from "./PlannedMealCard";
 import { RegenStrip, type StripPhase } from "./RegenStrip";
 
 /** The shimmer shows at least this long, so a swap reads as "found you another" rather than a flicker. */
 const MIN_REGEN_MS = 340;
 /** A recorded reason folds the strip away after this long (the meal is kept). */
 const NOTED_MS = 3600;
+
+const ROLE_SPOKEN: Partial<Record<MealRole, string>> = { pre: "pre-workout", post: "post-workout", snack: "snack", breakfast: "breakfast", lunch: "lunch", dinner: "dinner" };
+const ROLE_EYEBROW: Partial<Record<MealRole, string>> = { pre: "pre-workout", post: "post-workout" };
 
 type MealPlace = Pick<PlanMeal, "recipe_key" | "servings" | "reason" | "history">;
 
@@ -64,10 +79,11 @@ interface StripState {
 const placeOf = (m: MealPlace): MealPlace => ({ recipe_key: m.recipe_key, servings: m.servings, reason: m.reason, history: m.history });
 
 /**
- * /nutrition/meals — MEALS · YOUR WEEK, FUELLED (docs/MEALS.md §6). This week / next week, a
- * Mon–Sun picker, the day's planned meals with Regenerate meal on every card, planned totals
- * against the goals (never counted as eaten), and the week's tools. URL: ?week=next, ?day=,
- * ?generate=1 (plan this week straight away, from the Fuel entry card).
+ * Fuel → Week: THE WEEK'S TABLE (docs/DESIGN-V2.md §3.5.2). A coin mosaic of the plan (eaten coins
+ * wear leaf rims, planned ones are ivory, missed ones dashed), the plan's daily average (PLAN) and
+ * "Plan followed X of Y" (CALC), then the selected day's meals with Eaten / Cook / ⋯ (swap with a
+ * one-tap why, lock, move, repeat, like, favourite, remove), the Market and Cook-ahead tiles and
+ * the week's tools. The planner engine is unchanged. URL: ?week=next, ?day=, ?generate=1.
  */
 export function WeekPlanner() {
   const params = useSearchParams();
@@ -107,19 +123,76 @@ export function WeekPlanner() {
   /* ----------------------------------------------------------- derived */
 
   const totals = useMemo(() => dayTotals(meals, lookup), [meals, lookup]);
-  const days: DayInfo[] = useMemo(
+  const loggedSet = useMemo(() => new Set(data.loggedIds), [data.loggedIds]);
+
+  // his times: each meal placed with plannedTime() on its day (the training day moves the pre-workout snack)
+  const { profile } = useProfile();
+  const { byKey } = useTemplates();
+  const dayPlans = useDayPlans(ws, addDays(ws, 6));
+  const vb = useVolleyball(ws, addDays(ws, 6));
+  const typical = useTypicalDurations();
+  const portions = usePlannedPortions(ws);
+  const now = useMinuteNow();
+  const schedule = useMemo(() => parseAppPrefs(profile?.prefs).day, [profile?.prefs]);
+  const dayInfo = useMemo(() => {
+    const appPrefs = parseAppPrefs(profile?.prefs);
+    const trainAt = profile ? effectiveTrainAt(appPrefs, profile.reminders) : null;
+    const trainMin = trainAt ? toMinutes(trainAt) : Number.NaN;
+    const vbDates = new Set((vb.data ?? []).map((v) => v.local_date));
+    return week.days.map((date) => {
+      const p = profile ? planFor(date, profile, dayPlans.data ?? [], byKey) : null;
+      const template = p?.template ?? null;
+      const train = template ? { at: Number.isNaN(trainMin) ? null : trainMin, durationMin: typical[template.key] ?? estimateDurationMin(template) } : null;
+      return { date, session: template?.name ?? null, train, volleyball: vbDates.has(date) };
+    });
+  }, [profile, dayPlans.data, byKey, vb.data, typical, week.days]);
+  const placed = useMemo(
     () =>
-      week.days.map((date) => {
-        const n = meals.filter((m) => m.local_date === date).length;
-        return { date, meals: n, planned: totals[date], fit: dayFit(totals[date], goals, n) };
+      meals.map((m) => {
+        const di = dayInfo.find((x) => x.date === m.local_date);
+        const t = plannedTime({ slot: m.slot, position: m.position }, { schedule, snacksPerDay: prefs.snacksPerDay, train: di?.train ?? null });
+        return { meal: m, at: t.at, role: t.role };
       }),
-    [week.days, meals, totals, goals],
+    [meals, dayInfo, schedule, prefs.snacksPerDay],
   );
+  const status = useMemo(() => {
+    const out = new Map<string, CoinStatus>();
+    for (const p of placed) {
+      const logged = portions.portions[p.meal.id] ?? (loggedSet.has(p.meal.id) ? [{ amount: p.meal.servings, unit: "serving" }] : []);
+      out.set(p.meal.id, coinStatus({ id: p.meal.id, local_date: p.meal.local_date, at: p.at, servings: p.meal.servings, logged }, today, now));
+    }
+    const todays = placed.filter((p) => p.meal.local_date === today).map((p) => ({ id: p.meal.id, at: p.at, eaten: loggedSet.has(p.meal.id) }));
+    const next = nextMealId(todays, now);
+    if (next && out.get(next) === "planned") out.set(next, "next");
+    return out;
+  }, [placed, portions.portions, loggedSet, today, now]);
+  const rows = useMemo(() => mosaicRows(meals, schedule, prefs.snacksPerDay), [meals, schedule, prefs.snacksPerDay]);
+  const mosaicDays: MosaicDay[] = useMemo(
+    () =>
+      dayInfo.map((di) => {
+        const cells: MosaicDay["cells"] = {};
+        for (const p of placed) {
+          if (p.meal.local_date !== di.date) continue;
+          const key = placeKey(p.meal.slot, p.meal.position);
+          if (cells[key]) continue;
+          const recipe = lookup(p.meal.recipe_key);
+          const macros = recipe ? recipeMacros(recipe, p.meal.servings) : null;
+          cells[key] = { id: p.meal.id, recipeKey: p.meal.recipe_key, recipe, name: recipe?.name ?? "Planned meal", kcal: macros?.kcal ?? 0, protein: macros?.protein ?? 0, at: p.at, status: status.get(p.meal.id) ?? "planned", role: p.role };
+        }
+        return { date: di.date, session: di.session, volleyball: di.volleyball, percent: planPercent(totals[di.date]?.kcal, goals?.kcal ?? 0), cells };
+      }),
+    [dayInfo, placed, lookup, status, totals, goals],
+  );
+  const followed = useMemo(() => planFollowed(placed.map((p) => ({ id: p.meal.id, local_date: p.meal.local_date, at: p.at })), loggedSet, today, now), [placed, loggedSet, today, now]);
+  const average = useMemo(() => planAverage(totals), [totals]);
+  const mosaicLabel = useMemo(() => {
+    const eaten = [...status.values()].filter((s) => s === "eaten" || s === "changed").length;
+    const nextP = placed.find((p) => status.get(p.meal.id) === "next");
+    const nextText = nextP ? `; ${dayName(nextP.meal.local_date)} ${ROLE_SPOKEN[nextP.role] ?? nextP.meal.slot} is next` : "";
+    return meals.length ? `${eaten} of ${meals.length} planned meals eaten this week${nextText}` : "No meals planned this week";
+  }, [status, placed, meals.length]);
   const dayMeals = useMemo(() => meals.filter((m) => m.local_date === selected), [meals, selected]);
   const snacks = dayMeals.filter((m) => m.slot === "snack");
-  const loggedSet = useMemo(() => new Set(data.loggedIds), [data.loggedIds]);
-  // the part of each day's plan not in the food log yet ("still planned")
-  const aheadTotals = useMemo(() => dayTotals(meals.filter((m) => !loggedSet.has(m.id)), lookup), [meals, loggedSet, lookup]);
   // a rule added after planning (an allergy, a dislike) flags what it breaks on every card not
   // logged yet; the banner offers to replace the ones from today on
   const conflictsAny = useMemo(() => conflictsInWeek(meals.filter((m) => !loggedSet.has(m.id)), lookup, prefs), [meals, loggedSet, lookup, prefs]);
@@ -144,7 +217,8 @@ export function WeekPlanner() {
     if (day && day !== (o === 0 ? today : null)) sp.set("day", day);
     else sp.delete("day");
     const qs = sp.toString();
-    window.history.replaceState(window.history.state, "", qs ? `/nutrition/meals?${qs}` : "/nutrition/meals");
+    const path = window.location.pathname;
+    window.history.replaceState(window.history.state, "", qs ? `${path}?${qs}` : path);
   };
 
   const selectDay = (d: ISODate) => {
@@ -463,189 +537,223 @@ export function WeekPlanner() {
   const thumb = menuMeal ? currentThumb(feedback, menuMeal.recipe_key).thumb : null;
   const groceryLive = grocery.items.filter((i) => !i.removed);
   const toBuy = groceryLive.filter((i) => !i.checked && !i.have).length;
+  const menuPlaced = menuMeal ? placed.find((p) => p.meal.id === menuMeal.id) : undefined;
+  const menuRecipe = menuMeal ? lookup(menuMeal.recipe_key) : undefined;
+  const menuMacros = menuRecipe && menuMeal ? recipeMacros(menuRecipe, menuMeal.servings) : null;
+  const changed = useEatenChanged(
+    menuMeal
+      ? { id: menuMeal.id, slot: menuMeal.slot, local_date: menuMeal.local_date, servings: menuMeal.servings, recipe: menuRecipe, name: menuRecipe?.name ?? "Planned meal", kcal: menuMacros?.kcal ?? 0, protein: menuMacros?.protein ?? 0, at: menuPlaced?.at }
+      : { id: "", slot: "lunch", local_date: today, servings: 1, recipe: null, name: "", kcal: 0, protein: 0 },
+  );
+
+  // the selected day in time order, with a row for a missing main meal at its time
+  const dayPlaced = placed.filter((p) => p.meal.local_date === selected).sort((a, b) => a.at - b.at || a.meal.position - b.meal.position);
+  const missing = missingMainSlots(dayMeals).map((slot) => ({ slot, at: plannedTime({ slot, position: 0 }, { schedule, snacksPerDay: prefs.snacksPerDay, train: null }).at }));
+  const dayItems: ({ kind: "meal"; p: (typeof placed)[number] } | { kind: "empty"; slot: Slot; at: number })[] = [
+    ...dayPlaced.map((p) => ({ kind: "meal" as const, p })),
+    ...missing.map((m) => ({ kind: "empty" as const, slot: m.slot, at: m.at })),
+  ].sort((a, b) => (a.kind === "meal" ? a.p.at : a.at) - (b.kind === "meal" ? b.p.at : b.at));
+  const dayEaten = dayPlaced.filter((p) => loggedSet.has(p.meal.id)).length;
+  const aheadMeals = placed.filter((p) => p.meal.local_date >= today && !loggedSet.has(p.meal.id) && makeAheadOf(lookup(p.meal.recipe_key) ?? { steps: [] }));
 
   return (
-    <div className="mx-auto max-w-[1120px] pb-4">
-      <BackLink href="/nutrition" className="-ml-2 inline-flex h-11 items-center gap-1 rounded-[12px] pr-3 text-[14px] font-semibold text-fg-2 hover:text-fg">
-        <ChevronLeft className="size-5" aria-hidden />
-        Fuel
-      </BackLink>
-      <header className="mt-1 mb-5 flex items-end justify-between gap-3 lg:mb-7">
+    <div className="@container pb-4">
+      <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="eyebrow mb-2">Meals</p>
-          <h1 className="t-title">Your week, fuelled</h1>
+          <h1 className="t-title-1 text-ivory">The week&apos;s table</h1>
+          <p className="t-meta mt-1 text-stone">
+            {range}
+            {hasWeek ? ` · ${meals.length} meals` : ""}
+          </p>
         </div>
-        <div className="-mr-2 flex shrink-0 items-center lg:hidden">
-          <IconLink href="/nutrition/meals/grocery" icon={ShoppingBasket} label="Grocery list" />
-          <IconLink href="/nutrition/meals/preferences" icon={SlidersHorizontal} label="Meal preferences" />
-        </div>
+        <Link
+          href="/nutrition/meals/preferences"
+          aria-label="Meal preferences"
+          className="press -mr-1 grid size-11 shrink-0 place-items-center rounded-full text-stone shadow-[inset_0_0_0_1px_var(--vein-3)] hover:text-ivory"
+        >
+          <SlidersHorizontal className="size-5" strokeWidth={1.6} aria-hidden />
+        </Link>
       </header>
 
-      <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-7">
-        {/* week + days */}
-        <aside className="flex flex-col gap-3 lg:sticky lg:top-6 lg:col-span-4 lg:gap-4">
-          <div className="flex items-center gap-3">
-            <Segmented<"this" | "next">
-              value={offset === 0 ? "this" : "next"}
-              onChange={(v) => switchWeek(v === "this" ? 0 : 1)}
-              options={[
-                { value: "this", label: "This week" },
-                { value: "next", label: "Next week" },
-              ]}
-              ariaLabel="Week"
-              className="w-[220px] shrink-0 lg:w-auto lg:flex-1"
-            />
-            <p className="ml-auto whitespace-nowrap text-right text-[13px] font-semibold text-fg-2 lg:hidden">{range}</p>
-          </div>
-          <p className="hidden text-[13px] font-semibold text-fg-2 lg:block">{range}</p>
-          {hasWeek && (
-            <>
-              <DayStrip days={days} today={today} selected={selected} onSelect={selectDay} className="lg:hidden" />
-              <div className="card-instrument hidden p-1.5 lg:block">
-                <DayList days={days} today={today} selected={selected} onSelect={selectDay} proteinGoal={goals?.protein ?? 0} />
-              </div>
-            </>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <Segmented<"this" | "next">
+          size="sm"
+          value={offset === 0 ? "this" : "next"}
+          onChange={(v) => switchWeek(v === "this" ? 0 : 1)}
+          options={[
+            { value: "this", label: "This week" },
+            { value: "next", label: "Next week" },
+          ]}
+          ariaLabel="Week"
+          className="w-[13.5rem]"
+        />
+      </div>
+
+      {hasWeek && (average || followed.due > 0) && (
+        <div className="t-callout mt-4 flex flex-col gap-2 text-stone">
+          {average && (
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <Tag kind="PLAN" />
+              <span>
+                avg <span className="tnum font-semibold text-ivory">{formatInt(average.kcal)}</span> kcal · <span className="tnum font-semibold text-ivory">{average.protein} g</span> protein a day
+              </span>
+            </p>
           )}
-          <WeekTools
-            className="hidden lg:block"
-            hasWeek={hasWeek}
-            offset={offset}
-            lockedCount={lockedCount}
-            loggedCount={loggedCount}
-            nextRange={weekRangeLabel(nextWs)}
-            nextPlanned={nextPlan.meals.length > 0}
-            groceryDetail={!hasWeek ? "Plan a week first" : groceryLive.length ? `${toBuy} to buy` : "Built from this week's meals"}
-            prefsDetail={prefsSummary(prefs)}
-            disabled={!ready || generating}
-            onRegenerateWeek={() => setConfirmWeek(true)}
-            onNextWeek={generateNextWeek}
-          />
-        </aside>
+          {offset === 0 && (
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <Tag kind="CALC" explain={`Planned meals with a food-log entry linked to them, out of those that were due (past days, and today's from 2 h after their time): ${followed.done} of ${followed.due}.`} />
+              <span>{planFollowedLabel(followed)}</span>
+            </p>
+          )}
+        </div>
+      )}
 
-        {/* the day */}
-        <section className="mt-4 min-w-0 lg:col-span-8 lg:mt-0" aria-label={hasWeek ? `${dayName(selected)} ${shortDate(selected, today)}` : "Plan"}>
-          {data.error ? (
-            <ErrorNote onRetry={() => void data.refetchPlan()}>Couldn&apos;t load your plan. Check your connection.</ErrorNote>
-          ) : loadingWeek ? (
-            <WeekSkeleton />
-          ) : !hasGoals ? (
-            <NeedsGoals />
-          ) : !hasWeek ? (
-            goals && (
-              <EmptyWeek
-                range={range}
-                goals={goals}
-                prefs={prefs}
-                prefsSaved={data.prefsSaved}
-                ready={ready}
-                busy={generating}
-                fromToday={!!midWeek}
-                onGenerate={() => void generate("first")}
-                onGenerateWhole={midWeek ? () => void generate("first", true) : undefined}
-              />
-            )
-          ) : (
-            <div className="flex flex-col gap-3">
-              {note && note.week === ws && (
-                <div className="flex items-start gap-3 rounded-[14px] border border-lapis-line bg-lapis-tint py-2.5 pr-1 pl-3.5" role="status">
-                  <Info className="mt-1 size-4 shrink-0 text-lapis-text" aria-hidden />
-                  <div className="min-w-0 flex-1 py-1">
-                    <p className="text-[13px] font-medium leading-snug text-fg-2">{note.text}</p>
-                    {note.wholeWeekOffer && midWeek && (
-                      <button
-                        type="button"
-                        onClick={() => void generate("fill", true)}
-                        disabled={generating}
-                        className="press -ml-1 mt-1 inline-flex min-h-11 items-center gap-1 rounded-[10px] px-1 text-[13.5px] font-bold text-lapis-text hover:text-fg disabled:opacity-50"
-                      >
-                        Plan {midWeek.earlier} too
-                        <ChevronRight className="size-4" aria-hidden />
-                      </button>
-                    )}
-                  </div>
-                  <button type="button" onClick={() => setNote(null)} aria-label="Dismiss" className="press grid size-11 shrink-0 place-items-center rounded-[12px] text-fg-3 hover:text-fg">
-                    <X className="size-4" />
+      <div className="mt-5">
+        {data.error ? (
+          <ErrorNote onRetry={() => void data.refetchPlan()}>Couldn&apos;t load your plan. Check your connection.</ErrorNote>
+        ) : loadingWeek ? (
+          <WeekSkeleton />
+        ) : !hasGoals ? (
+          <NeedsGoals />
+        ) : (
+          <Mosaic rows={rows} days={mosaicDays} today={today} selected={selected} onSelect={selectDay} label={mosaicLabel} empty={!hasWeek} />
+        )}
+      </div>
+
+      {!data.error && !loadingWeek && hasGoals && !hasWeek && goals && (
+        <EmptyWeek
+          range={range}
+          goals={goals}
+          prefs={prefs}
+          prefsSaved={data.prefsSaved}
+          ready={ready}
+          busy={generating}
+          fromToday={!!midWeek}
+          onGenerate={() => void generate("first")}
+          onGenerateWhole={midWeek ? () => void generate("first", true) : undefined}
+        />
+      )}
+
+      {!data.error && !loadingWeek && hasGoals && hasWeek && (
+        <>
+          {note && note.week === ws && (
+            <div className="mt-5 flex items-start gap-2 rounded-field bg-m2 py-1 pl-3.5 pr-1 shadow-[inset_0_0_0_1px_var(--vein-2)]" role="status">
+              <div className="min-w-0 flex-1 py-2.5">
+                <p className="t-meta text-stone">{note.text}</p>
+                {note.wholeWeekOffer && midWeek && (
+                  <button
+                    type="button"
+                    onClick={() => void generate("fill", true)}
+                    disabled={generating}
+                    className="press t-callout -ml-1 mt-1 inline-flex min-h-11 items-center gap-1 rounded-field px-1 font-semibold text-ivory disabled:opacity-50"
+                  >
+                    Plan {midWeek.earlier} too
+                    <ChevronRight className="size-4" strokeWidth={1.6} aria-hidden />
                   </button>
-                </div>
-              )}
-              {conflicts.length > 0 && (
-                <ConflictBanner count={conflicts.length} examples={conflicts.map((c) => `${lookup(c.meal.recipe_key)?.name ?? "A meal"}: ${c.text}`)} replaceable={replaceable.length} busy={false} onReplace={replaceConflicts} />
-              )}
-
-              <div ref={dayRef} className="flex flex-col gap-3">
-                <DayHeading date={selected} today={today} />
-                <DayTotals planned={totals[selected]} ahead={aheadTotals[selected]} goals={goals} meals={dayMeals.length} logged={dayMeals.filter((m) => loggedSet.has(m.id)).length} />
-                <div className="flex flex-col gap-3">
-                  {orderedPlaces(dayMeals, missingMainSlots(dayMeals)).map((p, i) =>
-                    p.kind === "empty" ? (
-                      <EmptySlotCard key={`empty-${p.slot}`} slot={p.slot} busy={!plan?.id || addPlanned.isPending} onFill={() => fillSlot(p.slot)} />
-                    ) : (
-                      <PlannedMealCard
-                        key={`${appear}:${p.meal.id}`}
-                        meal={p.meal}
-                        recipe={lookup(p.meal.recipe_key)}
-                        snacksThatDay={snacks.length}
-                        logged={loggedSet.has(p.meal.id)}
-                        busy={!!busy[p.meal.id]}
-                        conflict={conflictById.get(p.meal.id)}
-                        appear={appear > 0 ? i : null}
-                        onRegenerate={() => regenerate(p.meal)}
-                        onToggleLock={() => toggleLock(p.meal)}
-                        onMenu={() => openMenu(p.meal)}
-                        onOpen={() => closeStrip("kept")}
-                        strip={
-                          strip && strip.mealId === p.meal.id ? (
-                            <RegenStrip
-                              fromName={lookup(strip.from.recipe_key)?.name ?? "the last pick"}
-                              phase={strip.phase}
-                              noted={strip.noted}
-                              chosen={strip.chosen}
-                              onUndo={() => closeStrip("undo")}
-                              onReason={chooseReason}
-                              onClose={() => closeStrip("kept")}
-                            />
-                          ) : null
-                        }
-                      />
-                    ),
-                  )}
-                  {snacks.length < prefs.snacksPerDay && dayMeals.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => fillSlot("snack")}
-                      disabled={!plan?.id || addPlanned.isPending}
-                      className="press-soft flex min-h-14 items-center justify-center gap-2 rounded-[16px] border border-dashed border-line-strong text-[14px] font-bold text-fg-2 hover:text-fg disabled:opacity-50"
-                    >
-                      <Plus className="size-4 text-gold-300" aria-hidden />
-                      Add a snack
-                    </button>
-                  )}
-                </div>
+                )}
               </div>
+              <button type="button" onClick={() => setNote(null)} aria-label="Dismiss" className="press grid size-11 shrink-0 place-items-center rounded-full text-stone hover:text-ivory">
+                <X className="size-4" strokeWidth={1.6} />
+              </button>
+            </div>
+          )}
+          {conflicts.length > 0 && (
+            <div className="mt-5">
+              <ConflictBanner count={conflicts.length} examples={conflicts.map((c) => `${lookup(c.meal.recipe_key)?.name ?? "A meal"}: ${c.text}`)} replaceable={replaceable.length} busy={false} onReplace={replaceConflicts} />
             </div>
           )}
 
-          <WeekTools
-            className="mt-6 lg:hidden"
-            hasWeek={hasWeek}
-            offset={offset}
-            lockedCount={lockedCount}
-            loggedCount={loggedCount}
-            nextRange={weekRangeLabel(nextWs)}
-            nextPlanned={nextPlan.meals.length > 0}
-            groceryDetail={!hasWeek ? "Plan a week first" : groceryLive.length ? `${toBuy} to buy` : "Built from this week's meals"}
-            prefsDetail={prefsSummary(prefs)}
-            disabled={!ready || generating}
-            onRegenerateWeek={() => setConfirmWeek(true)}
-            onNextWeek={generateNextWeek}
-          />
-          {hasWeek && (
-            <p className="mt-4 px-1 text-center text-[12px] font-medium leading-relaxed text-fg-3 lg:text-left">
-              Planned meals are not eaten food. Add a meal to your food log from its recipe. Nutrition is an estimate from the ingredient database.
-            </p>
-          )}
-        </section>
-      </div>
+          <section ref={dayRef} className="mt-7" aria-labelledby="week-day-title">
+            <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1 border-b border-vein pb-2">
+              <h2 id="week-day-title" className="t-title-2 text-ivory">
+                {dayName(selected)}
+                <span className="text-stone"> · {selected === today ? "today" : selected === addDays(today, 1) ? "tomorrow" : shortDate(selected, today)}</span>
+              </h2>
+              <p className="t-meta tnum shrink-0 pb-0.5 text-stone">
+                {dayPlaced.length ? `${dayEaten} of ${dayPlaced.length} eaten` : "nothing planned"}
+                {totals[selected] ? ` · ${formatInt(totals[selected]!.kcal)} kcal` : ""}
+              </p>
+            </div>
+            <ul className="divide-y divide-vein">
+              {dayItems.map((it, i) =>
+                it.kind === "empty" ? (
+                  <EmptySlotRow key={`empty-${it.slot}`} slot={it.slot} busy={!plan?.id || addPlanned.isPending} onFill={() => fillSlot(it.slot)} />
+                ) : (
+                  <MealRow
+                    key={`${appear}:${it.p.meal.id}`}
+                    meal={it.p.meal}
+                    recipe={lookup(it.p.meal.recipe_key)}
+                    title={slotTitle(it.p.meal.slot, it.p.meal.position, snacks.length)}
+                    at={it.p.at}
+                    role={ROLE_EYEBROW[it.p.role] ?? null}
+                    status={status.get(it.p.meal.id) ?? "planned"}
+                    isPast={selected < today}
+                    isFuture={selected > today}
+                    busy={!!busy[it.p.meal.id]}
+                    conflict={conflictById.get(it.p.meal.id)}
+                    appear={appear > 0 ? i : null}
+                    onMenu={() => openMenu(it.p.meal)}
+                    onEatenChanged={() => {
+                      setMenuId(it.p.meal.id);
+                      changed.setOpen(true);
+                    }}
+                    onOpen={() => closeStrip("kept")}
+                    strip={
+                      strip && strip.mealId === it.p.meal.id ? (
+                        <RegenStrip
+                          fromName={lookup(strip.from.recipe_key)?.name ?? "the last pick"}
+                          phase={strip.phase}
+                          noted={strip.noted}
+                          chosen={strip.chosen}
+                          onUndo={() => closeStrip("undo")}
+                          onReason={chooseReason}
+                          onClose={() => closeStrip("kept")}
+                        />
+                      ) : null
+                    }
+                  />
+                ),
+              )}
+            </ul>
+            {snacks.length < prefs.snacksPerDay && dayMeals.length > 0 && (
+              <button
+                type="button"
+                onClick={() => fillSlot("snack")}
+                disabled={!plan?.id || addPlanned.isPending}
+                className="press-soft t-callout mt-1 flex min-h-14 w-full items-center justify-center gap-2 rounded-btn font-semibold text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory disabled:opacity-50"
+              >
+                <Plus className="size-4" strokeWidth={1.6} aria-hidden />
+                Add a snack
+              </button>
+            )}
+          </section>
+
+          <div className="mt-7 grid grid-cols-2 gap-3 @max-[19rem]:grid-cols-1">
+            <Tile
+              href="/nutrition?tab=market"
+              icon={ShoppingBasket}
+              title="Market"
+              detail={groceryLive.length ? `${toBuy} to buy · ${groceryLive.length} items` : "Built from this week"}
+            />
+            <CookAheadTile meals={aheadMeals.map((p) => ({ id: p.meal.id, date: p.meal.local_date, at: p.at, recipeKey: p.meal.recipe_key, name: lookup(p.meal.recipe_key)?.name ?? "Planned meal", label: makeAheadOf(lookup(p.meal.recipe_key) ?? { steps: [] })?.label ?? "" }))} today={today} />
+          </div>
+        </>
+      )}
+
+      <WeekTools
+        className="mt-7"
+        hasWeek={hasWeek}
+        offset={offset}
+        lockedCount={lockedCount}
+        loggedCount={loggedCount}
+        nextRange={weekRangeLabel(nextWs)}
+        nextPlanned={nextPlan.meals.length > 0}
+        prefsDetail={prefsSummary(prefs)}
+        disabled={!ready || generating}
+        onRegenerateWeek={() => setConfirmWeek(true)}
+        onNextWeek={generateNextWeek}
+      />
+      {hasWeek && <p className="t-meta mt-4 px-1 text-center text-stone">Planned meals are not eaten food: Eaten adds one to your log. Meal macros are worked out from the ingredient database (CALC).</p>}
 
       <MealMenuSheet
         target={menuMeal ? { meal: menuMeal, recipe: lookup(menuMeal.recipe_key) } : null}
@@ -670,7 +778,24 @@ export function WeekPlanner() {
         onRepeat={(to) => menuMeal && repeatTo(menuMeal, to)}
         onRemove={() => menuMeal && remove(menuMeal)}
         onOpenRecipe={() => setMenuOpen(false)}
+        onRegenerate={
+          menuMeal && !menuMeal.locked && !loggedSet.has(menuMeal.id)
+            ? () => {
+                setMenuOpen(false);
+                regenerate(menuMeal);
+              }
+            : null
+        }
+        onEatenChanged={
+          menuMeal && !loggedSet.has(menuMeal.id) && menuMeal.local_date <= today && menuRecipe
+            ? () => {
+                setMenuOpen(false);
+                changed.setOpen(true);
+              }
+            : null
+        }
       />
+      {changed.sheet}
       <DislikeSheet
         recipe={strip ? lookup(strip.from.recipe_key) : undefined}
         open={dislikeOpen && !!strip && !!stripMeal}
@@ -699,55 +824,78 @@ export function WeekPlanner() {
 
 /* ------------------------------------------------------------------ parts */
 
-type Place = { kind: "meal"; meal: PlanMeal } | { kind: "empty"; slot: Slot };
-
-const SLOT_RANK: Record<Slot, number> = { breakfast: 0, lunch: 1, dinner: 2, snack: 3 };
-
-/** The day's meals in eating order, with an empty card where a main meal is missing. */
-function orderedPlaces(dayMeals: readonly PlanMeal[], missing: readonly Slot[]): Place[] {
-  const out: (Place & { rank: number; pos: number })[] = [
-    ...dayMeals.map((meal) => ({ kind: "meal" as const, meal, rank: SLOT_RANK[meal.slot], pos: meal.position })),
-    ...missing.map((slot) => ({ kind: "empty" as const, slot, rank: SLOT_RANK[slot], pos: -1 })),
-  ];
-  return out.sort((a, b) => a.rank - b.rank || a.pos - b.pos);
-}
-
-function DayHeading({ date, today }: { date: ISODate; today: ISODate }) {
-  const rel = date === today ? "Today" : date === addDays(today, 1) ? "Tomorrow" : date === addDays(today, -1) ? "Yesterday" : null;
-  return (
-    <div className="flex items-baseline gap-2.5 px-0.5 pt-1">
-      <h2 className="t-h2">{dayName(date)}</h2>
-      <span className="text-[13px] font-semibold text-fg-2">
-        {shortDate(date, today)}
-        {rel && <span className={cn("ml-2", rel === "Today" ? "text-gold-300" : "text-fg-3")}>{rel}</span>}
+function Tile({ href, onClick, icon: Icon, title, detail }: { href?: string; onClick?: () => void; icon: LucideIcon; title: string; detail: ReactNode }) {
+  const inner = (
+    <>
+      <span className="grid size-10 place-items-center rounded-full text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)]">
+        <Icon className="size-5" strokeWidth={1.6} aria-hidden />
       </span>
-      {date < today && <span className="ml-auto text-[12px] font-medium text-fg-3">Past day</span>}
-    </div>
+      <span className="mt-3 block t-title-3 text-ivory">{title}</span>
+      <span className="t-meta mt-0.5 block text-stone">{detail}</span>
+    </>
+  );
+  const cls = "press-soft block min-h-[8.5rem] rounded-card bg-m2 p-4 text-left shadow-(--e1)";
+  return href ? (
+    <Link href={href} className={cls}>
+      {inner}
+    </Link>
+  ) : (
+    <button type="button" onClick={onClick} className={cls}>
+      {inner}
+    </button>
   );
 }
 
-function IconLink({ href, icon: Icon, label }: { href: string; icon: LucideIcon; label: string }) {
+/** Meals this week that need doing ahead (overnight oats, eggs boiled ahead): the planner's make-ahead flag. */
+function CookAheadTile({ meals, today }: { meals: { id: string; date: ISODate; at: number; recipeKey: string; name: string; label: string }[]; today: ISODate }) {
+  const [open, setOpen] = useState(false);
+  const first = meals[0];
   return (
-    <Link href={href} aria-label={label} title={label} className="press grid size-11 place-items-center rounded-[12px] text-fg-2 hover:bg-white/[.04] hover:text-fg">
-      <Icon className="size-5" aria-hidden />
-    </Link>
+    <>
+      <Tile
+        icon={Moon}
+        title="Cook ahead"
+        detail={first ? `${meals.length} ${meals.length === 1 ? "meal" : "meals"} · next ${first.date === today ? "today" : dayName(first.date, true)}` : "Nothing to do ahead this week"}
+        onClick={() => setOpen(true)}
+      />
+      <Sheet open={open} onOpenChange={setOpen} title="Cook ahead" description="Meals this week that need something done before the day.">
+        {meals.length ? (
+          <ul className="divide-y divide-vein pb-3">
+            {meals.map((m) => (
+              <li key={m.id}>
+                <Link href={recipeHref(m.recipeKey, m.id)} onClick={() => setOpen(false)} className="press-soft flex min-h-14 items-center gap-3 py-2">
+                  <ChefHat className="size-5 shrink-0 text-stone" strokeWidth={1.6} aria-hidden />
+                  <span className="min-w-0 flex-1">
+                    <span className="t-title-3 block text-ivory">{m.name}</span>
+                    <span className="t-meta block text-stone">
+                      {dayName(m.date)} {parseISODate(m.date).getDate()} · {formatClock(m.at)} · {m.label}
+                    </span>
+                  </span>
+                  <ChevronRight className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="t-callout pb-6 pt-2 text-stone">Nothing in this week&apos;s plan needs doing the day before.</p>
+        )}
+      </Sheet>
+    </>
   );
 }
 
 function ToolRow({ icon: Icon, label, detail, onClick, href, disabled }: { icon: LucideIcon; label: string; detail?: ReactNode; onClick?: () => void; href?: string; disabled?: boolean }) {
   const inner = (
     <>
-      <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-s3 text-gold-300">
-        <Icon className="size-[18px]" aria-hidden />
-      </span>
+      <Icon className="size-5 shrink-0 text-stone" strokeWidth={1.6} aria-hidden />
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold text-fg">{label}</span>
-        {detail && <span className="block truncate text-[12.5px] font-medium text-fg-3">{detail}</span>}
+        <span className="t-title-3 block text-ivory">{label}</span>
+        {detail && <span className="t-meta block truncate text-stone">{detail}</span>}
       </span>
-      <ChevronRight className="size-4 shrink-0 text-fg-3" aria-hidden />
+      <ChevronRight className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
     </>
   );
-  const cls = "press-soft flex min-h-[60px] w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[.02] disabled:opacity-50";
+  const cls = "press-soft flex min-h-14 w-full items-center gap-3.5 py-2.5 text-left disabled:opacity-50";
   return href ? (
     <Link href={href} className={cls}>
       {inner}
@@ -759,7 +907,7 @@ function ToolRow({ icon: Icon, label, detail, onClick, href, disabled }: { icon:
   );
 }
 
-/** The week's tools as one grouped list: regenerate, next week, grocery list, preferences. */
+/** The week's tools as one placard: regenerate, next week, preferences. */
 function WeekTools({
   className,
   hasWeek,
@@ -768,7 +916,6 @@ function WeekTools({
   loggedCount,
   nextRange,
   nextPlanned,
-  groceryDetail,
   prefsDetail,
   disabled,
   onRegenerateWeek,
@@ -781,7 +928,6 @@ function WeekTools({
   loggedCount: number;
   nextRange: string;
   nextPlanned: boolean;
-  groceryDetail: string;
   prefsDetail: string;
   disabled: boolean;
   onRegenerateWeek: () => void;
@@ -789,26 +935,26 @@ function WeekTools({
 }) {
   const keeps = [lockedCount ? `${lockedCount} locked` : "", loggedCount ? `${loggedCount} logged` : ""].filter(Boolean).join(" and ");
   return (
-    <nav aria-label="Week tools" className={cn("card-instrument divide-y divide-line-hair overflow-hidden p-0", className)}>
+    <nav aria-label="Week tools" className={cn("divide-y divide-vein border-y border-vein", className)}>
       {hasWeek && <ToolRow icon={RefreshCw} label="Regenerate week" detail={keeps ? `Keeps ${keeps}` : "Lock a meal to keep it"} onClick={onRegenerateWeek} disabled={disabled} />}
       {hasWeek && offset === 0 && (
-        <ToolRow icon={CalendarPlus} label={nextPlanned ? "Next week" : "Generate next week"} detail={nextPlanned ? `${nextRange} · planned` : nextRange} onClick={onNextWeek} disabled={disabled && !nextPlanned} />
+        <ToolRow icon={CalendarPlus} label={nextPlanned ? "Next week" : "Plan next week"} detail={nextPlanned ? `${nextRange} · planned` : nextRange} onClick={onNextWeek} disabled={disabled && !nextPlanned} />
       )}
-      <ToolRow icon={ShoppingBasket} label="Grocery list" detail={groceryDetail} href="/nutrition/meals/grocery" />
-      <ToolRow icon={SlidersHorizontal} label="Preferences" detail={prefsDetail} href="/nutrition/meals/preferences" />
+      <ToolRow icon={SlidersHorizontal} label="Meal preferences" detail={prefsDetail} href="/nutrition/meals/preferences" />
     </nav>
   );
 }
 
 function WeekSkeleton() {
   return (
-    <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading your plan">
-      <Skeleton className="h-7 w-48" />
-      <Skeleton className="h-[132px] rounded-[16px]" />
-      {[0, 1, 2].map((i) => (
-        <Skeleton key={i} className="h-[148px] rounded-[16px]" />
+    <div className="flex flex-col gap-2" aria-busy="true" aria-label="Loading your plan">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div key={i} className="flex justify-between gap-1 pl-10">
+          {[0, 1, 2, 3, 4, 5, 6].map((j) => (
+            <Skeleton key={j} className="size-9 rounded-full" />
+          ))}
+        </div>
       ))}
     </div>
   );
 }
-

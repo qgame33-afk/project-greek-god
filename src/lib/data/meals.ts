@@ -1063,3 +1063,36 @@ export function useLoggedPlannedMeals(ws: ISODate | null | undefined) {
   });
   return { logged: q.data ?? NO_LINKS, loading: q.isLoading, hasData: q.data !== undefined };
 }
+
+const NO_PORTIONS: Record<string, { amount: number; unit: string; local_date: ISODate }[]> = {};
+
+/**
+ * For a week view: planned meal id → the portions logged from it (amount + unit, per entry), so a
+ * coin can show "eaten, portion changed" when a linked entry's servings differ from the plan.
+ * Same rows as useLoggedPlannedMeals, kept under its own key so that hook's cache shape is untouched.
+ */
+export function usePlannedPortions(ws: ISODate | null | undefined) {
+  const { userId } = useUser();
+  const monday = ws ? weekStart(ws) : "";
+  const q = useQuery({
+    queryKey: ["food", "planned-portions", monday, userId],
+    enabled: !!userId && !!monday,
+    queryFn: async () => {
+      const rows = must(
+        await sb()
+          .from("food_entries")
+          .select("planned_meal_id, local_date, amount, unit, planned_meals!inner(local_date)")
+          .gte("planned_meals.local_date", monday)
+          .lte("planned_meals.local_date", addDays(monday, 6)),
+      );
+      const out: Record<string, { amount: number; unit: string; local_date: ISODate }[]> = {};
+      for (const r of rows) {
+        if (!r.planned_meal_id) continue;
+        (out[r.planned_meal_id] ??= []).push({ amount: Number(r.amount), unit: r.unit, local_date: r.local_date });
+      }
+      return out;
+    },
+  });
+  return { portions: q.data ?? NO_PORTIONS, hasData: q.data !== undefined };
+}
+

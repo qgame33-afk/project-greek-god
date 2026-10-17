@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarPlus, ChevronRight, RefreshCw, ShoppingBasket, SlidersHorizontal, TriangleAlert, type LucideIcon } from "lucide-react";
-import { EmptyArt } from "@/components/art/Motifs";
+import { CalendarPlus, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cn";
 import type { MealPrefs } from "@/lib/meals/types";
 import { DIFFICULTY_LABEL, kcalText } from "../shared/format";
 import type { DayGoals } from "./hooks";
@@ -20,8 +18,8 @@ export function prefsSummary(p: MealPrefs): string {
 }
 
 /**
- * A week with no plan yet: what you'll get, the settings it uses, and GENERATE MY WEEK — the
- * screen's one gold fill.
+ * A week with no plan yet (under the empty mosaic): what you'll get, the settings it uses, and
+ * "Plan 19–25 Oct" — the viewport's one gold key.
  */
 export function EmptyWeek({
   range,
@@ -46,32 +44,30 @@ export function EmptyWeek({
   onGenerateWhole?: () => void;
 }) {
   return (
-    <section className="card-accent relative overflow-hidden px-5 pt-7 pb-5 text-center sm:px-8" aria-labelledby="empty-week-title">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(55%_75%_at_50%_0%,rgb(213_172_103/.11),transparent)]" />
-      <EmptyArt kind="kylix" size={64} strokeWidth={1.25} className="relative mx-auto" />
-      <h2 id="empty-week-title" className="t-h2 relative mt-3">
-        Plan {range}
-      </h2>
-      <p className="relative mx-auto mt-2 max-w-[36ch] text-[14px] leading-relaxed text-fg-2">
-        {fromToday ? "Today to Sunday:" : "Seven days of"} easy, familiar meals sized to <span className="font-bold text-fg">{kcalText(goals.kcal)} kcal</span> and{" "}
-        <span className="font-bold text-fg">{goals.protein} g protein</span> a day. Nothing goes in your food log until you eat it.
-      </p>
-      <p className="relative mt-4 text-[12.5px] font-semibold text-fg-3">{prefsSummary(prefs)}</p>
-      {!prefsSaved && (
-        <Link href="/nutrition/meals/preferences" className="press relative mt-3 inline-flex min-h-11 items-center gap-1 rounded-[12px] px-3 text-[13.5px] font-bold text-lapis-text hover:text-fg">
-          Allergies or dislikes? Set them first
-          <ChevronRight className="size-4" aria-hidden />
-        </Link>
-      )}
-      <Button variant="primary" size="lg" block className="relative mt-5" onClick={onGenerate} loading={busy} disabled={!ready}>
-        <CalendarPlus className="size-5" strokeWidth={2.2} />
-        Generate my week
+    <section className="mt-4 text-center" aria-labelledby="empty-week-title">
+      <Button variant="primary" size="lg" block onClick={onGenerate} loading={busy} disabled={!ready}>
+        <CalendarPlus className="size-5" strokeWidth={1.8} />
+        Plan {fromToday ? "today to Sunday" : range}
       </Button>
-      {!ready && !busy && <p className="relative mt-2 text-[12px] font-medium text-fg-3">Loading your preferences…</p>}
+      {!ready && !busy && <p className="t-meta mt-2 text-stone">Loading your preferences…</p>}
       {fromToday && onGenerateWhole && ready && (
-        <button type="button" onClick={onGenerateWhole} disabled={busy} className="press relative mt-2 inline-flex min-h-11 items-center rounded-[12px] px-3 text-[13.5px] font-bold text-fg-2 hover:text-fg disabled:opacity-50">
+        <button type="button" onClick={onGenerateWhole} disabled={busy} className="press t-callout mt-1 inline-flex min-h-11 items-center rounded-field px-3 font-semibold text-stone hover:text-ivory disabled:opacity-50">
           Plan the whole week instead
         </button>
+      )}
+      <h2 id="empty-week-title" className="t-title-2 mt-6 text-ivory">
+        {fromToday ? "Today to Sunday, in one tap" : "Seven days, in one tap"}
+      </h2>
+      <p className="t-callout mx-auto mt-2 max-w-[34ch] text-stone">
+        Easy, familiar meals sized to <span className="tnum font-semibold text-ivory">{kcalText(goals.kcal)} kcal</span> and{" "}
+        <span className="tnum font-semibold text-ivory">{goals.protein} g protein</span> a day. Nothing goes in your food log until you eat it.
+      </p>
+      <p className="t-meta mt-3 text-stone">{prefsSummary(prefs)}</p>
+      {!prefsSaved && (
+        <Link href="/nutrition/meals/preferences" className="press t-callout mt-1 inline-flex min-h-11 items-center gap-1 rounded-field px-2 font-semibold text-ivory underline decoration-vein-3 underline-offset-4">
+          Allergies or dislikes? Set them first
+          <ChevronRight className="size-4" strokeWidth={1.6} aria-hidden />
+        </Link>
       )}
     </section>
   );
@@ -80,66 +76,35 @@ export function EmptyWeek({
 /** No calorie or protein goal yet: the planner can't size meals, so say so and link to the fix. */
 export function NeedsGoals() {
   return (
-    <div className="card-inset flex flex-col items-center px-5 py-8 text-center">
-      <EmptyArt kind="kylix" size={56} strokeWidth={1.25} />
-      <p className="mt-3 text-[15px] font-bold text-fg">Set your calorie and protein goals first</p>
-      <p className="mt-1 max-w-[34ch] text-[13px] leading-relaxed text-fg-2">The planner sizes every meal to them.</p>
-      <Button asChild variant="secondary" size="md" className="mt-4">
+    <div className="border-y border-vein py-8 text-center">
+      <p className="t-title-2 text-ivory">Set your calorie and protein goals first</p>
+      <p className="t-callout mx-auto mt-1 max-w-[34ch] text-stone">The planner sizes every meal to them.</p>
+      <Button asChild variant="outline" size="md" className="mt-4 rounded-full">
         <Link href="/settings">Open settings</Link>
       </Button>
     </div>
   );
 }
 
-/** Planned meals that break a hard rule added after the week was planned (an allergy, a dislike…). */
+/** Planned meals that break a hard rule added after the week was planned (an allergy, a dislike…). A word, not a colour. */
 export function ConflictBanner({ count, examples, replaceable, busy, onReplace }: { count: number; examples: string[]; replaceable: number; busy: boolean; onReplace: () => void }) {
   return (
-    <section className="rounded-[16px] border border-warning/30 bg-warning-tint p-4" role="status" aria-labelledby="conflict-title">
-      <div className="flex items-start gap-3">
-        <TriangleAlert className="mt-0.5 size-[18px] shrink-0 text-warning" aria-hidden />
-        <div className="min-w-0 flex-1">
-          <h2 id="conflict-title" className="text-[14px] font-bold text-fg">
-            {count === 1 ? "1 planned meal doesn't fit your preferences now" : `${count} planned meals don't fit your preferences now`}
-          </h2>
-          <ul className="mt-1 text-[12.5px] font-medium leading-snug text-fg-2">
-            {examples.slice(0, 2).map((e) => (
-              <li key={e}>{e}</li>
-            ))}
-          </ul>
-          {replaceable < count && <p className="mt-1 text-[12px] font-medium text-fg-3">Locked meals stay until you unlock them.</p>}
-        </div>
-      </div>
+    <section className="rounded-card bg-m2 p-4 shadow-[inset_0_0_0_1px_var(--vein-3)]" role="status" aria-labelledby="conflict-title">
+      <h2 id="conflict-title" className="t-title-3 text-ivory">
+        {count === 1 ? "1 planned meal doesn't fit your preferences now" : `${count} planned meals don't fit your preferences now`}
+      </h2>
+      <ul className="t-meta mt-1 text-stone">
+        {examples.slice(0, 2).map((e) => (
+          <li key={e}>{e}</li>
+        ))}
+      </ul>
+      {replaceable < count && <p className="t-meta mt-1 text-stone">Locked meals stay until you unlock them.</p>}
       {replaceable > 0 && (
         <Button variant="secondary" size="md" block className="mt-3" onClick={onReplace} loading={busy}>
-          <RefreshCw className="size-4 text-gold-300" />
+          <RefreshCw className="size-4" strokeWidth={1.6} />
           {replaceable === 1 ? "Replace it" : `Replace ${replaceable} meals`}
         </Button>
       )}
     </section>
-  );
-}
-
-function LinkRow({ href, icon: Icon, label, detail }: { href: string; icon: LucideIcon; label: string; detail: string }) {
-  return (
-    <Link href={href} className="press-soft flex min-h-[60px] items-center gap-3 px-4 py-3 hover:bg-white/[.02]">
-      <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-s3 text-gold-300">
-        <Icon className="size-[18px]" aria-hidden />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold text-fg">{label}</span>
-        <span className="block truncate text-[12.5px] font-medium text-fg-3">{detail}</span>
-      </span>
-      <ChevronRight className="size-4 shrink-0 text-fg-3" aria-hidden />
-    </Link>
-  );
-}
-
-/** Grocery list and preferences, as one grouped list. */
-export function PlannerLinks({ groceryDetail, prefsDetail, className }: { groceryDetail: string; prefsDetail: string; className?: string }) {
-  return (
-    <nav aria-label="Meal planner" className={cn("card-instrument divide-y divide-line-hair overflow-hidden p-0", className)}>
-      <LinkRow href="/nutrition/meals/grocery" icon={ShoppingBasket} label="Grocery list" detail={groceryDetail} />
-      <LinkRow href="/nutrition/meals/preferences" icon={SlidersHorizontal} label="Preferences" detail={prefsDetail} />
-    </nav>
   );
 }

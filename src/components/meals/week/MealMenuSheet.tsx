@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRightLeft, ChefHat, ChevronLeft, ChevronRight, CopyPlus, Heart, Lock, LockOpen, ThumbsDown, ThumbsUp, Trash, type LucideIcon } from "lucide-react";
+import { ArrowRightLeft, BookOpen, ChefHat, ChevronLeft, ChevronRight, CopyPlus, Heart, Lock, LockOpen, PencilLine, RefreshCw, ThumbsDown, ThumbsUp, Trash, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
@@ -44,6 +44,8 @@ export function MealMenuSheet({
   onRepeat,
   onRemove,
   onOpenRecipe,
+  onRegenerate,
+  onEatenChanged,
 }: {
   target: MenuTarget | null;
   open: boolean;
@@ -61,6 +63,10 @@ export function MealMenuSheet({
   onRepeat: (to: { local_date: ISODate; slot: Slot }) => void;
   onRemove: () => void;
   onOpenRecipe: () => void;
+  /** Swap it for another pick (the week view's regenerate). Absent or disabled when locked or logged. */
+  onRegenerate?: (() => void) | null;
+  /** "Eaten, but changed": the log sheet with servings editable. */
+  onEatenChanged?: (() => void) | null;
 }) {
   const [view, setView] = useState<View>("main");
   const [day, setDay] = useState<ISODate | null>(null);
@@ -115,7 +121,7 @@ export function MealMenuSheet({
             (view === "move" ? onMove : onRepeat)({ local_date: day, slot: chosenSlot });
           }}
         >
-          {view === "move" ? <ArrowRightLeft className="size-[18px] text-gold-300" /> : <CopyPlus className="size-[18px] text-gold-300" />}
+          {view === "move" ? <ArrowRightLeft className="size-[18px] text-stone" strokeWidth={1.6} /> : <CopyPlus className="size-[18px] text-stone" strokeWidth={1.6} />}
           {day ? `${view === "move" ? "Move" : "Repeat"} to ${dayName(day, true)}` : view === "move" ? "Move" : "Repeat"}
         </Button>
       </div>
@@ -125,7 +131,7 @@ export function MealMenuSheet({
     <Sheet open={open} onOpenChange={onOpenChange} title={title} description={description} footer={footer}>
       {view === "main" ? (
         <div className="swap-in pb-2">
-          <div className="card-inset mb-4 p-3.5">
+          <div className="mb-4 rounded-card bg-m2 p-3.5 shadow-[inset_0_0_0_1px_var(--vein-2)]">
             <RecipeCardBody recipe={recipe} servings={meal.servings} macroMode="protein" />
           </div>
 
@@ -135,8 +141,11 @@ export function MealMenuSheet({
             <ToggleTile icon={Heart} label="Favourite" on={favourite} onClick={onFavourite} fill />
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-[16px] bg-s3">
-            {recipe && <Row icon={ChefHat} label="Open recipe" href={recipeHref(meal.recipe_key, meal.id)} onClick={onOpenRecipe} chevron />}
+          <div className="mt-4 overflow-hidden rounded-card bg-m2 shadow-[inset_0_0_0_1px_var(--vein-2)]">
+            {onEatenChanged && <Row icon={PencilLine} label="Eaten, but changed" detail="Log it with different servings or numbers" onClick={onEatenChanged} />}
+            {onRegenerate && <Row icon={RefreshCw} label="Swap for another" detail="Same slot, sized to your day. Undo after" onClick={onRegenerate} />}
+            {recipe && <Row icon={BookOpen} label="Open recipe" href={recipeHref(meal.recipe_key, meal.id)} onClick={onOpenRecipe} chevron />}
+            {recipe && <Row icon={ChefHat} label="Cook it" detail="Step by step, screen awake" href={`/nutrition/meals/cook/${encodeURIComponent(meal.recipe_key)}?meal=${encodeURIComponent(meal.id)}`} onClick={onOpenRecipe} chevron />}
             <Row icon={meal.locked ? LockOpen : Lock} label={meal.locked ? "Unlock" : "Lock this meal"} detail={meal.locked ? "Regenerating the week will change it" : "Keeps it when you regenerate the week"} onClick={onToggleLock} />
             <Row icon={ArrowRightLeft} label="Move to another day" onClick={() => setView("move")} chevron />
             <Row icon={CopyPlus} label="Repeat on another day" onClick={() => setView("repeat")} chevron />
@@ -145,7 +154,7 @@ export function MealMenuSheet({
         </div>
       ) : (
         <div className="swap-in pb-2">
-          <p className="eyebrow mb-2.5">Day</p>
+          <p className="t-eyebrow mb-2.5">Day</p>
           <div className="grid grid-cols-7 gap-1.5" role="radiogroup" aria-label="Day">
             {days.map((d) => {
               const on = d === day;
@@ -160,23 +169,23 @@ export function MealMenuSheet({
                   aria-label={`${dayName(d)} ${parseISODate(d).getDate()}${here ? " (where it is now)" : ""}`}
                   onClick={() => setDay(d)}
                   className={cn(
-                    "press flex h-[60px] flex-col items-center justify-center gap-0.5 rounded-[12px] border transition-colors disabled:opacity-35",
-                    on ? "border-line-gold bg-gold-tint text-gold-300" : "border-line bg-s3 text-fg-2 hover:text-fg",
+                    "press flex h-[3.75rem] flex-col items-center justify-center gap-1 rounded-field transition-colors disabled:opacity-35",
+                    on ? "bg-m4 text-ivory shadow-[inset_0_0_0_1px_var(--ivory)]" : "bg-m3 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory",
                   )}
                 >
-                  <span className="text-[10.5px] font-bold uppercase tracking-[0.1em]">{dayName(d, true)}</span>
-                  <span className="num text-[19px] font-semibold leading-none">{parseISODate(d).getDate()}</span>
+                  <span className="t-tag">{dayName(d, true)}</span>
+                  <span className="t-num-s leading-none">{parseISODate(d).getDate()}</span>
                 </button>
               );
             })}
           </div>
           {slotChoices.length > 1 && (
             <>
-              <p className="eyebrow mt-5 mb-2.5">Meal</p>
+              <p className="t-eyebrow mt-5 mb-2.5">Meal</p>
               <Segmented<Slot> value={chosenSlot} onChange={setSlot} options={slotChoices.map((s) => ({ value: s, label: SLOT_LABEL[s] }))} ariaLabel="Meal" />
             </>
           )}
-          <p className={cn("mt-4 min-h-5 text-[13px] font-medium", plan && !plan.ok ? "text-warning" : "text-fg-2")} aria-live="polite">
+          <p className={cn("t-meta mt-4 min-h-5", plan && !plan.ok ? "text-ivory" : "text-stone")} aria-live="polite">
             {hint}
           </p>
         </div>
@@ -192,11 +201,12 @@ function ToggleTile({ icon: Icon, label, on, quiet, fill, onClick }: { icon: Luc
       aria-pressed={on}
       onClick={onClick}
       className={cn(
-        "press flex h-[68px] flex-col items-center justify-center gap-1.5 rounded-[14px] border text-[12.5px] font-bold transition-colors",
-        on ? (quiet ? "border-line-strong bg-s5 text-fg" : "border-line-gold bg-gold-tint text-gold-300") : "border-line bg-s3 text-fg-2 hover:text-fg",
+        "press t-meta flex h-[4.25rem] flex-col items-center justify-center gap-1.5 rounded-btn font-semibold transition-colors",
+        // a like is an opinion, not something earned: selected is ivory, never gold
+        on ? (quiet ? "bg-m4 text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)]" : "bg-m4 text-ivory shadow-[inset_0_0_0_1px_var(--ivory)]") : "bg-m3 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory",
       )}
     >
-      <Icon className={cn("size-5 transition-transform duration-(--dur-slow) ease-bounce", on && "scale-110")} fill={on && fill ? "currentColor" : "none"} aria-hidden />
+      <Icon className={cn("size-5 transition-transform duration-(--dur-base) ease-spring", on && "scale-110")} strokeWidth={1.6} fill={on && fill ? "currentColor" : "none"} aria-hidden />
       {label}
     </button>
   );
@@ -221,15 +231,15 @@ function Row({
 }) {
   const inner: ReactNode = (
     <>
-      <Icon className={cn("size-[18px] shrink-0", danger ? "text-danger" : "text-gold-300")} aria-hidden />
+      <Icon className={cn("size-5 shrink-0", danger ? "text-cinnabar" : "text-stone")} strokeWidth={1.6} aria-hidden />
       <span className="min-w-0 flex-1">
-        <span className={cn("block text-[15px] font-semibold", danger ? "text-danger" : "text-fg")}>{label}</span>
-        {detail && <span className="block text-[12px] font-medium text-fg-3">{detail}</span>}
+        <span className={cn("t-title-3 block", danger ? "text-cinnabar" : "text-ivory")}>{label}</span>
+        {detail && <span className="t-meta block text-stone">{detail}</span>}
       </span>
-      {chevron && <ChevronRight className="size-4 shrink-0 text-fg-3" aria-hidden />}
+      {chevron && <ChevronRight className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />}
     </>
   );
-  const cls = "press-soft flex min-h-[52px] w-full items-center gap-3 border-b border-line-hair px-4 py-2.5 text-left last:border-b-0 active:bg-white/[.04]";
+  const cls = "press-soft flex min-h-14 w-full items-center gap-3.5 border-b border-vein px-4 py-2.5 text-left last:border-b-0 active:bg-m3";
   return href ? (
     <Link href={href} onClick={onClick} className={cls}>
       {inner}
