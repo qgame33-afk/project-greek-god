@@ -35,7 +35,7 @@ export function ClimbRule({ m, className, thumb, dense }: { m: NowModel; classNa
 
   const spoken = [
     gilded ? `The climb: ${pct} percent, from ${plain(start)} to ${bandText} ${unit === "kg" ? "kilograms" : "pounds"}.` : `The climb from ${plain(start)} to ${bandText} ${unit === "kg" ? "kilograms" : "pounds"}.`,
-    gilded && next?.eta ? `Terrace ${next.index} about ${dayMonth(next.eta, m.today, true)}, projected.` : "",
+    gilded && next?.eta && next.eta > m.today ? `Terrace ${next.index} about ${dayMonth(next.eta, m.today, true)}, projected.` : "",
     days != null ? `${days} days left.` : "",
     "Open Ascent.",
   ]
@@ -87,7 +87,7 @@ export function ClimbRule({ m, className, thumb, dense }: { m: NowModel; classNa
           </span>
           <span className="whitespace-nowrap">{bandText}</span>
         </span>
-        {gilded && next?.eta && !dense && (
+        {gilded && next?.eta && next.eta > m.today && !dense && (
           <span aria-hidden className="t-meta tnum mt-1 flex items-center justify-center gap-1.5 text-ash">
             <span>
               Next {next.final ? "Olympus" : `Terrace ${next.numeral}`} ≈ {dayMonth(next.eta, m.today)}
