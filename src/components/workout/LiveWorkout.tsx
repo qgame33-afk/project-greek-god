@@ -941,6 +941,27 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     };
   }, [pad, inline]);
 
+  // A value typed on the keypad but not yet committed is saved when the screen goes away
+  // (browser back/forward, another route, the tab closing) — as the minimise button does.
+  const padRef = useRef(pad);
+  const commitRef = useRef(commitPad);
+  useEffect(() => {
+    padRef.current = pad;
+    commitRef.current = commitPad;
+  });
+  useEffect(() => {
+    const save = () => {
+      const p = padRef.current;
+      if (!p || p.fresh || qc.getQueryData<LiveData | null>(liveKey(id, userId))?.session.status === "discarded") return;
+      commitRef.current(p);
+    };
+    window.addEventListener("pagehide", save);
+    return () => {
+      window.removeEventListener("pagehide", save);
+      save();
+    };
+  }, [qc, id, userId]);
+
   // Warn before closing the tab while writes are still queued.
   useEffect(() => {
     if (!outbox.pending) return;

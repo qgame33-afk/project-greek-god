@@ -129,6 +129,9 @@ export function useStartWorkout() {
     if (busy.current) return false;
     busy.current = true;
     setStarting(true);
+    // Toasts from the screen being left (Training's "Push A on today · Undo") don't follow
+    // into the workout, where their Undo would act on a plan that is already being trained.
+    toast.dismiss();
     try {
       const current = active.data ?? must(await sb().from("workout_sessions").select("*").eq("status", "active").limit(1)).at(0) ?? null;
       if (current) {
