@@ -120,12 +120,11 @@ export function WeekPlanner() {
   const loggedSet = useMemo(() => new Set(data.loggedIds), [data.loggedIds]);
   // the part of each day's plan not in the food log yet ("still planned")
   const aheadTotals = useMemo(() => dayTotals(meals.filter((m) => !loggedSet.has(m.id)), lookup), [meals, loggedSet, lookup]);
-  // a rule added after planning (an allergy, a dislike) flags what it breaks from today on
-  const conflicts = useMemo(
-    () => conflictsInWeek(meals.filter((m) => m.local_date >= today && !loggedSet.has(m.id)), lookup, prefs),
-    [meals, today, loggedSet, lookup, prefs],
-  );
-  const conflictById = useMemo(() => new Map(conflicts.map((c) => [c.meal.id, c.text])), [conflicts]);
+  // a rule added after planning (an allergy, a dislike) flags what it breaks on every card not
+  // logged yet; the banner offers to replace the ones from today on
+  const conflictsAny = useMemo(() => conflictsInWeek(meals.filter((m) => !loggedSet.has(m.id)), lookup, prefs), [meals, loggedSet, lookup, prefs]);
+  const conflicts = useMemo(() => conflictsAny.filter((c) => c.meal.local_date >= today), [conflictsAny, today]);
+  const conflictById = useMemo(() => new Map(conflictsAny.map((c) => [c.meal.id, c.text])), [conflictsAny]);
   const replaceable = conflicts.filter((c) => !c.meal.locked);
   const lockedCount = meals.filter((m) => m.locked).length;
   const loggedCount = meals.filter((m) => loggedSet.has(m.id)).length;

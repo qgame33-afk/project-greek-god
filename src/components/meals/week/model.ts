@@ -166,6 +166,37 @@ export function conflictText(conflicts: readonly Conflict[]): string | null {
   }
 }
 
+const CONFLICT_ORDER: Conflict["kind"][] = ["allergy", "unknown_ingredient", "diet", "disliked", "equipment"];
+
+/** Every conflict as one short line, most serious first, without repeats. */
+export function conflictLines(conflicts: readonly Conflict[]): string[] {
+  const out: string[] = [];
+  for (const c of [...conflicts].sort((a, b) => CONFLICT_ORDER.indexOf(a.kind) - CONFLICT_ORDER.indexOf(b.kind))) {
+    const t = conflictText([c]);
+    if (t && !out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+/** A heading for a recipe's conflicts, from the most serious one. */
+export function conflictTitle(conflicts: readonly Conflict[]): string | null {
+  const kind = [...conflicts].sort((a, b) => CONFLICT_ORDER.indexOf(a.kind) - CONFLICT_ORDER.indexOf(b.kind))[0]?.kind;
+  switch (kind) {
+    case "allergy":
+      return "On your allergy list";
+    case "unknown_ingredient":
+      return "The app can't check every ingredient";
+    case "diet":
+      return "Doesn't fit your diet";
+    case "disliked":
+      return "Has something you don't like";
+    case "equipment":
+      return "Needs equipment you don't have";
+    default:
+      return null;
+  }
+}
+
 export interface MealConflict<M> {
   meal: M;
   recipe: Recipe;

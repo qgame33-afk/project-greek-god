@@ -3,9 +3,10 @@
 import { useMemo, useRef, useState } from "react";
 import { focusFirstInvalid, MealChips, SubLabel } from "@/components/nutrition/bits";
 import { useFocusIntoSheet } from "@/components/nutrition/hooks";
+import { ConflictNote, useRecipeConflicts } from "@/components/meals/shared";
 import { EstimateBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Chip } from "@/components/ui/controls";
+import { Chip, Switch } from "@/components/ui/controls";
 import { Field, Input, NumberInput } from "@/components/ui/field";
 import { Collapse } from "@/components/ui/misc";
 import { Sheet, SheetFooterBar } from "@/components/ui/sheet";
@@ -79,6 +80,11 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
   const [showOther, setShowOther] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<MacroField, string>>>({});
   const log = useLogPlannedMeal();
+  // an allergy conflict has to be confirmed before it can be logged
+  const conflicts = useRecipeConflicts(recipe);
+  const allergy = conflicts.some((c) => c.kind === "allergy");
+  const [allergyOk, setAllergyOk] = useState(false);
+  const blocked = allergy && !allergyOk;
 
   const label = MEALS.find((m) => m.key === meal)?.label ?? "Snacks";
   const parsed = draftMacros(draft);
@@ -92,6 +98,7 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
   const isQuick = quick.some((q) => q.date === date);
 
   const submit = () => {
+    if (blocked) return;
     const r = draftMacros(draft);
     if (!r.ok) {
       setErrors(r.errors);
@@ -116,6 +123,14 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
 
   return (
     <div ref={ref} className="space-y-6 pt-1">
+      <ConflictNote conflicts={conflicts}>
+        {allergy && (
+          <div className="mt-2.5 flex min-h-11 items-center justify-between gap-3 border-t border-warning/20 pt-2.5">
+            <span className="text-[13.5px] font-semibold leading-snug text-fg">I ate it anyway. Log it.</span>
+            <Switch checked={allergyOk} onCheckedChange={setAllergyOk} label="Confirm logging a meal with an allergen" />
+          </div>
+        )}
+      </ConflictNote>
       <div className="flex items-center justify-between gap-4 rounded-[16px] bg-s3/60 px-4 py-3">
         <div className="min-w-0">
           <p className="eyebrow">Servings</p>
@@ -203,11 +218,13 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
       </div>
 
       <SheetFooterBar>
-        <Button variant="primary" size="lg" block onClick={submit} loading={log.isPending} disabled={log.isPending}>
+        <Button variant="primary" size="lg" block onClick={submit} loading={log.isPending} disabled={log.isPending || blocked}>
           Add to {label}
         </Button>
         <p className="mt-2 text-center text-[12px] font-medium text-fg-3">
-          {date === today ? "Today" : shortDate(date)} · {parsed.ok ? `${parsed.macros.kcal.toLocaleString("en-US")} kcal · ${Math.round(parsed.macros.protein)} g protein` : "Check the numbers"}
+          {blocked
+            ? "Confirm the allergy note above to log it"
+            : `${date === today ? "Today" : shortDate(date)} · ${parsed.ok ? `${parsed.macros.kcal.toLocaleString("en-US")} kcal · ${Math.round(parsed.macros.protein)} g protein` : "Check the numbers"}`}
         </p>
       </SheetFooterBar>
     </div>

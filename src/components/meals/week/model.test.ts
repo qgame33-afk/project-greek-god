@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { buildPool, generateWeek } from "@/lib/meals/engine";
 import { getLibraryRecipe, LIBRARY } from "@/lib/meals/library";
-import { ingredientCount, recipeCostCad } from "@/lib/meals/recipe";
+import { ingredientCount, recipeConflicts, recipeCostCad } from "@/lib/meals/recipe";
 import { DEFAULT_PREFS, type Recipe } from "@/lib/meals/types";
 import {
   planSplit,
+  conflictLines,
+  conflictTitle,
   conflictsInWeek,
   conflictText,
   currentThumb,
@@ -233,5 +235,22 @@ describe("planned vs logged", () => {
   });
   it("handles a day with no meals", () => {
     expect(planSplit(undefined, undefined, 0, 0).detail).toBeNull();
+  });
+});
+
+describe("conflict lines for the recipe and cooking screens", () => {
+  const pb = getLibraryRecipe("lib:pb-banana-oatmeal")!;
+  it("lists every conflict, allergies first, and titles by the most serious", () => {
+    const c = recipeConflicts(pb, { allergies: ["peanut"], diets: ["vegetarian"], dislikedIngredients: ["banana"], equipment: ["microwave"] });
+    const lines = conflictLines(c);
+    expect(lines[0]).toMatch(/^Contains peanuts/);
+    expect(lines.some((l) => /dislikes/.test(l))).toBe(true);
+    expect(new Set(lines).size).toBe(lines.length);
+    expect(conflictTitle(c)).toBe("On your allergy list");
+  });
+  it("has nothing to say when the recipe fits", () => {
+    const c = recipeConflicts(pb, { allergies: [], diets: [], dislikedIngredients: [], equipment: ["microwave", "stovetop", "oven", "toaster", "blender", "kettle", "air_fryer", "grill"] });
+    expect(conflictLines(c)).toEqual([]);
+    expect(conflictTitle(c)).toBeNull();
   });
 });

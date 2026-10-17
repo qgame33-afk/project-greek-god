@@ -6,7 +6,7 @@ import { useGoUp } from "@/components/shell/trail";
 import { useSearchParams } from "next/navigation";
 import { Check, ChevronLeft, ChevronRight, ListChecks, Plus, RotateCcw, Sun, Timer, Volume2, VolumeX, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { MacroLine, recipeHref, servingsLabel, useRecipePool } from "@/components/meals/shared";
+import { ConflictNote, MacroLine, recipeHref, servingsLabel, useRecipeConflicts, useRecipePool } from "@/components/meals/shared";
 import { EstimateBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
@@ -16,7 +16,7 @@ import { useToday } from "@/lib/data/core";
 import { useAddFeedback, type LogPlannedMealResult, type PlanMeal } from "@/lib/data/meals";
 import { haptic } from "@/lib/haptics";
 import { useNowSec } from "@/lib/live-clock";
-import { recipeFeatures, recipeMacros, scaleIngredients } from "@/lib/meals/recipe";
+import { recipeFeatures, recipeMacros, scaleIngredients, type Conflict } from "@/lib/meals/recipe";
 import type { Recipe } from "@/lib/meals/types";
 import { useSwapIn } from "@/lib/motion";
 import { LogMealSheet } from "../log/LogMealSheet";
@@ -80,6 +80,7 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
   const ingredients = useMemo(() => scaleIngredients(recipe, servings), [recipe, servings]);
   const macros = useMemo(() => recipeMacros(recipe, servings), [recipe, servings]);
   const backHref = `${recipeHref(recipe.key, meal?.id)}${!meal && servings !== 1 ? `?servings=${servings}` : ""}`;
+  const conflicts = useRecipeConflicts(recipe);
   const close = useGoUp(backHref);
 
   const setCurrent = checks.setCurrent;
@@ -251,6 +252,7 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
           backHref={backHref}
           lastLog={lastLog}
           today={today}
+          conflicts={conflicts}
           onLog={() => setLogOpen(true)}
           onAgain={() => {
             checks.clearSteps();
@@ -272,6 +274,8 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
             }}
           >
             <div ref={dragEl} className="mx-auto max-w-[760px] px-5 pt-6 pb-8 lg:px-8">
+              {/* before you start: what this recipe breaks (allergies, diet, dislikes) */}
+              {index === 0 && <ConflictNote conflicts={conflicts} className="mb-6" />}
               <div ref={swapRef}>
                 <div className="flex items-end gap-3">
                   <span className="num text-[92px] font-semibold leading-[0.8] text-gold-300" aria-hidden>
@@ -388,6 +392,7 @@ function Finished({
   backHref,
   lastLog,
   today,
+  conflicts,
   onLog,
   onAgain,
 }: {
@@ -397,6 +402,7 @@ function Finished({
   backHref: string;
   lastLog: LogPlannedMealResult | null;
   today: string;
+  conflicts: Conflict[];
   onLog: () => void;
   onAgain: () => void;
 }) {
@@ -411,6 +417,7 @@ function Finished({
           <p className="mt-2 text-[16px] font-medium leading-relaxed text-fg-2">
             All {recipe.steps.length} steps done. {servingsLabel(servings)} of {recipe.name}.
           </p>
+          {!lastLog && <ConflictNote conflicts={conflicts} className="mt-6" />}
           <div className="card mt-6 p-4">
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="eyebrow">This meal</p>

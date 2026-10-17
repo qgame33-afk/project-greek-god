@@ -2,11 +2,11 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { recipeMacros } from "@/lib/meals/recipe";
+import { makeAheadOf, recipeMacros } from "@/lib/meals/recipe";
 import type { Macros, Recipe } from "@/lib/meals/types";
 import { MacroLine } from "./MacroChips";
 import { RecipeGlyph } from "./RecipeGlyph";
-import { OriginBadge, RecipeMeta } from "./RecipeMeta";
+import { MakeAheadBadge, OriginBadge, RecipeMeta } from "./RecipeMeta";
 
 /**
  * The inside of a recipe card: glyph, eyebrow (slot / servings), name, facts and macros.
@@ -39,10 +39,11 @@ export function RecipeCardBody({
     <div className={cn("flex min-w-0 items-start gap-3", className)}>
       <RecipeGlyph recipe={recipe} />
       <div className="min-w-0 flex-1">
-        {(eyebrow || badges || (recipe && recipe.origin !== "library")) && (
+        {(eyebrow || badges || (recipe && (recipe.origin !== "library" || makeAheadOf(recipe)))) && (
           <div className="mb-1 flex min-h-5 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             {eyebrow && <span className="eyebrow truncate">{eyebrow}</span>}
             {recipe && <OriginBadge origin={recipe.origin} />}
+            {recipe && <MakeAheadBadge recipe={recipe} />}
             {badges}
           </div>
         )}

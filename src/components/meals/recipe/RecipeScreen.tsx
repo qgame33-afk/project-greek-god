@@ -7,7 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ChefHat, ChevronLeft, ChevronRight, Plus, WandSparkles } from "lucide-react";
 import { useCallback, useId, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { DifficultyPips, MacroChips, OriginBadge, RecipeGlyph, SLOT_LABEL, COST_WORDS, costLabel, kcalText, recipeHref, useRecipePool } from "@/components/meals/shared";
+import { ConflictNote, DifficultyPips, MacroChips, MakeAheadBadge, OriginBadge, RecipeGlyph, SLOT_LABEL, COST_WORDS, costLabel, kcalText, recipeHref, useRecipeConflicts, useRecipePool } from "@/components/meals/shared";
 import { EstimateBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
@@ -179,6 +179,8 @@ function RecipeView({
   const updateMeal = useUpdatePlannedMeal();
   const addFeedback = useAddFeedback();
   const constraintPrefs = useMemo(() => ({ allergies: prefs.allergies, diets: prefs.diets, dislikedIngredients: prefs.dislikedIngredients, equipment: prefs.equipment }), [prefs]);
+  // reached by a link, an older plan or a day planned before a preference changed
+  const conflicts = useRecipeConflicts(recipe);
   const lookup = pool.lookup;
   // a recipe the user turned down (thumbs down / "I don't like this") is never offered as the easier version
   const feedback = useMealFeedback();
@@ -348,6 +350,7 @@ function RecipeView({
                 <div className="mb-2 flex min-h-5 flex-wrap items-center gap-2">
                   <span className="eyebrow">{eyebrow}</span>
                   <OriginBadge origin={recipe.origin} />
+                  <MakeAheadBadge recipe={recipe} />
                 </div>
                 <h1 className="t-title text-balance [overflow-wrap:anywhere]">{recipe.name}</h1>
               </div>
@@ -370,6 +373,8 @@ function RecipeView({
               </span>
             </p>
           </header>
+
+          <ConflictNote conflicts={conflicts} className="mt-4" />
 
           {swappedTo && (
             <p className="mt-4 rounded-[12px] border border-line px-3.5 py-2.5 text-[13px] font-medium text-fg-2">

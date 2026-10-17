@@ -1,7 +1,7 @@
-import { Clock, Sparkles, WandSparkles } from "lucide-react";
+import { Clock, Moon, Sparkles, WandSparkles } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { ingredientCount } from "@/lib/meals/recipe";
-import type { Recipe, RecipeOrigin } from "@/lib/meals/types";
+import { ingredientCount, makeAheadOf } from "@/lib/meals/recipe";
+import type { MakeAhead, Recipe, RecipeOrigin } from "@/lib/meals/types";
 import { DifficultyPips } from "./DifficultyPips";
 import { costLabel, originLabel } from "./format";
 
@@ -87,6 +87,21 @@ export function OriginBadge({ origin, className }: { origin: RecipeOrigin; class
     <span className={cn(BADGE, "border border-line text-fg-2", className)}>
       {origin === "simplified" && <WandSparkles className="size-3" aria-hidden />}
       {label}
+    </span>
+  );
+}
+
+/**
+ * "Make the night before": a recipe with a step done hours ahead (overnight oats, eggs boiled
+ * in a batch). The planner never puts one on today; the badge is the reminder to start it.
+ */
+export function MakeAheadBadge({ recipe, className }: { recipe: Pick<Recipe, "steps"> & { makeAhead?: MakeAhead }; className?: string }) {
+  const ahead = makeAheadOf(recipe);
+  if (!ahead) return null;
+  return (
+    <span className={cn(BADGE, "border border-line text-fg-2", className)} title={`Needs about ${ahead.hours < 1 ? `${Math.round(ahead.hours * 60)} min` : `${ahead.hours} h`} ahead`}>
+      <Moon className="size-3" aria-hidden />
+      {ahead.label}
     </span>
   );
 }

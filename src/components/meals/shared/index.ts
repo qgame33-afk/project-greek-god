@@ -5,6 +5,7 @@ export * from "./format";
 export { DifficultyPips } from "./DifficultyPips";
 export { MacroChips, MacroLine, MACRO_DOT } from "./MacroChips";
 export { RecipeGlyph } from "./RecipeGlyph";
-export { OriginBadge, RecipeMeta } from "./RecipeMeta";
+export { MakeAheadBadge, OriginBadge, RecipeMeta } from "./RecipeMeta";
+export { ConflictNote, useRecipeConflicts } from "./ConflictNote";
 export { RecipeCard, RecipeCardBody, recipeHref } from "./RecipeCard";
 export { useRecipePool } from "./useRecipePool";
