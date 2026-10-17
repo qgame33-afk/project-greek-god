@@ -27,7 +27,9 @@ export function StartWorkout() {
   const fired = useRef(false);
   const [failed, setFailed] = useState(false);
 
-  const ready = !profileLoading && !templatesLoading && !plans.isLoading && !active.isLoading;
+  // Wait for a fresh answer on the open session (one restored from the offline cache may be
+  // stale); offline the query pauses, so this never waits on a dead connection.
+  const ready = !profileLoading && !templatesLoading && !plans.isLoading && !active.isLoading && !active.isFetching;
   const template = key ? byKey[key] : undefined;
   // Nobody trains before onboarding: without a finished profile there is no plan to start,
   // and an orphan "active" session would follow the user into the app afterwards.

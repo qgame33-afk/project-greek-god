@@ -76,7 +76,7 @@ function RestButton({ label, disabled, onClick, children }: { label: string; dis
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="press flex h-14 items-center justify-center gap-2 rounded-btn bg-m2 text-ivory shadow-[inset_0_0_0_1px_var(--vein-2)] hover:bg-m3 active:bg-m3 disabled:text-disabled disabled:shadow-[inset_0_0_0_1px_var(--vein)]"
+      className="press flex h-[56px] items-center justify-center gap-2 rounded-btn bg-m2 text-ivory shadow-[inset_0_0_0_1px_var(--vein-2)] hover:bg-m3 active:bg-m3 disabled:text-disabled disabled:shadow-[inset_0_0_0_1px_var(--vein)]"
     >
       {children}
     </button>

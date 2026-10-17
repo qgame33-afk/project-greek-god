@@ -322,6 +322,8 @@ function LiftRow({ name, result, best, first }: { name: string; result: LiftResu
   const timing = result?.timing ?? (first ? "first" : null);
   const tone = timing === "record" || timing === "beat" ? "text-leaf-300" : timing === "below" ? "text-stone" : "text-ivory";
   const word = timing ? WORD[timing] : "logged";
+  // "= last" says the same as "matched": the word alone carries it
+  const delta = result?.delta && result.delta !== "= last" ? result.delta : null;
   return (
     <li className="flex min-h-14 items-center gap-3 py-2.5">
       <span aria-hidden className="grid size-6 shrink-0 place-items-center">
@@ -332,8 +334,8 @@ function LiftRow({ name, result, best, first }: { name: string; result: LiftResu
         <span className="t-meta tnum block text-stone">best {best}</span>
       </span>
       <span className="shrink-0 text-right">
-        {result?.delta && <span className={cn("t-num-s tnum block", tone)}>{result.delta}</span>}
-        <span className={cn("t-tag block", result?.delta ? "mt-0.5 text-ash" : tone)}>{word}</span>
+        {delta && <span className={cn("t-num-s tnum block", tone)}>{delta}</span>}
+        <span className={cn("t-tag block", delta ? "mt-0.5 text-ash" : tone)}>{word}</span>
       </span>
     </li>
   );

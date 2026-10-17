@@ -7,9 +7,9 @@ import { cn } from "@/lib/cn";
 import { formatDuration } from "@/lib/dates";
 import { clockTime, type FriezeSegment } from "@/lib/workout/gym";
 import { useClockSec } from "../rest";
+import { SESSION_TITLE_VT } from "../transition";
 
-/** The shared element name the session title morphs through on Begin (Lights Out, §1.8.2). */
-export const SESSION_TITLE_VT = "session-title";
+export { SESSION_TITLE_VT };
 
 /** Elapsed session time — the only part of the bar that re-renders every second. */
 function Elapsed({ startedAt }: { startedAt: string }) {
@@ -56,7 +56,7 @@ export const GymTopBar = forwardRef<
 }, ref) {
   return (
     <header ref={ref} className="sticky top-0 z-(--z-sticky) bg-obsidian" style={{ paddingTop: "var(--safe-top)" }}>
-      <div className="mx-auto flex h-(--topbar-h) max-w-col items-center gap-2 px-3">
+      <div className="mx-auto flex min-h-(--topbar-h) max-w-col items-center gap-2 px-3 py-1">
         <button
           type="button"
           onClick={onMinimize}

@@ -88,16 +88,25 @@ export function SetTower({ cells, list, onSelect, onOptions, onAdd }: { cells: T
                 <span className="wk-sheen absolute inset-y-0 left-0 w-1/2 bg-[linear-gradient(100deg,transparent_10%,var(--leaf-tint)_35%,var(--leaf-line)_50%,transparent_90%)]" />
               </span>
             )}
-            <span className={cn("relative flex items-center justify-between gap-1", list && "w-24 shrink-0")}>
+            <span className="relative flex items-center justify-between gap-2">
               <span className={cn("t-eyebrow truncate", c.current && "!text-ivory")}>{c.label}</span>
-              {!list && <TimingMark timing={c.timing} logged={c.logged} />}
+              {list ? (
+                word && (
+                  <span className={cn("flex shrink-0 items-center gap-1.5", c.current && "mr-10")}>
+                    <TimingMark timing={c.timing} logged={c.logged} />
+                    <span className={cn("t-tag", word.tone)}>{word.text}</span>
+                  </span>
+                )
+              ) : (
+                <TimingMark timing={c.timing} logged={c.logged} />
+              )}
             </span>
-            <span className={cn("relative block truncate", list ? "flex-1" : "mt-1", c.ghost && !c.current ? "text-stone" : "text-ivory")}>
+            <span className={cn("relative block truncate", list ? "mt-1" : "mt-1", c.ghost && !c.current ? "text-stone" : "text-ivory")}>
               {c.load != null || c.work != null ? (
                 <>
-                  {c.load != null && <span className={cn("t-num-l", c.load.length > 4 && !list && "!text-[length:1.5rem]")}>{c.load}</span>}
+                  {c.load != null && <span className={cn(c.load.length > 3 && !list ? "t-num-m" : "t-num-l")}>{c.load}</span>}
                   {c.work != null && (
-                    <span className="t-num-m">
+                    <span className={cn(c.load != null && c.load.length > 3 && !list ? "t-num-s" : "t-num-m")}>
                       {c.load != null && <span className="text-ash">×</span>}
                       <span className={c.ghost && !c.current ? "text-stone" : "text-ivory"}>{c.work}</span>
                     </span>
@@ -107,9 +116,8 @@ export function SetTower({ cells, list, onSelect, onOptions, onAdd }: { cells: T
                 <span className="t-num-l text-ash">—</span>
               )}
             </span>
-            {word && (
-              <span className={cn("relative flex items-center gap-1.5", !list && "mt-1")}>
-                {list && <TimingMark timing={c.timing} logged={c.logged} />}
+            {word && !list && (
+              <span className="relative mt-1 flex items-center gap-1.5">
                 <span className={cn("t-tag truncate", word.tone)}>{word.text}</span>
               </span>
             )}
@@ -117,7 +125,7 @@ export function SetTower({ cells, list, onSelect, onOptions, onAdd }: { cells: T
         );
         const cls = cn(
           "relative overflow-hidden rounded-btn text-left transition-[box-shadow,background-color] duration-(--dur-base)",
-          list ? "flex min-h-14 items-center gap-3 px-3.5" : "flex min-h-[76px] flex-col px-3 py-2",
+          list ? "flex min-h-16 flex-col justify-center px-4 py-2.5" : "flex min-h-[76px] flex-col px-3 py-2",
           record ? "bg-leaf-tint shadow-[inset_0_0_0_1px_var(--leaf-line)]" : c.current ? "bg-m2 shadow-[inset_0_0_0_1.5px_var(--leaf-line)]" : "bg-m1 shadow-[inset_0_0_0_1px_var(--vein-2)]",
         );
         if (c.kind === "last" || !c.setId)
@@ -136,7 +144,7 @@ export function SetTower({ cells, list, onSelect, onOptions, onAdd }: { cells: T
                 type="button"
                 onClick={() => onOptions(c.setId!)}
                 aria-label={`${c.label} options`}
-                className={cn("press absolute grid size-11 place-items-center rounded-full text-stone hover:text-ivory", list ? "right-1 top-1/2 -translate-y-1/2" : "-bottom-1 -right-1")}
+                className={cn("press absolute grid size-11 place-items-center rounded-full text-stone hover:text-ivory", list ? "right-1 top-1" : "-bottom-1 -right-1")}
               >
                 <Ellipsis className="size-[18px]" strokeWidth={1.6} />
               </button>

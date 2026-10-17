@@ -72,7 +72,7 @@ export function LiftHeader({
   return (
     <section aria-label={name} className="pt-1">
       <div className="-mr-1.5 flex items-center gap-1">
-        <p className="t-eyebrow min-w-0 flex-1 truncate">{eyebrow}</p>
+        <p className="t-eyebrow line-clamp-2 min-w-0 flex-1">{eyebrow}</p>
         {onSwap && (
           <IconButton label={`Swap ${name}`} onClick={onSwap}>
             <ArrowLeftRight className="size-[19px]" strokeWidth={1.6} />

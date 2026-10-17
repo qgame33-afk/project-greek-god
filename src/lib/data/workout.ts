@@ -117,6 +117,7 @@ export function buildSessionSets(sessionId: string, opts: StartOptions, history:
 export function useStartWorkout() {
   const router = useRouter();
   const qc = useQueryClient();
+  const { userId } = useUser();
   const today = useToday();
   const { profile } = useProfile();
   const { byKey } = useTemplates();
@@ -133,7 +134,12 @@ export function useStartWorkout() {
     // into the workout, where their Undo would act on a plan that is already being trained.
     toast.dismiss();
     try {
-      const current = active.data ?? must(await sb().from("workout_sessions").select("*").eq("status", "active").limit(1)).at(0) ?? null;
+      // The server's word on what is open (a cached copy restored at launch can still name a
+      // session sealed moments before); the cache only when there is no signal.
+      const online = typeof navigator === "undefined" || navigator.onLine !== false;
+      const current = online
+        ? (must(await sb().from("workout_sessions").select("*").eq("status", "active").order("started_at", { ascending: false }).limit(1)).at(0) ?? null)
+        : (active.data ?? null);
       if (current) {
         if (current.local_date === opts.date && current.template_key === opts.template.key) {
           router.push(`/workout/${current.id}`);
@@ -147,21 +153,27 @@ export function useStartWorkout() {
       }
       const id = newId();
       const history = await fetchRecentHistory(opts.template.exercises.map((e) => e.slug));
-      must(
+      const session = must(
         await sb()
           .from("workout_sessions")
           .insert({ id, name: opts.template.name, template_key: opts.template.key, local_date: opts.date, mode: opts.mode, status: "active" })
-          .select("id")
+          .select("*")
           .single(),
       );
       const rows = buildSessionSets(id, opts, history);
+      let sets: SetRow[] = [];
       if (rows.length) {
-        const { error } = await sb().from("exercise_sets").insert(rows);
+        const { data, error } = await sb().from("exercise_sets").insert(rows).select("*");
         if (error) {
           await sb().from("workout_sessions").delete().eq("id", id);
           throw new Error(error.message);
         }
+        sets = (data ?? []).sort((a, b) => a.exercise_order - b.exercise_order || a.set_index - b.set_index);
       }
+      // Gym Mode opens on the session it was just given (no loading frame): set 1 is on screen
+      // the moment the route changes, and the session title morphs into its header (Lights Out).
+      // The key is the live screen's own cache entry (components/workout/data.ts liveKey).
+      if (rows.length === sets.length) qc.setQueryData(["workout-live", id, userId], { session, sets });
       qc.invalidateQueries({ queryKey: ["sessions"] });
       router.push(`/workout/${id}`);
       return true;

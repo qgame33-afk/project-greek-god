@@ -3,8 +3,8 @@
 import { useEffect, useState, type RefObject } from "react";
 
 /**
- * True while the element is narrower than 24rem (docs/DESIGN-V2.md §1.2.2, §3.2.10): a rem in
- * this check follows the root size, so a 390 px phone at an accessibility text size measures as
+ * True while the element is narrower than `rem` root-ems (docs/DESIGN-V2.md §1.2.2, §3.2.10): a
+ * rem in this check follows the root size, so a 390 px phone at a large text size measures as
  * narrow and Gym Mode switches to its AX layout (bar dial, stacked deck, listed tower).
  */
 export function useNarrow(ref: RefObject<HTMLElement | null>, rem = 24) {

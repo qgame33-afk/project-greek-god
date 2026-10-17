@@ -83,7 +83,7 @@ import { markInscription, rememberPlanned } from "./inscription/flags";
 import { NumberPad } from "./NumberPad";
 import { RestWatcher } from "./rest";
 import { DiscardSheet, ExerciseMenuSheet, HowToSheet, NoteSheet, PickExerciseSheet, SetSheetActions } from "./sheets";
-import { clearSessionStores, getDeviceCopy, getRest, markMoment, setRest, setSkipped, useNowMinute, useOnline, useRest, useSkipped } from "./stores";
+import { clearSessionStores, getDeviceCopy, getRest, markMoment, setDeviceCopy, setRest, setSkipped, useNowMinute, useOnline, useRest, useSkipped } from "./stores";
 import { useTypicalMinutes } from "./typical";
 
 const NO_GHOST: Ghost = { weight: null, work: null, weightSource: null, workSource: null };
@@ -846,6 +846,9 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       // The Inscription plays its moment once, for the seal that just happened.
       if (live && !endedElsewhere) markInscription(id);
       ops.setData({ session: finalSession, sets: fresh });
+      // nothing is open any more: the shell's live slot and Begin know at once (and the offline
+      // cache never restores a sealed session as the open one)
+      if (live) qc.setQueryData(["sessions", "active", userId], null);
       invalidateTraining(qc);
       setFinishOpen(false);
       if (prefs.haptics) haptic([10, 40, 10]);
@@ -877,6 +880,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       clearSessionStores(id);
       toast.dismiss(); // per-set undos belong to the session that was just discarded
       ops.setData({ ...data, session: { ...session, status: "discarded" } });
+      qc.setQueryData(["sessions", "active", userId], null);
       invalidateTraining(qc);
       setDiscardOpen(false);
       setFinishOpen(false);
@@ -961,13 +965,23 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   // appear) and only this device's own unconfirmed changes are re-sent.
   useSessionSync(ops, live);
 
+  // A session opened straight from Begin (its cache seeded by useStartWorkout) gets the same
+  // device copy a first fetch would have written, so a reload with no signal still opens it.
+  useEffect(() => {
+    if (live && !getDeviceCopy(id)) setDeviceCopy(id, data, emptyJournal());
+    // once per session
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, live]);
+
   /* ----------------------------------------------------------- the view */
 
   const rootRef = useRef<HTMLDivElement>(null);
   const headRef = useRef<HTMLElement>(null);
   const deckRef = useRef<HTMLDivElement>(null);
   const bannerRef = useRef<HTMLDivElement>(null);
-  const narrow = useNarrow(rootRef);
+  // 20rem on the full Gym Mode width: a 375–390 px phone at the default and Large text sizes
+  // keeps the side-by-side deck; from Extra Large (and every AX size) it stacks.
+  const narrow = useNarrow(rootRef, 20);
   const awake = useWakeLock(live);
   const typical = useTypicalMinutes(session.template_key);
   const minute = useNowMinute();
@@ -1006,17 +1020,27 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     [],
   );
 
-  // A new current set always sits in view, never under the deck (§3.2.1).
+  // A new current set always sits in view, never under the deck (§3.2.1). Checked once the
+  // screen settles and again after late content (the target line, a toast) has moved it.
   const deckId = deckSet?.id ?? null;
   useEffect(() => {
     if (!deckId) return;
-    const t = window.setTimeout(() => {
+    const reveal = (smooth: boolean) => {
       const el = document.querySelector(`[data-set="${CSS.escape(deckId)}"]`);
-      const deck = deckRef.current?.getBoundingClientRect().top ?? window.innerHeight;
       const r = el?.getBoundingClientRect();
-      if (r && (r.bottom > deck - 4 || r.top < 0)) el!.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-    }, 80);
-    return () => window.clearTimeout(t);
+      if (!r) return;
+      const deck = deckRef.current?.getBoundingClientRect().top ?? window.innerHeight;
+      const head = headRef.current?.getBoundingClientRect().bottom ?? 0;
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const by = r.bottom > deck - 8 ? r.bottom - deck + 12 : r.top < head ? r.top - head - 12 : 0;
+      if (by) window.scrollBy({ top: by, behavior: smooth && !reduced ? "smooth" : "auto" });
+    };
+    const a = window.setTimeout(() => reveal(true), 80);
+    const b = window.setTimeout(() => reveal(false), 900);
+    return () => {
+      window.clearTimeout(a);
+      window.clearTimeout(b);
+    };
   }, [deckId]);
 
   // The shown lift moved away (removed, replaced): forget a selection that no longer applies.
@@ -1108,7 +1132,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const allLogged = live && !upNext;
   const upNextGroup = upNext ? groupOf.get(upNext.id) : undefined;
   let deckKey: DeckKey;
-  if (deckSet && !deckSet.completed) deckKey = { kind: "seal", label: `${live ? "Seal" : "Save"} ${deckLabel}`, detail: shownText, onPress: sealDeck, pulse: keyPulse };
+  // At AX sizes the values are already in the steppers right above: the key keeps to its verb.
+  if (deckSet && !deckSet.completed) deckKey = { kind: "seal", label: `${live ? "Seal" : "Save"} ${deckLabel}`, detail: narrow ? null : shownText, onPress: sealDeck, pulse: keyPulse };
   else if (allLogged) deckKey = { kind: "hold", label: `Hold to seal ${session.name}`, onHold: () => void finish(), onTap: openFinish, pulse: keyPulse };
   else if (live && upNext && upNextGroup)
     deckKey = {

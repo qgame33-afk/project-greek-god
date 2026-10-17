@@ -70,14 +70,14 @@ export const ThumbDeck = forwardRef<
         </div>
         <div className="mt-2">
           {deckKey.kind === "seal" ? (
-            <SealKey label={deckKey.label} detail={deckKey.detail} pulse={deckKey.pulse} onClick={deckKey.onPress} disabled={deckKey.disabled} />
+            <SealKey label={deckKey.label} detail={deckKey.detail} pulse={deckKey.pulse} onClick={deckKey.onPress} disabled={deckKey.disabled} className="h-[64px]" />
           ) : deckKey.kind === "hold" ? (
             <HoldKey label={deckKey.label} pulse={deckKey.pulse} onHold={deckKey.onHold} onTap={deckKey.onTap} />
           ) : (
             <button
               type="button"
               onClick={deckKey.onPress}
-              className="press t-key flex h-16 w-full items-center justify-center gap-2 rounded-btn bg-m3 px-5 text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)] hover:bg-m4"
+              className="press t-key flex h-[64px] w-full items-center justify-center gap-2 rounded-btn bg-m3 px-5 text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)] hover:bg-m4"
             >
               <span className="truncate">{deckKey.label}</span>
               {deckKey.detail && <span className="tnum truncate text-stone">· {deckKey.detail}</span>}
@@ -121,13 +121,13 @@ function DeckStepper({ field: f, wide, cell }: { field: DeckField; wide: boolean
     }
   };
   const stepWord = Number.isInteger(f.step) ? String(f.step) : f.step.toFixed(1);
-  const btn = "press grid h-16 w-[52px] shrink-0 place-items-center rounded-btn text-ivory active:bg-m3 hover:bg-m3/60 disabled:text-disabled";
+  const btn = "press grid h-[64px] w-[52px] shrink-0 place-items-center rounded-btn text-ivory active:bg-m3 hover:bg-m3/60 disabled:text-disabled";
   const long = f.text.replace(/[^0-9]/g, "").length >= 4;
   return (
     <div
       role="group"
       aria-label={f.name}
-      className={cn("flex h-16 items-stretch rounded-btn bg-m2 shadow-[inset_0_0_0_1px_var(--vein-2)]", f.invalid && "shadow-[inset_0_0_0_1.5px_var(--cinnabar)]")}
+      className={cn("flex h-[64px] items-stretch rounded-btn bg-m2 shadow-[inset_0_0_0_1px_var(--vein-2)]", f.invalid && "shadow-[inset_0_0_0_1.5px_var(--cinnabar)]")}
     >
       <button
         type="button"
@@ -307,7 +307,7 @@ function HoldKey({ label, pulse, onHold, onTap }: { label: string; pulse: number
       type="button"
       data-gold="fill"
       aria-describedby="wk-hold-help"
-      className="leaf-btn press t-key relative flex h-16 w-full touch-none select-none items-center justify-center gap-2.5 overflow-hidden rounded-btn px-5 text-ink"
+      className="leaf-btn press t-key relative flex h-[64px] w-full touch-none select-none items-center justify-center gap-2.5 overflow-hidden rounded-btn px-5 text-ink"
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         fired.current = false;

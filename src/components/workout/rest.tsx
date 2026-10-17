@@ -45,13 +45,17 @@ export function restActions(sessionId: string) {
  * Headless: plays GO (haptic + optional chime) once when rest reaches zero, dismisses the
  * dock 1.2 s later, and speaks 60/30/10/0 in a polite live region.
  */
-export function RestWatcher({ sessionId, chimeOn, hapticsOn, onDone }: { sessionId: string; chimeOn: boolean; hapticsOn: boolean; onDone?: (r: RestState) => void }) {
+export function RestWatcher({ sessionId, chimeOn, hapticsOn, onDone, keep }: { sessionId: string; chimeOn: boolean; hapticsOn: boolean; onDone?: (r: RestState) => void; keep?: boolean }) {
   const rest = useRest(sessionId);
   if (!rest) return null;
-  return <RestTicker key={rest.startSec} sessionId={sessionId} rest={rest} chimeOn={chimeOn} hapticsOn={hapticsOn} onDone={onDone} />;
+  return <RestTicker key={rest.startSec} sessionId={sessionId} rest={rest} chimeOn={chimeOn} hapticsOn={hapticsOn} onDone={onDone} keep={keep} />;
 }
 
-function RestTicker({ sessionId, rest, chimeOn, hapticsOn, onDone }: { sessionId: string; rest: RestState; chimeOn: boolean; hapticsOn: boolean; onDone?: (r: RestState) => void }) {
+/**
+ * `keep`: the rest is not dismissed after GO (the live slot, off the workout screen, goes on to
+ * "Rest ended 0:42 ago"; Gym Mode then shows the same until the next seal or Skip).
+ */
+function RestTicker({ sessionId, rest, chimeOn, hapticsOn, onDone, keep }: { sessionId: string; rest: RestState; chimeOn: boolean; hapticsOn: boolean; onDone?: (r: RestState) => void; keep?: boolean }) {
   const now = useClockSec();
   const rem = remainingSec(rest, now);
   const prev = useRef<number | null>(null);
@@ -74,6 +78,7 @@ function RestTicker({ sessionId, rest, chimeOn, hapticsOn, onDone }: { sessionId
     if (away) return;
     if (hapticsOn) haptic([14, 60, 14]);
     if (chimeOn) chime();
+    if (keep) return;
     const started = rest.startSec;
     // Not cleaned up on re-render on purpose: the state change above re-renders this
     // component, and the dismissal must still happen.
@@ -84,7 +89,7 @@ function RestTicker({ sessionId, rest, chimeOn, hapticsOn, onDone }: { sessionId
         onDoneRef.current?.(cur);
       }
     }, 1200);
-  }, [rem, rest, sessionId, chimeOn, hapticsOn]);
+  }, [rem, rest, sessionId, chimeOn, hapticsOn, keep]);
 
   return (
     <p className="sr-only" role="status" aria-live="polite">
