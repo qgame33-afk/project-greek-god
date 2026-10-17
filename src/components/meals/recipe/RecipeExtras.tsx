@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Check, Coins, Gauge, Globe, Heart, Leaf, Package, RotateCcw, Sparkles, Star, ThumbsDown, ThumbsUp, Utensils, type LucideIcon } from "lucide-react";
+import { useId } from "react";
 import { cn } from "@/lib/cn";
 import { relativeDay } from "@/lib/dates";
 import type { WhyReason } from "@/lib/meals/types";
@@ -24,11 +25,12 @@ const WHY_ICON: Record<WhyReason["kind"], LucideIcon> = {
  * terms that actually raised it (engine/explain.ts), so nothing here is invented.
  */
 export function WhyThisMeal({ reasons, className }: { reasons: WhyReason[]; className?: string }) {
+  const titleId = useId(); // the recipe screen renders this twice (phone column, desktop aside)
   const list = [...reasons].sort((a, b) => b.weight - a.weight);
   if (!list.length) return null;
   return (
-    <section className={cn("card p-4 sm:p-5", className)} aria-labelledby="why-title">
-      <h2 id="why-title" className="eyebrow mb-3">
+    <section className={cn("card p-4 sm:p-5", className)} aria-labelledby={titleId}>
+      <h2 id={titleId} className="eyebrow mb-3">
         Why this meal?
       </h2>
       <ul className="space-y-3">
@@ -63,13 +65,14 @@ export function TasteCard({
   onThumbs: (t: "up" | "down") => void;
   className?: string;
 }) {
+  const titleId = useId();
   const pill = "press inline-flex h-11 items-center justify-center gap-2 rounded-[12px] border px-3 text-[14px] font-bold transition-colors";
   const on = "border-line-gold bg-gold-tint text-gold-300";
   const off = "border-line bg-s3 text-fg-2 hover:text-fg";
   return (
-    <section className={cn("card p-4 sm:p-5", className)} aria-labelledby="taste-title">
+    <section className={cn("card p-4 sm:p-5", className)} aria-labelledby={titleId}>
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 id="taste-title" className="eyebrow">
+        <h2 id={titleId} className="eyebrow">
           Your taste
         </h2>
         <span className="text-[12px] font-medium text-fg-3">Teaches your planner</span>

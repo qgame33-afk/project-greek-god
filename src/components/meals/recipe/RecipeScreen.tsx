@@ -5,7 +5,7 @@ import { BackLink } from "@/components/shell/BackLink";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChefHat, ChevronLeft, ChevronRight, Plus, WandSparkles } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { DifficultyPips, MacroChips, OriginBadge, RecipeGlyph, SLOT_LABEL, COST_WORDS, costLabel, kcalText, recipeHref, useRecipePool } from "@/components/meals/shared";
 import { EstimateBadge } from "@/components/ui/badge";
@@ -247,71 +247,76 @@ function RecipeView({
 
   const startCooking = () => router.push(cookHref(recipe.key, meal?.id, servings));
 
+  // rendered in the phone column and in the desktop aside: each copy gets its own heading id
   const servingsCard = (
-    <section className="card p-4 sm:p-5" aria-labelledby="servings-title">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 id="servings-title" className="eyebrow">
-            Servings
-          </h2>
-          <p className="mt-1 text-[13px] font-medium leading-snug text-fg-2">{meal ? "Saved to your plan" : "Scales every amount"}</p>
-        </div>
-        <ServingsStepper value={servings} onChange={setServings} showUnit={false} />
-      </div>
-      <div className="mt-3 flex min-h-11 items-center gap-1.5" role="group" aria-label="Quick servings">
-        <span className="mr-1 text-[12px] font-semibold text-fg-3">Cook for</span>
-        {[1, 2, 4].map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setServings(v)}
-            aria-pressed={servings === v}
-            aria-label={`${v} ${v === 1 ? "serving" : "servings"}`}
-            className={cn(
-              "press relative grid h-9 min-w-11 place-items-center rounded-full border px-3 text-[14px] font-bold transition-colors",
-              "after:absolute after:inset-x-0 after:-inset-y-1 after:content-['']",
-              servings === v ? "border-line-gold bg-gold-tint text-gold-300" : "border-line bg-s3 text-fg-2 hover:text-fg",
+    <WithId>
+      {(titleId) => (
+        <section className="card p-4 sm:p-5" aria-labelledby={titleId}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 id={titleId} className="eyebrow">
+                Servings
+              </h2>
+              <p className="mt-1 text-[13px] font-medium leading-snug text-fg-2">{meal ? "Saved to your plan" : "Scales every amount"}</p>
+            </div>
+            <ServingsStepper value={servings} onChange={setServings} showUnit={false} />
+          </div>
+          <div className="mt-3 flex min-h-11 items-center gap-1.5" role="group" aria-label="Quick servings">
+            <span className="mr-1 text-[12px] font-semibold text-fg-3">Cook for</span>
+            {[1, 2, 4].map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setServings(v)}
+                aria-pressed={servings === v}
+                aria-label={`${v} ${v === 1 ? "serving" : "servings"}`}
+                className={cn(
+                  "press relative grid h-9 min-w-11 place-items-center rounded-full border px-3 text-[14px] font-bold transition-colors",
+                  "after:absolute after:inset-x-0 after:-inset-y-1 after:content-['']",
+                  servings === v ? "border-line-gold bg-gold-tint text-gold-300" : "border-line bg-s3 text-fg-2 hover:text-fg",
+                )}
+              >
+                <span className="num text-[16px]">{v}</span>
+              </button>
+            ))}
+            {savedNote && savedWhere && (
+              <span className="ml-auto truncate pl-2 text-right text-[12px] font-medium text-fg-3 motion-safe:animate-[fade-in_var(--dur-base)_var(--ease-out)]">Saved to {savedWhere}</span>
             )}
-          >
-            <span className="num text-[16px]">{v}</span>
-          </button>
-        ))}
-        {savedNote && savedWhere && (
-          <span className="ml-auto truncate pl-2 text-right text-[12px] font-medium text-fg-3 motion-safe:animate-[fade-in_var(--dur-base)_var(--ease-out)]">Saved to {savedWhere}</span>
-        )}
-      </div>
+          </div>
 
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <p className="eyebrow">
-          {servings === 1 ? "Per serving" : `For ${servingsNumber(servings)} servings`}
-        </p>
-        <EstimateBadge />
-      </div>
-      <MacroChips macros={macros} size="lg" className="mt-2.5" />
-      {goals && goals.kcal > 0 && goals.protein > 0 && (
-        <p className="mt-2.5 text-[12.5px] font-medium leading-snug text-fg-3">
-          <span className="num text-[13.5px] text-fg-2">{Math.round((macros.kcal / goals.kcal) * 100)}%</span> of your {kcalText(goals.kcal)} kcal ·{" "}
-          <span className="num text-[13.5px] text-fg-2">{Math.round((macros.protein / goals.protein) * 100)}%</span> of {Math.round(goals.protein)} g protein
-        </p>
+          <div className="mt-5 flex items-center justify-between gap-3">
+            <p className="eyebrow">
+              {servings === 1 ? "Per serving" : `For ${servingsNumber(servings)} servings`}
+            </p>
+            <EstimateBadge />
+          </div>
+          <MacroChips macros={macros} size="lg" className="mt-2.5" />
+          {goals && goals.kcal > 0 && goals.protein > 0 && (
+            <p className="mt-2.5 text-[12.5px] font-medium leading-snug text-fg-3">
+              <span className="num text-[13.5px] text-fg-2">{Math.round((macros.kcal / goals.kcal) * 100)}%</span> of your {kcalText(goals.kcal)} kcal ·{" "}
+              <span className="num text-[13.5px] text-fg-2">{Math.round((macros.protein / goals.protein) * 100)}%</span> of {Math.round(goals.protein)} g protein
+            </p>
+          )}
+
+          <div className="mt-4">
+            {loggedLine ? (
+              <>
+                <LoggedStrip text={loggedLine.text} onUndo={"undo" in loggedLine ? loggedLine.undo : undefined} href={"href" in loggedLine ? loggedLine.href : undefined} />
+                <button type="button" onClick={() => setLogOpen(true)} className="press mt-2 inline-flex h-11 items-center gap-1.5 rounded-[10px] px-1 text-[13.5px] font-bold text-fg-2 hover:text-fg">
+                  <Plus className="size-4" aria-hidden />
+                  Log another serving
+                </button>
+              </>
+            ) : (
+              <Button variant="secondary" size="lg" block onClick={() => setLogOpen(true)}>
+                <Plus className="size-[18px] text-gold-300" aria-hidden />
+                Add to today&apos;s food log
+              </Button>
+            )}
+          </div>
+        </section>
       )}
-
-      <div className="mt-4">
-        {loggedLine ? (
-          <>
-            <LoggedStrip text={loggedLine.text} onUndo={"undo" in loggedLine ? loggedLine.undo : undefined} href={"href" in loggedLine ? loggedLine.href : undefined} />
-            <button type="button" onClick={() => setLogOpen(true)} className="press mt-2 inline-flex h-11 items-center gap-1.5 rounded-[10px] px-1 text-[13.5px] font-bold text-fg-2 hover:text-fg">
-              <Plus className="size-4" aria-hidden />
-              Log another serving
-            </button>
-          </>
-        ) : (
-          <Button variant="secondary" size="lg" block onClick={() => setLogOpen(true)}>
-            <Plus className="size-[18px] text-gold-300" aria-hidden />
-            Add to today&apos;s food log
-          </Button>
-        )}
-      </div>
-    </section>
+    </WithId>
   );
 
   const easierRow = (
@@ -528,3 +533,8 @@ export function RecipeSkeleton() {
   );
 }
 
+/** A fresh id per rendered instance, for markup that appears more than once on the page. */
+function WithId({ children }: { children: (id: string) => ReactNode }) {
+  const id = useId();
+  return children(id);
+}
