@@ -12,7 +12,23 @@ import { must, newId, sb, useToday, useUser, type Insert } from "./core";
 import { useProfile } from "./profile";
 import { planFor, useActiveSession, useDayPlans, useTemplates, type Session, type SetRow, type StoredTemplate } from "./training";
 
-/** Last ~2 completed sessions per exercise, for suggestions and "last time" lines. */
+/**
+ * Completed sessions kept per exercise for suggestions: enough to look past a deload week
+ * to the last two real sessions (progression never reads a deload as performance).
+ */
+export const HISTORY_SESSIONS = 4;
+
+/** Stamp each past set with its session's mode (what that session prescribed). */
+export async function withSessionModes(byslug: Record<string, PastSet[]>): Promise<Record<string, PastSet[]>> {
+  const ids = [...new Set(Object.values(byslug).flatMap((l) => l.map((s) => s.session_id)))];
+  if (!ids.length) return byslug;
+  const rows = must(await sb().from("workout_sessions").select("id,mode").in("id", ids));
+  const mode = new Map(rows.map((r) => [r.id, (r.mode ?? "standard") as Mode]));
+  for (const list of Object.values(byslug)) for (const s of list) s.mode = mode.get(s.session_id) ?? "standard";
+  return byslug;
+}
+
+/** Last few completed sessions per exercise, for suggestions and "last time" lines. */
 export async function fetchRecentHistory(slugs: string[]): Promise<Record<string, PastSet[]>> {
   if (!slugs.length) return {};
   const rows = must(
@@ -21,14 +37,14 @@ export async function fetchRecentHistory(slugs: string[]): Promise<Record<string
       .select("local_date,session_id,set_index,weight_lb,reps,duration_sec,rir,exercise_slug")
       .in("exercise_slug", slugs)
       .order("local_date", { ascending: false })
-      .limit(600),
+      .limit(1000),
   );
   const out: Record<string, PastSet[]> = {};
   const sessionsSeen: Record<string, Set<string>> = {};
   for (const r of rows) {
     const slug = r.exercise_slug!;
     sessionsSeen[slug] ??= new Set();
-    if (!sessionsSeen[slug].has(r.session_id!) && sessionsSeen[slug].size >= 2) continue;
+    if (!sessionsSeen[slug].has(r.session_id!) && sessionsSeen[slug].size >= HISTORY_SESSIONS) continue;
     sessionsSeen[slug].add(r.session_id!);
     (out[slug] ??= []).push({
       local_date: r.local_date!,
@@ -40,7 +56,7 @@ export async function fetchRecentHistory(slugs: string[]): Promise<Record<string
       rir: r.rir == null ? null : Number(r.rir),
     });
   }
-  return out;
+  return withSessionModes(out);
 }
 
 export function useRecentHistory(slugs: string[]) {

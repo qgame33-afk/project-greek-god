@@ -15,6 +15,8 @@ export interface PastSet {
   reps: number | null;
   duration_sec: number | null;
   rir: number | null;
+  /** The mode of the session the set belongs to (what it prescribed); unknown = standard. */
+  mode?: Mode;
 }
 
 export type SuggestionKind = "first" | "increase" | "add_reps" | "hold" | "reset" | "deload" | "explosive" | "bodyweight";
@@ -62,11 +64,22 @@ function work(s: PastSet, unit: string) {
   return unit === "sec" ? Number(s.duration_sec ?? s.reps ?? 0) : Number(s.reps ?? 0);
 }
 
+const topLoad = (sets: PastSet[]) => Math.max(0, ...sets.map((s) => Number(s.weight_lb ?? 0)));
+
+/** "1 of 2 sets was", "2 of 3 sets were". */
+const ofSets = (n: number, of: number) => `${n} of ${of} ${of === 1 ? "set" : "sets"} ${n === 1 ? "was" : "were"}`;
+/** "the set", "both", "all 3". */
+const allOf = (n: number) => (n <= 1 ? "the set" : n === 2 ? "both" : `all ${n}`);
+
 /**
  * Suggest the next session's load/reps for one exercise.
+ * Each past session is judged against the sets IT prescribed (intro volume plans one set
+ * fewer, a deload about half), and deload sessions are planned lighter work, never a
+ * performance: progression reads the most recent non-deload sessions.
  * - all prescribed sets at the top of the range (and not ground out at 0 RIR) → small load increase
  * - every set inside the range but not all at the top → same load, add reps
- * - target reps missed → keep the load; missed twice in a row at the same load → ~10% reset
+ * - target reps missed → keep the load; reps missed twice in a row at the same load → ~10% reset
+ *   (sets left unlogged are a hold, never a reset: they are not a miss of the rep range)
  */
 export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, history: PastSet[], mode: Mode = "standard"): Suggestion {
   const unit = t.unit;
@@ -75,6 +88,8 @@ export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, h
   const lastSets = sessions[0] ?? [];
   const last = lastSets.length ? describeSession(lastSets, unit) : null;
   const inc = lib?.increment ?? 5;
+  const prescribedIn = (s: PastSet[]) => plannedSetCount(t, lib, s[0]?.mode ?? "standard");
+  const real = sessions.filter((s) => s[0]?.mode !== "deload");
 
   if (lib?.category === "explosive" || lib?.tracking === "reps") {
     return {
@@ -101,12 +116,9 @@ export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, h
     };
   }
 
-  const weights = lastSets.map((s) => Number(s.weight_lb ?? 0));
-  const top = Math.max(...weights);
-  const atTop = lastSets.filter((s) => Number(s.weight_lb ?? 0) === top);
-  const bodyweight = lib?.tracking === "bodyweight_reps" && top === 0;
-
   if (mode === "deload") {
+    // ~10% under the last real working load (a deload after a deload doesn't compound).
+    const top = topLoad(real[0] ?? lastSets);
     return {
       kind: "deload",
       weightLb: top > 0 ? roundTo(top * 0.9, inc) : null,
@@ -116,12 +128,32 @@ export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, h
     };
   }
 
-  const prescribed = t.sets;
-  const allSetsDone = lastSets.length >= prescribed;
+  const ref = real[0];
+  if (!ref) {
+    // Only deloads logged so far: they set a starting point, not a verdict.
+    const top = topLoad(lastSets);
+    return {
+      kind: top > 0 ? "hold" : "bodyweight",
+      weightLb: top > 0 ? top : null,
+      target,
+      reason: top > 0 ? `Last time was a deload at ${top} lb. Start there and add load once every set reaches ${t.repHigh}.` : "Last time was a deload. Add a rep to any set you can.",
+      last,
+    };
+  }
+
+  const top = topLoad(ref);
+  const atTop = ref.filter((s) => Number(s.weight_lb ?? 0) === top);
+  const bodyweight = lib?.tracking === "bodyweight_reps" && top === 0;
+
+  // What that session prescribed, and what this one does.
+  const prescribed = prescribedIn(ref);
+  const planned = plannedSetCount(t, lib, mode);
+  const allSetsDone = ref.length >= prescribed;
   const hitTopAll = allSetsDone && atTop.length >= prescribed && atTop.slice(0, prescribed).every((s) => work(s, unit) >= t.repHigh);
   const loggedRir = atTop.map((s) => s.rir).filter((r): r is number => r != null);
   const grinding = loggedRir.length > 0 && loggedRir.filter((r) => r <= 0).length >= Math.ceil(loggedRir.length / 2);
-  const inRangeAll = allSetsDone && lastSets.slice(0, prescribed).every((s) => work(s, unit) >= t.repLow);
+  const inRangeAll = allSetsDone && ref.slice(0, prescribed).every((s) => work(s, unit) >= t.repLow);
+  const repsMissed = (s: PastSet[]) => s.slice(0, prescribedIn(s)).some((x) => work(x, unit) < t.repLow);
 
   const seen = atTop.map((s) => work(s, unit)).join(", ");
 
@@ -163,29 +195,25 @@ export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, h
     };
   }
 
-  // Target missed. Two misses in a row at the same top load → small reset.
-  const prev = sessions[1];
-  if (prev?.length) {
-    const prevTop = Math.max(...prev.map((s) => Number(s.weight_lb ?? 0)));
-    const prevMissed = prev.length < prescribed || prev.slice(0, prescribed).some((s) => work(s, unit) < t.repLow);
-    if (prevTop === top && prevMissed && top > 0) {
-      const reset = roundTo(top * 0.9, inc);
-      return {
-        kind: "reset",
-        weightLb: reset,
-        target,
-        reason: `Missed the ${t.repLow}–${t.repHigh} range twice at ${top} lb. Drop to ${reset} lb and build back up — it's the fastest way past a stall.`,
-        last,
-      };
-    }
+  // Reps missed in two real sessions in a row at the same top load → small reset.
+  const prev = real[1];
+  if (prev?.length && top > 0 && repsMissed(ref) && repsMissed(prev) && topLoad(prev) === top) {
+    const reset = roundTo(top * 0.9, inc);
+    return {
+      kind: "reset",
+      weightLb: reset,
+      target,
+      reason: `Missed the ${t.repLow}–${t.repHigh} range twice at ${top} lb. Drop to ${reset} lb and build back up — it's the fastest way past a stall.`,
+      last,
+    };
   }
   return {
     kind: "hold",
     weightLb: top || null,
     target,
-    reason: allSetsDone
+    reason: repsMissed(ref)
       ? `Some sets fell short of ${t.repLow} reps at ${top} lb. Keep the load and aim for ${t.repLow}+ on every set.`
-      : `Last time ${lastSets.length} of ${prescribed} sets were completed. Keep ${top} lb and complete all ${prescribed}.`,
+      : `Last time ${ofSets(ref.length, prescribed)} completed. Keep ${top} lb and complete ${allOf(planned)}.`,
     last,
   };
 }
