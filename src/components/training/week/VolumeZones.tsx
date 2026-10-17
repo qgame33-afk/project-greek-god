@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { ErrorNote, Skeleton } from "@/components/ui/misc";
 import { Tag } from "@/components/ui/tag";
@@ -16,7 +17,7 @@ const pct = (n: number) => `${(Math.min(n, ZONE_SCALE_MAX) / ZONE_SCALE_MAX) * 1
 /**
  * Hard sets per muscle this week against a target zone (§3.4.1 item 7, §4.7). The fill is ivory;
  * "under" adds a hatched remainder up to the zone with ▽, "in zone" a ✓, "above" a △ — words
- * every time, no amber, no red.
+ * every time, never a caution colour.
  */
 export function VolumeZones({ week, className }: { week: Week; className?: string }) {
   const v = useWeekVolume(week);
@@ -83,6 +84,12 @@ export function VolumeZones({ week, className }: { week: Week; className?: strin
 /** `quiet`: nothing logged this week yet — the empty bars and their zones, no "under" on every row. */
 function ZoneLine({ r, quiet }: { r: ZoneRow; quiet: boolean }) {
   const [lo, hi] = r.range;
+  // Gild (§1.8.2): the fill grows from the left on first show, then moves at once
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setArmed(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   const glyph = r.status === "in" ? <Check className="size-3.5" strokeWidth={2.2} aria-hidden /> : <span aria-hidden>{r.status === "under" ? "▽" : "△"}</span>;
   return (
     <li aria-label={r.aria} className="grid min-h-12 grid-cols-[6rem_minmax(0,1fr)_6.5rem] items-center gap-x-3 py-2 @max-[19rem]:grid-cols-[minmax(0,1fr)_auto] @max-[19rem]:gap-y-2">
@@ -95,7 +102,7 @@ function ZoneLine({ r, quiet }: { r: ZoneRow; quiet: boolean }) {
         {/* the track and the logged fill */}
         <span className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-vein-2">
           {r.status === "under" && !quiet && <span className="hatch absolute inset-y-0" style={{ left: pct(r.sets), width: `calc(${pct(lo)} - ${pct(r.sets)})` }} />}
-          <span className="absolute inset-0 origin-left rounded-full bg-ivory transition-transform duration-(--dur-gild) ease-(--ease-gold)" style={{ transform: `scaleX(${Math.min(r.sets, ZONE_SCALE_MAX) / ZONE_SCALE_MAX})` }} />
+          <span className="absolute inset-0 origin-left rounded-full bg-ivory transition-transform duration-(--dur-gild) ease-(--ease-gold)" style={{ transform: `scaleX(${armed ? Math.min(r.sets, ZONE_SCALE_MAX) / ZONE_SCALE_MAX : 0})` }} />
         </span>
       </span>
       <span aria-hidden className={cn("t-meta flex items-center justify-end gap-1.5 whitespace-nowrap", r.status === "under" ? "text-stone" : "text-ivory")}>

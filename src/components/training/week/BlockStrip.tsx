@@ -12,14 +12,14 @@ const MIN_SLOTS = 6;
  * start), hard weeks filled ivory, this week outlined, and a marker where the deload RULE falls
  * (hard week 5). It never draws a future week: while the window is ahead it says so in words.
  */
-export function BlockStrip({ block, today, className }: { block: Block; today: string; className?: string }) {
+export function BlockStrip({ block, today, programStart, className }: { block: Block; today: string; programStart?: string | null; className?: string }) {
   const { weeks, hardWeeks, windowIndex, weeksToWindow, deloading, since, hidden } = block;
   const n = weeks.length;
   const sinceWord = since.kind === "deload" ? "since your last deload" : since.kind === "start" ? "since you started" : "in the loaded history";
   const head = deloading ? "Deload week" : hardWeeks === 0 ? "Block" : `${hardWeeks} hard ${hardWeeks === 1 ? "week" : "weeks"}`;
   const right = deloading ? "Back to standard next week" : weeksToWindow === 0 ? "Deload window" : `Deload window in ${weeksToWindow} hard ${weeksToWindow === 1 ? "week" : "weeks"}`;
   const aria =
-    `Training block ${sinceWord}, ${shortDate(since.week, today)}: ${n} ${n === 1 ? "week" : "weeks"}, ${hardWeeks} hard in a row. ` +
+    `Training block ${sinceWord}, ${shortDate(since.kind === "start" && programStart ? programStart : since.week, today)}: ${n} ${n === 1 ? "week" : "weeks"}, ${hardWeeks} hard in a row. ` +
     (deloading ? "This is a deload week." : weeksToWindow === 0 ? "The deload window is reached." : `The deload window comes after ${DELOAD_WINDOW} hard weeks; ${weeksToWindow} to go.`);
 
   return (

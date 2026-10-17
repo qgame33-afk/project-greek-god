@@ -60,7 +60,7 @@ export function WeekTab({ week, onDay, onLogVolleyball }: { week: Week; onDay: (
 
       <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start lg:gap-12">
         <div className="min-w-0">
-          <BlockStrip block={week.block} today={week.today} />
+          <BlockStrip block={week.block} today={week.today} programStart={week.profile?.start_date ?? null} />
           <DeloadCard advice={week.deload} today={week.today} className="mt-4" />
           <Temple days={week.days} onDay={onDay} startDate={week.profile?.start_date ?? null} className="mt-6" />
           <TodaySession week={week} onDay={onDay} className="mt-4" />

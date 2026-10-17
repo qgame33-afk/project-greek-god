@@ -14,7 +14,7 @@ type Week = ReturnType<typeof useTrainingWeek>;
 
 /**
  * A workout that went unlogged (§3.4.1 item 8): one quiet row — "Pull B wasn't logged · Move it"
- * — that opens to Today / Tomorrow / Skip. Never a warning colour. A move that would replace
+ * — that opens to Today / Tomorrow / Skip. Never a caution colour. A move that would replace
  * another workout asks again before it writes.
  */
 export function MissedRow({ week, missed, className }: { week: Week; missed: MissedWorkout; className?: string }) {
