@@ -49,32 +49,35 @@ function AppShellInner({ children }: { children: ReactNode }) {
 
   useNavDirection(pathname);
 
+  const showFab = !focus && !hidesFab(pathname) && !keyboard;
+
   // Every route, focus routes included, enters and exits as one `page` view transition;
-  // globals.css turns <html data-nav> into the push / pop / tab-order slide.
-  const page = (
-    <ViewTransition key={pathname} enter="page" exit="page" default="none">
-      <div>{children}</div>
-    </ViewTransition>
-  );
-
-  if (focus) return page;
-
-  const showFab = !hidesFab(pathname) && !keyboard;
-
+  // globals.css turns <html data-nav> into the push / pop / tab-order slide. The transition
+  // sits at the same place in the tree for shell and focus routes (React only runs enter/exit
+  // for a ViewTransition at the top of what mounts or unmounts), so going into the workout or
+  // cooking mode the screen you leave slides away too instead of vanishing in one frame.
   return (
-    <div className="min-h-dvh">
-      <Sidebar pathname={pathname} onQuickLog={() => setQuickOpen(true)} />
-      <TopBar pathname={pathname} />
+    <div className={focus ? undefined : "min-h-dvh"}>
+      {!focus && <Sidebar pathname={pathname} onQuickLog={() => setQuickOpen(true)} />}
+      {!focus && <TopBar pathname={pathname} />}
 
-      <main className="pb-tabbar w-full pt-4 md:pl-[76px] md:pb-16 lg:pl-[248px] lg:pt-8">
-        <div className="mx-auto w-full max-w-[1180px] px-4 md:px-6 lg:px-8">
-          <OfflineBanner />
-          {page}
-        </div>
-      </main>
+      <ViewTransition key={pathname} enter="page" exit="page" default="none">
+        {focus ? (
+          // full height: a focus screen drawn with position: fixed (cooking mode) still has a
+          // box for the transition to capture
+          <div className="min-h-dvh">{children}</div>
+        ) : (
+          <main className="pb-tabbar w-full pt-4 md:pl-[76px] md:pb-16 lg:pl-[248px] lg:pt-8">
+            <div className="mx-auto w-full max-w-[1180px] px-4 md:px-6 lg:px-8">
+              <OfflineBanner />
+              <div>{children}</div>
+            </div>
+          </main>
+        )}
+      </ViewTransition>
 
-      <TabBar pathname={pathname} />
-      <LiveDock />
+      {!focus && <TabBar pathname={pathname} />}
+      {!focus && <LiveDock />}
 
       {showFab && (
         <button
@@ -88,7 +91,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
         </button>
       )}
 
-      <QuickLog open={quickOpen} onOpenChange={setQuickOpen} />
+      {!focus && <QuickLog open={quickOpen} onOpenChange={setQuickOpen} />}
     </div>
   );
 }
