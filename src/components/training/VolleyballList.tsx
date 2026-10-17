@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Trash } from "lucide-react";
 import { toast } from "sonner";
+import { Volleyball as BallIcon } from "@/components/art/icons";
 import { cn } from "@/lib/cn";
 import { relativeDay, type ISODate } from "@/lib/dates";
 import type { Volleyball } from "@/lib/data/training";
@@ -69,8 +70,8 @@ export function VolleyballList({
 
   return (
     <div>
-      {title && <p className="eyebrow mb-2">{title}</p>}
-      <ul className="divide-y divide-line-hair overflow-hidden rounded-[14px] bg-s3">
+      {title && <p className="t-eyebrow mb-1 flex min-h-8 items-center">{title}</p>}
+      <ul className="divide-y divide-vein border-y border-vein">
         {list.map((v) => {
           const gone = !live.has(v.id);
           const label = `${vbKindLabel(v.kind)}${withDate ? ` · ${relativeDay(v.local_date, today)}` : ""}`;
@@ -83,32 +84,17 @@ export function VolleyballList({
               .filter(Boolean)
               .join(" · ") || "No details";
           return (
-            <li key={v.id} className="flex min-h-14 items-center gap-3 pl-3.5">
-              <span
-                className={cn(
-                  "size-2 shrink-0 rounded-full",
-                  gone ? "bg-fg-3/40" : "bg-lapis",
-                )}
-                aria-hidden
-              />
+            <li key={v.id} className="flex min-h-14 items-center gap-3">
+              <BallIcon className={cn("size-5 shrink-0", gone ? "text-disabled" : "text-stone")} />
               <div className="min-w-0 flex-1">
-                <p
-                  className={cn(
-                    "truncate text-[14px] font-semibold",
-                    gone && "text-fg-3",
-                  )}
-                >
-                  {gone ? `Deleted · ${label}` : label}
-                </p>
-                {!gone && (
-                  <p className="truncate text-[12px] text-fg-3">{detail}</p>
-                )}
+                <p className={cn("t-title-3 truncate", gone ? "text-ash" : "text-ivory")}>{gone ? `Deleted · ${label}` : label}</p>
+                {!gone && <p className="t-meta truncate text-stone">{detail}</p>}
               </div>
               {gone ? (
                 <button
                   type="button"
                   onClick={() => onUndo(v)}
-                  className="press mr-1 inline-flex h-11 shrink-0 items-center px-3 text-[12px] font-extrabold uppercase tracking-[.1em] text-gold-300 hover:text-gold-200"
+                  className="press t-key -mr-1 inline-flex h-11 shrink-0 items-center px-3 text-ivory"
                 >
                   Undo
                 </button>
@@ -118,9 +104,9 @@ export function VolleyballList({
                   onClick={() => onDelete(v)}
                   disabled={restoring.includes(v.id)}
                   aria-label={`Delete ${vbKindLabel(v.kind)} on ${relativeDay(v.local_date, today)}`}
-                  className="grid size-11 shrink-0 place-items-center text-fg-3 hover:text-danger disabled:opacity-40"
+                  className="press -mr-2 grid size-11 shrink-0 place-items-center text-ash hover:text-cinnabar disabled:opacity-40"
                 >
-                  <Trash className="size-[18px]" />
+                  <Trash className="size-5" strokeWidth={1.6} />
                 </button>
               )}
             </li>

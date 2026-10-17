@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowLeftRight, BedDouble, CalendarClock, Check, ChevronLeft, ChevronRight, RotateCcw, Volleyball as VolleyballIcon } from "lucide-react";
-import { OptionalBadge, SuggestedBadge } from "@/components/ui/badge";
+import { ArrowLeftRight, BedDouble, CalendarClock, Check, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { SealTick, Volleyball as VolleyballIcon } from "@/components/art/icons";
 import { Button } from "@/components/ui/button";
 import { Segmented, Switch } from "@/components/ui/controls";
 import { Sheet } from "@/components/ui/sheet";
+import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
 import { dayName, longDate, relativeDay, shortDate, weekday, type ISODate } from "@/lib/dates";
 import { scheduleOf, type Session } from "@/lib/data/training";
@@ -16,7 +17,7 @@ import type { Mode } from "@/lib/training/progression";
 import { describeMove, linkedMoveDates, planMove, rescheduleOptions, type RescheduleOption } from "@/lib/training/schedule";
 import { isLegDay, modeTemplate } from "@/lib/training/volume";
 import { fmtSessionMinutes, fmtVolume, targetLabel, templateMeta } from "./format";
-import { useDayPlanWrites, useUnits, type useTrainingWeek } from "./hooks";
+import { useDayPlanWrites, useTypicalDurations, useUnits, type useTrainingWeek } from "./hooks";
 import { VolleyballList } from "./VolleyballList";
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -95,6 +96,7 @@ function DayBody({
   const [mode, setMode] = useState<Mode>(week.mode);
   const [lighter, setLighter] = useState(false);
   const { unit } = useUnits();
+  const typical = useTypicalDurations();
   const { start, starting } = useStartWorkout();
   const { apply, pending } = useDayPlanWrites();
 
@@ -169,18 +171,19 @@ function DayBody({
                   type="button"
                   disabled={pending}
                   onClick={() => setKey(t.key)}
+                  aria-pressed={current}
                   className={cn(
-                    "press-soft flex min-h-16 w-full items-center gap-3 rounded-[14px] border px-4 py-3 text-left transition-colors",
-                    current ? "border-line-gold bg-gold-tint" : "border-line bg-s3 hover:border-line-strong",
+                    "press-soft flex min-h-16 w-full items-center gap-3 rounded-btn px-4 py-3 text-left transition-colors",
+                    current ? "bg-m4 shadow-[inset_0_0_0_1.5px_var(--ivory)]" : "bg-m3 shadow-[inset_0_0_0_1px_var(--vein-2)] hover:bg-m4",
                   )}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="t-h2 text-[18px]">{t.name}</p>
-                    <p className="truncate text-[12px] text-fg-2">
-                      {t.subtitle} · {templateMeta(t)}
+                    <p className="t-title-2 text-ivory">{t.name}</p>
+                    <p className="t-meta truncate text-stone">
+                      {t.subtitle} · {templateMeta(modeTemplate(t, week.mode), week.mode === "standard" ? typical[t.key] : null)}
                     </p>
                   </div>
-                  {current ? <Check className="size-5 text-gold-300" /> : defaultKey === t.key ? <span className="text-[11px] font-bold uppercase tracking-[.12em] text-fg-3">Usual</span> : null}
+                  {current ? <Check className="size-5 text-ivory" strokeWidth={2.2} /> : defaultKey === t.key ? <span className="t-tag text-ash">Usual</span> : null}
                 </button>
               </li>
             );
@@ -190,14 +193,15 @@ function DayBody({
               type="button"
               disabled={pending}
               onClick={() => setKey("rest")}
+              aria-pressed={plan.key === "rest"}
               className={cn(
-                "press-soft flex min-h-14 w-full items-center gap-3 rounded-[14px] border px-4 text-left",
-                plan.key === "rest" ? "border-line-gold bg-gold-tint" : "border-line bg-s3 hover:border-line-strong",
+                "press-soft flex min-h-14 w-full items-center gap-3 rounded-btn px-4 text-left",
+                plan.key === "rest" ? "bg-m4 shadow-[inset_0_0_0_1.5px_var(--ivory)]" : "bg-m3 shadow-[inset_0_0_0_1px_var(--vein-2)] hover:bg-m4",
               )}
             >
-              <BedDouble className="size-5 text-fg-2" />
-              <span className="flex-1 text-[15px] font-semibold">Rest day</span>
-              {plan.key === "rest" && <Check className="size-5 text-gold-300" />}
+              <BedDouble className="size-5 text-stone" strokeWidth={1.6} />
+              <span className="t-title-3 flex-1 text-ivory">Rest day</span>
+              {plan.key === "rest" && <Check className="size-5 text-ivory" strokeWidth={2.2} />}
             </button>
           </li>
         </ul>
@@ -215,41 +219,39 @@ function DayBody({
               key={s.id}
               type="button"
               onClick={() => onOpenSession(s)}
-              className="press-soft flex min-h-14 w-full items-center gap-3 rounded-[14px] border border-success/25 bg-success-tint px-3.5 text-left"
+              className="press-soft flex min-h-14 w-full items-center gap-3 rounded-btn bg-m3 px-3.5 py-2 text-left shadow-[inset_0_0_0_1px_var(--vein-2)]"
             >
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-success text-ink">
-                <Check className="size-4" strokeWidth={3} />
-              </span>
+              <SealTick className="size-7 text-leaf-300" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-bold">Completed · {s.name}</span>
-                <span className="block truncate text-[12px] text-fg-2">
+                <span className="t-title-3 block truncate text-ivory">Sealed · {s.name}</span>
+                <span className="t-meta tnum block truncate text-stone">
                   {fmtSessionMinutes(s.duration_sec)} · {fmtVolume(Number(s.total_volume_lb), unit)} · {s.sets_completed} sets
                 </span>
               </span>
-              <ChevronRight className="size-4 text-fg-3" />
+              <ChevronRight className="size-4 text-ash" strokeWidth={1.6} />
             </button>
           ))}
           {active && (
-            <div className="flex min-h-14 items-center gap-3 rounded-[14px] border border-line-gold bg-gold-tint px-3.5">
+            <div className="flex min-h-14 items-center gap-3 rounded-btn bg-m3 px-3.5 py-2 shadow-[inset_0_0_0_1px_var(--leaf-line)]">
               <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-bold text-gold-200">In progress · {active.name}</span>
-                <span className="block text-[12px] text-fg-2">Pick up where you left off.</span>
+                <span className="t-title-3 block text-ivory">Live · {active.name}</span>
+                <span className="t-meta block text-stone">Pick up where you left off.</span>
               </span>
-              <Button variant="primary" size="sm" className="h-11" asChild>
-                <Link href={`/workout/${active.id}`}>Resume</Link>
+              <Button variant="primary" size="sm" asChild>
+                <Link href={`/workout/${active.id}`}>Return</Link>
               </Button>
             </div>
           )}
-          {missed && <p className="rounded-[14px] bg-s3 px-3.5 py-3 text-[13px] text-fg-2">Not logged. Move it to another day, log it now if you trained, or leave it.</p>}
+          {missed && <p className="t-callout rounded-btn bg-m3 px-3.5 py-3 text-stone">Not logged. Move it to another day, log it now if you trained, or leave it.</p>}
           {plannedOpen && template && (
-            <div className="rounded-[14px] bg-s3 px-3.5 py-3">
-              <p className="text-[14px] font-bold">{template.name} is still open</p>
-              <p className="mt-0.5 text-[13px] text-fg-2">It was planned {isToday ? "today" : `for ${dayName(date)}`}. Move it to another day or skip it.</p>
+            <div className="rounded-btn bg-m3 px-3.5 py-3">
+              <p className="t-title-3 text-ivory">{template.name} is still open</p>
+              <p className="t-callout mt-0.5 text-stone">It was planned {isToday ? "today" : `for ${dayName(date)}`}. Move it to another day or skip it.</p>
             </div>
           )}
-          {plan.movedFrom && <p className="text-[13px] text-fg-3">Moved here from {dayName(plan.movedFrom)}, {shortDate(plan.movedFrom)}.</p>}
-          {plan.reason === "swap" && !plan.movedFrom && <p className="text-[13px] text-fg-3">Swapped in for this day only. Your weekly plan is unchanged.</p>}
-          {frozen && <p className="text-[13px] text-fg-3">Planned under your previous weekly schedule.</p>}
+          {plan.movedFrom && <p className="t-meta text-ash">Moved here from {dayName(plan.movedFrom)}, {shortDate(plan.movedFrom)}.</p>}
+          {plan.reason === "swap" && !plan.movedFrom && <p className="t-meta text-ash">Swapped in for this day only. Your weekly plan is unchanged.</p>}
+          {frozen && <p className="t-meta text-ash">Planned under your previous weekly schedule.</p>}
         </div>
       )}
 
@@ -257,17 +259,17 @@ function DayBody({
       {template && effective && !done.length && !active && (
         <div className="space-y-4">
           <div>
-            <p className="t-card">{template.name}</p>
-            <p className="mt-1 text-[13px] text-fg-2">{templateMeta(effective)}</p>
+            <p className="t-title-2 text-ivory">{template.name}</p>
+            <p className="t-meta tnum mt-1 text-stone">{templateMeta(effective, mode === "standard" && !lighter ? typical[template.key] : null)}</p>
           </div>
-          <ul className="divide-y divide-line-hair rounded-[14px] bg-s3 px-3.5">
+          <ul className="divide-y divide-vein border-y border-vein">
             {template.exercises.map((e) => {
               const eff = effective.exercises.find((x) => x.slug === e.slug && x.name === e.name);
               return (
-                <li key={e.slug + e.name} className={cn("flex min-h-11 items-center gap-3 py-2", !eff && "opacity-45")}>
-                  <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{e.name}</span>
-                  {e.optional && <OptionalBadge />}
-                  <span className="num shrink-0 text-[15px] text-fg-2">{eff ? targetLabel(eff) : "Skipped"}</span>
+                <li key={e.slug + e.name} className="flex min-h-11 items-center gap-3 py-2">
+                  <span className={cn("t-callout min-w-0 flex-1 truncate", eff ? "text-ivory" : "text-ash line-through decoration-ui-line")}>{e.name}</span>
+                  {e.optional && <span className="t-tag shrink-0 text-ash">Optional</span>}
+                  <span className={cn("t-num-s shrink-0", eff ? "text-stone" : "text-ash")}>{eff ? targetLabel(eff) : "Skipped"}</span>
                 </li>
               );
             })}
@@ -286,18 +288,20 @@ function DayBody({
                     { value: "deload", label: "Deload" },
                   ]}
                 />
-                <p className="mt-2 text-[13px] text-fg-2">{MODE_HELP[mode]}</p>
+                <p className="t-meta mt-2 text-stone">{MODE_HELP[mode]}</p>
               </div>
 
               {legDay && (
-                <div className={cn("rounded-[14px] border p-3.5", suggestLighter ? "border-lapis-line bg-lapis-tint" : "border-line bg-s3")}>
+                <div className={cn("rounded-btn bg-m3 p-3.5", suggestLighter && "shadow-[inset_0_0_0_1px_var(--ui-line)]")}>
                   <div className="flex items-start gap-3">
                     <div className="min-w-0 flex-1">
-                      {suggestLighter && <SuggestedBadge className="mb-2" />}
-                      <p className="text-[14px] font-bold">Lighter legs</p>
-                      <p className="mt-0.5 text-[13px] text-fg-2">Skip the optional jumps and take one set off each leg lift, never below 2.</p>
+                      <p className="t-title-3 flex items-center gap-2 text-ivory">
+                        Lighter legs
+                        {suggestLighter && <Tag kind="RULE" detail="Suggested" />}
+                      </p>
+                      <p className="t-meta mt-0.5 text-stone">Skip the optional jumps and take one set off each leg lift, never below 2.</p>
                       {suggestLighter && (
-                        <ul className="mt-2 space-y-0.5 text-[12px] text-lapis-text">
+                        <ul className="t-meta mt-2 space-y-0.5 text-ivory">
                           {week.vbAdvice.reasons.map((r) => (
                             <li key={r}>{r}</li>
                           ))}
@@ -312,19 +316,19 @@ function DayBody({
               <Button variant="primary" size="lg" block onClick={doStart} loading={starting}>
                 {isToday ? "Start workout" : `Log ${dayName(date, true)} session`}
               </Button>
-              {past && <p className="-mt-2 text-center text-[12px] text-fg-3">Opens the workout dated {shortDate(date)} so you can enter what you did.</p>}
+              {past && <p className="t-meta -mt-2 text-center text-ash">Opens the workout dated {shortDate(date)} so you can enter what you did.</p>}
             </>
           )}
         </div>
       )}
 
       {!template && !done.length && (
-        <div className="rounded-[14px] bg-s3 p-4">
-          <p className="text-[15px] font-bold">{weekday(date) === 0 ? SUNDAY_RECOVERY.title : "Rest day"}</p>
+        <div className="rounded-btn bg-m3 p-4">
+          <p className="t-title-3 text-ivory">{weekday(date) === 0 ? SUNDAY_RECOVERY.title : "Rest day"}</p>
           <ul className="mt-2 space-y-1.5">
             {SUNDAY_RECOVERY.items.slice(0, 4).map((i) => (
-              <li key={i.label} className="text-[13px] text-fg-2">
-                <span className="font-semibold text-fg">{i.label}.</span> {i.detail}
+              <li key={i.label} className="t-callout text-stone">
+                <span className="text-ivory">{i.label}.</span> {i.detail}
               </li>
             ))}
           </ul>
@@ -332,7 +336,7 @@ function DayBody({
       )}
 
       {/* actions */}
-      <ul className="overflow-hidden rounded-[14px] border border-line">
+      <ul className="divide-y divide-vein border-y border-vein">
         {template && ((!done.length && !active) || plannedOpen) && (
           <ActionRow
             icon={CalendarClock}
@@ -380,14 +384,14 @@ function DayBody({
   );
 }
 
-function ActionRow({ icon: Icon, label, hint, onClick, disabled }: { icon: typeof Check; label: string; hint?: string; onClick: () => void; disabled?: boolean }) {
+function ActionRow({ icon: Icon, label, hint, onClick, disabled }: { icon: typeof Check | typeof VolleyballIcon; label: string; hint?: string; onClick: () => void; disabled?: boolean }) {
   return (
-    <li className="border-t border-line-hair first:border-t-0">
-      <button type="button" onClick={onClick} disabled={disabled} className="flex min-h-[52px] w-full items-center gap-3 bg-s2 px-4 text-left transition-colors hover:bg-s3 active:bg-s3 disabled:opacity-50">
-        <Icon className="size-[18px] shrink-0 text-fg-2" />
-        <span className="flex-1 text-[15px] font-semibold">{label}</span>
-        {hint && <span className="text-[12px] text-fg-3">{hint}</span>}
-        <ChevronRight className="size-4 shrink-0 text-fg-3" />
+    <li>
+      <button type="button" onClick={onClick} disabled={disabled} className="press-soft flex min-h-13 w-full items-center gap-3 text-left disabled:opacity-50">
+        <Icon className="size-5 shrink-0 text-stone" strokeWidth={1.6} />
+        <span className="t-title-3 flex-1 text-ivory">{label}</span>
+        {hint && <span className="t-meta text-ash">{hint}</span>}
+        <ChevronRight className="size-4 shrink-0 text-ash" strokeWidth={1.6} />
       </button>
     </li>
   );
@@ -396,10 +400,10 @@ function ActionRow({ icon: Icon, label, hint, onClick, disabled }: { icon: typeo
 function BackRow({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <div className="flex items-center gap-1">
-      <button type="button" onClick={onClick} aria-label="Back" className="-ml-2 grid size-11 place-items-center rounded-[12px] text-fg-2 hover:text-fg">
-        <ChevronLeft className="size-5" />
+      <button type="button" onClick={onClick} aria-label="Back" className="press -ml-2 grid size-11 place-items-center rounded-field text-stone hover:text-ivory">
+        <ChevronLeft className="size-5" strokeWidth={1.6} />
       </button>
-      <p className="text-[14px] font-semibold text-fg-2">{label}</p>
+      <p className="t-callout font-semibold text-stone">{label}</p>
     </div>
   );
 }
@@ -442,33 +446,33 @@ function MoveView({
                 aria-checked={sel}
                 onClick={() => setPicked(o)}
                 className={cn(
-                  "press-soft flex min-h-14 w-full items-center gap-3 rounded-[14px] border px-4 text-left transition-colors",
-                  sel ? "border-line-gold bg-gold-tint" : "border-line bg-s3 hover:border-line-strong",
+                  "press-soft flex min-h-14 w-full items-center gap-3 rounded-btn px-4 py-2 text-left transition-colors",
+                  sel ? "bg-m4 shadow-[inset_0_0_0_1.5px_var(--ivory)]" : "bg-m3 shadow-[inset_0_0_0_1px_var(--vein-2)] hover:bg-m4",
                 )}
               >
                 <span className="w-24 shrink-0">
-                  <span className="block text-[15px] font-bold">{relativeDay(o.date, today) === shortDate(o.date, today) ? dayName(o.date) : relativeDay(o.date, today)}</span>
-                  <span className="block text-[12px] text-fg-3">{shortDate(o.date, today)}</span>
+                  <span className="t-title-3 block text-ivory">{relativeDay(o.date, today) === shortDate(o.date, today) ? dayName(o.date) : relativeDay(o.date, today)}</span>
+                  <span className="t-meta block text-ash">{shortDate(o.date, today)}</span>
                 </span>
-                <span className="min-w-0 flex-1 text-[13px] text-fg-2">
+                <span className="t-callout min-w-0 flex-1 text-stone">
                   {o.key === "rest" ? "Rest day" : o.kind === "swap" ? `${o.name} · swap days` : `${o.name} · replaced`}
                 </span>
-                {o.key === "rest" && !sel && <span className="text-[11px] font-bold uppercase tracking-[.12em] text-fg-3">Free</span>}
-                {sel && <Check className="size-5 text-gold-300" />}
+                {o.key === "rest" && !sel && <span className="t-tag text-ash">Free</span>}
+                {sel && <Check className="size-5 text-ivory" strokeWidth={2.2} />}
               </button>
             </li>
           );
         })}
       </ul>
       {move && (
-        <div className="space-y-3 rounded-[14px] bg-s3 p-4">
-          <p className="text-[14px] leading-relaxed">{describeMove(move, names, today)}</p>
+        <div className="space-y-3 rounded-btn bg-m3 p-4">
+          <p className="t-callout text-ivory">{describeMove(move, names, today)}</p>
           <Button variant="primary" size="lg" block loading={pending} onClick={() => picked && onApply(picked)}>
             Move {names[fromKey] ?? fromKey}
           </Button>
         </div>
       )}
-      {!move && <p className="text-[12px] text-fg-3">Moves only this week’s session. Your weekly plan stays the same — edit it under Program.</p>}
+      {!move && <p className="t-meta text-ash">Moves only this week’s session. Your weekly plan stays the same — edit it under Program.</p>}
     </div>
   );
 }

@@ -15,7 +15,8 @@ export interface ChartDatum {
 }
 
 /**
- * e1RM (or top weight / best reps) line over volume bars, gold PR diamonds (DESIGN §5.11).
+ * e1RM (or top weight / best reps) line over volume bars, with leaf diamonds on records
+ * (DESIGN-V2 §3.4.3). Colours come from the tokens (gradient stops and styles, never hex).
  * Values arrive already converted to the display unit. Scrubbing calls `onScrub(index)` so the
  * card's hero number can be written through refs; `onScrub(null)` on release.
  */
@@ -34,7 +35,7 @@ export default function ExerciseChart({
   onScrub: (index: number | null) => void;
 }) {
   const desktop = useMediaQuery("(min-width: 1024px)");
-  const height = desktop ? 300 : 220;
+  const height = desktop ? 300 : 224;
   // A real time axis: a 4-day gap is drawn shorter than a 7-day one.
   const data = useMemo(() => rows.map((d) => ({ ...d, t: parseISODate(d.date).getTime() })), [rows]);
   const xTicks = useMemo(() => {
@@ -60,17 +61,11 @@ export default function ExerciseChart({
   };
 
   return (
-    <div style={{ height }} className="-mx-1 select-none [&_.recharts-surface]:outline-none" onMouseLeave={() => onScrub(null)} onTouchEnd={() => onScrub(null)} onTouchCancel={() => onScrub(null)}>
+    <div style={{ height }} className="-mx-1 select-none [&_.recharts-bar-rectangle_path]:fill-vein-3 [&_.recharts-cartesian-grid-horizontal_line]:stroke-vein-2 [&_.recharts-line-curve]:stroke-leaf-300 [&_.recharts-surface]:outline-none [&_.recharts-tooltip-cursor]:stroke-leaf-400" onMouseLeave={() => onScrub(null)} onTouchEnd={() => onScrub(null)} onTouchCancel={() => onScrub(null)}>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 12, right: 0, bottom: 0, left: 0 }} onMouseMove={scrub} onTouchMove={scrub} onClick={scrub}>
-          <defs>
-            <linearGradient id="ex-line" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stopColor="#A97E40" />
-              <stop offset="0.6" stopColor="#D5AC67" />
-              <stop offset="1" stopColor="#F3DDA8" />
-            </linearGradient>
-          </defs>
-          <CartesianGrid vertical={false} stroke="rgb(255 255 255 / .05)" strokeDasharray="3 5" />
+          {/* colours come from the token classes on the wrapper (a presentation attribute can't read var()) */}
+          <CartesianGrid vertical={false} strokeDasharray="3 5" />
           <XAxis
             dataKey="t"
             type="number"
@@ -81,7 +76,7 @@ export default function ExerciseChart({
             tickLine={false}
             minTickGap={20}
             tickMargin={8}
-            tick={{ fill: "var(--text-3)", fontSize: 11, fontFamily: "var(--font-num)", letterSpacing: "0.04em" }}
+            tick={{ style: { fill: "var(--ash)", fontFamily: "var(--font-sans-stack)", fontSize: 11, letterSpacing: "0.04em" } }}
             tickFormatter={(t: number) => shortDate(toISODate(new Date(t))).toUpperCase()}
           />
           <YAxis yAxisId="bar" hide domain={[0, maxBar * 2.6]} />
@@ -94,20 +89,19 @@ export default function ExerciseChart({
             ticks={ticks}
             domain={[ticks[0] ?? 0, ticks[ticks.length - 1] ?? 1]}
             interval={0}
-            tick={{ fill: "var(--text-3)", fontSize: 11, fontFamily: "var(--font-num)" }}
+            tick={{ style: { fill: "var(--ash)", fontFamily: "var(--font-sans-stack)", fontSize: 11, fontVariantNumeric: "tabular-nums" } }}
           />
           <Tooltip
             content={desktop ? (p: { active?: boolean; payload?: readonly { payload?: ChartDatum }[] }) => <DesktopTip active={p.active} datum={p.payload?.[0]?.payload} metric={metric} bars={bars} unit={unit} /> : () => null}
-            cursor={{ stroke: "var(--gold-400)", strokeWidth: 1 }}
+            cursor={{ strokeWidth: 1 }}
             isAnimationActive={false}
             offset={16}
           />
-          <Bar yAxisId="bar" dataKey="bar" fill="var(--s-verdigris)" fillOpacity={0.28} radius={[3, 3, 0, 0]} barSize={desktop ? 12 : 8} isAnimationActive={animate} animationDuration={600} />
+          <Bar yAxisId="bar" dataKey="bar" radius={[3, 3, 0, 0]} barSize={desktop ? 12 : 8} isAnimationActive={animate} animationDuration={600} />
           <Line
             yAxisId="line"
             dataKey="value"
             type="monotone"
-            stroke="url(#ex-line)"
             strokeWidth={2}
             connectNulls
             isAnimationActive={animate}
@@ -118,12 +112,12 @@ export default function ExerciseChart({
               if (payload.pr)
                 return (
                   <g key={`d-${index}`} transform={`translate(${cx} ${cy}) rotate(45)`}>
-                    <rect x={-4.5} y={-4.5} width={9} height={9} fill="#E2C185" stroke="#08090C" strokeWidth={1.5} />
+                    <rect x={-4.5} y={-4.5} width={9} height={9} style={{ fill: "var(--leaf-300)", stroke: "var(--night)" }} strokeWidth={1.5} />
                   </g>
                 );
-              return data.length <= 40 ? <circle key={`d-${index}`} cx={cx} cy={cy} r={2.5} fill="#D5AC67" stroke="#08090C" strokeWidth={1} /> : <g key={`d-${index}`} />;
+              return data.length <= 40 ? <circle key={`d-${index}`} cx={cx} cy={cy} r={2.5} style={{ fill: "var(--leaf-400)", stroke: "var(--night)" }} strokeWidth={1} /> : <g key={`d-${index}`} />;
             }}
-            activeDot={{ r: 5, fill: "#F3DDA8", stroke: "#08090C", strokeWidth: 2 }}
+            activeDot={{ r: 5, style: { fill: "var(--leaf-100)", stroke: "var(--night)" }, strokeWidth: 2 }}
           />
         </ComposedChart>
       </ResponsiveContainer>
@@ -140,14 +134,14 @@ function DesktopTip({ active, datum, metric, bars, unit }: { active?: boolean; d
   const label = metric === "e1rm" ? "e1RM" : metric === "weight" ? "Top" : "Best";
   const v = datum.value == null ? "—" : Number.isInteger(datum.value) ? String(datum.value) : datum.value.toFixed(1);
   return (
-    <div className="rounded-[12px] border border-line-strong bg-s3 px-3 py-2 shadow-[var(--e2)]">
-      <p className="eyebrow">{shortDate(datum.date)}</p>
-      <p className="num mt-1 text-[17px] font-semibold leading-none">
+    <div className="rounded-field border border-vein-3 bg-m3 px-3 py-2 shadow-(--e2)">
+      <p className="t-eyebrow text-stone">{shortDate(datum.date)}</p>
+      <p className="t-num-s mt-1 text-ivory">
         {v}
-        <span className="unit">{metric === "reps" ? "reps" : unit}</span>
-        <span className="ml-1.5 text-[11px] font-bold uppercase tracking-[.1em] text-fg-3">{label}</span>
+        <span className="t-meta text-stone"> {metric === "reps" ? "reps" : unit}</span>
+        <span className="t-tag ml-1.5 text-stone">{label}</span>
       </p>
-      <p className="mt-1 text-[12px] text-fg-2">
+      <p className="t-meta mt-1 text-stone">
         {bars === "volume" ? `${formatInt(datum.bar)} ${unit} volume` : `${datum.bar} sets`}
         {datum.pr ? " · Record" : ""}
       </p>

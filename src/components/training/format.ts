@@ -23,13 +23,13 @@ export function fmtSessionMinutes(sec: number | null | undefined) {
 }
 
 /**
- * "6 exercises · 17 sets · ~50 min" (estimate), or "· usually 72 min" when `typicalMin` comes
- * from the user's own logged sessions of this template.
+ * "6 lifts · 17 sets · ~68 min". The time is the user's typical length for this template when
+ * there is one (useTypicalDurations, standard mode only), else the estimate — one "~N min"
+ * everywhere (DESIGN-V2 §2.4).
  */
 export function templateMeta(t: DayTemplate, typicalMin?: number | null) {
   const s = templateSummary(t);
-  const time = typicalMin ? `usually ${typicalMin} min` : `~${estimateDurationMin(t)} min`;
-  return `${s.exercises} ${s.exercises === 1 ? "exercise" : "exercises"} · ${plural(s.sets, "set")} · ${time}`;
+  return `${plural(s.exercises, "lift")} · ${plural(s.sets, "set")} · ~${typicalMin || estimateDurationMin(t)} min`;
 }
 
 const PLURAL = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];

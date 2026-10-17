@@ -74,7 +74,7 @@ function PickerBody({ first, firstTitle, exclude, onPick }: { first: string[]; f
   return (
     <div className="pt-1">
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-fg-3" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-ash" strokeWidth={1.6} />
         <Input
           type="search"
           value={q}
@@ -88,8 +88,8 @@ function PickerBody({ first, firstTitle, exclude, onPick }: { first: string[]; f
           spellCheck={false}
         />
         {q && (
-          <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="absolute right-1 top-1/2 grid size-11 -translate-y-1/2 place-items-center text-fg-3">
-            <X className="size-[18px]" />
+          <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="press absolute right-0 top-1/2 grid size-11 -translate-y-1/2 place-items-center text-ash hover:text-ivory">
+            <X className="size-5" strokeWidth={1.6} />
           </button>
         )}
       </div>
@@ -106,7 +106,7 @@ function PickerBody({ first, firstTitle, exclude, onPick }: { first: string[]; f
       <div className="mt-4 space-y-5">
         {top.length > 0 && <List title={firstTitle} items={top} onPick={onPick} />}
         {rest.length > 0 && <List title={top.length ? "All exercises" : "Library"} items={rest} onPick={onPick} />}
-        {!top.length && !rest.length && <p className="rounded-[14px] bg-s3 px-4 py-6 text-center text-[13px] text-fg-2">No exercise matches “{dq}”.</p>}
+        {!top.length && !rest.length && <p className="t-callout border-y border-vein px-4 py-6 text-center text-stone">No exercise matches “{dq}”.</p>}
       </div>
     </div>
   );
@@ -115,13 +115,13 @@ function PickerBody({ first, firstTitle, exclude, onPick }: { first: string[]; f
 function List({ title, items, onPick }: { title: string; items: LibraryExercise[]; onPick: (e: LibraryExercise) => void }) {
   return (
     <section>
-      <p className="eyebrow mb-2">{title}</p>
-      <ul className="divide-y divide-line-hair overflow-hidden rounded-[14px] bg-s3">
+      <p className="t-eyebrow mb-1 flex min-h-8 items-center">{title}</p>
+      <ul className="divide-y divide-vein border-y border-vein">
         {items.map((e) => (
           <li key={e.slug}>
-            <button type="button" onClick={() => onPick(e)} className="flex min-h-14 w-full flex-col justify-center px-3.5 py-2 text-left hover:bg-white/[.03] active:bg-white/[.05]">
-              <span className="text-[15px] font-semibold">{e.name}</span>
-              <span className="text-[12px] text-fg-3">
+            <button type="button" onClick={() => onPick(e)} className="press-soft flex min-h-14 w-full flex-col justify-center py-2 text-left">
+              <span className="t-title-3 text-ivory">{e.name}</span>
+              <span className="t-meta text-stone">
                 {e.primary.map((m) => MUSCLE_LABEL[m]).join(", ")} · {equipmentLabel(e.equipment)}
               </span>
             </button>

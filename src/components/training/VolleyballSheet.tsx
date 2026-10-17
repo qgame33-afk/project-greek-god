@@ -60,10 +60,10 @@ function VolleyballForm({ date: initialDate, today, recent, onDone }: { date: IS
   return (
     <div className="space-y-6 pt-1">
       <div>
-        <p className="mb-2 text-[13px] font-semibold text-fg-2">Type</p>
+        <p className="t-eyebrow mb-2 text-stone">Type</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Type">
           {VB_KINDS.map((k) => (
-            <Chip key={k.value} selected={kind === k.value} onClick={() => setKind(k.value)} className="h-11 justify-center px-4 text-[14px]">
+            <Chip key={k.value} selected={kind === k.value} onClick={() => setKind(k.value)} className="justify-center">
               {k.label}
             </Chip>
           ))}
@@ -71,11 +71,11 @@ function VolleyballForm({ date: initialDate, today, recent, onDone }: { date: IS
       </div>
 
       <div>
-        <p className="mb-2 text-[13px] font-semibold text-fg-2">Duration</p>
+        <p className="t-eyebrow mb-2 text-stone">Duration</p>
         <Stepper value={duration} onChange={setDuration} step={15} min={15} max={480} label="duration in minutes" format={(v) => (
           <>
             {v}
-            <span className="unit">min</span>
+            <span className="t-callout text-stone"> min</span>
           </>
         )} />
       </div>
@@ -86,7 +86,7 @@ function VolleyballForm({ date: initialDate, today, recent, onDone }: { date: IS
         {(id) => (
           <div className="flex gap-2">
             <Input id={id} type="date" value={date} max={today} min={addDays(today, -365)} onChange={(e) => setDate(e.target.value)} aria-invalid={!!dateError} className="flex-1" />
-            <Chip selected={date === today} onClick={() => setDate(today)} className="h-[52px] rounded-[12px]">
+            <Chip selected={date === today} onClick={() => setDate(today)} className="h-13 rounded-field">
               Today
             </Chip>
           </div>
