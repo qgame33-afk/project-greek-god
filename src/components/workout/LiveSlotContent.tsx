@@ -83,17 +83,27 @@ function RestBody({ rest, name, compact }: { rest: RestState; name: string; comp
   const ended = rem === 0 && !paused;
   const ago = endedAgoSec(rest, now);
   const switching = !!rest.next && rest.next.exercise !== rest.exercise;
-  const next = rest.next ? `${switching ? `${rest.next.exercise} · ` : ""}${rest.next.set}${rest.next.load ? ` · ${rest.next.load}` : ""}` : "Last set done";
-  const word = ended ? (ago > 3 ? "rest ended" : "rest over") : paused ? "paused" : "rest";
+  // The set and its load first: a long lift name is what truncates, never the numbers.
+  const next = rest.next ? [rest.next.set, rest.next.load, switching ? rest.next.exercise : null].filter(Boolean).join(" · ") : "Last set done";
+  const over = ended && ago > 3;
+  const word = ended ? (over ? "rest ended" : "rest over") : paused ? "paused" : "rest";
   return (
     <span className="flex min-w-0 flex-1 items-center gap-3" role="timer" aria-label={ended ? `Rest ended ${formatClock(ago)} ago` : `${formatClock(rem)} of rest left`}>
-      <span aria-hidden className={cn("t-num-m shrink-0", ended ? (ago > 3 ? "text-stone" : "text-leaf-200") : rem <= 10 && !paused ? "text-leaf-200" : paused ? "text-stone" : "text-ivory")}>
-        {ended ? (ago > 3 ? formatClock(ago) : "GO") : formatClock(rem)}
+      <span aria-hidden className={cn("t-num-m shrink-0", ended ? (over ? "text-stone" : "text-leaf-200") : rem <= 10 && !paused ? "text-leaf-200" : paused ? "text-stone" : "text-ivory")}>
+        {ended ? (over ? formatClock(ago) : "GO") : formatClock(rem)}
+        {over && <span className="t-meta ml-1 text-ash">ago</span>}
       </span>
       <span aria-hidden className="flex min-w-0 flex-col leading-tight">
+        {/* Ended: "0:42 ago · REST ENDED" — the session is named by the slot's label, and the
+            words that say what the digits mean must not be the part that truncates. */}
         <span className="t-eyebrow truncate">
-          <span className="!text-ivory">{name}</span> · {word}
-          {ended && ago > 3 ? " · ago" : ""}
+          {over ? (
+            word
+          ) : (
+            <>
+              <span className="!text-ivory">{name}</span> · {word}
+            </>
+          )}
         </span>
         {!compact && <span className="t-meta tnum truncate text-stone">{next}</span>}
       </span>

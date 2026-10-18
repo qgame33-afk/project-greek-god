@@ -28,7 +28,11 @@ function minuteTime(m: number) {
  */
 export function RefuelCard({ date, endedAt, className }: { date: ISODate; endedAt: string | null; className?: string }) {
   const today = useToday();
-  const r = useRefuel(date, endedAt, today);
+  // The planned meal tapped Eaten here. The card confirms it for as long as the food log holds it
+  // (derived, so an Undo from the toast brings the meal back), rather than sliding on to the next
+  // meal and showing "Eaten" beside a meal he never ate.
+  const [keepId, setKeepId] = useState<string | null>(null);
+  const r = useRefuel(date, endedAt, today, keepId);
   if (!r) return null;
   return (
     <section aria-label="Refuel" className={cn("rounded-card bg-m1 p-4 shadow-[inset_0_0_0_1px_var(--vein-2)]", className)}>
@@ -46,37 +50,44 @@ export function RefuelCard({ date, endedAt, className }: { date: ISODate; endedA
             Log food
           </Button>
         </div>
+      ) : r.kind === "eaten" ? (
+        <div className="mt-2">
+          <p className="t-title-3 text-ivory">
+            {r.meal!.recipe.name} <span className="font-medium text-stone">at {minuteTime(r.meal!.at)}</span>
+          </p>
+          <p className="t-meta mt-0.5 text-stone">Eaten · logged as planned</p>
+        </div>
       ) : (
-        <MealRow r={r} date={date} />
+        // keyed per planned meal: each meal gets its own idempotency id and its own sheet
+        <MealRow key={r.meal!.planned.id} r={r} date={date} onEat={() => setKeepId(r.meal!.planned.id)} />
       )}
     </section>
   );
 }
 
-function MealRow({ r, date }: { r: Refuel; date: ISODate }) {
+function MealRow({ r, date, onEat }: { r: Refuel; date: ISODate; onEat: () => void }) {
   const m = r.meal!;
   const conflicts = useRecipeConflicts(m.recipe);
   const log = useLogPlannedMeal();
   const [entryId] = useState(() => newId());
   const [sheet, setSheet] = useState(false);
-  const [done, setDone] = useState(false);
   const closes = Math.min(m.protein, r.gap);
   const target: LogMealTarget = { recipe: m.recipe, servings: m.planned.servings, plannedMeal: { id: m.planned.id, slot: m.planned.slot, local_date: m.planned.local_date } };
   const eat = () => {
+    // Noted first: the log is optimistic, so the plan moves past this meal at once. Until the
+    // food log holds it (or if the sheet is cancelled) the note changes nothing.
+    onEat();
     if (conflicts.length) return setSheet(true);
-    log.mutate(
-      {
-        id: entryId,
-        plannedMealId: m.planned.id,
-        recipe: { key: m.recipe.key, name: m.recipe.name, ingredients: m.recipe.ingredients },
-        servings: m.planned.servings,
-        date,
-        meal: slotToMeal(m.planned.slot),
-        macros: { kcal: m.kcal, protein: m.protein, carbs: m.carbs, fat: m.fat },
-        features: recipeFeatures(m.recipe),
-      },
-      { onSuccess: () => setDone(true) },
-    );
+    log.mutate({
+      id: entryId,
+      plannedMealId: m.planned.id,
+      recipe: { key: m.recipe.key, name: m.recipe.name, ingredients: m.recipe.ingredients },
+      servings: m.planned.servings,
+      date,
+      meal: slotToMeal(m.planned.slot),
+      macros: { kcal: m.kcal, protein: m.protein, carbs: m.carbs, fat: m.fat },
+      features: recipeFeatures(m.recipe),
+    });
   };
   return (
     <>
@@ -86,25 +97,17 @@ function MealRow({ r, date }: { r: Refuel; date: ISODate }) {
             {m.recipe.name} <span className="font-medium text-stone">at {minuteTime(m.at)}</span>
           </p>
           <p className="t-meta mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-stone">
-            {done ? (
-              <span>Eaten · logged as planned</span>
-            ) : (
-              <>
-                <span>
-                  closes <span className="font-semibold text-ivory">{closes}</span> of {r.gap} g protein
-                </span>
-                <Tag kind="CALC" explain={`${r.gap} g to go = ${r.goal} g goal − ${r.eaten} g eaten today. This meal has ${m.protein} g (${m.kcal} kcal).`} />
-              </>
-            )}
+            <span>
+              closes <span className="font-semibold text-ivory">{closes}</span> of {r.gap} g protein
+            </span>
+            <Tag kind="CALC" explain={`${r.gap} g to go = ${r.goal} g goal − ${r.eaten} g eaten today. This meal has ${m.protein} g (${m.kcal} kcal).`} />
           </p>
         </div>
-        {!done && (
-          <Button variant="outline" size="sm" className="min-w-[72px]" loading={log.isPending} onClick={eat} aria-label={`Mark ${m.recipe.name} as eaten, ${m.kcal} calories, ${m.protein} grams protein`}>
-            Eaten
-          </Button>
-        )}
+        <Button variant="outline" size="sm" className="min-w-[72px]" loading={log.isPending} onClick={eat} aria-label={`Mark ${m.recipe.name} as eaten, ${m.kcal} calories, ${m.protein} grams protein`}>
+          Eaten
+        </Button>
       </div>
-      <LogMealSheet open={sheet} onOpenChange={setSheet} target={target} onLogged={() => setDone(true)} />
+      <LogMealSheet open={sheet} onOpenChange={setSheet} target={target} />
     </>
   );
 }

@@ -42,6 +42,9 @@ export function NumberPad(p: NumberPadProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const h = handlers.current;
+      // Already handled: Enter on a deck value opens this pad, and that same keydown reaches the
+      // window once the pad has mounted — it must not also count as "Next".
+      if (e.defaultPrevented) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (/^[0-9]$/.test(e.key)) h.onKey(e.key as PadKey);
       else if (e.key === "." || e.key === ",") h.onKey(".");

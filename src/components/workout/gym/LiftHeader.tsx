@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode, type Ref } from "react";
 import { ArrowLeftRight, ChevronDown, Ellipsis, Info, StickyNote } from "lucide-react";
 import { SealTick } from "@/components/art/icons";
 import { Collapse } from "@/components/ui/misc";
@@ -41,7 +41,10 @@ export function LiftHeader({
   onSwap,
   onHowTo,
   onMenu,
+  titleRef,
 }: {
+  /** The lift's title, watched so the top bar can name the lift once it scrolls away. */
+  titleRef?: Ref<HTMLHeadingElement>;
   index: number;
   count: number;
   muscles: string[];
@@ -87,7 +90,9 @@ export function LiftHeader({
           <Ellipsis className="size-5" strokeWidth={1.6} />
         </IconButton>
       </div>
-      <h2 className="t-title-1 -mt-0.5 text-ivory [overflow-wrap:anywhere]">{name}</h2>
+      <h2 ref={titleRef} className="t-title-1 -mt-0.5 text-ivory [overflow-wrap:anywhere]">
+        {name}
+      </h2>
 
       {targetLoading ? (
         <div className="skeleton mt-2 h-6 w-3/4 rounded-tag" aria-hidden />

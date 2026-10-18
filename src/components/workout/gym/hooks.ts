@@ -71,6 +71,37 @@ export function useWakeLock(enabled: boolean) {
   return held;
 }
 
+/**
+ * True while `target` has scrolled up under the sticky `bar` (its bottom at or above the bar's).
+ * Gym Mode uses it to put the lift's name in the top bar once the lift header has scrolled away
+ * (short phones and large text, where revealing the current set scrolls the header off).
+ * `key` re-measures when the content changes (another lift on screen).
+ */
+export function useScrolledUnder(target: RefObject<HTMLElement | null>, bar: RefObject<HTMLElement | null>, key: unknown) {
+  const [under, setUnder] = useState(false);
+  useEffect(() => {
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const t = target.current;
+      const b = bar.current;
+      setUnder(!!t && !!b && t.getBoundingClientRect().bottom <= b.getBoundingClientRect().bottom);
+    };
+    const schedule = () => {
+      if (!raf) raf = window.requestAnimationFrame(check);
+    };
+    check();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [target, bar, key]);
+  return under;
+}
+
 /** Measures an element's height into a CSS custom property on the document root. */
 export function useHeightVar(ref: RefObject<HTMLElement | null>, name: string, active = true) {
   useEffect(() => {

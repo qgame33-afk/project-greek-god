@@ -41,9 +41,14 @@ export const GymTopBar = forwardRef<
     onMinimize: () => void;
     onFinish: () => void;
     frieze: ReactNode;
+    /** The lift on screen; shown in place of the session name while `showLift` (its header has scrolled away). */
+    liftName?: string | null;
+    showLift?: boolean;
   }
 >(function GymTopBar({
   name,
+  liftName,
+  showLift = false,
   startedAt,
   dateLabel,
   awake,
@@ -66,9 +71,23 @@ export const GymTopBar = forwardRef<
           {minimizeIcon === "down" ? <ChevronDown className="size-[22px]" strokeWidth={1.8} /> : <X className="size-5" strokeWidth={1.8} />}
         </button>
         <div className="min-w-0 flex-1 text-center">
-          <ViewTransition name={SESSION_TITLE_VT} default="none" share="auto">
-            <h1 className="t-eyebrow truncate !text-ivory [letter-spacing:.2em]">{name}</h1>
-          </ViewTransition>
+          {/* The session name and, once the lift header has scrolled under the bar, the lift's
+              name share one cell and crossfade (the large-title collapse). The heading stays the
+              session for VoiceOver; the lift is already named by its own region. */}
+          <div className="grid">
+            <ViewTransition name={SESSION_TITLE_VT} default="none" share="auto">
+              <h1 className={cn("t-eyebrow col-start-1 row-start-1 truncate !text-ivory transition-opacity duration-(--dur-fast) [letter-spacing:.2em]", liftName && showLift && "opacity-0")}>{name}</h1>
+            </ViewTransition>
+            {liftName && (
+              <p
+                aria-hidden
+                data-lift-title
+                className={cn("t-meta col-start-1 row-start-1 self-center truncate font-semibold leading-tight text-ivory transition-opacity duration-(--dur-fast)", !showLift && "opacity-0")}
+              >
+                {liftName}
+              </p>
+            )}
+          </div>
           <p className="mt-1 flex items-center justify-center gap-1.5 leading-none">
             {dateLabel ? <span className="t-meta text-stone">{dateLabel}</span> : <Elapsed startedAt={startedAt} />}
             {awake && (

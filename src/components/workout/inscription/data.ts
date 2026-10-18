@@ -4,16 +4,16 @@ import { useMemo } from "react";
 import { useRecipePool } from "@/components/meals/shared/useRecipePool";
 import { useProfile } from "@/lib/data/profile";
 import { useFoodEntries } from "@/lib/data/nutrition";
-import { useLoggedPlannedMeals, useMealPrefs, usePlan, type PlanMeal } from "@/lib/data/meals";
+import { useLoggedPlannedMeals, useMealPrefs, usePlan } from "@/lib/data/meals";
 import { useRecovery } from "@/lib/data/recovery";
 import { planFor, useDayPlans, useSessions, useTemplates, useVolleyball } from "@/lib/data/training";
 import { weekDates, weekStart, type ISODate } from "@/lib/dates";
 import { recipeMacros } from "@/lib/meals/recipe";
-import type { Recipe } from "@/lib/meals/types";
 import { plannedTime } from "@/lib/now/meal-times";
 import { parseAppPrefs, toMinutes } from "@/lib/prefs";
 import { volleyballEntries } from "@/lib/recovery/volleyball";
 import { weekDays, type ColonnadeDay } from "@/lib/training/schedule";
+import { pickRefuel, type Refuel } from "@/lib/workout/refuel";
 
 /**
  * The week of a session as the temple shows it (the same weekDays rule Train uses): planned
@@ -40,22 +40,17 @@ export function useSessionWeek(date: ISODate | undefined, today: ISODate): Colon
   }, [date, dates, loading, plans.isLoading, plans.data, sessions.isLoading, sessions.data, vb.data, rec.data, profile, byKey, today]);
 }
 
-export interface Refuel {
-  kind: "meal" | "none" | "met";
-  /** Grams of protein still to eat today (never below 0). */
-  gap: number;
-  goal: number;
-  eaten: number;
-  meal?: { planned: PlanMeal; recipe: Recipe; at: number; protein: number; kcal: number; carbs: number; fat: number };
-}
+export type { Refuel } from "@/lib/workout/refuel";
 
 /**
  * The Inscription's refuel card (§3.3): the first uneaten planned meal at or after the session's
  * end (less 30 min — the Day Engine's own refuel rule), and how much of today's protein gap it
  * closes. Arithmetic on the plan and the food log only (CALC). Null while loading or when the
- * session isn't today's.
+ * session isn't today's. `keepId` is the planned meal just marked eaten on the card: while the
+ * food log holds it, the card confirms that meal ("eaten") instead of moving on to the next one —
+ * and if it is undone, the meal is simply the candidate again.
  */
-export function useRefuel(date: ISODate | undefined, endedAt: string | null | undefined, today: ISODate): Refuel | null {
+export function useRefuel(date: ISODate | undefined, endedAt: string | null | undefined, today: ISODate, keepId: string | null = null): Refuel | null {
   const { profile } = useProfile();
   const isToday = !!date && date === today;
   const ws = isToday ? weekStart(date) : null;
@@ -64,28 +59,25 @@ export function useRefuel(date: ISODate | undefined, endedAt: string | null | un
   const food = useFoodEntries(isToday ? date! : today);
   const mealPrefs = useMealPrefs();
   const pool = useRecipePool();
-  return (() => {
-    if (!isToday || !profile || plan.loading || !food.hasData) return null;
-    const goal = Number(profile.protein_goal) || 0;
-    const eaten = Math.round(food.totals.protein);
-    const gap = Math.max(0, goal - eaten);
-    if (goal > 0 && gap === 0) return { kind: "met", gap, goal, eaten };
-    const prefs = parseAppPrefs(profile.prefs);
-    const trainAt = prefs.day.trainAt ? toMinutes(prefs.day.trainAt) : null;
-    const end = endedAt ? new Date(endedAt) : new Date();
-    const endMin = end.getHours() * 60 + end.getMinutes();
-    const ctx = { schedule: prefs.day, snacksPerDay: mealPrefs.prefs?.snacksPerDay ?? 2, train: { at: Number.isNaN(trainAt) ? null : trainAt } };
-    const candidates = plan.meals
-      .filter((m) => m.local_date === date && !(logged.logged[m.id]?.length))
-      .map((m) => ({ m, at: plannedTime({ slot: m.slot, position: m.position }, ctx).at }))
-      .filter((x) => x.at >= endMin - 30)
-      .sort((a, b) => a.at - b.at);
-    for (const c of candidates) {
-      const recipe = pool.lookup(c.m.recipe_key);
-      if (!recipe) continue;
-      const mac = recipeMacros(recipe, c.m.servings);
-      return { kind: "meal", gap, goal, eaten, meal: { planned: c.m, recipe, at: c.at, protein: Math.round(mac.protein), kcal: Math.round(mac.kcal), carbs: Math.round(mac.carbs), fat: Math.round(mac.fat) } };
-    }
-    return { kind: "none", gap, goal, eaten };
-  })();
+  if (!isToday || !profile || plan.loading || !food.hasData) return null;
+  const prefs = parseAppPrefs(profile.prefs);
+  const trainAt = prefs.day.trainAt ? toMinutes(prefs.day.trainAt) : null;
+  const ctx = { schedule: prefs.day, snacksPerDay: mealPrefs.prefs?.snacksPerDay ?? 2, train: { at: Number.isNaN(trainAt) ? null : trainAt } };
+  const end = endedAt ? new Date(endedAt) : new Date();
+  return pickRefuel({
+    date: date!,
+    goal: Number(profile.protein_goal) || 0,
+    proteinEaten: food.totals.protein,
+    meals: plan.meals,
+    isLogged: (id) => !!logged.logged[id]?.length,
+    resolve: (m) => {
+      const recipe = pool.lookup(m.recipe_key);
+      if (!recipe) return null;
+      const mac = recipeMacros(recipe, m.servings);
+      const at = plannedTime({ slot: m.slot, position: m.position }, ctx).at;
+      return { planned: m, recipe, at, protein: Math.round(mac.protein), kcal: Math.round(mac.kcal), carbs: Math.round(mac.carbs), fat: Math.round(mac.fat) };
+    },
+    endMin: end.getHours() * 60 + end.getMinutes(),
+    keepId,
+  });
 }

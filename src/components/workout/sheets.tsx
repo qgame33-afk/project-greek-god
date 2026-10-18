@@ -115,7 +115,7 @@ export function ExerciseMenuSheet({
         <MenuItem
           icon={skipped ? <Undo2 className="size-[18px]" /> : <SkipForward className="size-[18px]" />}
           label={skipped ? "Resume exercise" : "Skip exercise"}
-          hint={skipped ? undefined : "Unlogged sets are dropped when you finish"}
+          hint={skipped ? undefined : "Unlogged sets are dropped when you seal"}
           onClick={run(onSkip)}
         />
         <MenuItem icon={<Clock className="size-[18px]" />} label="Exercise history" href={`/training/exercise/${slug}`} />

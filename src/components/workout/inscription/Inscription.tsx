@@ -346,7 +346,7 @@ function LiftRow({ name, result, best, first, stacked }: { name: string; result:
         <TimingMark timing={timing} logged />
       </span>
       <span className="min-w-0 flex-1">
-        <span className={cn("t-title-3 block text-ivory", !stacked && "truncate")}>{name}</span>
+        <span className={cn("t-title-3 block text-ivory", !stacked && "line-clamp-2")}>{name}</span>
         <span className="t-meta tnum block text-stone">best {best}</span>
         {stacked && (
           <span className="mt-1 flex flex-wrap items-baseline gap-x-2">

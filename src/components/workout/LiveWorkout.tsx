@@ -70,7 +70,7 @@ import type { CellField, Tracking, WSession, WSet } from "@/lib/workout/types";
 import { unlockAudio } from "./audio";
 import { applyPush, fetchPriorBests, fetchPriorHistory, invalidateTraining, liveKey, mergeLive, newSetRow, usePriorBests, usePriorHistory, useSessionOps, useSessionSync, type LiveData } from "./data";
 import { Frieze, GymTopBar } from "./gym/GymTopBar";
-import { useHeightVar, useNarrow, useWakeLock } from "./gym/hooks";
+import { useHeightVar, useNarrow, useScrolledUnder, useWakeLock } from "./gym/hooks";
 import { LiftHeader, type Carrot } from "./gym/LiftHeader";
 import { LiftsSheet, type LiftRow } from "./gym/LiftsSheet";
 import { Plates } from "./gym/Plates";
@@ -979,6 +979,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const headRef = useRef<HTMLElement>(null);
   const deckRef = useRef<HTMLDivElement>(null);
   const bannerRef = useRef<HTMLDivElement>(null);
+  const liftTitleRef = useRef<HTMLHeadingElement>(null);
   // 20rem on the full Gym Mode width: a 375–390 px phone at the default and Large text sizes
   // keeps the side-by-side deck; from Extra Large (and every AX size) it stacks.
   const narrow = useNarrow(rootRef, 20);
@@ -990,6 +991,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
 
   const lift = openGroup ?? groups.at(-1) ?? null;
   const inf = lift ? info.get(lift.key) : undefined;
+  // The lift header has scrolled under the top bar (short phones, large text): the bar names the lift.
+  const liftOut = useScrolledUnder(liftTitleRef, headRef, lift?.key);
   const t: Tracking = inf?.tracking ?? "weight_reps";
   const selSet = selId ? setMap.get(selId) : undefined;
   const deckSet: WSet | null = (selSet && lift && groupOf.get(selSet.id)?.key === lift.key ? selSet : undefined) ?? (lift ? (firstOpenSet(lift) ?? lift.sets.at(-1) ?? null) : null);
@@ -998,16 +1001,18 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
 
   useHeightVar(headRef, "--gym-head-h");
   useHeightVar(deckRef, "--gym-deck-h", !!deckSet && !padOpen);
-  // Toasts ("Set 1 logged · Undo") sit just under the top bar, over the frieze; while a record
-  // banner shows they drop below it, so the moment and its Undo never cover each other.
+  // Toasts ("Set 1 logged · Undo") sit just under the top bar's row, over the frieze; while a
+  // record banner shows they drop below it, so the moment and its Undo never cover each other.
+  // The row is measured, not assumed: at large text sizes it is far taller than --topbar-h, and a
+  // toast at the fixed offset would sit on Finish and the clock for six seconds after every seal.
   useEffect(() => {
     const root = document.documentElement;
-    const el = bannerRef.current;
-    if (!moment || !el) {
+    const el = moment ? bannerRef.current : ((headRef.current?.firstElementChild as HTMLElement | null) ?? null);
+    if (!el) {
       root.style.setProperty("--gym-toast-top", "calc(var(--safe-top) + var(--topbar-h) + 4px)");
       return;
     }
-    const set = () => root.style.setProperty("--gym-toast-top", `${Math.ceil(el.getBoundingClientRect().bottom + 8)}px`);
+    const set = () => root.style.setProperty("--gym-toast-top", `${Math.ceil(el.getBoundingClientRect().bottom + (moment ? 8 : 4))}px`);
     set();
     const ro = new ResizeObserver(set);
     ro.observe(el);
@@ -1265,6 +1270,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       <GymTopBar
         ref={headRef}
         name={session.name}
+        liftName={lift?.name ?? null}
+        showLift={liftOut}
         startedAt={session.started_at}
         dateLabel={live && !stale ? null : gymDate(session.local_date)}
         awake={awake}
@@ -1364,6 +1371,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
               onSwap={() => setPicker({ mode: "replace", key: lift.key })}
               onHowTo={inf.lib ? () => setHowTo({ slug: lift.slug, name: lift.name, note: inf.templateNote }) : null}
               onMenu={() => setMenuKey(lift.key)}
+              titleRef={liftTitleRef}
             />
 
             {live && <RestDial sessionId={id} rest={rest} plannedSec={plannedRest} variant={narrow ? "bar" : "arc"} onZero={onRestZero} />}
