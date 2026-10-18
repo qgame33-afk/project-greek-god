@@ -1,8 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
-import { Mark } from "@/components/art/Mark";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -64,22 +63,29 @@ export function SignInForm() {
     }
   };
 
+  const toMode = (m: Mode) => {
+    setMode(m);
+    setError(null);
+  };
+
   return (
-    <form onSubmit={submit} noValidate className="rise">
-      <div className="mb-7 flex items-center gap-2.5">
-        <Mark size={30} />
-        <div className="leading-none">
-          <p className="font-serif text-[14px] font-semibold tracking-[0.12em] text-gold">PROJECT GREEK GOD</p>
-          <p className="mt-1.5 text-[10px] font-bold tracking-[0.35em] text-fg-3">THE ASCENT</p>
+    <form onSubmit={submit} noValidate className="rise" aria-labelledby="sign-in-title">
+      <header className="text-center">
+        <h1 id="sign-in-title" className="t-film text-[length:1.75rem] leading-[1.05] lg:text-[length:2.25rem]">
+          <span className="block">Project</span>
+          <span className="block">Greek God</span>
+        </h1>
+        <p className="t-eyebrow mt-3 lg:hidden">The Ascent</p>
+      </header>
+
+      {mode !== "signin" && (
+        <div className="mt-7">
+          <h2 className="t-title-2 text-ivory">{mode === "signup" ? "Create your account" : "Reset your password"}</h2>
+          <p className="t-callout mt-1 text-stone">{mode === "signup" ? "Private to you. Your plan comes next." : "We'll email you a secure link."}</p>
         </div>
-      </div>
+      )}
 
-      <h1 className="t-title text-[40px]">{mode === "signin" ? "Welcome back" : mode === "signup" ? "Begin the ascent" : "Reset password"}</h1>
-      <p className="mt-2 text-[14px] text-fg-2">
-        {mode === "signin" ? "Build your greatest physique." : mode === "signup" ? "Create your private account." : "We'll email you a secure link."}
-      </p>
-
-      <div className="mt-7 grid gap-4">
+      <div className={mode === "signin" ? "mt-8 grid gap-4" : "mt-5 grid gap-4"}>
         <Field label="Email">
           {(id) => (
             <Input
@@ -96,18 +102,7 @@ export function SignInForm() {
           )}
         </Field>
         {mode !== "reset" && (
-          <Field
-            label="Password"
-            hint={
-              mode === "signin" ? (
-                <button type="button" className="relative font-semibold text-gold-300 before:absolute before:-inset-x-2 before:-bottom-[7px] before:-top-[19px] before:content-['']" onClick={() => (setMode("reset"), setError(null))}>
-                  Forgot?
-                </button>
-              ) : (
-                "8+ characters"
-              )
-            }
-          >
+          <Field label="Password" hint={mode === "signup" ? "8+ characters" : undefined}>
             {(id) => (
               <Input
                 id={id}
@@ -125,38 +120,43 @@ export function SignInForm() {
       </div>
 
       {error && (
-        <p className="mt-4 rounded-[12px] border border-danger/30 bg-danger-tint px-3.5 py-3 text-[13px] font-medium text-fg" role="alert">
+        <p className="t-callout mt-4 rounded-field bg-cinnabar-tint px-3.5 py-3 font-medium text-cinnabar shadow-[inset_0_0_0_1px_var(--cinnabar-line)]" role="alert">
           {error}
         </p>
       )}
       {notice && (
-        <p className="mt-4 rounded-[12px] border border-lapis-line bg-lapis-tint px-3.5 py-3 text-[13px] font-medium text-fg" role="status">
+        <p className="t-callout mt-4 rounded-field bg-m2 px-3.5 py-3 font-medium text-ivory shadow-(--e1)" role="status">
           {notice}
         </p>
       )}
 
       <Button type="submit" variant="primary" size="lg" block className="mt-6" loading={busy}>
-        {mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
+        {mode === "signin" ? "Enter" : mode === "signup" ? "Create account" : "Send reset link"}
       </Button>
 
-      <p className="mt-5 text-center text-[14px] text-fg-2">
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-1">
         {mode === "signin" ? (
           <>
-            New here?{" "}
-            <button type="button" onClick={() => (setMode("signup"), setError(null))} className="relative font-bold text-gold-300 before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] hover:text-gold-200">
-              Create an account
-            </button>
+            <TextButton onClick={() => toMode("signup")}>Create an account</TextButton>
+            <span className="t-meta text-ash" aria-hidden>
+              ·
+            </span>
+            <TextButton onClick={() => toMode("reset")}>Forgot password?</TextButton>
           </>
         ) : (
-          <>
-            Have an account?{" "}
-            <button type="button" onClick={() => (setMode("signin"), setError(null))} className="relative font-bold text-gold-300 before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] hover:text-gold-200">
-              Sign in
-            </button>
-          </>
+          <TextButton onClick={() => toMode("signin")}>Have an account? Sign in</TextButton>
         )}
-      </p>
+      </div>
     </form>
+  );
+}
+
+/** A quiet text action with a full 44 px target. Ivory, not gold: the one gold control is Enter. */
+function TextButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className="press t-callout inline-flex h-11 items-center px-2 font-semibold text-stone underline decoration-ui-line underline-offset-4 hover:text-ivory">
+      {children}
+    </button>
   );
 }
 
