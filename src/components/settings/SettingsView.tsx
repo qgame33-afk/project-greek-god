@@ -199,6 +199,7 @@ export function SettingsView() {
             <ControlRow label="Experience" stack>
               <Segmented
                 ariaLabel="Training experience"
+                className="@max-[19rem]:h-auto @max-[19rem]:flex-col @max-[19rem]:[&>button]:min-h-11"
                 value={(profile.experience as "beginner" | "intermediate" | "advanced") ?? "intermediate"}
                 onChange={(v) => commit({ experience: v }, { guard: false })}
                 options={[
@@ -301,19 +302,20 @@ function ProfileHeader({ profile, email, today, onEdit }: { profile: Profile; em
   return (
     <header className="pt-1">
       <p className="t-eyebrow mb-4">Settings</p>
-      <div className="flex items-center gap-4">
+      {/* at accessibility sizes the name and the line under it take the full width below the initial */}
+      <div className="flex items-center gap-4 @max-[19rem]:flex-wrap">
         <div className="grid size-16 shrink-0 place-items-center rounded-full bg-m2 shadow-[inset_0_0_0_1px_var(--leaf-line)]" aria-hidden>
           <span className="font-voice text-[length:2rem] font-semibold leading-none text-leaf-200">{initial}</span>
         </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="t-title-1 truncate text-ivory">{name || "Your name"}</h1>
+        <div className="min-w-0 flex-1 @max-[19rem]:order-last @max-[19rem]:basis-full">
+          <h1 className="t-title-1 truncate text-ivory @max-[19rem]:whitespace-normal">{name || "Your name"}</h1>
           <p className="t-meta mt-1 text-stone">
             {day >= 1 ? `Day ${formatInt(day)} of the ascent` : `Starts in ${formatInt(1 - day)} ${1 - day === 1 ? "day" : "days"}`} · {formatPlacardWeight(Number(profile.start_weight_lb ?? 163), u)} →{" "}
             {formatPlacardWeight(Number(profile.goal_weight_lb ?? 183), u)} {u}
           </p>
           {email && <p className="t-meta truncate text-ash">{email}</p>}
         </div>
-        <button type="button" onClick={onEdit} className="press t-callout -mr-2 h-11 shrink-0 px-3 font-semibold text-ivory underline decoration-ui-line underline-offset-4">
+        <button type="button" onClick={onEdit} className="press t-callout -mr-2 h-11 shrink-0 px-3 font-semibold text-ivory underline decoration-ui-line underline-offset-4 @max-[19rem]:ml-auto">
           Edit
         </button>
       </div>
@@ -325,7 +327,7 @@ function ProfileHeader({ profile, email, today, onEdit }: { profile: Profile; em
 function WeekPips({ schedule }: { schedule: Record<string, string> }) {
   const order = ["1", "2", "3", "4", "5", "6", "0"];
   return (
-    <span className="hidden items-center gap-1 @min-[22rem]:inline-flex" aria-hidden>
+    <span className="inline-flex items-center gap-1" aria-hidden>
       {order.map((d) => (
         <span key={d} className={cn("size-2 rounded-full", schedule[d] !== "rest" ? "bg-ivory" : "shadow-[inset_0_0_0_1px_var(--ui-line)]")} />
       ))}

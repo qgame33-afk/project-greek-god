@@ -44,16 +44,23 @@ export function Group({
 export const rowBase =
   "relative flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left [&:not(:first-child)]:before:absolute [&:not(:first-child)]:before:left-4 [&:not(:first-child)]:before:right-0 [&:not(:first-child)]:before:top-0 [&:not(:first-child)]:before:h-px [&:not(:first-child)]:before:bg-vein";
 
-function Labels({ label, detail, danger }: { label: ReactNode; detail?: ReactNode; danger?: boolean }) {
+function Labels({ label, detail, danger, className }: { label: ReactNode; detail?: ReactNode; danger?: boolean; className?: string }) {
   return (
-    <span className="min-w-0 flex-1">
+    <span className={cn("min-w-0 flex-1", className)}>
       <span className={cn("t-title-3 block", danger ? "text-cinnabar" : "text-ivory")}>{label}</span>
       {detail && <span className="t-meta mt-0.5 block text-stone">{detail}</span>}
     </span>
   );
 }
 
-const Value = ({ children }: { children: ReactNode }) => <span className="t-callout max-w-[55%] shrink-0 truncate text-right text-stone">{children}</span>;
+const Value = ({ children }: { children: ReactNode }) => (
+  <span className="t-callout max-w-[55%] shrink-0 truncate text-right text-stone @max-[19rem]:ml-auto @max-[19rem]:max-w-none @max-[19rem]:whitespace-normal">{children}</span>
+);
+
+// At accessibility text sizes a row's words take the full width and its value (with any tag and
+// the chevron) drops to a second line on the right, so neither is squeezed into a column.
+const wrapRow = "@max-[19rem]:flex-wrap @max-[19rem]:gap-y-1";
+const wrapLabels = "@max-[19rem]:basis-full";
 
 /** A row that opens a sheet. */
 export function NavRow({
@@ -76,8 +83,8 @@ export function NavRow({
   chevron?: boolean;
 }) {
   return (
-    <button type="button" onClick={onClick} disabled={disabled} className={cn(rowBase, "press-soft transition-colors hover:bg-white/[.025] active:bg-white/[.04] disabled:opacity-50")}>
-      <Labels label={label} detail={detail} danger={danger} />
+    <button type="button" onClick={onClick} disabled={disabled} className={cn(rowBase, value != null && wrapRow, "press-soft transition-colors hover:bg-white/[.025] active:bg-white/[.04] disabled:opacity-50")}>
+      <Labels label={label} detail={detail} danger={danger} className={value != null ? wrapLabels : undefined} />
       {badge}
       {value != null && <Value>{value}</Value>}
       {chevron && <ChevronRight className="-mr-1 size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />}
@@ -88,8 +95,8 @@ export function NavRow({
 /** A row that goes to another screen (the schedule lives in Train → Program). */
 export function LinkRow({ label, detail, value, href }: { label: ReactNode; detail?: ReactNode; value?: ReactNode; href: string }) {
   return (
-    <Link href={href} className={cn(rowBase, "press-soft transition-colors hover:bg-white/[.025] active:bg-white/[.04]")}>
-      <Labels label={label} detail={detail} />
+    <Link href={href} className={cn(rowBase, value != null && wrapRow, "press-soft transition-colors hover:bg-white/[.025] active:bg-white/[.04]")}>
+      <Labels label={label} detail={detail} className={value != null ? wrapLabels : undefined} />
       {value != null && <Value>{value}</Value>}
       <ChevronRight className="-mr-1 size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
     </Link>
@@ -127,8 +134,8 @@ export function SwitchRow({ label, detail, checked, onChange, disabled }: { labe
 /** A read-only value row. */
 export function InfoRow({ label, value, detail }: { label: ReactNode; value: ReactNode; detail?: ReactNode }) {
   return (
-    <div className={rowBase}>
-      <Labels label={label} detail={detail} />
+    <div className={cn(rowBase, wrapRow)}>
+      <Labels label={label} detail={detail} className={wrapLabels} />
       <Value>{value}</Value>
     </div>
   );

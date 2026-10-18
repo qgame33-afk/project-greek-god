@@ -213,6 +213,7 @@ export function TrainingStep({ a, set, errors }: StepProps) {
       <Block label="Experience">
         <Segmented
           ariaLabel="Training experience"
+          className="@max-[19rem]:h-auto @max-[19rem]:flex-col @max-[19rem]:[&>button]:min-h-11"
           value={a.experience}
           onChange={(v) => set({ experience: v })}
           options={[

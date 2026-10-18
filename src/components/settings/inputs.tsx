@@ -325,7 +325,7 @@ export function WeightUnitToggle({ value, onChange, className }: { value: "lb" |
     <Segmented
       ariaLabel="Weight unit"
       size="sm"
-      className={cn("w-[112px]", className)}
+      className={cn("w-28", className)}
       value={value}
       onChange={onChange}
       options={[
@@ -341,7 +341,7 @@ export function LengthUnitToggle({ value, onChange, className }: { value: "in" |
     <Segmented
       ariaLabel="Length unit"
       size="sm"
-      className={cn("w-[128px]", className)}
+      className={cn("w-32", className)}
       value={value}
       onChange={onChange}
       options={[
