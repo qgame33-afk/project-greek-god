@@ -18,12 +18,13 @@ export function DawnBody({ m, guidance, titleId, onLater, compact }: { m: NowMod
   const line = guidance ? readinessLine(guidance, m.template?.name ?? null) : null;
   return (
     <>
-      <div className="flex items-start justify-between gap-3">
+      {/* "Later" sits beside the greeting only, so the second line has the card's full width */}
+      <div className="relative">
         <h2 id={titleId} className="t-verdict text-[length:1.5rem] leading-[1.15] text-ivory">
-          Morning{name ? `, ${name}` : ""}.
+          <span className="block pr-16">Morning{name ? `, ${name}` : ""}.</span>
           <span className={cn("block text-stone", compact && "sr-only")}>{weighed ? "Three questions." : "Three questions, then the scale."}</span>
         </h2>
-        <button type="button" onClick={onLater} className="t-meta -mr-2 -mt-2 min-h-11 shrink-0 px-2 font-semibold text-stone hover:text-ivory">
+        <button type="button" onClick={onLater} className="t-meta absolute -right-2 -top-2 min-h-11 px-2 font-semibold text-stone hover:text-ivory">
           Later
         </button>
       </div>

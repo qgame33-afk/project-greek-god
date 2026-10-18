@@ -92,9 +92,6 @@ export function ReadinessHistory({ today, selected, sleepGoal, onOpenDay, classN
             ))}
             <path d={path("soreness")} fill="none" strokeWidth={1.6} strokeDasharray="4 3" strokeLinecap="round" style={{ stroke: "var(--ash)" }} />
             <path d={path("energy")} fill="none" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" style={{ stroke: "var(--ivory)" }} />
-            <text x={2} y={ySleep(sleepGoal) - 4} textAnchor="start" className="tnum" style={{ fill: "var(--ash)", fontSize: 11, paintOrder: "stroke", stroke: "var(--night)", strokeWidth: 3 }}>
-              goal {sleepShort(sleepGoal)}
-            </text>
             {days.map((n, i) => (
               <g key={`p${n.date}`}>
                 {n.soreness != null && <circle cx={x(i)} cy={yScale(n.soreness)} r={2.6} style={{ fill: "var(--night)", stroke: "var(--ash)" }} strokeWidth={1.4} />}
@@ -119,6 +116,13 @@ export function ReadinessHistory({ today, selected, sleepGoal, onOpenDay, classN
           <div className="t-meta mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-stone" aria-hidden>
             <span className="flex items-center gap-1.5">
               <span className="h-3 w-2 rounded-sm bg-stone/55" /> Sleep
+            </span>
+            {/* the goal is named here, not in the plot, where the lines would cross it */}
+            <span className="flex items-center gap-1.5 tnum">
+              <svg viewBox="0 0 16 2" className="h-0.5 w-4">
+                <line x1="0" y1="1" x2="16" y2="1" strokeDasharray="3 4" strokeWidth="2" style={{ stroke: "var(--ui-line)" }} />
+              </svg>
+              Goal {sleepShort(sleepGoal)}
             </span>
             <span className="flex items-center gap-1.5">
               <span className="h-0.5 w-4 rounded-full bg-ivory" /> Energy

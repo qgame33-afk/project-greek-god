@@ -11,12 +11,15 @@ import {
   earlierSummary,
   ENERGY_CHIPS,
   implausibleWeighIn,
+  keepTail,
   keyLift,
   lastWeighInCaption,
   LEGS_CHIPS,
   minuteOn,
+  plannedEntryId,
   programWeekLabel,
   readinessChip,
+  restDayWords,
   ritesOf,
   scaleLine,
   sleepShort,
@@ -187,5 +190,54 @@ describe("the scale", () => {
     expect(minuteOn(new Date(2026, 9, 16, 23, 0).toISOString(), "2026-10-17")).toBe(0);
     expect(minuteOn(new Date(2026, 9, 18, 1, 0).toISOString(), "2026-10-17")).toBeNull();
     expect(minuteOn(null, "2026-10-17")).toBeNull();
+  });
+});
+
+describe("Eaten entry ids", () => {
+  let n = 0;
+  const make = () => `id-${++n}`;
+  it("keeps one id per planned meal, so a repeat tap never logs twice", () => {
+    const first = plannedEntryId(null, "meal-a", make);
+    expect(plannedEntryId(first, "meal-a", make)).toBe(first);
+  });
+  it("gives the next meal its own id (regression: the card's reused Eaten logged nothing for meal 2)", () => {
+    const a = plannedEntryId(null, "meal-a", make);
+    const b = plannedEntryId(a, "meal-b", make);
+    expect(b.mealId).toBe("meal-b");
+    expect(b.id).not.toBe(a.id);
+    // and back to the first meal (after an Undo) is a fresh id too, never meal b's
+    expect(plannedEntryId(b, "meal-a", make).id).not.toBe(b.id);
+  });
+});
+
+describe("rest-day line", () => {
+  it("keeps the movement words, without 'easy', '(optional)', sleep, fuel or the next session", () => {
+    const recs = [
+      { key: "walk", label: "Easy walk (optional)" },
+      { key: "mobility", label: "Mobility flow" },
+      { key: "sleep", label: "Sleep" },
+      { key: "fuel", label: "Eat to plan" },
+      { key: "next", label: "Prep for Push A" },
+    ];
+    expect(restDayWords(recs)).toEqual(["walk", "mobility flow"]);
+  });
+  it("drops repeats and caps the list", () => {
+    const recs = [
+      { key: "mobility", label: "Mobility flow" },
+      { key: "walk", label: "Easy walk" },
+      { key: "mobility", label: "Mobility flow" },
+      { key: "pain", label: "Gentle movement only" },
+    ];
+    expect(restDayWords(recs)).toEqual(["mobility flow", "walk"]);
+    expect(restDayWords(recs, 3)).toEqual(["mobility flow", "walk", "gentle movement only"]);
+    expect(restDayWords([])).toEqual([]);
+  });
+});
+
+describe("keepTail", () => {
+  it("binds the part after the last ' · ' with no-break spaces", () => {
+    expect(keepTail("No weigh-in today · last 165.9 Sat")).toBe("No weigh-in today · last\u00A0165.9\u00A0Sat");
+    expect(keepTail("Scale 168.6 · 7:04 am")).toBe("Scale 168.6 · 7:04\u00A0am");
+    expect(keepTail("No weigh-ins yet")).toBe("No weigh-ins yet");
   });
 });

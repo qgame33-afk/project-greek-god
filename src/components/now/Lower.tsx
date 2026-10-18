@@ -274,7 +274,7 @@ export function Rites({ m, rites, more }: { m: NowModel; rites: HabitStatus[]; m
         })}
       </ul>
       {waterRite && (
-        <div className={cn("flex min-h-14 items-center gap-3 border-y border-vein py-1.5", seals.length > 0 && "mt-3")}>
+        <div className={cn("flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 border-y border-vein py-1.5", seals.length > 0 && "mt-3")}>
           <span
             role="img"
             aria-label={`Water: ${waterRite.caption}${waterRite.done ? ", done" : ""}`}
@@ -289,6 +289,8 @@ export function Rites({ m, rites, more }: { m: NowModel; rites: HabitStatus[]; m
             <span className="t-callout block text-ivory">{cleanLabel(waterRite.label)}</span>
             <span className="t-meta tnum block text-ash">{waterRite.caption}</span>
           </span>
+          {/* at accessibility sizes the two chips take their own row */}
+          <span className="flex shrink-0 gap-3 @max-[19rem]:basis-full @max-[19rem]:pl-14">
           {[250, 500].map((ml) => (
             <button
               key={ml}
@@ -300,6 +302,7 @@ export function Rites({ m, rites, more }: { m: NowModel; rites: HabitStatus[]; m
               +{ml}
             </button>
           ))}
+          </span>
         </div>
       )}
       {more > 0 && (
@@ -405,12 +408,29 @@ export function ValueForm({ habitKey, spec, log, today, onDone }: { habitKey: st
 
 /* ------------------------------------------------------------ later today */
 
-export function LaterToday({ m, state, now, exclude, onBegin, starting }: { m: NowModel; state: DayState; now: number; exclude: Set<string>; onBegin: () => void; starting: boolean }) {
+export function LaterToday({
+  m,
+  state,
+  now,
+  exclude,
+  onBegin,
+  starting,
+  planNoteInCard,
+}: {
+  m: NowModel;
+  state: DayState;
+  now: number;
+  exclude: Set<string>;
+  onBegin: () => void;
+  starting: boolean;
+  /** The Now card already says "No meals planned · Plan this week". */
+  planNoteInCard?: boolean;
+}) {
   const chronicle = chronicleDue(m.today, m.profile.start_date);
   const opened = useLocal(chronicle ? `pgg.chronicle.opened.${chronicle.param}` : "pgg.chronicle.none");
   const items = state.later.filter((x) => !exclude.has(`${x.kind}:${x.id}`));
   const showChronicle = !!chronicle && !opened;
-  const noPlan = !m.hasPlan && !m.mealsLoading;
+  const noPlan = !m.hasPlan && !m.mealsLoading && !planNoteInCard;
   if (!items.length && !showChronicle && !noPlan) return null;
   return (
     <section aria-labelledby="later-title">
@@ -502,14 +522,14 @@ export function Earlier({ m, state, now, skippedChip, onOpenDawn }: { m: NowMode
   if (!items.length && !skippedChip) return null;
   return (
     <section aria-label="Earlier today">
-      <div className="flex items-center gap-2 border-y border-vein">
+      <div className="flex items-center gap-2 border-y border-vein @max-[19rem]:flex-wrap @max-[19rem]:pb-2">
         <button
           type="button"
           aria-expanded={open}
           aria-controls={id}
           onClick={() => setOpen((o) => !o)}
           disabled={!items.length}
-          className="flex min-h-14 min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-h-14 min-w-0 flex-1 items-center gap-2 text-left @max-[19rem]:basis-full"
         >
           <span className="t-eyebrow shrink-0">Earlier</span>
           <span className="t-callout min-w-0 flex-1 truncate text-stone">{summary || "Nothing logged yet"}</span>
@@ -576,7 +596,7 @@ export function LatestRecord({ m }: { m: NowModel }) {
       </span>
       <span aria-hidden className="min-w-0 flex-1">
         <span className="t-eyebrow block text-leaf-300">Latest record · {dayMonth(r.date, m.today)}</span>
-        <span className="t-title-3 mt-1 block truncate text-ivory">{r.name}</span>
+        <span className="t-title-3 mt-1 line-clamp-2 block text-ivory">{r.name}</span>
         <span className="t-meta tnum mt-0.5 block text-stone">
           {load} × {r.reps} · e1RM {e1}
           {gain}

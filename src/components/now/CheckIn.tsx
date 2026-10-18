@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight, Minus, Plus } from "lucide-react";
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { SealTick } from "@/components/art/icons";
 import { Switch } from "@/components/ui/controls";
 import { Collapse } from "@/components/ui/misc";
@@ -18,6 +18,8 @@ import { checkinPatchPayload, chipFor, ENERGY_CHIPS, LEGS_CHIPS, SLEEP_STEP_H, s
 const QUALITY = ["Poor", "Fair", "Okay", "Good", "Great"] as const;
 const FATIGUE = ["Fresh", "Light", "Some", "Tired", "Exhausted"] as const;
 const STRESS = ["Calm", "Low", "Some", "High", "Very high"] as const;
+/** A tap this soon after a question opens, or after a chip was chosen, is the tail of a double tap. */
+const QUESTION_SETTLE_MS = 400;
 
 type Field = keyof CheckinDraft;
 type Status = { kind: "idle" } | { kind: "saving"; field: Field } | { kind: "error"; field: Field; patch: Partial<CheckinDraft>; offline: boolean };
@@ -105,10 +107,6 @@ export function CheckIn({
 }) {
   const { rows, values, status, answer: save } = useCheckinAnswers(date);
   const [editing, setEditing] = useState<"sleep" | "legs" | "energy" | null>(null);
-  const answer = (patch: Partial<CheckinDraft>) => {
-    setEditing(null);
-    save(patch);
-  };
   const prefill = sleepPrefill(rows, date);
   const { sleep, soreness, energy } = values;
 
@@ -117,6 +115,19 @@ export function CheckIn({
   const order: ("sleep" | "legs" | "energy")[] = ["sleep", "legs", "energy"];
   const openQ = variant === "ledger" ? null : (editing ?? order.find((q) => !answered[q]) ?? null);
   const count = order.filter((q) => answered[q]).length;
+
+  // On Dawn the next question opens where the last one was answered: the second tap of a double
+  // tap (or a tap still on its way) must not answer it. Answers within this window of a question
+  // opening are ignored.
+  const openedAt = useRef(0);
+  useEffect(() => {
+    openedAt.current = performance.now();
+  }, [openQ]);
+  const answer = (patch: Partial<CheckinDraft>) => {
+    if (variant === "dawn" && performance.now() - openedAt.current < QUESTION_SETTLE_MS) return;
+    setEditing(null);
+    save(patch);
+  };
 
   const sleepQ = (
     <SleepQuestion
@@ -354,6 +365,7 @@ export function ChipQuestion({
 }) {
   const id = useId();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const pickedAt = useRef(0);
   const focusAt = (i: number) => refs.current[(i + chips.length) % chips.length]?.focus();
   return (
     <div role="radiogroup" aria-labelledby={id}>
@@ -384,7 +396,13 @@ export function ChipQuestion({
                   focusAt(i - 1);
                 }
               }}
-              onClick={() => onPick(on ? null : i + 1)}
+              onClick={() => {
+                // tapping the chosen chip clears it, but not as the second half of a double tap
+                const t = performance.now();
+                if (on && t - pickedAt.current < QUESTION_SETTLE_MS) return;
+                pickedAt.current = t;
+                onPick(on ? null : i + 1);
+              }}
               className={cn(
                 "press flex min-h-11 min-w-0 items-center justify-center rounded-field px-1 text-center text-[length:max(13px,0.8125rem)] font-semibold leading-tight transition-colors @max-[19rem]:justify-start @max-[19rem]:px-4",
                 on ? "bg-m4 text-ivory shadow-[inset_0_0_0_1.5px_var(--ivory)]" : "bg-m3 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory",

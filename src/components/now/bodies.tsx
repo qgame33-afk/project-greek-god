@@ -15,7 +15,7 @@ import { cn } from "@/lib/cn";
 import { formatDuration } from "@/lib/dates";
 import { formatClock as clock } from "@/lib/prefs";
 import type { Guidance } from "@/lib/recovery/guidance";
-import { keyLift, readinessChip, sleepShort } from "@/lib/today/now";
+import { keyLift, readinessChip, restDayWords, sleepShort } from "@/lib/today/now";
 import { restDayRecommendations } from "@/lib/today/recovery-recs";
 import { formatClock, remainingSec } from "@/lib/workout/rest";
 import { formatInt, formatLoad, round, toDisplayWeight } from "@/lib/units";
@@ -24,14 +24,29 @@ import type { NowMeal, NowModel } from "./useNowData";
 
 /* ------------------------------------------------------------------ parts */
 
-export function CardHead({ eyebrow, right, title, titleId, sub }: { eyebrow: ReactNode; right?: ReactNode; title: ReactNode; titleId: string; sub?: ReactNode }) {
+export function CardHead({
+  eyebrow,
+  right,
+  title,
+  titleId,
+  sub,
+  small,
+}: {
+  eyebrow: ReactNode;
+  right?: ReactNode;
+  title: ReactNode;
+  titleId: string;
+  sub?: ReactNode;
+  /** A short phone: a long meal name as a section title, so the gold control stays in view. */
+  small?: boolean;
+}) {
   return (
     <div>
       <div className="flex min-h-5 items-center justify-between gap-3">
         <p className="t-eyebrow truncate">{eyebrow}</p>
         {right}
       </div>
-      <h2 id={titleId} className="t-title-1 mt-1.5 text-ivory [overflow-wrap:anywhere]">
+      <h2 id={titleId} className={cn(small ? "t-title-2" : "t-title-1", "mt-1.5 text-ivory [overflow-wrap:anywhere]")}>
         {title}
       </h2>
       {sub && <div className="t-callout mt-1.5 text-stone">{sub}</div>}
@@ -65,7 +80,7 @@ export function MealRow({ meal, now, className }: { meal: NowMeal; now: number; 
         <p className="t-meta tnum mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-ash">
           <span>
             <span className="text-stone">{clock(meal.at).toLowerCase()}</span>
-            {past ? " · not logged" : ""} · {formatInt(meal.kcal)} kcal · {Math.round(meal.protein)} g
+            {past ? " · not logged" : ""} · {formatInt(meal.kcal)}&nbsp;kcal · {Math.round(meal.protein)}&nbsp;g
           </span>
           {!meal.eaten && <Tag kind="PLAN" />}
         </p>
@@ -168,14 +183,14 @@ export function TrainBody({
 
 /* ------------------------------------------------------------------- fuel */
 
-export function FuelBody({ m, meal, now, titleId, restLine }: { m: NowModel; meal: NowMeal | null; now: number; titleId: string; restLine: ReactNode }) {
+export function FuelBody({ m, meal, now, titleId, restLine, compact }: { m: NowModel; meal: NowMeal | null; now: number; titleId: string; restLine: ReactNode; compact?: boolean }) {
   if (!meal) return <NoMealBody m={m} titleId={titleId} lead={restLine} />;
   const role = meal.role === "pre" ? "Pre-workout · " : meal.role === "post" ? "After training · " : "";
   const due = meal.at < now;
   return (
     <>
       {restLine}
-      <CardHead eyebrow={`${role}${due ? "Due" : "Next"} · ${clock(meal.at)}`} titleId={titleId} title={meal.name} />
+      <CardHead eyebrow={`${role}${due ? "Due" : "Next"} · ${clock(meal.at)}`} titleId={titleId} title={meal.name} small={compact && meal.name.length > 18} />
       <div className="mt-2.5 flex items-center gap-3">
         <Coin state="next" glyph={<FuelAmphora />} size={36} />
         <div className="min-w-0 flex-1 space-y-1">
@@ -186,7 +201,7 @@ export function FuelBody({ m, meal, now, titleId, restLine }: { m: NowModel; mea
         </div>
       </div>
       <div className="mt-4 flex items-center gap-2">
-        <MealAction meal={meal} gold className="flex-1" />
+        <MealAction key={meal.id} meal={meal} gold className="flex-1" />
       </div>
       <Link
         href={`/nutrition/meals?day=${meal.local_date}`}
@@ -249,10 +264,10 @@ export function RestLine({ m }: { m: NowModel }) {
     null,
   );
   const goal = sleepShort(Number(m.profile.sleep_goal_h));
-  const words = recs.filter((r) => r.key !== "next").map((r) => r.label.toLowerCase().replace(/^easy /, ""));
+  const words = restDayWords(recs);
   return (
     <p className="t-callout mb-3 text-ivory">
-      Rest day · {words.length ? `${words.slice(0, 2).join(", ")}, sleep ${goal}` : `walk, stretch, sleep ${goal}`}
+      Rest day · {words.length ? `${words.join(", ")}, sleep ${goal}` : `walk, stretch, sleep ${goal}`}
     </p>
   );
 }
@@ -316,14 +331,14 @@ function LiveMirror({ sessionId, startedAt, unit }: { sessionId: string; started
 
 /* ----------------------------------------------------------------- refuel */
 
-export function RefuelBody({ m, meal, titleId }: { m: NowModel; meal: NowMeal | null; titleId: string }) {
+export function RefuelBody({ m, meal, titleId, compact }: { m: NowModel; meal: NowMeal | null; titleId: string; compact?: boolean }) {
   const s = m.doneToday!;
   const gap = Math.max(0, Math.round(m.profile.protein_goal - m.food.protein));
   return (
     <>
       <Link
         href={`/workout/${s.id}`}
-        className="press-soft -mx-1 mb-3 flex min-h-11 items-center gap-2.5 rounded-field px-1 text-left"
+        className="press-soft -mx-1 mb-2 flex min-h-11 items-center gap-2.5 rounded-field px-1 text-left"
         aria-label={`${s.name} sealed${m.sessionRecords ? `, ${m.sessionRecords} ${m.sessionRecords === 1 ? "record" : "records"}` : ""}. Open the session`}
       >
         <span className="grid size-8 place-items-center rounded-full shadow-[inset_0_0_0_1px_var(--leaf-line)] text-leaf-300">
@@ -339,15 +354,24 @@ export function RefuelBody({ m, meal, titleId }: { m: NowModel; meal: NowMeal | 
       </Link>
       {meal ? (
         <>
-          <CardHead eyebrow={`Refuel · ${clock(meal.at)}`} titleId={titleId} title={meal.name} />
-          <p className="t-meta tnum mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-stone">
-            <span>
-              {meal.name} at {clock(meal.at).toLowerCase()} closes <span className="text-ivory">{Math.min(gap, Math.round(meal.protein))}</span> of{" "}
-              <span className="text-ivory">{gap} g</span>
-            </span>
-            <Tag kind="CALC" explain={`${Math.round(meal.protein)} g in the meal; ${gap} g left of ${m.profile.protein_goal} g today.`} />
+          <CardHead eyebrow={`Refuel · ${clock(meal.at)}`} titleId={titleId} title={meal.name} small={compact && meal.name.length > 18} />
+          <p className="t-meta tnum mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-stone">
+            {m.foodFailed ? (
+              <span>
+                {formatInt(meal.kcal)} kcal · {Math.round(meal.protein)} g protein
+              </span>
+            ) : gap > 0 ? (
+              <span>
+                Closes <span className="text-ivory">{Math.min(gap, Math.round(meal.protein))}</span> of the <span className="text-ivory">{gap} g</span> protein left
+              </span>
+            ) : (
+              <span>
+                {Math.round(meal.protein)} g protein · today&apos;s goal is already met
+              </span>
+            )}
+            {!m.foodFailed && <Tag kind="CALC" explain={`${Math.round(meal.protein)} g in the meal; ${gap} g left of ${m.profile.protein_goal} g today.`} />}
           </p>
-          <MealAction meal={meal} gold className="mt-4 w-full" />
+          <MealAction key={meal.id} meal={meal} gold className="mt-3 w-full" />
         </>
       ) : (
         <>
@@ -389,7 +413,7 @@ export function DuskBody({ m, meal, now, titleId, ritesLeft }: { m: NowModel; me
       {meal ? (
         <div className="mt-3">
           <MealRowLead meal={meal} />
-          <MealAction meal={meal} gold className="mt-3 w-full" />
+          <MealAction key={meal.id} meal={meal} gold className="mt-3 w-full" />
         </div>
       ) : (
         <Button variant="primary" size="lg" block className="mt-4" onClick={() => openOffering({ mode: "log" })}>
@@ -408,7 +432,7 @@ function MealRowLead({ meal }: { meal: NowMeal }) {
       <div className="min-w-0 flex-1">
         <p className="t-title-3 truncate text-ivory">{meal.name}</p>
         <p className="t-meta tnum mt-0.5 flex items-center gap-1.5 text-ash">
-          {clock(meal.at)} · {formatInt(meal.kcal)} kcal · {Math.round(meal.protein)} g <Tag kind="PLAN" />
+          {clock(meal.at)} · {formatInt(meal.kcal)}&nbsp;kcal · {Math.round(meal.protein)}&nbsp;g <Tag kind="PLAN" />
         </p>
       </div>
     </div>

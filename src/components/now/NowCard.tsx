@@ -54,6 +54,7 @@ export function NowCard({
   const byId = (id: string | undefined): NowMeal | null => (id ? (m.meals.find((x) => x.id === id) ?? null) : null);
   const nextMeal = state.next.kind === "eat" ? byId(state.next.mealId) : null;
   const rest = !m.template;
+  const namesPhase = phase === "live" || phase === "refuel" || phase === "dusk" || phase === "seal" || (phase === "fuel" && !nextMeal);
 
   let body: React.ReactNode;
   switch (phase) {
@@ -70,7 +71,7 @@ export function NowCard({
       body = <LiveBody m={m} titleId={titleId} />;
       break;
     case "refuel":
-      body = <RefuelBody m={m} meal={nextMeal} titleId={titleId} />;
+      body = <RefuelBody m={m} meal={nextMeal} titleId={titleId} compact={compact} />;
       break;
     case "dusk":
       body = <DuskBody m={m} meal={nextMeal} now={now} titleId={titleId} ritesLeft={Math.max(0, rites.total - rites.done)} />;
@@ -79,13 +80,15 @@ export function NowCard({
       body = <SealBody m={m} titleId={titleId} sealed={sealed} onSeal={onSeal} rites={rites} compact={compact} />;
       break;
     default:
-      body = <FuelBody m={m} meal={nextMeal} now={now} titleId={titleId} restLine={rest ? <RestLine m={m} /> : null} />;
+      body = <FuelBody m={m} meal={nextMeal} now={now} titleId={titleId} restLine={rest ? <RestLine m={m} /> : null} compact={compact} />;
   }
 
   return (
     <section role="region" aria-labelledby={titleId} className={cn("slab relative px-4 pb-4 pt-2", className)} data-phase-card={phase}>
       <PhaseRail state={state} phase={phase} now={now} rest={rest} />
-      <p className="t-eyebrow mb-1 hidden text-leaf-300 @max-[19rem]:block">{PHASE_NAME[phase]}</p>
+      {/* the rail's labels hide at accessibility sizes: the phase moves into an eyebrow, unless the
+          card's own eyebrow already starts with it */}
+      {!namesPhase && <p className="t-eyebrow mb-1 hidden text-leaf-300 @max-[19rem]:block">{PHASE_NAME[phase]}</p>}
       <div key={turn} className={cn(turn > 0 && "turn-in")}>
         {body}
       </div>

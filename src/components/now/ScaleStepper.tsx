@@ -96,11 +96,12 @@ export function ScaleStepper({ unit, gold = true, onInscribed, compact }: { unit
 
   return (
     <div>
-      <div className="flex items-center gap-3">
+      {/* at accessibility sizes the number takes its own row above the two steps */}
+      <div className="flex items-center gap-3 @max-[19rem]:flex-wrap @max-[19rem]:justify-between">
         <button type="button" className={step56} aria-label={`${step} ${unit} less`} onClick={() => bump(-1)} disabled={value == null}>
           <Minus className="size-6" strokeWidth={1.8} />
         </button>
-        <div className="min-w-0 flex-1 text-center">
+        <div className="min-w-0 flex-1 text-center @max-[19rem]:order-first @max-[19rem]:basis-full">
           {typing ? (
             <input
               autoFocus

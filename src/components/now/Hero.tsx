@@ -6,7 +6,7 @@ import { useOnline } from "@/components/workout/stores";
 import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
 import { dayMonth, MIN_WEIGHINS } from "@/lib/progress/pace";
-import { clockOf, programWeekLabel, scaleLine } from "@/lib/today/now";
+import { clockOf, keepTail, programWeekLabel, scaleLine } from "@/lib/today/now";
 import { round, toDisplayWeight } from "@/lib/units";
 import { Tick } from "./Tick";
 import type { NowModel } from "./useNowData";
@@ -20,7 +20,7 @@ export interface UnveilState {
 }
 
 /** "by 1 Aug" never breaks between the day and the month. */
-const keepDates = (s: string) => s.replace(/(\d) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/g, "$1 $2");
+const keepDates = (s: string) => s.replace(/(\d) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/g, "$1\u00A0$2");
 
 /**
  * The statue hero (docs/DESIGN-V2.md §3.1.1): the bust gilded to the trend on the right; on the
@@ -38,7 +38,8 @@ export function Hero({ m, phase, unveil, compact, children }: { m: NowModel; pha
   const left = Math.max(0, MIN_WEIGHINS - m.weighInCount);
   const stale = trend != null && p.trend.end !== m.today;
   const latest = p.trend.latest;
-  const scale = scaleLine(latest ? { lb: show(latest.lb), date: latest.date, time: latest.date === m.today ? clockOf(m.weighToday?.measured_at) : null } : null, m.today);
+  // "last 165.9 Sat" (or "7:04 am") never breaks inside itself
+  const scale = keepTail(scaleLine(latest ? { lb: show(latest.lb), date: latest.date, time: latest.date === m.today ? clockOf(m.weighToday?.measured_at) : null } : null, m.today));
   const dawn = phase === "dawn";
   // Dawn and Seal carry taller cards: the hero keeps the trend, the verdict and the pace only
   const dense = dawn || phase === "seal";
@@ -49,7 +50,7 @@ export function Hero({ m, phase, unveil, compact, children }: { m: NowModel; pha
       ? "Your statue, in marble. No weigh-ins yet."
       : m.gild > 0
         ? `Your statue, gilded to ${pct} percent of the climb. Trend ${show(trend)} ${pounds}.`
-        : `Your statue, still in marble.${left > 0 ? ` ${left} more weigh-ins begin the gilding.` : ""}`;
+        : `Your statue, still in marble.${left > 0 ? ` ${left} more ${left === 1 ? "weigh-in begins" : "weigh-ins begin"} the gilding.` : ""}`;
   // under the header row on phones (not while the offline strip sits above the page)
   const under = online;
 

@@ -253,6 +253,42 @@ export function clockOf(iso: string | null | undefined): string | null {
   return `${h % 12 === 0 ? 12 : h % 12}:${String(d.getMinutes()).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
 }
 
+/* ------------------------------------------------------------- eaten, rest */
+
+/**
+ * The food-entry id for one tap of Eaten. A repeat tap on the same planned meal keeps its id, so
+ * the idempotent insert never logs it twice; a different meal always gets a new id. (The Now card
+ * reuses its Eaten control for the next meal once one is eaten: reusing the id there made the
+ * second meal read "Already in your food log" and never log.)
+ */
+export function plannedEntryId(prev: { mealId: string; id: string } | null, mealId: string, make: () => string): { mealId: string; id: string } {
+  return prev && prev.mealId === mealId ? prev : { mealId, id: make() };
+}
+
+/**
+ * The movement words of the rest-day line ("walk, mobility flow"), from the rest-day
+ * recommendations: lower case, without "easy " or "(optional)", and without the sleep, fuel and
+ * next-session items (sleep closes the line; fuel and the next session have their own homes).
+ */
+export function restDayWords(recs: { key: string; label: string }[], max = 2): string[] {
+  return recs
+    .filter((r) => r.key !== "next" && r.key !== "sleep" && r.key !== "fuel")
+    .map((r) =>
+      r.label
+        .toLowerCase()
+        .replace(/^easy /, "")
+        .replace(/\s*\(optional\)/, "")
+        .trim(),
+    )
+    .filter((w, i, all) => !!w && all.indexOf(w) === i)
+    .slice(0, max);
+}
+
+/** "No weigh-in today · last 165.9 Sat": the part after the last " · " never breaks inside itself. */
+export function keepTail(s: string): string {
+  return s.replace(/ · ([^·]+)$/, (_, t: string) => ` · ${t.replace(/ /g, "\u00A0")}`);
+}
+
 /* -------------------------------------------------------------------- misc */
 
 /** Minutes since midnight of an ISO timestamp, when it falls on `date` (device timezone); else null. */

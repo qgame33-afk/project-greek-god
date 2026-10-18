@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { isOffline, newId, useToday } from "@/lib/data/core";
 import { slotToMeal, useLogPlannedMeal } from "@/lib/data/meals";
 import { recipeFeatures, recipeMacrosExact } from "@/lib/meals/recipe";
+import { plannedEntryId } from "@/lib/today/now";
 import { formatInt } from "@/lib/units";
 import type { NowMeal } from "./useNowData";
 
@@ -31,9 +32,16 @@ export function mealSpoken(m: Pick<NowMeal, "name" | "kcal" | "protein">) {
 export function MealAction({ meal, gold, compact, className }: { meal: NowMeal; gold?: boolean; compact?: boolean; className?: string }) {
   const today = useToday();
   const log = useLogPlannedMeal();
-  const entryId = useRef<string | null>(null);
+  // one entry id per planned meal (a repeat tap on the same meal never logs twice); the Now card
+  // reuses this control for the next meal once one is eaten, so the id follows the meal
+  const entry = useRef<{ mealId: string; id: string } | null>(null);
   const [sheet, setSheet] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [noteFor, setNoteFor] = useState(meal.id);
+  if (noteFor !== meal.id) {
+    setNoteFor(meal.id);
+    setNote(null);
+  }
   const conflicts = useRecipeConflicts(meal.recipe);
   const allergy = conflicts.some((c) => c.kind === "allergy");
   const timer = useRef<number | null>(null);
@@ -54,10 +62,10 @@ export function MealAction({ meal, gold, compact, className }: { meal: NowMeal; 
       return;
     }
     setNote(null);
-    entryId.current ??= newId();
+    entry.current = plannedEntryId(entry.current, meal.id, newId);
     const macros = estimateFor(recipeMacrosExact(meal.recipe, 1), meal.servings);
     log.mutate({
-      id: entryId.current,
+      id: entry.current.id,
       plannedMealId: meal.id,
       recipe: { key: meal.recipe.key, name: meal.recipe.name, ingredients: meal.recipe.ingredients },
       servings: meal.servings,
@@ -98,7 +106,7 @@ export function MealAction({ meal, gold, compact, className }: { meal: NowMeal; 
           className={cn(gold ? "flex-1" : "min-w-[72px] rounded-full px-4")}
           disabled={!meal.recipe}
           loading={log.isPending}
-          aria-label={`Mark ${mealSpoken(meal)} as eaten`}
+          aria-label={`Mark ${meal.name.replace(/&/g, "and")} as eaten, ${formatInt(meal.kcal)} calories, ${Math.round(meal.protein)} grams protein`}
           onPointerDown={startPress}
           onPointerUp={endPress}
           onPointerLeave={endPress}

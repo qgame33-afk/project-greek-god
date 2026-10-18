@@ -168,7 +168,15 @@ function NowContent({ data, m }: { data: NowData; m: NowModel }) {
         <TodaysThree m={m} />
         <Rites m={m} rites={rites.shown} more={rites.more} />
         {state && !sealed && (
-          <LaterToday m={m} state={state} now={now} exclude={featured} onBegin={() => void data.workout.startToday()} starting={data.workout.starting} />
+          <LaterToday
+            m={m}
+            state={state}
+            now={now}
+            exclude={featured}
+            onBegin={() => void data.workout.startToday()}
+            starting={data.workout.starting}
+            planNoteInCard={phase === "fuel" && state.next.kind !== "eat"}
+          />
         )}
         {state && <Earlier m={m} state={state} now={now} skippedChip={state.skippedChip} onOpenDawn={openDawn} />}
         <LatestRecord m={m} />
