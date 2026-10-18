@@ -310,8 +310,10 @@ function ProfileHeader({ profile, email, today, onEdit }: { profile: Profile; em
         <div className="min-w-0 flex-1 @max-[19rem]:order-last @max-[19rem]:basis-full">
           <h1 className="t-title-1 truncate text-ivory @max-[19rem]:whitespace-normal">{name || "Your name"}</h1>
           <p className="t-meta mt-1 text-stone">
-            {day >= 1 ? `Day ${formatInt(day)} of the ascent` : `Starts in ${formatInt(1 - day)} ${1 - day === 1 ? "day" : "days"}`} · {formatPlacardWeight(Number(profile.start_weight_lb ?? 163), u)} →{" "}
-            {formatPlacardWeight(Number(profile.goal_weight_lb ?? 183), u)} {u}
+            {day >= 1 ? `Day ${formatInt(day)} of the ascent` : `Starts in ${formatInt(1 - day)} ${1 - day === 1 ? "day" : "days"}`} ·{" "}
+            <span className="whitespace-nowrap">
+              {formatPlacardWeight(Number(profile.start_weight_lb ?? 163), u)} → {formatPlacardWeight(Number(profile.goal_weight_lb ?? 183), u)} {u}
+            </span>
           </p>
           {email && <p className="t-meta truncate text-ash">{email}</p>}
         </div>
