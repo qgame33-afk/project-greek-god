@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { macroLine, macrosOverflow } from "./macros";
 import {
+  OATH_STEPS,
   answersFromProfile,
+  firstInvalidOathStep,
+  paceVerdict,
+  validateOathStep,
   normalizeSchedule,
   planSummary,
   profileUpdateFromAnswers,
@@ -241,5 +245,41 @@ describe("scheduleSummary", () => {
   it("names the default split", () => {
     expect(scheduleSummary(owner().schedule)).toBe("6 days · Push/Pull/Legs × 2");
     expect(scheduleSummary({ ...owner().schedule, "6": "rest" })).toBe("5 days");
+  });
+});
+
+describe("the Oath (five steps)", () => {
+  it("reads the usual training time from prefs and never writes it to the profile", () => {
+    const a = answersFromProfile({ ...ownerProfile, prefs: { day: { trainAt: "16:30" }, tapLogsGhost: false } }, TODAY, "America/Toronto");
+    expect(a.trainAt).toBe("16:30");
+    expect(owner().trainAt).toBeNull();
+    // the same answers give the same profile columns whatever the training time
+    expect(profileUpdateFromAnswers(a)).toEqual(profileUpdateFromAnswers({ ...a, trainAt: null }));
+    expect("trainAt" in profileUpdateFromAnswers(a)).toBe(false);
+  });
+  it("restores a drafted training time, and drops a malformed one", () => {
+    expect(restoreDraft(owner(), { trainAt: "17:15" }).trainAt).toBe("17:15");
+    expect(restoreDraft(owner(), { trainAt: null }).trainAt).toBeNull();
+    expect(restoreDraft(owner(), { trainAt: "late" }).trainAt).toBeNull();
+  });
+  it("validates exactly what the seven steps validated, grouped into five", () => {
+    const bad = { ...owner(), startWeightLb: 20, timezone: " ", goalWeightLb: 9, volleyballPerWeek: 20, calorieGoal: 100 };
+    expect(Object.keys(validateOathStep("climber", bad, TODAY)).sort()).toEqual(["startWeightLb", "timezone"]);
+    expect(validateOathStep("summit", bad, TODAY).goalWeightLb).toBeTruthy();
+    expect(validateOathStep("training", bad, TODAY).volleyballPerWeek).toBeTruthy();
+    expect(validateOathStep("fuel", bad, TODAY).calorieGoal).toBeTruthy();
+    expect(validateOathStep("oath", bad, TODAY)).toEqual({});
+    expect(firstInvalidOathStep(bad, TODAY)).toBe("climber");
+    for (const st of OATH_STEPS) expect(validateOathStep(st, owner(), TODAY)).toEqual({});
+    expect(firstInvalidOathStep(owner(), TODAY)).toBeNull();
+    expect(validateOathStep("training", { ...owner(), trainAt: "25:00" }, TODAY).trainAt).toBeTruthy();
+  });
+  it("names the pace in plain words", () => {
+    expect(paceVerdict(null)).toBeNull();
+    expect(paceVerdict(0)).toBe("hold");
+    expect(paceVerdict(0.43)).toBe("achievable");
+    expect(paceVerdict(0.7)).toBe("fast");
+    expect(paceVerdict(1.4)).toBe("too_fast");
+    expect(paceVerdict(-0.5)).toBe("loss");
   });
 });

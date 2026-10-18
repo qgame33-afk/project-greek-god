@@ -3,6 +3,7 @@
 // No React, no Supabase — everything here is unit-tested.
 
 import { DEFAULT_ROADMAP, requiredWeeklyGain } from "@/lib/bodyweight";
+import { isTime, parseAppPrefs } from "@/lib/prefs";
 import { addDays, addMonths, daysBetween, monthStart, parseISODate, type ISODate } from "@/lib/dates";
 import { DEFAULT_SCHEDULE } from "@/lib/training/program";
 import type { TemplateKey } from "@/lib/training/types";
@@ -15,6 +16,15 @@ export type Schedule = Record<string, PlanKey>;
 
 export const STEPS = ["welcome", "body", "goal", "training", "nutrition", "units", "finale"] as const;
 export type StepId = (typeof STEPS)[number];
+
+/**
+ * The Oath (docs/DESIGN-V2.md §3.11): the same answers in five steps. Each one validates the old
+ * steps it absorbed, so the profile written is exactly the seven-step flow's for the same answers.
+ */
+export const OATH_STEPS = ["climber", "summit", "training", "fuel", "oath"] as const;
+export type OathStepId = (typeof OATH_STEPS)[number];
+export const OATH_LABELS: Record<OathStepId, string> = { climber: "The climber", summit: "The summit", training: "The training", fuel: "The fuel", oath: "The oath" };
+const OATH_COVERS: Record<OathStepId, StepId[]> = { climber: ["body", "units"], summit: ["goal"], training: ["training"], fuel: ["nutrition"], oath: [] };
 
 export const STEP_LABELS: Record<StepId, string> = {
   welcome: "Welcome",
@@ -80,6 +90,8 @@ export interface OnboardingAnswers {
   waterGoalMl: number;
   sleepGoalH: number;
   timezone: string;
+  /** His usual training time ("16:30"), stored in profiles.prefs.day.trainAt — not a profile column. */
+  trainAt: string | null;
 }
 
 /** The subset of a profile row onboarding reads (kept structural so tests need no DB types). */
@@ -105,6 +117,7 @@ export interface ProfileLike {
   sleep_goal_h?: number | string | null;
   timezone?: string | null;
   onboarded?: boolean | null;
+  prefs?: unknown;
 }
 
 const num = (v: unknown, fallback: number) => {
@@ -159,6 +172,7 @@ export function answersFromProfile(p: ProfileLike | null | undefined, today: ISO
     waterGoalMl: Math.round(num(p?.water_goal_ml, D.waterGoalMl)),
     sleepGoalH: num(p?.sleep_goal_h, D.sleepGoalH),
     timezone: detectedTz || p?.timezone || "UTC",
+    trainAt: parseAppPrefs(p?.prefs).day.trainAt,
   };
 }
 
@@ -172,6 +186,7 @@ export function restoreDraft(defaults: OnboardingAnswers, raw: unknown): Onboard
     const d = defaults[k];
     if (k === "schedule") out.schedule = normalizeSchedule(v ?? defaults.schedule);
     else if (k === "todayWeighInLb") out.todayWeighInLb = typeof v === "number" && Number.isFinite(v) ? v : null;
+    else if (k === "trainAt") out.trainAt = v === null ? null : isTime(v) ? (v as string) : defaults.trainAt;
     else if (typeof v === typeof d && v !== null) (out as unknown as Record<string, unknown>)[k] = v;
   }
   if (out.weightUnit !== "lb" && out.weightUnit !== "kg") out.weightUnit = defaults.weightUnit;
@@ -313,6 +328,7 @@ export function validateStep(step: StepId, a: OnboardingAnswers, today: ISODate)
   }
   if (step === "training") {
     if (!(a.volleyballPerWeek >= 0 && a.volleyballPerWeek <= 14)) e.volleyballPerWeek = "Between 0 and 14 sessions.";
+    if (a.trainAt != null && !isTime(a.trainAt)) e.trainAt = "Pick a time, or leave it unset.";
   }
   if (step === "nutrition") {
     if (!(a.calorieGoal >= 1000 && a.calorieGoal <= 8000)) e.calorieGoal = "Between 1,000 and 8,000 kcal.";
@@ -327,6 +343,26 @@ export function validateStep(step: StepId, a: OnboardingAnswers, today: ISODate)
     if (!a.timezone.trim()) e.timezone = "Pick your time zone.";
   }
   return e;
+}
+
+/** Field errors for one Oath step: everything the old steps it absorbed would have checked. */
+export function validateOathStep(step: OathStepId, a: OnboardingAnswers, today: ISODate): StepErrors {
+  return Object.assign({}, ...OATH_COVERS[step].map((s) => validateStep(s, a, today))) as StepErrors;
+}
+
+/** The first Oath step with an error (the final check before the hold), or null. */
+export function firstInvalidOathStep(a: OnboardingAnswers, today: ISODate): OathStepId | null {
+  return OATH_STEPS.find((s) => Object.keys(validateOathStep(s, a, today)).length > 0) ?? null;
+}
+
+/** How the required pace reads for a lean gain: plain words, never a judgement of him. */
+export function paceVerdict(rateLb: number | null): "hold" | "achievable" | "fast" | "too_fast" | "loss" | null {
+  if (rateLb == null) return null;
+  if (Math.abs(rateLb) < 0.005) return "hold";
+  if (rateLb < 0) return "loss";
+  if (rateLb > 1) return "too_fast";
+  if (rateLb > 0.5) return "fast";
+  return "achievable";
 }
 
 /** The profile columns written on finish. carb_goal is derived so the targets always add up. */

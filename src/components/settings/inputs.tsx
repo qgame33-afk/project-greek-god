@@ -132,8 +132,19 @@ export function StepperInput({
     );
   }
   return (
-    <div className="[&_button]:bg-m4 [&_button:active]:bg-m5">
-      <Stepper label={label} value={value} step={step} min={min} max={max} size={size} onChange={bump}>
+    // At accessibility text sizes the value takes the whole first row and − + sit under it, so a
+    // four-digit value is never clipped between the buttons.
+    <div className="@container [&_button]:bg-m4 [&_button:active]:bg-m5">
+      <Stepper
+        label={label}
+        value={value}
+        step={step}
+        min={min}
+        max={max}
+        size={size}
+        onChange={bump}
+        className="@max-[19rem]:flex-wrap @max-[19rem]:justify-between @max-[19rem]:gap-y-3 @max-[19rem]:[&>div]:order-first @max-[19rem]:[&>div]:basis-full"
+      >
         {input}
       </Stepper>
     </div>
@@ -354,9 +365,10 @@ export function ScheduleEditor({ value, onChange }: { value: Schedule; onChange:
         const v = value[d] ?? "rest";
         const rest = v === "rest";
         return (
-          <li key={d} className={cn("flex min-h-[56px] items-center gap-3 pl-4 pr-2", i > 0 && "border-t border-vein")}>
-            <label htmlFor={`${id}-${d}`} className="flex w-[92px] shrink-0 items-center gap-2.5">
-              <span className={cn("size-1.5 rounded-full", rest ? "bg-vein-3" : "bg-leaf-300")} aria-hidden />
+          <li key={d} className={cn("flex min-h-14 items-center gap-3 pl-4 pr-2", i > 0 && "border-t border-vein")}>
+            <label htmlFor={`${id}-${d}`} className="flex w-23 shrink-0 items-center gap-2.5">
+              {/* a plan, so ivory: a training day is a filled mark, a rest day an outline (3:1) */}
+              <span className={cn("size-1.5 rounded-full", rest ? "shadow-[inset_0_0_0_1px_var(--ui-line)]" : "bg-ivory")} aria-hidden />
               <span className="t-callout font-semibold text-ivory">
                 <span className="sm:hidden">{SHORT[d]}</span>
                 <span className="hidden sm:inline">{WEEKDAY_LABEL[d]}</span>
