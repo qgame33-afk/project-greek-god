@@ -134,8 +134,8 @@ export function CoachAsk({
 /** "About: Push A today" — the screen the question comes from; ✕ asks without it. */
 export function ContextChip({ context, onClear }: { context: OracleContext; onClear?: () => void }) {
   return (
-    <span className="t-meta inline-flex min-h-11 max-w-full items-center gap-1 rounded-full bg-m3 pl-3.5 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)]">
-      <span className="truncate py-2">
+    <span className="t-meta inline-flex min-h-11 max-w-full items-center gap-1 rounded-full bg-m3 pl-3.5 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] @max-[19rem]:rounded-card">
+      <span className="truncate py-2 @max-[19rem]:whitespace-normal">
         About: <span className="font-semibold text-ivory">{context.label}</span>
       </span>
       {onClear ? (

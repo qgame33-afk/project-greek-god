@@ -25,12 +25,12 @@ export function AccessChip({ profile, className }: { profile: Profile | undefine
         aria-haspopup="dialog"
         aria-label={profile ? `${accessChipLabel(access)}. Change what the Oracle can see` : "What the Oracle can see"}
         className={cn(
-          "press t-meta inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-3.5 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory disabled:opacity-50",
+          "press t-meta inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-3.5 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory disabled:opacity-50 @max-[19rem]:rounded-card @max-[19rem]:text-left",
           className,
         )}
       >
         <ShieldCheck className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
-        <span className="truncate">{profile ? parts.text : "Using: …"}</span>
+        <span className="truncate py-2 @max-[19rem]:whitespace-normal">{profile ? parts.text : "Using: …"}</span>
         {profile && parts.more > 0 && <span className="tnum shrink-0 rounded-full bg-m4 px-1.5 font-semibold text-ivory">+{parts.more}</span>}
         <ChevronDown className="size-3.5 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
       </button>

@@ -96,7 +96,8 @@ export function OfferingSheet({
           {
             value: "ask",
             label: (
-              <span className="inline-flex items-center gap-1.5">
+              // align-top: an inline-flex box takes the icon's bottom as its baseline, which lifts "Ask" above "Log"
+              <span className="inline-flex items-center gap-1.5 align-top">
                 <OracleSparkles className="size-4 text-aegean" />
                 Ask
               </span>
@@ -124,7 +125,7 @@ export function OfferingSheet({
 
   const body = (
     <>
-      <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 lg:pb-6", hasFooter ? "pb-6" : "pb-[calc(24px+var(--safe-bottom))]")}>{children}</div>
+      <div className={cn("@container min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 lg:pb-6", hasFooter ? "pb-6" : "pb-[calc(24px+var(--safe-bottom))]")}>{children}</div>
       <div ref={footerRef} hidden={!hasFooter} className={cn("shrink-0 border-t border-vein bg-m1 px-4 pt-2.5 lg:pb-4", kb ? "pb-2" : "pb-[calc(10px+var(--safe-bottom))]")} />
     </>
   );

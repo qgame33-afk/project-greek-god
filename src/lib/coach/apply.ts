@@ -56,13 +56,13 @@ export function planApply(s: CoachSuggestion, p: ApplyProfile): ApplyPlan | null
   }
   if (s.field === "water_goal_ml") {
     const ml = Number(s.proposed);
-    return { values: { water_goal_ml: ml }, previous: { water_goal_ml: p.water_goal_ml }, effects: [`The water ring on Today and Nutrition fills to ${formatLiters(ml)}.`] };
+    return { values: { water_goal_ml: ml }, previous: { water_goal_ml: p.water_goal_ml }, effects: [`The water meter on Fuel and the water rite on Now fill to ${formatLiters(ml)}.`] };
   }
   if (s.field === "training_mode") {
     const mode = String(s.proposed);
     const effects =
       s.kind === "deload_week"
-        ? ["New workouts start about 10% lighter with roughly half the sets and 3+ reps in reserve.", "Switch back to Standard in Training after about 7 days."]
+        ? ["New workouts start about 10% lighter with roughly half the sets and 3+ reps in reserve.", "Switch back to Standard in Train → Program after about 7 days."]
         : mode === "intro"
           ? ["New workouts use the lower-volume introductory mode: one fewer set on most lifts."]
           : mode === "standard"

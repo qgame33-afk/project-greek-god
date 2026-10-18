@@ -274,21 +274,24 @@ export function SentenceCard({
       }
       actions={
         saved ? (
-          <div className="flex items-center gap-3">
-            <p className="t-callout flex min-w-0 flex-1 items-center gap-2 font-semibold text-leaf-300">
+          <>
+            {/* the earned mark gets its own line, so "Added to dinner, yesterday" is never cut short */}
+            <p className="t-callout flex items-center gap-2 font-semibold text-leaf-300">
               <SealTick className="seal-in size-5 shrink-0" />
-              <span className="truncate">
-                Added to {mealLabel(saved.meal)}
-                {saved.date !== today ? ` · ${relativeDay(saved.date, today)}` : ""}
+              <span>
+                Added to {mealLabel(saved.meal).toLowerCase()}
+                {saved.date !== today ? `, ${relativeDay(saved.date, today).toLowerCase()}` : ""}
               </span>
             </p>
-            <Button variant="secondary" size="sm" onClick={() => void undo()}>
-              Undo
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onDone}>
-              Log another
-            </Button>
-          </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="secondary" size="md" onClick={() => void undo()}>
+                Undo
+              </Button>
+              <Button variant="ghost" size="md" onClick={onDone}>
+                Log another
+              </Button>
+            </div>
+          </>
         ) : (
           <>
             {failed && (

@@ -62,13 +62,24 @@ export function LogMode({
   const dayTotals = food.hasData ? { kcal: food.totals.calories, protein: food.totals.protein } : null;
   const busy = !!sentence.pending;
 
-  // the field grows with the sentence (to four lines), then scrolls
+  const placeholder = !configured
+    ? "Needs an AI key on the server"
+    : !online
+      ? "Offline"
+      : reply && !reply.message.logged_group_id && reply.payload.items.length
+        ? "Correct it: “only two slices”"
+        : "3 slices of pizza instead of the salmon";
+
+  // the field grows with the sentence (to four lines), then scrolls; an empty field fits its
+  // placeholder, which changes length between a draft and a fresh sentence
   useLayoutEffect(() => {
     const el = field.current;
     if (!el) return;
+    // 3.25rem to 8rem, measured against the root so it follows the text size
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     el.style.height = "0px";
-    el.style.height = `${Math.min(Math.max(el.scrollHeight, 52), 128)}px`;
-  }, [text]);
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 3.25 * rem), 8 * rem)}px`;
+  }, [text, placeholder]);
 
   const submit = async () => {
     if (disabled || busy) return;
@@ -117,7 +128,7 @@ export function LogMode({
                   void submit();
                 }
               }}
-              placeholder={!configured ? "Needs an AI key on the server" : !online ? "Offline" : reply && !reply.message.logged_group_id && reply.payload.items.length ? "Correct it: “only two slices”" : "3 slices of pizza instead of the salmon"}
+              placeholder={placeholder}
               enterKeyHint="send"
               autoComplete="off"
               autoCorrect="on"
@@ -313,8 +324,9 @@ function Row({ lead, title, detail, label, children }: { lead: ReactNode; title:
       <span className="grid w-11 shrink-0 place-items-center" aria-hidden>
         {lead}
       </span>
-      <div className="min-w-0 flex-1" aria-label={label}>
-        <p className="t-title-3 line-clamp-2 text-ivory">{title}</p>
+      {/* at accessibility sizes the words keep most of the row and the action wraps under them */}
+      <div className="min-w-0 flex-1 @max-[19rem]:min-w-[65%]" aria-label={label}>
+        <p className="t-title-3 line-clamp-2 text-ivory @max-[19rem]:line-clamp-none">{title}</p>
         <p className="t-meta mt-0.5 text-stone">{detail}</p>
       </div>
       <div className="shrink-0 @max-[19rem]:ml-auto">{children}</div>
@@ -360,13 +372,13 @@ function QuickActions({ model: m, date, onWeighIn, onSearch, onClose }: { model:
       <div className="grid grid-cols-3 gap-2 @max-[19rem]:grid-cols-2">
         <Tile icon={<Weight className="size-6" strokeWidth={1.6} />} label="Weigh-in" onClick={onWeighIn} />
         <div className="flex min-h-[5.5rem] flex-col justify-between gap-2 rounded-card bg-m2 p-2.5 shadow-(--e1)">
-          <p className="t-callout flex items-baseline justify-between gap-1 px-0.5 font-semibold text-ivory">
+          <p className="t-callout flex items-baseline justify-between gap-1 px-0.5 font-semibold text-ivory @max-[19rem]:flex-col">
             Water
             <span className="t-meta tnum truncate font-medium text-stone" aria-label={ml == null ? "Water today unknown" : `${ml} of ${goal ?? "—"} millilitres today`}>
               {ml == null ? "—" : `${(ml / 1000).toFixed(1)} L`}
             </span>
           </p>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5 @max-[19rem]:grid-cols-1">
             {[250, 500].map((amount) => (
               <button
                 key={amount}

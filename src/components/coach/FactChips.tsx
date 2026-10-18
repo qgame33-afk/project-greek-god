@@ -47,14 +47,17 @@ function Row({ fact, tag, onNavigate }: { fact: FactChip; tag: React.ReactNode; 
   const isPlan = fact.kind === "plan";
   const inner = (
     <>
-      <span className={cn("t-callout min-w-0 flex-1 truncate", isPlan ? "text-stone" : "text-ivory")}>{fact.label}</span>
+      <span className={cn("t-callout min-w-0 flex-[1_1_8rem]", isPlan ? "text-stone" : "text-ivory")}>{fact.label}</span>
       {tag}
-      <span className="t-num-s max-w-[60%] shrink-0 truncate text-right text-ivory">{fact.value}</span>
-      {fact.href && <ChevronRight className="-mr-1 size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />}
+      {/* a long value ("2,551 kcal · 218 g protein") drops to its own line, right-aligned, never cut */}
+      <span className="ml-auto flex items-center gap-1.5 text-right">
+        <span className="t-num-s text-ivory">{fact.value}</span>
+        {fact.href && <ChevronRight className="-mr-1 size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />}
+      </span>
     </>
   );
   const label = `${isPlan ? "Plan" : "Logged"}: ${fact.label}, ${fact.value}`;
-  const cls = "flex min-h-11 items-center gap-2.5 py-1.5";
+  const cls = "flex min-h-11 flex-wrap items-center gap-x-2.5 gap-y-0.5 py-1.5";
   return fact.href ? (
     <Link href={fact.href} onClick={onNavigate} title={`${fact.label}: ${fact.value}`} aria-label={`${label}. Open`} className={cn(cls, "press-soft")}>
       {inner}
