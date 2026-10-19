@@ -148,12 +148,13 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
         </Button>
       }
     >
-      <div className="pb-2 pt-3">
-        <div className="flex items-center gap-3" role="group" aria-label="Bodyweight">
+      {/* at accessibility sizes the number takes the whole row and the keys sit under it */}
+      <div className="@container pb-2 pt-3">
+        <div className="flex items-center gap-3 @max-[19rem]:flex-wrap @max-[19rem]:justify-center" role="group" aria-label="Bodyweight">
           <button type="button" className={btn} aria-label={`${step} ${unit} less`} onClick={() => bump(-1)} disabled={parsed == null || parsed <= min}>
             <Minus className="size-6" strokeWidth={1.8} />
           </button>
-          <label className="min-w-0 flex-1 text-center">
+          <label className="min-w-0 flex-1 text-center @max-[19rem]:order-first @max-[19rem]:basis-full">
             <span className="sr-only">Bodyweight in {unit}</span>
             <input
               value={text}

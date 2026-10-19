@@ -2,7 +2,10 @@
 // meal a sentence says it replaces ("pizza instead of the salmon"), which meal slot the food goes
 // to, and the estimate card's title. No React, no I/O, so every rule here is unit-tested.
 
+import type { AIMessage } from "@/components/food-ai/hooks";
+import type { FoodChatPayload } from "@/lib/ai/food-schemas";
 import type { Meal } from "@/lib/nutrition";
+import type { SentenceReply } from "./useFoodSentence";
 
 export type PlanSlot = "breakfast" | "lunch" | "dinner" | "snack";
 
@@ -94,4 +97,22 @@ export function estimateTitle(names: readonly string[]): string {
 function lower(s: string) {
   // keep brand-like words ("Domino's", "PB") as written
   return /^[A-Z][a-z]/.test(s) && !/^[A-Z][a-z]+'s\b/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s;
+}
+
+/**
+ * The draft after an answer comes back. A new sentence starts a new draft. A follow-up in the same
+ * conversation that brings items replaces the draft (it revised it); one that brings none ("add
+ * it", an answer it couldn't place, a question back) keeps the draft as it was and carries its
+ * words beside it, so the estimate he was about to add never disappears.
+ */
+export function afterReply(
+  prev: SentenceReply | null,
+  sent: { text: string; follow: boolean },
+  res: { conversationId: string; message: AIMessage; payload: FoodChatPayload },
+): SentenceReply {
+  const sameDraft = sent.follow && !!prev && prev.conversationId === res.conversationId;
+  if (sameDraft && prev.payload.items.length > 0 && !res.payload.items.length) {
+    return { ...prev, aside: { id: res.message.id, content: res.message.content, payload: res.payload } };
+  }
+  return { said: sameDraft ? prev.said : sent.text, conversationId: res.conversationId, message: res.message, payload: res.payload, aside: null };
 }

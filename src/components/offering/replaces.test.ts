@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateTitle, findReplaced, inferMeal, mealAtMinute, replacedPhrase, type PlannedLite } from "./replaces";
+import { afterReply, estimateTitle, findReplaced, inferMeal, mealAtMinute, replacedPhrase, type PlannedLite } from "./replaces";
 
 const day: PlannedLite[] = [
   { id: "b", slot: "breakfast", name: "Peanut-butter banana toast", eaten: true, at: 460 },
@@ -59,5 +59,36 @@ describe("estimateTitle", () => {
     expect(estimateTitle(["Hard-boiled eggs", "Plain bagels"])).toBe("Hard-boiled eggs and plain bagels");
     expect(estimateTitle(["Hard-boiled eggs", "Plain bagels", "Protein shake"])).toBe("Hard-boiled eggs, plain bagels and 1 more");
     expect(estimateTitle([])).toBe("Your meal");
+  });
+});
+
+describe("afterReply", () => {
+  const item = { name: "Pepperoni pizza" } as never;
+  const payload = (items: unknown[], intent = "log_meal") => ({ items, intent, questions: [] }) as never;
+  const msg = (id: string, content = "") => ({ id, content, logged_group_id: null }) as never;
+  const draft = afterReply(null, { text: "3 slices of pizza instead of the salmon", follow: false }, { conversationId: "c1", message: msg("m1"), payload: payload([item]) });
+
+  it("a new sentence starts a draft that remembers what was said", () => {
+    expect(draft.said).toBe("3 slices of pizza instead of the salmon");
+    expect(draft.message.id).toBe("m1");
+    expect(draft.aside).toBeNull();
+  });
+  it("a follow-up with no items keeps the draft and its message, and shows the answer beside it", () => {
+    const next = afterReply(draft, { text: "add it to my log", follow: true }, { conversationId: "c1", message: msg("m2", "Review the meal above"), payload: payload([], "add_to_log") });
+    expect(next.message.id).toBe("m1");
+    expect(next.payload.items).toHaveLength(1);
+    expect(next.aside?.id).toBe("m2");
+    expect(next.said).toBe(draft.said);
+  });
+  it("a follow-up that revises the items replaces the draft but keeps the first sentence", () => {
+    const next = afterReply(draft, { text: "only two slices", follow: true }, { conversationId: "c1", message: msg("m3"), payload: payload([item]) });
+    expect(next.message.id).toBe("m3");
+    expect(next.said).toBe(draft.said);
+    expect(next.aside).toBeNull();
+  });
+  it("a reply in another conversation is a new draft", () => {
+    const next = afterReply(draft, { text: "two eggs", follow: true }, { conversationId: "c2", message: msg("m4"), payload: payload([]) });
+    expect(next.message.id).toBe("m4");
+    expect(next.said).toBe("two eggs");
   });
 });

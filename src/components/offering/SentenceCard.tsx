@@ -252,7 +252,8 @@ export function SentenceCard({
               <MacroTrio m={totals} />
             </div>
           )}
-          {!saved && !adjusting && <Questions payload={payload} onPick={onFollow} disabled={following} />}
+          {!saved && !adjusting && reply.aside && <Aside aside={reply.aside} addLabel={`Add as ${mealLabel(meal).toLowerCase()}`} />}
+          {!saved && !adjusting && <Questions payload={reply.aside?.payload ?? payload} onPick={onFollow} disabled={following} />}
         </>
       }
       consequence={
@@ -299,7 +300,16 @@ export function SentenceCard({
                 Not added. {failed}
               </p>
             )}
-            <Button variant="primary" size="lg" block onClick={() => void add()} loading={log.isPending} disabled={!loggable.length || following}>
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              // the label can be "Add as breakfast, yesterday": at accessibility sizes it wraps instead of clipping
+              className="h-auto min-h-14 whitespace-normal py-3 text-balance"
+              onClick={() => void add()}
+              loading={log.isPending}
+              disabled={!loggable.length || following}
+            >
               {failed === UNSURE_SAVE ? "Add again" : `Add as ${mealLabel(meal).toLowerCase()}${otherDay ? `, ${relativeDay(logDate, today).toLowerCase()}` : ""}`}
             </Button>
             <div className="grid grid-cols-2 gap-2">
@@ -324,6 +334,24 @@ function portionText(i: EditableItem) {
     return `${q} ${unit}${i.grams && i.unit !== "g" ? ` · ~${i.grams} g` : ""}`;
   }
   return `${i.portion}${i.grams && !/\bg\b/.test(i.portion) ? ` · ~${i.grams} g` : ""}`;
+}
+
+/**
+ * A follow-up's answer that changed nothing in the draft: its words in the Oracle's voice under
+ * the items. "Add it" typed in the field never saves on its own; Add stays the one confirmation.
+ */
+function Aside({ aside, addLabel }: { aside: NonNullable<SentenceReply["aside"]>; addLabel: string }) {
+  return (
+    <div className="mt-4 border-t border-vein pt-3" aria-live="polite">
+      {aside.payload.intent === "add_to_log" ? (
+        <p className="t-callout text-stone">
+          Ready when you are: tap <span className="font-semibold text-ivory">{addLabel}</span> to put it in your diary.
+        </p>
+      ) : (
+        <Markdown text={aside.content} />
+      )}
+    </div>
+  );
 }
 
 /** The estimate's clarifying questions as chips; a pick goes back to the same conversation. */

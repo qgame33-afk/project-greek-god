@@ -141,10 +141,10 @@ export function Proposal({ suggestion: s, profile, onStatus }: { suggestion: Coa
                 {rows.map((r) => (
                   <div key={r.label} className="flex min-h-12 items-center justify-between gap-3 py-2">
                     <dt className="text-stone">{r.label}</dt>
-                    <dd className="flex items-center gap-2">
-                      <span className="t-num-s text-stone line-through decoration-ui-line">{r.before}</span>
+                    <dd className="flex flex-wrap items-center justify-end gap-x-2">
+                      <span className="t-num-s whitespace-nowrap text-stone line-through decoration-ui-line">{r.before}</span>
                       <ArrowRight className="size-4 text-ash" strokeWidth={1.6} aria-label="to" />
-                      <span className="t-num-s text-ivory">{unitize(r.after, s, r.label === label)}</span>
+                      <span className="t-num-s whitespace-nowrap text-ivory">{unitize(r.after, s, r.label === label)}</span>
                     </dd>
                   </div>
                 ))}

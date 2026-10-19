@@ -12,7 +12,7 @@ import { useOnline } from "@/components/workout/stores";
 import { Button, Spinner } from "@/components/ui/button";
 import { ErrorNote, Skeleton } from "@/components/ui/misc";
 import { cn } from "@/lib/cn";
-import { useToday } from "@/lib/data/core";
+import { useToday, useUser } from "@/lib/data/core";
 import { useFoodEntries, useWater, useWaterMutations } from "@/lib/data/nutrition";
 import { useStartWorkout } from "@/lib/data/workout";
 import type { ISODate } from "@/lib/dates";
@@ -20,7 +20,7 @@ import type { Meal } from "@/lib/nutrition";
 import { formatInt } from "@/lib/units";
 import { findReplaced, mealAtMinute, type PlannedLite } from "./replaces";
 import { SentenceCard } from "./SentenceCard";
-import { retryable, useFoodCapability, useFoodSentence } from "./useFoodSentence";
+import { recalledText, rememberText, retryable, useFoodCapability, useFoodSentence } from "./useFoodSentence";
 
 const MAX_CHARS = 600;
 
@@ -48,7 +48,12 @@ export function LogMode({
   const online = useOnline();
   const cap = useFoodCapability();
   const sentence = useFoodSentence(date);
-  const [text, setText] = useState("");
+  const { userId } = useUser();
+  const [text, setTextState] = useState(() => recalledText(date, userId));
+  const setText = (t: string) => {
+    setTextState(t);
+    rememberText(date, userId, t);
+  };
   const field = useRef<HTMLTextAreaElement>(null);
 
   const configured = cap.data?.configured ?? true;
@@ -388,7 +393,7 @@ function QuickActions({ model: m, date, onWeighIn, onSearch, onClose }: { model:
                   const id = waterMut.addMl(amount);
                   toast(`+${amount} mL water`, { duration: 6000, action: { label: "Undo", onClick: () => waterMut.remove.mutate(id) } });
                 }}
-                className="press tnum h-11 rounded-field bg-m3 text-[length:max(14px,0.875rem)] font-semibold text-ivory shadow-[inset_0_0_0_1px_var(--vein-2)] active:bg-m4"
+                className="press hit-44 tnum h-11 rounded-field bg-m3 text-[length:max(14px,0.875rem)] font-semibold text-ivory shadow-[inset_0_0_0_1px_var(--vein-2)] active:bg-m4"
               >
                 +{amount}
               </button>
