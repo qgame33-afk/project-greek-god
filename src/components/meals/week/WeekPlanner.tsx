@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CalendarPlus, ChefHat, ChevronRight, Moon, Plus, RefreshCw, ShoppingBasket, SlidersHorizontal, X, type LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useTypicalDurations } from "@/components/training/hooks";
 import { Segmented } from "@/components/ui/controls";
@@ -732,6 +732,13 @@ export function WeekPlanner() {
           <div className="mt-7 grid grid-cols-2 gap-3 @max-[19rem]:grid-cols-1">
             <Tile
               href="/nutrition?tab=market"
+              onClick={(e) => {
+                // on /nutrition the Market is a tab of this screen: switch in place (works offline)
+                if (window.location.pathname !== "/nutrition" || e.metaKey || e.ctrlKey) return;
+                e.preventDefault();
+                window.history.replaceState(null, "", "/nutrition?tab=market");
+                window.scrollTo({ top: 0 });
+              }}
               icon={ShoppingBasket}
               title="Market"
               detail={groceryLive.length ? `${toBuy} to buy · ${groceryLive.length} items` : "Built from this week"}
@@ -825,7 +832,7 @@ export function WeekPlanner() {
 
 /* ------------------------------------------------------------------ parts */
 
-function Tile({ href, onClick, icon: Icon, title, detail }: { href?: string; onClick?: () => void; icon: LucideIcon; title: string; detail: ReactNode }) {
+function Tile({ href, onClick, icon: Icon, title, detail }: { href?: string; onClick?: (e: MouseEvent<HTMLElement>) => void; icon: LucideIcon; title: string; detail: ReactNode }) {
   const inner = (
     <>
       <span className="grid size-10 place-items-center rounded-full text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)]">
@@ -837,7 +844,7 @@ function Tile({ href, onClick, icon: Icon, title, detail }: { href?: string; onC
   );
   const cls = "press-soft block min-h-[8.5rem] rounded-card bg-m2 p-4 text-left shadow-(--e1)";
   return href ? (
-    <Link href={href} className={cls}>
+    <Link href={href} onClick={onClick} className={cls}>
       {inner}
     </Link>
   ) : (
@@ -898,7 +905,7 @@ function ToolRow({ icon: Icon, label, detail, onClick, href, disabled }: { icon:
   );
   const cls = "press-soft flex min-h-14 w-full items-center gap-3.5 py-2.5 text-left disabled:opacity-50";
   return href ? (
-    <Link href={href} className={cls}>
+    <Link href={href} onClick={onClick} className={cls}>
       {inner}
     </Link>
   ) : (
