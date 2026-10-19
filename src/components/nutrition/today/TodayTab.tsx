@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CalendarPlus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { openOffering } from "@/components/offering/store";
 import { Button } from "@/components/ui/button";
 import { ErrorNote, Skeleton } from "@/components/ui/misc";
 import { useUser } from "@/lib/data/core";
@@ -26,8 +27,7 @@ import { useFuelDay } from "./useFuelDay";
 /**
  * Fuel → Today (docs/DESIGN-V2.md §3.5.1): the day's protein hero and meters, the day line, then
  * the plan and the diary as one timeline. ?date=YYYY-MM-DD shows a past day; ?add=1[&meal=][&tab=]
- * opens the log sheet (the Offering's "Search food" lands here until the Sheets stream ships the
- * natural-language Offering). Food is added through the Offering (+), never a FAB here.
+ * opens the Offering in Log mode. Food is added through the Offering (+), never a FAB here.
  */
 export function TodayTab({ today, onDateChange }: { today: ISODate; onDateChange?: (d: ISODate) => void }) {
   const params = useSearchParams();
@@ -62,25 +62,24 @@ export function TodayTab({ today, onDateChange }: { today: ISODate; onDateChange
     [today, onDateChange],
   );
 
-  // Deep link: ?add=1 opens the log sheet once (meal and panel preselected), then the params go.
-  // Not mapped to openOffering yet: the seeded Offering's "Search food" comes here (it would bounce).
+  // Deep link (the manifest shortcut, the food reminder): ?add=1 opens the Offering in Log mode
+  // once (docs/DESIGN-V2.md §2.3), for the day on screen. With ?meal= or ?tab= it opens the log
+  // panels (Search · Saved · Recent · Manual) for that slot, as the old log sheet did. Then the
+  // params go.
   const wantsAdd = params.get("add") === "1";
-  const [handledAdd, setHandledAdd] = useState(false);
-  if (wantsAdd && !handledAdd) {
-    setHandledAdd(true);
-    const t = params.get("tab") as LogTab | null;
-    const m = params.get("meal");
-    setLogState((s) => ({ open: true, nonce: s.nonce + 1, meal: m ? asMeal(m) : undefined, tab: t && LOG_TABS.includes(t) ? t : undefined }));
-  }
-  if (!wantsAdd && handledAdd) setHandledAdd(false);
   useEffect(() => {
     if (!wantsAdd) return;
     const sp = new URLSearchParams(window.location.search);
+    const t = sp.get("tab") as LogTab | null;
+    const m = sp.get("meal");
+    const panel = t && LOG_TABS.includes(t) ? t : undefined;
+    const forDay = date === today ? undefined : date;
+    openOffering(panel || m ? { mode: "log", panel: panel ?? "search", slot: m ? asMeal(m) : undefined, date: forDay } : { mode: "log", date: forDay });
     ["add", "meal"].forEach((k) => sp.delete(k));
     if (LOG_TABS.includes(sp.get("tab") as LogTab)) sp.delete("tab");
     const qs = sp.toString();
     window.history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
-  }, [wantsAdd]);
+  }, [wantsAdd, date, today]);
 
   // Desktop: ← / → step through days when nothing else has focus.
   const anySheet = logState.open || edit.open || saveMeal.open;

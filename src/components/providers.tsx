@@ -59,7 +59,7 @@ export function Providers({ children }: { children: ReactNode }) {
   // The service worker: push, plus the offline app shell. Its cache is versioned per deploy.
   useEffect(() => {
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
-      const v = encodeURIComponent(process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "1");
+      const v = encodeURIComponent(process.env.APP_BUILD_ID || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || "1");
       navigator.serviceWorker.register(`/sw.js?v=${v}`, { scope: "/", updateViaCache: "none" }).catch(() => {});
     }
   }, []);

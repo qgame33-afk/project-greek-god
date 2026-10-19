@@ -56,7 +56,8 @@ export function TodaySession({ week, onDay, className }: { week: Week; onDay: (d
             </h2>
             <LiveProgress sessionId={active.id} />
           </div>
-          <Button variant="primary" size="lg" asChild>
+          {/* data-today-resume: the shell's live slot steps aside while this is on screen */}
+          <Button variant="primary" size="lg" data-today-resume asChild>
             <Link href={`/workout/${active.id}`}>Return</Link>
           </Button>
         </div>

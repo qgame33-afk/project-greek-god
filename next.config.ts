@@ -48,6 +48,11 @@ const nextConfig: NextConfig = {
   partialPrefetching: false,
   devIndicators: false,
   poweredByHeader: false,
+  // One id per build: the service worker's cache name carries it (src/components/providers.tsx), so
+  // each deploy starts with a clean shell cache even when Vercel's system variables aren't exposed.
+  env: {
+    APP_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_DEPLOYMENT_ID || `b${Date.now().toString(36)}`,
+  },
   turbopack: {
     rules: {
       "*.css": {

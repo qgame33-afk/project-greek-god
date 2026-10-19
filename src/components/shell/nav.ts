@@ -48,16 +48,6 @@ export function hidesLiveSlot(pathname: string) {
   return hidesCapsule(pathname) || pathname.startsWith("/sign-in");
 }
 
-/** @deprecated compat for the old LiveDock (Gym removes it): routes that own the bottom edge. */
-export function hidesLiveDock(pathname: string) {
-  return isFocusRoute(pathname) || pathname.startsWith("/coach") || pathname.startsWith("/nutrition/coach") || pathname.startsWith("/nutrition/scan");
-}
-
-/** @deprecated compat for the old LiveDock: the FAB is gone (the Offering button replaced it). */
-export function hidesFab(pathname: string) {
-  return hidesLiveDock(pathname) || pathname.startsWith("/nutrition/meals/recipe/") || pathname.startsWith("/nutrition/meals/grocery");
-}
-
 /**
  * Whether the page's big heading has scrolled up under the mobile top bar (52 px plus the safe
  * area, rounded up to 60), so the bar should show the page title. A heading with no box, or one
