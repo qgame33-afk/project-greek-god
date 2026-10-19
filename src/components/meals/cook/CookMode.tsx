@@ -15,7 +15,7 @@ import { Tag } from "@/components/ui/tag";
 import { useQuickEaten } from "../shared/EatenButton";
 import { cn } from "@/lib/cn";
 import { useToday } from "@/lib/data/core";
-import { useAddFeedback, type LogPlannedMealResult, type PlanMeal } from "@/lib/data/meals";
+import { useAddFeedback, useLoggedForPlannedMeal, type LogPlannedMealResult, type PlanMeal } from "@/lib/data/meals";
 import { useNowSec } from "@/lib/live-clock";
 import { recipeFeatures, recipeMacros, scaleIngredients, type Conflict } from "@/lib/meals/recipe";
 import type { Recipe } from "@/lib/meals/types";
@@ -86,6 +86,10 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
   const close = useGoUp(backHref);
   const quick = useQuickEaten(recipe, meal ? { id: meal.id, slot: meal.slot } : null);
   const [quickLogged, setQuickLogged] = useState(false);
+  // a planned meal already in the log (from Today, Now or the recipe) is not logged a second time
+  const linked = useLoggedForPlannedMeal(meal?.id);
+  const loggedElsewhere = linked.entries.filter((e) => e.id !== quick.entryId);
+  const priorLog = !lastLog && !quickLogged && loggedElsewhere.length ? loggedElsewhere[loggedElsewhere.length - 1] : null;
   const speech = useReadAloud();
 
   const setCurrent = checks.setCurrent;
@@ -265,6 +269,7 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
           backHref={backHref}
           lastLog={lastLog}
           quickLogged={quickLogged}
+          priorLog={priorLog}
           today={today}
           conflicts={conflicts}
           onEat={() => (allergy ? setLogOpen(true) : quick.eat(servings, () => setQuickLogged(true)))}
@@ -352,7 +357,11 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
               <Button variant="secondary" size="xl" className="w-16 shrink-0 rounded-btn p-0" onClick={prev} disabled={atStart} aria-label="Previous step">
                 <ChevronLeft className="size-7" strokeWidth={1.6} aria-hidden />
               </Button>
-              {atEnd ? (
+              {atEnd && priorLog ? (
+                <Button variant="primary" size="xl" className="flex-1 rounded-btn" onClick={next} aria-label="Finish. This meal is already in your log">
+                  Finish
+                </Button>
+              ) : atEnd ? (
                 <Button variant="primary" size="xl" className="flex-1 rounded-btn" onClick={eatAndFinish} loading={quick.pending} aria-label={`Eaten: log ${servingsLabel(servings)} and finish`}>
                   Eaten<span className="@max-[19rem]:hidden">&nbsp;· log {servingsLabel(servings)}</span>
                 </Button>
@@ -363,7 +372,9 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
                 </Button>
               )}
             </div>
-            {atEnd ? (
+            {atEnd && priorLog ? (
+              <p className="t-meta mt-2 flex min-h-11 items-center justify-center text-center text-stone">{loggedText(priorLog.local_date, today, Number(priorLog.calories))} · Finish won&apos;t add it again</p>
+            ) : atEnd ? (
               <div className="mt-1 flex items-center justify-center gap-1">
                 {quick.note && <span className="t-meta text-stone">{quick.note} ·</span>}
                 <button type="button" onClick={next} className="press t-callout inline-flex h-11 items-center rounded-field px-2 font-semibold text-stone hover:text-ivory">
@@ -434,6 +445,7 @@ function Finished({
   backHref,
   lastLog,
   quickLogged,
+  priorLog,
   today,
   conflicts,
   onEat,
@@ -448,6 +460,8 @@ function Finished({
   backHref: string;
   lastLog: LogPlannedMealResult | null;
   quickLogged: boolean;
+  /** This planned meal's entry logged before cooking mode opened (shown, never logged twice). */
+  priorLog: { local_date: string; calories: number | string } | null;
   today: string;
   conflicts: Conflict[];
   onEat: () => void;
@@ -456,7 +470,7 @@ function Finished({
   onLog: () => void;
   onAgain: () => void;
 }) {
-  const logged = !!lastLog || quickLogged;
+  const logged = !!lastLog || quickLogged || !!priorLog;
   return (
     <main className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto flex min-h-full max-w-col flex-col px-5 pt-10 pb-[calc(24px+var(--safe-bottom))]">
@@ -478,6 +492,8 @@ function Finished({
             <LoggedStrip className="mt-4" text={loggedText(lastLog.entry.local_date, today, Number(lastLog.entry.calories))} href={`/nutrition?date=${lastLog.entry.local_date}`} />
           ) : quickLogged ? (
             <LoggedStrip className="mt-4" text={`Logged today · ${servingsLabel(servings)}`} href="/nutrition" />
+          ) : priorLog ? (
+            <LoggedStrip className="mt-4" text={loggedText(priorLog.local_date, today, Number(priorLog.calories))} href={`/nutrition?date=${priorLog.local_date}`} />
           ) : null}
         </div>
         <div className="mt-8 space-y-3">

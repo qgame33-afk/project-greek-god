@@ -102,6 +102,17 @@ describe("snapshot → restore", () => {
     expect(b.getQueryData(["profile", U])).toEqual({ v: "new" });
   });
 
+  it("restored data is stale, so a screen that uses it revalidates (a snapshot can lag the server)", async () => {
+    const a = client();
+    a.setQueryData(["meal-grocery", "p1", U], [{ key: "eggs", checked: false }]);
+    const store = memStore();
+    await store.set(snapshot(a, U));
+    const b = client(); // staleTime: Infinity, so only invalidation can make it stale
+    await restoreQueryCache(b, U, store);
+    expect(b.getQueryData(["meal-grocery", "p1", U])).toEqual([{ key: "eggs", checked: false }]);
+    expect(b.getQueryState(["meal-grocery", "p1", U])?.isInvalidated).toBe(true);
+  });
+
   it("never throws when storage fails", async () => {
     const broken: CacheStore = { get: () => Promise.reject(new Error("no idb")), set: () => Promise.reject(new Error("x")), del: () => Promise.reject(new Error("x")) };
     expect(await restoreQueryCache(client(), U, broken)).toBe(false);

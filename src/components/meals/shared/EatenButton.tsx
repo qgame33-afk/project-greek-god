@@ -180,7 +180,8 @@ export function plannedEatenAt(date: ISODate, today: ISODate, at: Min | null | u
 export function useQuickEaten(recipe: Recipe | null | undefined, plannedMeal: { id: string; slot: Slot } | null | undefined) {
   const today = useToday();
   const log = useLogPlannedMeal();
-  const entryId = useRef<string | null>(null);
+  // one id per screen, known up front so a screen can tell its own entry from one logged elsewhere
+  const [entryId] = useState(newId);
   const [note, setNote] = useState<string | null>(null);
   const eat = (servings: number, onLogged?: () => void) => {
     if (!recipe || log.isPending) return;
@@ -189,10 +190,9 @@ export function useQuickEaten(recipe: Recipe | null | undefined, plannedMeal: { 
       return;
     }
     setNote(null);
-    entryId.current ??= newId();
     log.mutate(
       {
-        id: entryId.current,
+        id: entryId,
         plannedMealId: plannedMeal?.id ?? null,
         recipe: { key: recipe.key, name: recipe.name, ingredients: recipe.ingredients },
         servings,
@@ -204,5 +204,5 @@ export function useQuickEaten(recipe: Recipe | null | undefined, plannedMeal: { 
       { onSuccess: () => onLogged?.() },
     );
   };
-  return { eat, pending: log.isPending, note };
+  return { eat, pending: log.isPending, note, entryId };
 }

@@ -42,7 +42,11 @@ function Screen({ forced }: { forced?: FuelTab }) {
     // Today keeps the day being looked at; Week and Market start fresh
     const date = params.get("date");
     const href = t === "today" ? (date ? `/nutrition?date=${date}` : "/nutrition") : `/nutrition?tab=${t}`;
-    router.replace(href, { scroll: false });
+    // On /nutrition only the query changes: swap it in place (no server round trip, so the tabs
+    // keep working offline in the kitchen or the store). The old /nutrition/meals URLs navigate.
+    // State must be null: Next.js skips syncing useSearchParams for a state carrying its own __NA.
+    if (pathname === "/nutrition") window.history.replaceState(null, "", href);
+    else router.replace(href, { scroll: false });
     window.scrollTo({ top: 0 });
   };
 

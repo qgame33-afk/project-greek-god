@@ -76,7 +76,8 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
   const [draft, setDraft] = useState<LogDraft>(() => newDraft(per, target.servings));
   const [meal, setMeal] = useState<Meal>(() => (plannedMeal ? slotToMeal(plannedMeal.slot) : mealForTime()));
   const plannedDay = plannedMeal && plannedMeal.local_date < today ? plannedMeal.local_date : null;
-  const [date, setDate] = useState<ISODate>(today);
+  // a past day's planned meal logs to that day by default, as its one-tap Eaten does
+  const [date, setDate] = useState<ISODate>(plannedDay ?? today);
   const [showOther, setShowOther] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<MacroField, string>>>({});
   const log = useLogPlannedMeal();

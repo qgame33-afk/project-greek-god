@@ -218,7 +218,8 @@ export function WeekPlanner() {
     else sp.delete("day");
     const qs = sp.toString();
     const path = window.location.pathname;
-    window.history.replaceState(window.history.state, "", qs ? `${path}?${qs}` : path);
+    // null state: Next.js only syncs useSearchParams for a state without its own __NA
+    window.history.replaceState(null, "", qs ? `${path}?${qs}` : path);
   };
 
   const selectDay = (d: ISODate) => {

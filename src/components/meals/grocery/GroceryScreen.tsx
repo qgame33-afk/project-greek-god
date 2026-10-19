@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { CalendarPlus, Check, House, Pencil, Plus, RefreshCw, Share } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -48,7 +48,6 @@ function weekRange(ws: string, today: string) {
  */
 export function GroceryScreen() {
   const params = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
   const today = useToday();
   const thisWeek = weekStart(today);
@@ -60,7 +59,8 @@ export function GroceryScreen() {
     if (w === thisWeek) sp.delete("week");
     else sp.set("week", w);
     const qs = sp.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    // in place (null state so Next.js syncs the params): no server round trip, works offline
+    window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
   };
   const swapRef = useSwapIn<HTMLDivElement, string>(ws);
 

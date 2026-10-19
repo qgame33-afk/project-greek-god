@@ -34,6 +34,7 @@ export const PERSIST_ROOTS: ReadonlySet<string> = new Set([
   "meal-planned-range",
   "meal-prefs",
   "meal-recipes",
+  "meal-grocery", // the Market list, for a store with no signal
   "exercise-bests",
   "custom-exercises",
   "measurements",
@@ -91,6 +92,12 @@ export async function restoreQueryCache(client: QueryClient, userId: string | nu
     }
     // hydrate() never overwrites newer data already in the client
     hydrate(client, c.state);
+    // Restored data shows at once but is revalidated as soon as a screen uses it (online): a
+    // snapshot written just before the app closed can be a step behind the server, and its
+    // timestamps alone would keep it "fresh" for the staleTime.
+    for (const q of c.state.queries) {
+      if (client.getQueryState(q.queryKey)?.dataUpdatedAt === q.state.dataUpdatedAt) void client.invalidateQueries({ queryKey: q.queryKey, exact: true, refetchType: "none" });
+    }
     return c.state.queries.length > 0;
   } catch {
     return false;

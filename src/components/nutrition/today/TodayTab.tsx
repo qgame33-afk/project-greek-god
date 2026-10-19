@@ -56,7 +56,7 @@ export function TodayTab({ today, onDateChange }: { today: ISODate; onDateChange
       if (next === today) sp.delete("date");
       else sp.set("date", next);
       const qs = sp.toString();
-      window.history.replaceState(window.history.state, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+      window.history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
       onDateChange?.(next);
     },
     [today, onDateChange],
@@ -79,7 +79,7 @@ export function TodayTab({ today, onDateChange }: { today: ISODate; onDateChange
     ["add", "meal"].forEach((k) => sp.delete(k));
     if (LOG_TABS.includes(sp.get("tab") as LogTab)) sp.delete("tab");
     const qs = sp.toString();
-    window.history.replaceState(window.history.state, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    window.history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
   }, [wantsAdd]);
 
   // Desktop: ← / → step through days when nothing else has focus.
