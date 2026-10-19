@@ -27,6 +27,7 @@ import { useTypicalDurations } from "./hooks";
 import { LibraryPicker } from "./LibraryPicker";
 import { DetailSkeleton } from "./Skeletons";
 import { useMounted } from "./useMounted";
+import { useRefreshRestored } from "./useRefreshRestored";
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const same = (a: StoredTemplate, b: StoredTemplate) => sameTemplateContent(a, b);
@@ -62,6 +63,7 @@ function BackLink() {
 
 function Loaded({ templateKey }: { templateKey: TemplateKey }) {
   const { byKey, loading } = useTemplates();
+  useRefreshRestored();
   if (loading) return <DetailSkeleton />;
   return <Editor key={templateKey} stored={byKey[templateKey]} />;
 }

@@ -67,6 +67,8 @@ export function useTemplates() {
 export function useSaveTemplate() {
   const qc = useQueryClient();
   return useMutation({
+    // offline it fails at once ("nothing was lost"): the editor keeps every edit for a retry
+    networkMode: "always",
     mutationFn: async (t: StoredTemplate) =>
       must(
         await sb()

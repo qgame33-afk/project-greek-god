@@ -63,9 +63,11 @@ function Detail({ slug }: { slug: string }) {
   const best = bests.data?.find((b) => b.exercise_slug === slug) ?? null;
   const customRow = custom.data?.find((c) => c.slug === slug) ?? null;
   const name = lib?.name ?? best?.exercise_name ?? customRow?.name ?? null;
-  const loading = bests.isLoading || daily.isLoading;
+  // offline with nothing cached: say so, never "no sets logged"
+  const offline = [bests, daily].some((q) => q.isPending && q.fetchStatus === "paused");
+  const loading = !offline && (bests.isPending || daily.isPending);
 
-  if (!lib && !loading && !best && !custom.isLoading && !customRow) {
+  if (!lib && !loading && !offline && !best && !custom.isLoading && !customRow) {
     return (
       <div>
         <Back />
@@ -115,18 +117,24 @@ function Detail({ slug }: { slug: string }) {
 
       <div className="mt-6 grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-start">
         <div className="min-w-0 space-y-10 lg:col-span-7">
-          {loading ? <Skeleton className="h-42 sm:h-21" /> : <StatSheet unit={unit} timed={timed} best={best} daily={daily.data ?? []} today={today} />}
-          {!loading && !hasHistory && (
+          {offline ? (
+            <ErrorNote onRetry={() => void Promise.all([bests.refetch(), daily.refetch()])}>You&apos;re offline. This lift&apos;s numbers show when you&apos;re back online.</ErrorNote>
+          ) : loading ? (
+            <Skeleton className="h-42 sm:h-21" />
+          ) : (
+            <StatSheet unit={unit} timed={timed} best={best} daily={daily.data ?? []} today={today} />
+          )}
+          {!loading && !offline && !hasHistory && (
             <Empty art={<TempleGlyph className="size-12 text-stone" />} title="No sets logged yet">
               Log {name} in a workout and your estimated 1RM, best sets, chart and records build from those real sets.
             </Empty>
           )}
 
-          {(loading || hasHistory) && (
+          {(loading || hasHistory) && !offline && (
             <ChartBlock daily={daily.data ?? []} loading={loading} error={!!daily.error} retry={() => daily.refetch()} range={range} setRange={setRange} unit={unit} today={today} />
           )}
 
-          {hasHistory && (
+          {hasHistory && !offline && (
             <section aria-labelledby="sets-h">
               <div className="mb-1 flex min-h-11 items-center justify-between gap-3">
                 <h2 id="sets-h" className="t-eyebrow">

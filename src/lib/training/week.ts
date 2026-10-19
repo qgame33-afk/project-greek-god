@@ -53,3 +53,15 @@ export function weekRangeLabel(dates: ISODate[]): string {
   const mon = (d: Date) => MONTHS[d.getUTCMonth()];
   return a.getUTCMonth() === b.getUTCMonth() ? `${a.getUTCDate()}–${b.getUTCDate()} ${mon(b)}` : `${a.getUTCDate()} ${mon(a)} – ${b.getUTCDate()} ${mon(b)}`;
 }
+
+const SHORT_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * "Tue · Thu" for this week's volleyball, one name per day in date order and "Mon ×2" when a day
+ * had more than one session (a practice and a game), never "Mon · Mon".
+ */
+export function volleyballDaysLabel(dates: ISODate[]): string {
+  const perDay = new Map<ISODate, number>();
+  for (const d of [...dates].sort()) perDay.set(d, (perDay.get(d) ?? 0) + 1);
+  return [...perDay].map(([d, n]) => `${SHORT_DAYS[weekday(d)]}${n > 1 ? ` ×${n}` : ""}`).join(" · ");
+}

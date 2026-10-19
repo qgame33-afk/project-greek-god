@@ -126,7 +126,9 @@ export function Library({ today }: { today: string }) {
       )}
 
       <div className="mt-6 space-y-8">
-        {q.isLoading ? (
+        {q.isPending && q.fetchStatus === "paused" ? (
+          <Group title="Your lifts" count={0} empty="You're offline. Your lifts and bests show when you're back online." />
+        ) : q.isPending ? (
           <Group title="Your lifts" count={4}>
             {[0, 1, 2, 3].map((i) => (
               <li key={i} className="flex min-h-16 items-center gap-3 py-2.5" aria-hidden>
@@ -163,7 +165,7 @@ export function Library({ today }: { today: string }) {
   );
 }
 
-function Group({ title, count, empty, children }: { title: string; count: number; empty?: string | null; children: ReactNode }) {
+function Group({ title, count, empty, children }: { title: string; count: number; empty?: string | null; children?: ReactNode }) {
   if (!count && !empty) return null;
   return (
     <section aria-label={title}>

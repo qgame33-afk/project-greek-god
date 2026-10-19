@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { sessionsSealed } from "@/lib/adherence";
 import { weekDates } from "@/lib/dates";
-import { sealedDays, splitLabel, weekRangeLabel } from "./week";
+import { sealedDays, splitLabel, volleyballDaysLabel, weekRangeLabel } from "./week";
 
 const SCHEDULE = { "0": "rest", "1": "push_a", "2": "pull_a", "3": "legs_a", "4": "push_b", "5": "pull_b", "6": "legs_b" };
 const TODAY = "2026-10-17";
@@ -43,5 +43,17 @@ describe("labels", () => {
   it("formats the week's dates", () => {
     expect(weekRangeLabel(dates)).toBe("12–18 Oct");
     expect(weekRangeLabel(weekDates("2026-10-01"))).toBe("28 Sep – 4 Oct");
+  });
+});
+
+describe("volleyballDaysLabel", () => {
+  it("names each day once, in date order", () => {
+    expect(volleyballDaysLabel(["2026-10-15", "2026-10-13"])).toBe("Tue · Thu");
+  });
+  it("counts two sessions on one day instead of repeating it", () => {
+    expect(volleyballDaysLabel(["2026-10-19", "2026-10-19", "2026-10-21"])).toBe("Mon ×2 · Wed");
+  });
+  it("is empty with no sessions", () => {
+    expect(volleyballDaysLabel([])).toBe("");
   });
 });

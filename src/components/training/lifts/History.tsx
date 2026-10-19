@@ -35,7 +35,10 @@ export function History({ week, onStartToday }: { week: Week; onStartToday: () =
   const weeks = useMemo(() => groupByWeek(sessions), [sessions]);
   const keysUsed = useMemo(() => new Set((q.data ?? []).map((s) => s.template_key)), [q.data]);
 
-  if (q.isLoading) {
+  if (q.isPending && q.fetchStatus === "paused") {
+    return <ErrorNote onRetry={() => q.refetch()}>You&apos;re offline. Your sessions show when you&apos;re back online.</ErrorNote>;
+  }
+  if (q.isPending) {
     return (
       <div aria-hidden>
         <Skeleton className="h-11 w-60 rounded-full" />

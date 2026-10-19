@@ -11,6 +11,7 @@ import { Collapse, Skeleton } from "@/components/ui/misc";
 import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
 import { shortDate } from "@/lib/dates";
+import { isOffline } from "@/lib/data/core";
 import { useSavePrefs, useSaveProfile } from "@/lib/data/profile";
 import { scheduleOf, useAllSessions } from "@/lib/data/training";
 import { effectiveTrainAt, formatClock, isTime, parseAppPrefs, toMinutes } from "@/lib/prefs";
@@ -21,7 +22,7 @@ import { scheduleIssues, weekdaysFor } from "@/lib/training/schedule";
 import { modeTemplate, templateSummary } from "@/lib/training/volume";
 import { MODE_HELP } from "./DaySheet";
 import { plural } from "./format";
-import { MODE_LABEL, useSaveSchedule, useSetTrainingMode, useTypicalDurations, type useTrainingWeek } from "./hooks";
+import { MODE_LABEL, offlineNoChange, useSaveSchedule, useSetTrainingMode, useTypicalDurations, type useTrainingWeek } from "./hooks";
 
 type Week = ReturnType<typeof useTrainingWeek>;
 
@@ -289,6 +290,7 @@ function TrainingTime({ week }: { week: Week }) {
   const write = (next: string | null) => {
     const prev = stored;
     if (next === prev) return;
+    if (offlineNoChange("Your training time")) return setText(prev ?? "");
     save.mutate(
       { day: { trainAt: next } },
       {
@@ -348,13 +350,29 @@ function VolleyballPerWeek({ week }: { week: Week }) {
     setValue(saved);
   }
   const timer = useRef<number | null>(null);
-  useEffect(() => () => void (timer.current && window.clearTimeout(timer.current)), []);
+  // the value still waiting for its write, so leaving the tab before the taps settle never drops it
+  const pending = useRef<number | null>(null);
+  const mutate = useRef(save.mutate);
+  useEffect(() => {
+    mutate.current = save.mutate;
+  });
+  useEffect(
+    () => () => {
+      if (timer.current) window.clearTimeout(timer.current);
+      if (pending.current != null && !isOffline()) mutate.current({ values: { volleyball_per_week: pending.current } });
+    },
+    [],
+  );
   const onChange = (v: number) => {
     setValue(v);
     if (timer.current) window.clearTimeout(timer.current);
+    pending.current = v === saved ? null : v;
     // one write after the taps settle
     timer.current = window.setTimeout(() => {
+      timer.current = null;
+      pending.current = null;
       if (v === saved) return;
+      if (offlineNoChange("Volleyball sessions a week")) return setValue(saved);
       save.mutate({ values: { volleyball_per_week: v } }, { onError: () => setValue(saved) });
     }, 700);
   };

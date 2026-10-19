@@ -4,9 +4,10 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Volleyball } from "@/components/art/icons";
 import { cn } from "@/lib/cn";
-import { dayName, weekStart, type ISODate } from "@/lib/dates";
+import { weekStart, type ISODate } from "@/lib/dates";
 import { useReadiness } from "@/lib/recovery/hooks";
 import { readinessChip } from "@/lib/today/now";
+import { volleyballDaysLabel } from "@/lib/training/week";
 import type { useTrainingWeek } from "../hooks";
 
 type Week = ReturnType<typeof useTrainingWeek>;
@@ -30,7 +31,7 @@ export function ReadinessStrip({ week, onLogVolleyball, className }: { week: Wee
   const ws = weekStart(today);
   const vbDays = week.volleyballDays.filter((v) => v.local_date >= ws && v.local_date <= today);
   const vbCount = vbDays.length;
-  const vbWhen = vbDays.map((v) => dayName(v.local_date as ISODate, true)).join(" · ");
+  const vbWhen = volleyballDaysLabel(vbDays.map((v) => v.local_date as ISODate));
   const unknown = !!week.error;
 
   return (

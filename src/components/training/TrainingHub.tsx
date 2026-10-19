@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { TabHeader } from "@/components/shell/TabHeader";
 import { Segmented } from "@/components/ui/controls";
@@ -14,6 +14,7 @@ import { ProgramTab } from "./ProgramTab";
 import { SessionSheet } from "./SessionSheet";
 import { TrainingSkeleton } from "./Skeletons";
 import { useMounted } from "./useMounted";
+import { useRefreshRestored } from "./useRefreshRestored";
 import { VolleyballSheet } from "./VolleyballSheet";
 import { WeekTab } from "./week/WeekTab";
 
@@ -54,8 +55,8 @@ export function TrainingHub() {
 
 function Hub() {
   const week = useTrainingWeek();
+  useRefreshRestored();
   const { unit } = useUnits();
-  const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const { tab, view } = tabFromParams(params.get("tab"), params.get("view"));
@@ -89,9 +90,11 @@ function Hub() {
         else sp.set(k, v);
       }
       const qs = sp.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      // The native History API (synced with useSearchParams by the router): switching a section
+      // or closing a day never asks the server for the page, so it works with no signal at the gym.
+      window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
     },
-    [params, pathname, router],
+    [params, pathname],
   );
 
   const openDay = (d: ISODate) => {

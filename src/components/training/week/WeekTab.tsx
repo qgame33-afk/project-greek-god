@@ -47,7 +47,9 @@ export function WeekTab({ week, onDay, onLogVolleyball }: { week: Week; onDay: (
             {split ? ` · ${split}` : ""}
           </p>
         </div>
-        <p className="shrink-0 text-right" aria-label={planned ? `${done} of ${planned} sessions raised this week` : "No sessions planned this week"}>
+        <p className="shrink-0 text-right">
+          {/* aria-label on a paragraph is not read out; the spoken line is real (hidden) text */}
+          <span className="sr-only">{planned ? `${done} of ${planned} sessions raised this week` : "No sessions planned this week"}</span>
           <span aria-hidden className="t-num-m block text-ivory">
             {planned ? done : "—"}
             <span className="t-num-s text-ash"> / {planned || "—"}</span>

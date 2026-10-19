@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { useMemo, useRef } from "react";
 import { toast } from "sonner";
-import { fetchAll, must, newId, sb, useToday, useUser, type Insert } from "@/lib/data/core";
+import { fetchAll, isOffline, must, newId, sb, useToday, useUser, type Insert } from "@/lib/data/core";
 import { useProfile, useSaveProfile } from "@/lib/data/profile";
 import { useRecovery } from "@/lib/data/recovery";
 import { volleyballEntries } from "@/lib/recovery/volleyball";
@@ -47,6 +47,17 @@ export const PLAN_BACK = 14;
 export const PLAN_AHEAD = 14;
 /** How far back sessions are read for the week view, missed detection and deload advice. */
 export const SESSIONS_BACK = 56;
+
+/**
+ * Writes here change the plan, never a workout, so they don't wait for a connection: offline
+ * they say so at once and change nothing (a paused write would show a change that is lost if
+ * the app closes, and hold every other control on the screen until the signal returns).
+ */
+export function offlineNoChange(what: string) {
+  if (!isOffline()) return false;
+  toast.error(`You're offline. ${what} didn't change.`, { description: "Try again when you're back online." });
+  return true;
+}
 
 export function useUnits(): { unit: WeightUnit } {
   const { profile } = useProfile();
@@ -156,7 +167,9 @@ export function useWeekVolume(week: ReturnType<typeof useTrainingWeek>) {
     const plannedTotal = open.reduce((n, o) => n + modeTemplate(o.template, week.mode).exercises.reduce((a, e) => a + e.sets, 0), 0);
     return { rows: zoneRows(done, planned), other: done.other, plannedTotal };
   }, [q.data, open, week.mode]);
-  return { ...rows, open, loading: q.isLoading, error: q.error, refetch: () => q.refetch() };
+  // offline with nothing cached: unknown, never "nothing logged"
+  const offline = q.isPending && q.fetchStatus === "paused";
+  return { ...rows, open, loading: q.isPending && !offline, offline, error: q.error, refetch: () => q.refetch() };
 }
 
 /* ---------------------------------------------------- timing over history */
@@ -235,6 +248,7 @@ export function useDayPlanWrites() {
   };
 
   const m = useMutation({
+    networkMode: "always",
     mutationFn: async ({ writes, deletes }: { writes: DayPlanWrite[]; deletes: ISODate[]; label?: string }) => {
       if (writes.length) must(await sb().from("day_plans").upsert(writes, { onConflict: "user_id,plan_date" }).select("id"));
       if (deletes.length) must(await sb().from("day_plans").delete().in("plan_date", deletes).select("id"));
@@ -252,7 +266,7 @@ export function useDayPlanWrites() {
 
   /** Apply writes/deletes; toast `message` with Undo. Resolves true on success. */
   const apply = async (opts: { writes?: DayPlanWrite[]; deletes?: ISODate[]; message: string; description?: string }) => {
-    if (busy.current) return false;
+    if (busy.current || offlineNoChange("The plan")) return false;
     busy.current = true;
     const writes = opts.writes ?? [];
     const deletes = opts.deletes ?? [];
@@ -321,6 +335,7 @@ export function useVolleyballLog() {
   };
 
   const insert = useMutation({
+    networkMode: "always",
     mutationFn: async (row: Omit<Insert<"volleyball_sessions">, "user_id"> & { id: string }) => must(await sb().from("volleyball_sessions").insert(row).select("*").single()),
     onMutate: async (row) => {
       await qc.cancelQueries({ queryKey: ["volleyball"] });
@@ -344,6 +359,7 @@ export function useVolleyballLog() {
   });
 
   const remove = useMutation({
+    networkMode: "always",
     mutationFn: async (id: string) => must(await sb().from("volleyball_sessions").delete().eq("id", id).select("id")),
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: ["volleyball"] });
@@ -445,6 +461,7 @@ export function useExercisePRs(slug: string | null) {
 export function useSessionDelete() {
   const qc = useQueryClient();
   const m = useMutation({
+    networkMode: "always",
     mutationFn: async ({ id, status }: { id: string; status: "done" | "discarded" }) =>
       must(await sb().from("workout_sessions").update({ status }).eq("id", id).select("id").single()),
     onMutate: async ({ id, status }) => {
@@ -505,7 +522,7 @@ export function useSetTrainingMode() {
   const busy = useRef(false);
   const current = (profile?.training_mode ?? "standard") as Mode;
   const setMode = async (m: Mode) => {
-    if (m === current || busy.current) return false;
+    if (m === current || busy.current || offlineNoChange("Training mode")) return false;
     busy.current = true;
     const prev = current;
     try {

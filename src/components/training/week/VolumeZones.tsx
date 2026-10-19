@@ -49,7 +49,7 @@ export function VolumeZones({ week, className }: { week: Week; className?: strin
         />
       </div>
       <p className="t-callout text-stone">
-        {v.loading ? (
+        {v.loading || v.offline ? (
           " "
         ) : v.plannedTotal > 0 ? (
           <>
@@ -63,9 +63,9 @@ export function VolumeZones({ week, className }: { week: Week; className?: strin
         )}
       </p>
 
-      {v.error ? (
+      {v.error || v.offline ? (
         <ErrorNote className="mt-3" onRetry={v.refetch}>
-          Couldn&apos;t load this week&apos;s sets.
+          {v.offline ? "You're offline. This week's sets show when you're back online." : "Couldn't load this week's sets."}
         </ErrorNote>
       ) : (
         <ul className="mt-3 divide-y divide-vein border-y border-vein">
