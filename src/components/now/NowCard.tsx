@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { ErrorNote } from "@/components/ui/misc";
 import { cn } from "@/lib/cn";
 import type { DayState, Phase } from "@/lib/now/day-engine";
 import { DuskBody, FuelBody, LiveBody, RefuelBody, RestLine, SealBody, TrainBody } from "./bodies";
@@ -50,6 +51,21 @@ export function NowCard({
     if (visible) setTurn((t) => t + 1);
   }
 
+  // what this phase needs and couldn't load: said inside the card, with Retry (§3.1.7)
+  const usesMeals = phase === "fuel" || phase === "refuel" || phase === "dusk" || phase === "train";
+  const problems: { text: string; retry: () => void }[] = [];
+  if (phase === "dawn" && m.recoveryFailed) problems.push({ text: "this morning's check-in", retry: data.refetch.recovery });
+  if ((phase === "train" || phase === "refuel" || phase === "seal") && m.sessionsFailed) problems.push({ text: "today's sessions", retry: data.refetch.sessions });
+  if (usesMeals && m.mealsFailed) problems.push({ text: "today's planned meals", retry: data.refetch.meals });
+  if ((usesMeals || phase === "seal") && m.foodFailed) problems.push({ text: "today's food log", retry: data.refetch.food });
+  const errorNote = problems.length ? (
+    <ErrorNote className="mb-3" onRetry={() => problems.forEach((p) => p.retry())}>
+      Couldn&apos;t load {problems.map((p) => p.text).join(" and ")}
+      {/* whether a meal is already logged is unknown, so a tap could log it twice */}
+      {m.foodFailed && usesMeals ? ", so Eaten waits." : "."}
+    </ErrorNote>
+  ) : null;
+
   const g = data.readiness.guidance;
   const byId = (id: string | undefined): NowMeal | null => (id ? (m.meals.find((x) => x.id === id) ?? null) : null);
   const nextMeal = state.next.kind === "eat" ? byId(state.next.mealId) : null;
@@ -90,6 +106,7 @@ export function NowCard({
           card's own eyebrow already starts with it */}
       {!namesPhase && <p className="t-eyebrow mb-1 hidden text-leaf-300 @max-[19rem]:block">{PHASE_NAME[phase]}</p>}
       <div key={turn} className={cn(turn > 0 && "turn-in")}>
+        {errorNote}
         {body}
       </div>
     </section>

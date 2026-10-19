@@ -12,6 +12,7 @@ import { Stepper } from "@/components/ui/controls";
 import { Collapse, ErrorNote } from "@/components/ui/misc";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
+import { isOffline } from "@/lib/data/core";
 import { useHabitDefs, useHabitLogs, useSetHabitLog, type HabitLog } from "@/lib/data/recovery";
 import { useWaterMutations } from "@/lib/data/nutrition";
 import type { ISODate } from "@/lib/dates";
@@ -41,58 +42,78 @@ export function SectionHead({ title, right, id }: { title: string; right?: React
 
 /* ------------------------------------------------------------ today's three */
 
-export function TodaysThree({ m }: { m: NowModel }) {
+export function TodaysThree({ m, onRetry }: { m: NowModel; onRetry?: () => void }) {
   const protein = Math.round(m.food.protein);
   const pGoal = m.profile.protein_goal;
   const sleep = m.todayRec?.sleep_hours == null ? null : Number(m.todayRec.sleep_hours);
   const sleepGoal = Number(m.profile.sleep_goal_h);
+  // nothing logged yet today is "—" with the next step, not "0 g" (§3.1.7, law 1)
+  const noFood = !m.foodFailed && m.foodLogged === 0;
+  const failed = [m.sessionsFailed && "this week's sessions", m.foodFailed && "today's food", m.recoveryFailed && "the check-in"].filter((x): x is string => !!x);
   const cells: { key: string; href: string; eyebrow: string; value: ReactNode; caption: string; frac: number; earned: boolean; spoken: string }[] = [
     {
       key: "train",
       href: "/training",
       eyebrow: "Train",
-      value: m.sealed.planned ? (
-        <>
-          {m.sealed.done}
-          <span className="t-meta text-ash">/{m.sealed.planned}</span>
-        </>
-      ) : (
-        "—"
-      ),
-      caption: m.sealed.planned ? "sessions this week" : "None planned",
-      frac: m.sealed.planned ? m.sealed.done / m.sealed.planned : 0,
-      earned: m.sealed.planned > 0 && m.sealed.done >= m.sealed.planned,
-      spoken: m.sealed.planned ? `Training: ${m.sealed.done} of ${m.sealed.planned} sessions this week` : "Training: no sessions planned this week",
+      value:
+        m.sealed.planned && !m.sessionsFailed ? (
+          <>
+            {m.sealed.done}
+            <span className="t-meta text-ash">/{m.sealed.planned}</span>
+          </>
+        ) : (
+          "—"
+        ),
+      caption: m.sessionsFailed ? "Couldn't load" : m.sealed.planned ? "sessions this week" : "None planned",
+      frac: m.sealed.planned && !m.sessionsFailed ? m.sealed.done / m.sealed.planned : 0,
+      earned: !m.sessionsFailed && m.sealed.planned > 0 && m.sealed.done >= m.sealed.planned,
+      spoken: m.sessionsFailed
+        ? "Training: this week's sessions didn't load"
+        : m.sealed.planned
+          ? `Training: ${m.sealed.done} of ${m.sealed.planned} sessions this week`
+          : "Training: no sessions planned this week",
     },
     {
       key: "protein",
       href: "/nutrition",
       eyebrow: "Protein",
-      value: m.foodFailed ? (
-        "—"
-      ) : (
-        <>
-          {protein}
-          <span className="t-meta text-ash">/{pGoal}</span>
-        </>
-      ),
-      caption: m.foodFailed ? "Couldn't load food" : `g · ${formatInt(Math.round(m.food.calories))} kcal`,
-      frac: m.foodFailed ? 0 : protein / pGoal,
+      value:
+        m.foodFailed || noFood ? (
+          <>
+            —{noFood && <span className="t-meta text-ash">/{pGoal}</span>}
+          </>
+        ) : (
+          <>
+            {protein}
+            <span className="t-meta text-ash">/{pGoal}</span>
+          </>
+        ),
+      caption: m.foodFailed ? "Couldn't load food" : noFood ? "g · log a meal" : `g · ${formatInt(Math.round(m.food.calories))} kcal`,
+      frac: m.foodFailed || noFood ? 0 : protein / pGoal,
       earned: !m.foodFailed && protein >= pGoal,
-      spoken: m.foodFailed ? "Protein: couldn't load today's food" : `Protein: ${protein} of ${pGoal} grams, ${Math.round(m.food.calories)} of ${m.profile.calorie_goal} calories`,
+      spoken: m.foodFailed
+        ? "Protein: couldn't load today's food"
+        : noFood
+          ? `Protein: nothing logged yet today, goal ${pGoal} grams. Log a meal`
+          : `Protein: ${protein} of ${pGoal} grams, ${Math.round(m.food.calories)} of ${m.profile.calorie_goal} calories`,
     },
     {
       key: "sleep",
-      href: sleep == null ? "/?dawn=1" : "/recovery",
+      href: sleep == null && !m.recoveryFailed ? "/?dawn=1" : "/recovery",
       eyebrow: "Sleep",
       value: sleepShort(sleep),
-      caption: sleep == null ? "Check in" : "last night",
+      caption: m.recoveryFailed ? "Couldn't load" : sleep == null ? "Check in" : "last night",
       frac: sleep == null ? 0 : sleep / sleepGoal,
       earned: sleep != null && sleep >= sleepGoal,
-      spoken: sleep == null ? "Sleep: not logged. Check in to log it" : `Sleep: ${sleepSpoken(sleep)} last night, goal ${sleepSpoken(sleepGoal)}`,
+      spoken: m.recoveryFailed
+        ? "Sleep: the check-in didn't load"
+        : sleep == null
+          ? "Sleep: not logged. Check in to log it"
+          : `Sleep: ${sleepSpoken(sleep)} last night, goal ${sleepSpoken(sleepGoal)}`,
     },
   ];
   return (
+    <div>
     <section aria-label="Today's three" className="grid grid-cols-3 border-y border-vein @max-[19rem]:grid-cols-1">
       {cells.map((c, i) => (
         <Link
@@ -114,6 +135,12 @@ export function TodaysThree({ m }: { m: NowModel }) {
         </Link>
       ))}
     </section>
+      {failed.length > 0 && (
+        <ErrorNote className="mt-3" onRetry={onRetry}>
+          Couldn&apos;t load {failed.length > 2 ? `${failed.slice(0, -1).join(", ")} and ${failed[failed.length - 1]}` : failed.join(" and ")}.
+        </ErrorNote>
+      )}
+    </div>
   );
 }
 
@@ -164,10 +191,17 @@ export function Rites({ m, rites, more }: { m: NowModel; rites: HabitStatus[]; m
   const water = useWaterMutations(m.today);
   const busy = useRef(false);
   const [valueFor, setValueFor] = useState<HabitStatus | null>(null);
+  // offline, a tap says so here instead of showing a seal or a toast for a write that can't happen
+  const [offlineNote, setOfflineNote] = useState(false);
   const logOf = (key: string): HabitLog | null => (logs.data ?? []).find((l) => l.habit_key === key && l.local_date === m.today) ?? null;
+  const online = () => {
+    const ok = !isOffline();
+    setOfflineNote(!ok);
+    return ok;
+  };
 
   const toggle = (s: HabitStatus) => {
-    if (busy.current) return;
+    if (busy.current || !online()) return;
     busy.current = true;
     const next = !s.done;
     const hadRow = !!logOf(s.key);
@@ -190,6 +224,7 @@ export function Rites({ m, rites, more }: { m: NowModel; rites: HabitStatus[]; m
   };
 
   const addWater = (ml: number) => {
+    if (!online()) return;
     const id = water.addMl(ml);
     toast(`Water +${ml} ml`, { duration: 6000, action: { label: "Undo", onClick: () => water.remove.mutate(id) } });
   };
@@ -220,7 +255,7 @@ export function Rites({ m, rites, more }: { m: NowModel; rites: HabitStatus[]; m
             <span className="t-meta tnum text-stone">
               {done} of {rites.length}
             </span>
-            <Link href="/recovery#habits" className="t-meta inline-flex min-h-11 items-center px-2 font-semibold text-stone underline decoration-ui-line underline-offset-4 hover:text-ivory">
+            <Link href="/recovery#habits" className="t-meta inline-flex min-h-11 min-w-11 items-center justify-center px-2 font-semibold text-stone underline decoration-ui-line underline-offset-4 hover:text-ivory">
               Edit
             </Link>
           </span>
@@ -259,7 +294,15 @@ export function Rites({ m, rites, more }: { m: NowModel; rites: HabitStatus[]; m
           if (s.kind === "value")
             return (
               <li key={s.key}>
-                <button type="button" onClick={() => setValueFor(s)} aria-label={`${spoken}. Edit`} className={cn(cell, "press-soft")}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOfflineNote(false);
+                    setValueFor(s);
+                  }}
+                  aria-label={`${spoken}. Edit`}
+                  className={cn(cell, "press-soft")}
+                >
                   {body}
                 </button>
               </li>
@@ -305,6 +348,11 @@ export function Rites({ m, rites, more }: { m: NowModel; rites: HabitStatus[]; m
           </span>
         </div>
       )}
+      {offlineNote && (
+        <p role="status" className="t-meta mt-2 text-stone">
+          Offline · try again when you&apos;re back
+        </p>
+      )}
       {more > 0 && (
         <Link href="/recovery#habits" className="t-meta mt-1 inline-flex min-h-11 items-center gap-1 text-stone hover:text-ivory">
           {more} more on the Recovery ledger <ChevronRight className="size-3.5" strokeWidth={1.6} aria-hidden />
@@ -331,13 +379,17 @@ export function ValueForm({ habitKey, spec, log, today, onDone }: { habitKey: st
   const busy = useRef(false);
   const prev = log?.value != null ? { value: Number(log.value), done: log.done } : null;
   const [text, setText] = useState(prev ? String(prev.value) : "");
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<false | "offline" | "error">(false);
   const parsed = parseHabitValue(text, spec);
   const invalid = text.trim() !== "" && parsed == null;
   const fmt = (n: number) => `${formatHabitValue(n, spec.integer)}${spec.unit ? ` ${spec.unit}` : ""}`;
   const restore = () => (prev ? set.mutate({ habit_key: habitKey, local_date: today, value: prev.value, done: prev.done }) : clear.mutate({ habit_key: habitKey, local_date: today }));
   const save = () => {
     if (busy.current || parsed == null) return;
+    if (isOffline()) {
+      setFailed("offline");
+      return;
+    }
     busy.current = true;
     setFailed(false);
     const v = parsed;
@@ -348,7 +400,7 @@ export function ValueForm({ habitKey, spec, log, today, onDone }: { habitKey: st
           onDone();
           toast(`${spec.label} · ${fmt(v)}`, { duration: 6000, action: { label: "Undo", onClick: restore } });
         },
-        onError: () => setFailed(true),
+        onError: () => setFailed("error"),
         onSettled: () => {
           busy.current = false;
         },
@@ -396,7 +448,7 @@ export function ValueForm({ habitKey, spec, log, today, onDone }: { habitKey: st
       </div>
       {failed && (
         <ErrorNote className="mt-4" onRetry={save}>
-          Couldn&apos;t save. Your entry is kept.
+          {failed === "offline" ? "Offline · try again when you're back. Your entry is kept." : "Couldn't save. Your entry is kept."}
         </ErrorNote>
       )}
       <Button variant="primary" size="lg" block className="mt-5" onClick={save} loading={set.isPending} disabled={parsed == null}>
@@ -430,7 +482,7 @@ export function LaterToday({
   const opened = useLocal(chronicle ? `pgg.chronicle.opened.${chronicle.param}` : "pgg.chronicle.none");
   const items = state.later.filter((x) => !exclude.has(`${x.kind}:${x.id}`));
   const showChronicle = !!chronicle && !opened;
-  const noPlan = !m.hasPlan && !m.mealsLoading && !planNoteInCard;
+  const noPlan = !m.hasPlan && !m.mealsLoading && !m.mealsFailed && !planNoteInCard;
   if (!items.length && !showChronicle && !noPlan) return null;
   return (
     <section aria-labelledby="later-title">
@@ -481,7 +533,7 @@ export function LaterToday({
 function LaterItem({ m, item, now, onBegin, starting }: { m: NowModel; item: DayItem; now: number; onBegin: () => void; starting: boolean }) {
   if (item.kind === "meal") {
     const meal = m.meals.find((x) => x.id === item.id);
-    return meal ? <MealRow meal={meal} now={now} className="py-1" /> : null;
+    return meal ? <MealRow meal={meal} now={now} blocked={m.foodFailed} className="py-1" /> : null;
   }
   if (item.kind === "session") {
     const late = item.at != null ? item.at < now : now >= 18 * 60;
@@ -552,7 +604,7 @@ export function Earlier({ m, state, now, skippedChip, onOpenDawn }: { m: NowMode
               const meal = m.meals.find((x) => x.id === it.id);
               return meal ? (
                 <li key={`meal:${it.id}`}>
-                  <MealRow meal={meal} now={now} className="py-1" />
+                  <MealRow meal={meal} now={now} blocked={m.foodFailed} className="py-1" />
                 </li>
               ) : null;
             }

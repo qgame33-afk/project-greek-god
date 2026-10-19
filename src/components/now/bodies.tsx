@@ -43,7 +43,8 @@ export function CardHead({
   return (
     <div>
       <div className="flex min-h-5 items-center justify-between gap-3">
-        <p className="t-eyebrow truncate">{eyebrow}</p>
+        {/* one line on a phone; at accessibility sizes it wraps rather than cutting the phase name */}
+        <p className="t-eyebrow truncate @max-[19rem]:whitespace-normal">{eyebrow}</p>
         {right}
       </div>
       <h2 id={titleId} className={cn(small ? "t-title-2" : "t-title-1", "mt-1.5 text-ivory [overflow-wrap:anywhere]")}>
@@ -70,7 +71,7 @@ export function Consequence({ m, meal, verb = "eat" }: { m: NowModel; meal: Pick
 }
 
 /** A planned meal as one row: coin, name, its time and planned macros, and Eaten. */
-export function MealRow({ meal, now, className }: { meal: NowMeal; now: number; className?: string }) {
+export function MealRow({ meal, now, blocked, className }: { meal: NowMeal; now: number; blocked?: boolean; className?: string }) {
   const past = !meal.eaten && meal.at + 120 < now;
   return (
     <div className={cn("flex min-h-16 items-center gap-3", className)}>
@@ -85,7 +86,7 @@ export function MealRow({ meal, now, className }: { meal: NowMeal; now: number; 
           {!meal.eaten && <Tag kind="PLAN" />}
         </p>
       </div>
-      <MealAction meal={meal} compact />
+      <MealAction meal={meal} compact blocked={blocked} />
     </div>
   );
 }
@@ -176,7 +177,7 @@ export function TrainBody({
       <Button variant="primary" size="lg" block className="mt-4" loading={starting} onClick={onBegin}>
         Begin {t.name}
       </Button>
-      {pre && <MealRow meal={pre} now={now} className="mt-3 border-t border-vein pt-3" />}
+      {pre && <MealRow meal={pre} now={now} blocked={m.foodFailed} className="mt-3 border-t border-vein pt-3" />}
     </>
   );
 }
@@ -201,7 +202,7 @@ export function FuelBody({ m, meal, now, titleId, restLine, compact }: { m: NowM
         </div>
       </div>
       <div className="mt-4 flex items-center gap-2">
-        <MealAction key={meal.id} meal={meal} gold className="flex-1" />
+        <MealAction key={meal.id} meal={meal} gold blocked={m.foodFailed} className="flex-1" />
       </div>
       <Link
         href={`/nutrition/meals?day=${meal.local_date}`}
@@ -223,14 +224,14 @@ function NoMealBody({ m, titleId, lead }: { m: NowModel; titleId: string; lead?:
       <CardHead
         eyebrow="Fuel"
         titleId={titleId}
-        title={allEaten ? "Every planned meal logged" : m.hasPlan ? "Nothing planned today" : "No meals planned"}
+        title={m.mealsFailed ? "Log what you eat" : allEaten ? "Every planned meal logged" : m.hasPlan ? "Nothing planned today" : "No meals planned"}
         sub={
           m.foodFailed ? (
             "Today's food log didn't load."
           ) : (
             <span className="tnum">
               {left > 0 ? `${left} g protein to go today` : "Protein goal reached today"}
-              {!m.hasPlan && (
+              {!m.hasPlan && !m.mealsFailed && (
                 <>
                   {" · "}
                   <Link href="/nutrition/meals?generate=1" className="text-ivory underline decoration-ui-line underline-offset-4">
@@ -371,11 +372,16 @@ export function RefuelBody({ m, meal, titleId, compact }: { m: NowModel; meal: N
             )}
             {!m.foodFailed && <Tag kind="CALC" explain={`${Math.round(meal.protein)} g in the meal; ${gap} g left of ${m.profile.protein_goal} g today.`} />}
           </p>
-          <MealAction key={meal.id} meal={meal} gold className="mt-3 w-full" />
+          <MealAction key={meal.id} meal={meal} gold blocked={m.foodFailed} className="mt-3 w-full" />
         </>
       ) : (
         <>
-          <CardHead eyebrow="Refuel" titleId={titleId} title={gap > 0 ? `${gap} g protein to go` : "Protein closed today"} sub="Nothing else planned today" />
+          <CardHead
+            eyebrow="Refuel"
+            titleId={titleId}
+            title={m.foodFailed ? "Refuel" : gap > 0 ? `${gap} g protein to go` : "Protein closed today"}
+            sub={m.mealsFailed ? undefined : "Nothing else planned today"}
+          />
           <Button variant="primary" size="lg" block className="mt-4" onClick={() => openOffering({ mode: "log" })}>
             Log food
           </Button>
@@ -398,12 +404,12 @@ export function DuskBody({ m, meal, now, titleId, ritesLeft }: { m: NowModel; me
       <CardHead
         eyebrow="Dusk · close the day"
         titleId={titleId}
-        title={gap > 0 ? `${gap} g protein to go` : "Protein closed"}
+        title={m.foodFailed ? "Close the day" : gap > 0 ? `${gap} g protein to go` : "Protein closed"}
         sub={
-          gap > 0 && !m.foodFailed ? (
+          gap > 0 && !m.foodFailed && !m.mealsFailed ? (
             <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
               <span className="tnum">
-                {open.length === 0 ? "nothing else planned today" : `${open.length} planned ${open.length === 1 ? "meal" : "meals"} ${closes ? "close it" : `leave ${left} g`}`}
+                {open.length === 0 ? "nothing else planned today" : `${open.length} planned ${open.length === 1 ? "meal" : "meals"} ${closes ? "close it" : `leave ${left} g to go`}`}
               </span>
               <Tag kind="CALC" explain={`${m.profile.protein_goal} g goal − ${Math.round(m.food.protein)} g logged = ${gap} g; ${plannedP} g still planned.`} />
             </span>
@@ -413,7 +419,7 @@ export function DuskBody({ m, meal, now, titleId, ritesLeft }: { m: NowModel; me
       {meal ? (
         <div className="mt-3">
           <MealRowLead meal={meal} />
-          <MealAction key={meal.id} meal={meal} gold className="mt-3 w-full" />
+          <MealAction key={meal.id} meal={meal} gold blocked={m.foodFailed} className="mt-3 w-full" />
         </div>
       ) : (
         <Button variant="primary" size="lg" block className="mt-4" onClick={() => openOffering({ mode: "log" })}>
@@ -474,7 +480,7 @@ export function SealBody({
 }) {
   const kcal = Math.round(m.food.calories);
   const protein = Math.round(m.food.protein);
-  const skippedSession = m.template && !m.doneToday && !m.active;
+  const skippedSession = m.template && !m.doneToday && !m.active && !m.sessionsFailed;
   const stat = (label: string, value: ReactNode, earned: boolean, spoken: string) => (
     <div className="min-w-0" aria-label={spoken} role="group">
       <p className="t-eyebrow">{label}</p>
@@ -498,7 +504,7 @@ export function SealBody({
       <div className={cn("mt-3 grid gap-x-4 gap-y-3 @max-[19rem]:grid-cols-1", compact ? "grid-cols-4 gap-x-2" : "grid-cols-2")}>
         {stat("Protein", m.foodFailed ? "—" : <>{protein}<span className="t-meta text-ash"> / {m.profile.protein_goal} g</span></>, protein >= m.profile.protein_goal, `Protein ${protein} of ${m.profile.protein_goal} grams`)}
         {stat("Calories", m.foodFailed ? "—" : <>{formatInt(kcal)}<span className="t-meta text-ash"> / {formatInt(m.profile.calorie_goal)}</span></>, false, `Calories ${kcal} of ${m.profile.calorie_goal}`)}
-        {stat("Sessions", m.sealed.planned ? <>{m.sealed.done}<span className="t-meta text-ash"> of {m.sealed.planned}</span></> : "—", m.sealed.planned > 0 && m.sealed.done >= m.sealed.planned, `${m.sealed.done} of ${m.sealed.planned} sessions this week`)}
+        {stat("Sessions", m.sealed.planned && !m.sessionsFailed ? <>{m.sealed.done}<span className="t-meta text-ash"> of {m.sealed.planned}</span></> : "—", m.sealed.planned > 0 && m.sealed.done >= m.sealed.planned, `${m.sealed.done} of ${m.sealed.planned} sessions this week`)}
         {stat("Rites", rites.total ? <>{rites.done}<span className="t-meta text-ash"> of {rites.total}</span></> : "—", rites.total > 0 && rites.done === rites.total, `${rites.done} of ${rites.total} rites`)}
       </div>
       {skippedSession && (

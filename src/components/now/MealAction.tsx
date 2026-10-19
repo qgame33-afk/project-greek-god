@@ -29,7 +29,20 @@ export function mealSpoken(m: Pick<NowMeal, "name" | "kcal" | "protein">) {
  * ("Eaten, but changed"). A meal that breaks an allergy always goes through the sheet.
  * `gold` makes Eaten the viewport's one gold control.
  */
-export function MealAction({ meal, gold, compact, className }: { meal: NowMeal; gold?: boolean; compact?: boolean; className?: string }) {
+export function MealAction({
+  meal,
+  gold,
+  compact,
+  blocked,
+  className,
+}: {
+  meal: NowMeal;
+  gold?: boolean;
+  compact?: boolean;
+  /** Today's food log didn't load: whether this meal is already logged is unknown, so Eaten waits. */
+  blocked?: boolean;
+  className?: string;
+}) {
   const today = useToday();
   const log = useLogPlannedMeal();
   // one entry id per planned meal (a repeat tap on the same meal never logs twice); the Now card
@@ -52,7 +65,7 @@ export function MealAction({ meal, gold, compact, className }: { meal: NowMeal; 
     : null;
 
   const eat = () => {
-    if (!meal.recipe || log.isPending) return;
+    if (!meal.recipe || log.isPending || blocked) return;
     if (allergy) {
       setSheet(true);
       return;
@@ -104,7 +117,7 @@ export function MealAction({ meal, gold, compact, className }: { meal: NowMeal; 
           variant={gold ? "primary" : "outline"}
           size={gold ? "lg" : "sm"}
           className={cn(gold ? "flex-1" : "min-w-[72px] rounded-full px-4")}
-          disabled={!meal.recipe}
+          disabled={!meal.recipe || blocked}
           loading={log.isPending}
           aria-label={`Mark ${meal.name.replace(/&/g, "and")} as eaten, ${formatInt(meal.kcal)} calories, ${Math.round(meal.protein)} grams protein`}
           onPointerDown={startPress}
@@ -122,20 +135,19 @@ export function MealAction({ meal, gold, compact, className }: { meal: NowMeal; 
         >
           Eaten
         </Button>
-        {!compact && (
-          <button
-            type="button"
-            aria-label={`Eaten, but changed: edit servings for ${meal.name}`}
-            disabled={!target}
-            onClick={() => setSheet(true)}
-            className={cn(
-              "press grid shrink-0 place-items-center rounded-full text-stone hover:text-ivory disabled:opacity-40",
-              gold ? "size-14 bg-m3 shadow-[inset_0_0_0_1px_var(--vein-2)]" : "size-11",
-            )}
-          >
-            <Ellipsis className="size-5" strokeWidth={1.6} />
-          </button>
-        )}
+        {/* "Eaten, but changed": the visible, non-gesture path beside the long-press (§3.1.2) */}
+        <button
+          type="button"
+          aria-label={`Eaten, but changed: edit servings for ${meal.name}`}
+          disabled={!target || blocked}
+          onClick={() => setSheet(true)}
+          className={cn(
+            "press grid shrink-0 place-items-center rounded-full text-stone hover:text-ivory disabled:opacity-40",
+            gold ? "size-14 bg-m3 shadow-[inset_0_0_0_1px_var(--vein-2)]" : compact ? "-mr-2 size-11" : "size-11",
+          )}
+        >
+          <Ellipsis className="size-5" strokeWidth={1.6} />
+        </button>
       </div>
       {note && (
         <p role="status" className="t-meta mt-1 text-stone">

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Statue } from "@/components/art/Statue";
 import { useOnline } from "@/components/workout/stores";
+import { ErrorNote } from "@/components/ui/misc";
 import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
 import { dayMonth, MIN_WEIGHINS } from "@/lib/progress/pace";
@@ -28,12 +29,29 @@ const keepDates = (s: string) => s.replace(/(\d) (Jan|Feb|Mar|Apr|May|Jun|Jul|Au
  * is answered here without a tap. On phones the hero runs up under the transparent header row, as
  * one lit surface. Dawn dims the statue under a rose light; Seal settles it.
  */
-export function Hero({ m, phase, unveil, compact, children }: { m: NowModel; phase: string; unveil: UnveilState; compact?: boolean; children?: React.ReactNode }) {
+export function Hero({
+  m,
+  phase,
+  unveil,
+  compact,
+  onRetry,
+  children,
+}: {
+  m: NowModel;
+  phase: string;
+  unveil: UnveilState;
+  compact?: boolean;
+  /** Reload the weigh-ins after they failed to load. */
+  onRetry?: () => void;
+  children?: React.ReactNode;
+}) {
   const online = useOnline();
   const p = m.pace;
   const unit = m.unit;
   const show = (lb: number) => round(toDisplayWeight(lb, unit), 1).toFixed(1);
   const trend = p.trend.lb;
+  // the weigh-ins didn't load: say so, never "no weigh-ins yet" (that would be a claim about his data)
+  const failed = m.weightsFailed;
   const week = programWeekLabel(m.today, m.profile.start_date, m.profile.target_date);
   const left = Math.max(0, MIN_WEIGHINS - m.weighInCount);
   const stale = trend != null && p.trend.end !== m.today;
@@ -45,8 +63,9 @@ export function Hero({ m, phase, unveil, compact, children }: { m: NowModel; pha
   const dense = dawn || phase === "seal";
   const pct = Math.round(m.gild * 100);
   const pounds = unit === "kg" ? "kilograms" : "pounds";
-  const statueLabel =
-    trend == null
+  const statueLabel = failed
+    ? "Your statue. Your weigh-ins didn't load."
+    : trend == null
       ? "Your statue, in marble. No weigh-ins yet."
       : m.gild > 0
         ? `Your statue, gilded to ${pct} percent of the climb. Trend ${show(trend)} ${pounds}.`
@@ -94,10 +113,17 @@ export function Hero({ m, phase, unveil, compact, children }: { m: NowModel; pha
         <div className={cn(compact ? "w-[min(204px,58%)]" : "w-[min(208px,58%)]", "@max-[19rem]:w-full")}>
           {week && !compact && !dense && <p className="t-eyebrow mb-2 text-stone">{week}</p>}
 
-          {/* the trend */}
-          <p className="text-ivory">
+          {/* the trend. VoiceOver hears the trend, rate, projection and verdict as one sentence
+              (pace().ariaLabel, §3.1.9); the visual number, verdict and pace line are hidden from it */}
+          {!failed && <p className="sr-only">{p.ariaLabel}</p>}
+          <p aria-hidden className="text-ivory">
             {trend == null ? <span className="t-dial text-ash">—</span> : <Tick value={show(trend)} className="t-dial" label={`Trend ${show(trend)} ${unit}`} />}
           </p>
+          {failed ? (
+            <ErrorNote className="t-meta mt-2" onRetry={onRetry}>
+              Couldn&apos;t load your weigh-ins.
+            </ErrorNote>
+          ) : (
           <p className="t-meta mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-stone">
             {trend == null ? (
               <span>Weigh in to begin the gilding</span>
@@ -108,18 +134,23 @@ export function Hero({ m, phase, unveil, compact, children }: { m: NowModel; pha
               </>
             )}
           </p>
+          )}
           {trend != null && (stale || left > 0 || (!compact && !dense)) && (
             <p className="t-meta mt-1 text-ash">
               {stale ? `trend as of ${dayMonth(p.trend.end, m.today)} · weigh in to update` : left > 0 ? `${left} more ${left === 1 ? "weigh-in" : "weigh-ins"} to begin the gilding` : scale}
             </p>
           )}
 
-          {/* the verdict and the pace */}
-          <Verdict text={p.sentence} small={compact || dense || p.sentence.length > 30} />
-          <p className="t-callout mt-1.5 text-stone">
-            <span className="tnum">{keepDates(p.detail)}</span>
-            {p.projection && <Tag kind="PROJ" className="ml-1.5 align-[1px]" />}
-          </p>
+          {/* the verdict and the pace (spoken in the sentence above) */}
+          {!failed && (
+            <>
+              <Verdict text={p.sentence} small={compact || dense || p.sentence.length > 30} />
+              <p aria-hidden className="t-callout mt-1.5 text-stone">
+                <span className="tnum">{keepDates(p.detail)}</span>
+                {p.projection && <Tag kind="PROJ" className="ml-1.5 align-[1px]" />}
+              </p>
+            </>
+          )}
         </div>
       </div>
       <div className="relative mt-auto px-(--gutter) pb-1 pt-3">{children}</div>
@@ -132,7 +163,7 @@ function Verdict({ text, small }: { text: string; small: boolean }) {
   const [first] = useState(text);
   const changed = first !== text;
   return (
-    <p key={text} className={cn("t-verdict mt-3 text-balance text-ivory", changed && "turn-in", small && "text-[length:1.5rem]")}>
+    <p key={text} aria-hidden className={cn("t-verdict mt-3 text-balance text-ivory", changed && "turn-in", small && "text-[length:1.5rem]")}>
       {text}
     </p>
   );

@@ -15,11 +15,13 @@ const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
  * statue's light and gold move); any tap anywhere jumps to the end and still reaches its target; it
  * never plays twice in a day. Reduced motion: no motion. Not while a check-in field has focus.
  */
-export function useUnveiling({ today, gild, blocked }: { today: string; gild: number; blocked: boolean }) {
-  // decided once, at mount, from what this device last showed
+export function useUnveiling({ today, gild, blocked, known = true }: { today: string; gild: number; blocked: boolean; known?: boolean }) {
+  // decided once, at mount, from what this device last showed. `known` is false while the
+  // weigh-ins failed to load: the gild is unknown, so nothing plays and nothing is remembered
+  // (a rise "to 0" would show gold draining that he still has).
   const [init] = useState(() => {
     const played = readLocal(keys.unveil) === today;
-    if (played || blocked || prefersReducedMotion()) return { play: false, from: gild };
+    if (played || blocked || !known || prefersReducedMotion()) return { play: false, from: gild };
     const raw = readLocal(keys.gildLast);
     const last = raw == null ? 0 : Number(raw);
     return { play: true, from: Number.isFinite(last) ? clamp01(last) : 0 };
@@ -28,8 +30,8 @@ export function useUnveiling({ today, gild, blocked }: { today: string; gild: nu
   const [skip, setSkip] = useState(false);
 
   useEffect(() => {
-    writeLocal(keys.unveil, today);
-  }, [today]);
+    if (known) writeLocal(keys.unveil, today);
+  }, [today, known]);
 
   // 300 ms of spotlight, then the gold rises; settled after the longest gild
   useEffect(() => {
@@ -55,8 +57,8 @@ export function useUnveiling({ today, gild, blocked }: { today: string; gild: nu
 
   // tomorrow's Unveiling rises from what the statue shows today
   useEffect(() => {
-    if (phase === "done") writeLocal(keys.gildLast, String(Math.round(gild * 1000) / 1000));
-  }, [phase, gild]);
+    if (phase === "done" && known) writeLocal(keys.gildLast, String(Math.round(gild * 1000) / 1000));
+  }, [phase, gild, known]);
 
   const playing = phase !== "done";
   return { playing, skip, fromP: init.play ? init.from : undefined, p: phase === "hold" ? init.from : gild };

@@ -110,7 +110,7 @@ function NowContent({ data, m }: { data: NowData; m: NowModel }) {
   }, [phase]);
   useEffect(() => () => setDayPhase(null), []);
 
-  const unveil = useUnveiling({ today: m.today, gild: m.gild, blocked: wantDawn });
+  const unveil = useUnveiling({ today: m.today, gild: m.gild, blocked: wantDawn, known: !m.weightsFailed });
 
   const rites = useMemo(() => ritesOf(m.mission?.statuses ?? []), [m.mission]);
   const sealed = !!input?.sealed;
@@ -140,7 +140,7 @@ function NowContent({ data, m }: { data: NowData; m: NowModel }) {
       <TabHeader eyebrow={dayEyebrow(m.today, m.profile.start_date)} oracle={{ kind: "now", label: oracleLabel }} />
       <h1 className="sr-only">Now</h1>
 
-      <Hero m={m} phase={phase} unveil={unveil} compact={short}>
+      <Hero m={m} phase={phase} unveil={unveil} compact={short} onRetry={() => void data.refetch.weights()}>
         <ClimbRule
           m={m}
           className={short && (phase === "dawn" || phase === "seal") ? "hidden" : undefined}
@@ -158,14 +158,22 @@ function NowContent({ data, m }: { data: NowData; m: NowModel }) {
           <NowCard m={m} data={data} state={state} phase={phase} now={now} sealed={sealed} onSeal={onSeal} onLater={onLater} rites={rites} compact={short} />
         ) : null}
       </div>
-      {data.errors.meals && !m.meals.length && (
+      {/* the card says it in the phases that show a meal; the others still list Later today */}
+      {m.mealsFailed && (phase === "dawn" || phase === "live" || phase === "seal") && (
         <ErrorNote className="mt-3" onRetry={data.refetch.meals}>
           Couldn&apos;t load today&apos;s planned meals.
         </ErrorNote>
       )}
 
       <div className={cn("mt-8 space-y-8")}>
-        <TodaysThree m={m} />
+        <TodaysThree
+          m={m}
+          onRetry={() => {
+            if (m.sessionsFailed) data.refetch.sessions();
+            if (m.foodFailed) data.refetch.food();
+            if (m.recoveryFailed) data.refetch.recovery();
+          }}
+        />
         <Rites m={m} rites={rites.shown} more={rites.more} />
         {state && !sealed && (
           <LaterToday
