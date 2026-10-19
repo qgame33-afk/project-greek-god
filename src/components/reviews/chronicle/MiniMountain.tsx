@@ -59,9 +59,8 @@ export function MiniMountain({
     const line = series.map((s) => ({ x: x(s.date), y: y(s.lb) }));
     const path = line.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join("");
     const contours = terraces.filter((t) => t.lb >= lo && t.lb <= hi).map((t) => ({ ...t, y: y(t.lb), reached: !!t.reachedOn && t.reachedOn <= to }));
-    const first = series[0];
     const last = series.at(-1)!;
-    return { plot, line, path, contours, dots: weighIns.map((p) => ({ x: x(p.date), y: y(p.lb), d: p.date })), first, last, base: plot.y + plot.h, x, y };
+    return { plot, line, path, contours, dots: weighIns.map((p) => ({ x: x(p.date), y: y(p.lb), d: p.date })), last, base: plot.y + plot.h, x, y };
   }, [w, height, from, to, series, weighIns, terraces]);
 
   const fmt = (lb: number) => round(toDisplayWeight(lb, unit), 1).toFixed(1);
@@ -118,9 +117,8 @@ export function MiniMountain({
           <text x={g.plot.x + g.plot.w} y={g.base + 18} textAnchor="end" className="t-meta" style={{ fill: "var(--stone)" }}>
             {label(to)}
           </text>
-          <text x={g.line[0].x + 2} y={g.line[0].y + 18} className="t-meta tnum" style={{ fill: "var(--stone)" }}>
-            {fmt(g.first.lb)}
-          </text>
+          {/* No number on the line's first point: the month's change is measured from the first
+              week's average (the chapter's headline), and a rolling value here would contradict it. */}
           <text x={g.line.at(-1)!.x - 8} y={g.line.at(-1)!.y - 12} textAnchor="end" className="t-meta tnum" style={{ fill: "var(--ivory)", fontWeight: 600 }}>
             {fmt(g.last.lb)}
           </text>

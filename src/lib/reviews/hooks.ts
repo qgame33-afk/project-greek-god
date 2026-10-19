@@ -116,6 +116,7 @@ export function useSaveReview() {
     must(await sb().from("monthly_reviews").upsert({ ...v, generated_at: v.generated_at ?? new Date().toISOString() }, { onConflict: "user_id,month" }).select("*").single());
 
   const restore = useMutation({
+    networkMode: "always",
     mutationFn: async (prev: SavedReview | null | { month: ISODate; remove: true }) => {
       if (prev && "remove" in prev) {
         must(await sb().from("monthly_reviews").delete().eq("month", prev.month));
@@ -128,6 +129,7 @@ export function useSaveReview() {
   });
 
   const save = useMutation({
+    networkMode: "always",
     mutationFn: async (v: SaveReviewInput & { toast?: string }) =>
       write({ month: v.month, stats: v.stats as unknown as NonNullable<Json>, priorities: v.priorities as unknown as NonNullable<Json>, summary: v.summary }),
     onMutate: async (v) => {
@@ -162,6 +164,7 @@ export function useSaveReview() {
   });
 
   const remove = useMutation({
+    networkMode: "always",
     mutationFn: async (row: SavedReview) => {
       must(await sb().from("monthly_reviews").delete().eq("id", row.id));
       return row;
@@ -197,12 +200,14 @@ export function useSaveSummary() {
   const write = async (id: string, summary: string | null) => must(await sb().from("monthly_reviews").update({ summary }).eq("id", id).select("id,summary").single());
 
   const restore = useMutation({
+    networkMode: "always",
     mutationFn: async (v: { id: string; summary: string | null }) => write(v.id, v.summary),
     onError: (e: Error) => toast.error("Couldn't undo", { description: e.message }),
     onSettled: () => qc.invalidateQueries({ queryKey: ["monthly-reviews"] }),
   });
 
   const mutation = useMutation({
+    networkMode: "always",
     mutationFn: async (v: { row: SavedReview; summary: string | null; toast: string }) => write(v.row.id, v.summary),
     onMutate: async (v) => {
       await qc.cancelQueries({ queryKey: key });
@@ -228,6 +233,7 @@ export type AISummaryError = { code: string; message: string };
 
 export function useAISummary() {
   return useMutation<{ summary: string; model: string }, AISummaryError, { month: string; localDate: ISODate; digest: unknown }>({
+    networkMode: "always",
     mutationFn: async (body) => {
       let res: Response;
       try {

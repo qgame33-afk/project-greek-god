@@ -223,7 +223,7 @@ export function SectionHead({ title, children, className, id }: { title: ReactNo
 /** A section title in the voice (Cormorant) with an optional eyebrow above and a control beside. */
 export function SectionTitle({ eyebrow, title, children, id, className }: { eyebrow?: ReactNode; title: ReactNode; children?: ReactNode; id?: string; className?: string }) {
   return (
-    <div className={cn("mb-2 flex items-end justify-between gap-3", className)}>
+    <div className={cn("mb-2 flex flex-wrap items-end justify-between gap-3", className)}>
       <div className="min-w-0">
         {eyebrow && <p className="t-eyebrow">{eyebrow}</p>}
         <h2 id={id} className="t-title-2 mt-0.5 text-ivory">

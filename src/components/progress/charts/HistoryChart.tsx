@@ -41,11 +41,15 @@ export function HistoryChart({
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
+  const [rootPx, setRootPx] = useState(16);
   const [hover, setHover] = useState<number | null>(null);
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
-    const read = () => setW(Math.round(el.getBoundingClientRect().width));
+    const read = () => {
+      setW(Math.round(el.getBoundingClientRect().width));
+      setRootPx(parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+    };
     read();
     const ro = new ResizeObserver(read);
     ro.observe(el);
@@ -53,6 +57,18 @@ export function HistoryChart({
   }, []);
 
   const g = useMemo(() => geometry(points, w, height, invert, decimals), [points, w, height, invert, decimals]);
+  // At large text sizes the axis labels would stack on each other: keep only those a line apart.
+  const labelled = useMemo(() => {
+    const keep = new Set<number>();
+    let last = -Infinity;
+    for (const t of [...(g?.yTicks ?? [])].sort((a, b) => b.y - a.y)) {
+      if (Math.abs(t.y - last) >= rootPx * 1.05) {
+        keep.add(t.v);
+        last = t.y;
+      }
+    }
+    return keep;
+  }, [g, rootPx]);
   const active = hover != null ? g?.pts[hover] : readout === "always" ? g?.pts.at(-1) : undefined;
 
   const onMove = (e: PointerEvent<SVGSVGElement>) => {
@@ -79,9 +95,11 @@ export function HistoryChart({
           {g.yTicks.map((t) => (
             <g key={t.v}>
               <line x1={g.plot.x} x2={g.plot.x + g.plot.w} y1={t.y} y2={t.y} style={{ stroke: "var(--vein)" }} />
-              <text x={g.plot.x + g.plot.w + 6} y={t.y} dy="0.35em" className="t-meta tnum" style={{ fill: "var(--stone)" }}>
-                {t.label}
-              </text>
+              {labelled.has(t.v) && (
+                <text x={g.plot.x + g.plot.w + 6} y={t.y} dy="0.35em" className="t-meta tnum" style={{ fill: "var(--stone)" }}>
+                  {t.label}
+                </text>
+              )}
             </g>
           ))}
           <line x1={g.plot.x} x2={g.plot.x + g.plot.w} y1={g.base} y2={g.base} style={{ stroke: "var(--ui-line)" }} />

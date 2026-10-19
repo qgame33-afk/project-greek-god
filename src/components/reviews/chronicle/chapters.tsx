@@ -64,9 +64,10 @@ export function TitleChapter({ d }: { d: ChronicleData }) {
         {/* the bust fades into the night so the title can sit over its base */}
         <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-1/5 bg-gradient-to-t from-obsidian to-transparent" />
       </div>
-      <div className="relative -mt-6 w-full">
+      <div className="@container relative -mt-6 w-full">
         <p className="t-eyebrow tracking-[0.4em] text-leaf-300">{d.title.book}</p>
-        <h1 className="t-film mt-2 text-ivory" style={{ fontSize: "clamp(2rem, 11vw, 3rem)", letterSpacing: "0.2em" }}>
+        {/* sized to the column so the longest month (SEPTEMBER) fits at every text size */}
+        <h1 className="t-film mt-2 text-ivory" style={{ fontSize: "min(12cqi, 3rem)", letterSpacing: "0.2em" }}>
           {d.title.film}
         </h1>
         <p className="t-verdict mt-2 text-stone">{d.title.subtitle}.</p>
@@ -168,15 +169,15 @@ export function MountainChapter({ d }: { d: ChronicleData }) {
         {d.change.value && <span className="t-title-2 mb-2 text-stone">{d.unit}</span>}
       </div>
       <p className="t-callout mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-stone">
-        <span>{d.change.value ? `Trend ${d.change.value}${d.change.range ? ` (${d.change.range})` : ""}` : "Needs weigh-ins a week apart to show a change."}</span>
-        {d.change.value && <Tag kind="CALC" explain="The 7-day trend at the month's last weigh-in minus the trend at its first. A change over the month, not a weekly rate." />}
+        <span>{d.change.value ? `Trend change ${d.change.value}${d.change.range ? ` (${d.change.range})` : ""}` : "Needs weigh-ins a week apart to show a change."}</span>
+        {d.change.value && <Tag kind="CALC" explain="The average of the month's last 7 days of weigh-ins minus the average of its first 7. A change over the month, not a weekly rate." />}
       </p>
       {d.change.earlyWater && <p className="t-meta mt-2 text-stone">Includes early water and glycogen. The weekly pace uses the last 4 weeks.</p>}
       {d.series.length > 1 && (
         <figure className="mt-6">
           <MiniMountain from={from} to={to} series={d.series} weighIns={d.weighIns} terraces={d.terraces} unit={d.unit} />
           <figcaption className="sr-only">
-            The 7-day trend from {w1(d.series[0].lb, d.unit)} on {spoken(d.series[0].date)} to {w1(d.series.at(-1)!.lb, d.unit)} on {spoken(d.series.at(-1)!.date)}.
+            The month&apos;s 7-day trend line, ending at {w1(d.series.at(-1)!.lb, d.unit)} on {spoken(d.series.at(-1)!.date)}.
           </figcaption>
         </figure>
       )}

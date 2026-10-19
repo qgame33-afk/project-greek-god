@@ -61,7 +61,7 @@ export function WeighIns({ weights, trendByDate, unit }: { weights: WeightEntry[
               >
                 <span className="min-w-0 flex-1">
                   <span className="t-title-3 block text-ivory">{label}</span>
-                  <span className="t-meta block truncate text-stone">{w.notes ? w.notes : diff == null ? "First weigh-in" : `${signed(diff, 1)} from the one before`}</span>
+                  <span className="t-meta line-clamp-2 block break-words text-stone">{w.notes ? w.notes : diff == null ? "First weigh-in" : `${signed(diff, 1)} from the one before`}</span>
                 </span>
                 <span className="text-right">
                   <span className="t-num-s tnum block text-ivory">

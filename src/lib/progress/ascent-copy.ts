@@ -66,7 +66,7 @@ export function calorieCall(s: CalorieSuggestion, calories: number, unit: Weight
     case "insufficient":
       return {
         call: `Hold ${formatInt(calories)} kcal.`,
-        detail: `The calorie rule needs 8 weigh-ins over two weeks ${sinceTxt(s.since)}. ${s.weighIns} so far.`,
+        detail: `The calorie rule needs 8 weigh-ins spread over two weeks${s.since ? ` since your calorie change on ${dayMonth(s.since, today)}` : ""}. ${s.weighIns} so far.`,
         next: null,
       };
     case "on_track":

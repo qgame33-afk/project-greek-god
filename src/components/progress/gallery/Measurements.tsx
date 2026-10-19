@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
 import { Select } from "@/components/ui/field";
@@ -10,7 +11,7 @@ import { Collapse, ErrorNote, Skeleton } from "@/components/ui/misc";
 import { Sheet } from "@/components/ui/sheet";
 import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
-import { useToday } from "@/lib/data/core";
+import { isOffline, useToday } from "@/lib/data/core";
 import { useMeasurements, type Measurement } from "@/lib/data/body";
 import { useProfile, useSaveProfile } from "@/lib/data/profile";
 import { addMonths, monthLabel, monthName, type ISODate } from "@/lib/dates";
@@ -88,7 +89,9 @@ export function Measurements() {
               ariaLabel="Length unit"
               value={unit}
               onChange={(v) => {
-                if (v !== unit) saveProfile.mutate({ values: { length_unit: v } });
+                if (v === unit) return;
+                if (isOffline()) return void toast.error("You're offline. The unit didn't change.", { description: "Try again when you're back online." });
+                saveProfile.mutate({ values: { length_unit: v } });
               }}
               options={[
                 { value: "in", label: "in" },
@@ -130,7 +133,7 @@ function Disclosure({ label, open, onToggle, id, children }: { label: string; op
         <span className="t-callout font-semibold text-ivory">{label}</span>
         <ChevronDown className={cn("size-4 text-ash transition-transform duration-(--dur-fast)", open && "rotate-180")} strokeWidth={1.6} aria-hidden />
       </button>
-      <Collapse open={open} id={id}>
+      <Collapse open={open} id={id} className="relative">
         <div className="pb-4">{children}</div>
       </Collapse>
     </div>
@@ -159,8 +162,8 @@ function SiteRow({ rows, field, unit, today, onOpen }: { rows: Measurement[]; fi
     <li>
       <button type="button" onClick={onOpen} className="press-soft flex min-h-14 w-full items-center gap-3 py-2 text-left" aria-label={words}>
         <span aria-hidden className="min-w-0 flex-1">
-          <span className={cn("t-title-3 block truncate", s.latest != null ? "text-ivory" : "text-stone")}>{label}</span>
-          <span className="t-meta tnum block truncate text-stone">
+          <span className={cn("t-title-3 block truncate @max-[19rem]:whitespace-normal", s.latest != null ? "text-ivory" : "text-stone")}>{label}</span>
+          <span className="t-meta tnum block truncate @max-[19rem]:whitespace-normal text-stone">
             {s.latest == null ? "Not measured yet" : s.first != null && s.change != null ? `${val(s.first)} → ${val(s.latest)}` : `${dayMonth(s.latestDate!, today)}`}
           </span>
         </span>

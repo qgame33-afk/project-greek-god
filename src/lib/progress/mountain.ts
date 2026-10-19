@@ -286,7 +286,10 @@ export function zoomDomain(zoom: Zoom, today: ISODate, start: ISODate, target: I
 export function mountainGeometry(input: MountainInput): MountainGeometry {
   const { width, height, zoom, today, start, target, band, unit, pace: pc } = input;
   const measure = input.measure ?? estimate;
-  const plot: Box = { x: GUTTER.left, y: GUTTER.top, w: Math.max(40, width - GUTTER.left - GUTTER.right), h: Math.max(60, height - GUTTER.top - GUTTER.bottom) };
+  // The lb axis labels end 7 px left of the plot: at accessibility text sizes "170" is wider
+  // than the default gutter, so the gutter grows to the widest label rather than clipping it.
+  const left = Math.max(GUTTER.left, measure(unit === "kg" ? "00.0" : "000", "label") + 9);
+  const plot: Box = { x: left, y: GUTTER.top, w: Math.max(40, width - left - GUTTER.right), h: Math.max(60, height - GUTTER.top - GUTTER.bottom) };
   const firstW = input.weighIns.reduce<ISODate | null>((a, w) => (!a || w.date < a ? w.date : a), null);
   const [from, to] = zoomDomain(zoom, today, start.date, target, firstW);
   const t0 = parseISODate(from).getTime();

@@ -205,6 +205,7 @@ export function usePhotoUpload() {
   const { userId } = useUser();
   const del = usePhotoDelete({ quiet: true });
   return useMutation({
+    networkMode: "always",
     mutationFn: async (u: PhotoUpload): Promise<ProgressPhoto> => {
       if (!userId) throw new Error("Your session expired. Sign in again.");
       const bucket = sb().storage.from(BUCKET);
@@ -237,6 +238,7 @@ export function usePhotoDelete({ quiet = false }: { quiet?: boolean } = {}) {
   const { userId } = useUser();
   const key = ["photos", userId];
   return useMutation({
+    networkMode: "always",
     mutationFn: async (row: ProgressPhoto) => {
       const bucket = sb().storage.from(BUCKET);
       const res = await bucket.remove([row.storage_path, thumbPath(row.storage_path)]);

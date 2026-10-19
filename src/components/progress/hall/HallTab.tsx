@@ -70,7 +70,7 @@ export function HallTab() {
   return (
     <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-x-10">
       {/* Records */}
-      <section aria-labelledby="hall-records" className="min-w-0 lg:col-span-2">
+      <section aria-labelledby="hall-records" className="@container min-w-0 lg:col-span-2">
         {strength.error ? (
           <ErrorNote onRetry={() => qc.invalidateQueries({ queryKey: ["exercise-sets"] })}>Couldn&apos;t load your lifts. {(strength.error as Error).message}</ErrorNote>
         ) : strength.isLoading ? (

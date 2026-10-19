@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { WeightLogSheet } from "@/components/shared/WeightLogSheet";
 import { TabHeader } from "@/components/shell/TabHeader";
@@ -33,7 +33,6 @@ export function ProgressScreen() {
 }
 
 function Ascent() {
-  const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const today = useToday();
@@ -54,9 +53,11 @@ function Ascent() {
         else sp.set(k, v);
       }
       const qs = sp.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      // The native History API (kept in sync with useSearchParams by the router): switching a
+      // section never asks the server for the page, so it works with no signal.
+      window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
     },
-    [params, pathname, router],
+    [params, pathname],
   );
 
   const goTab = useCallback((t: AscentTab) => replace({ tab: t === "mountain" ? null : t, log: null }), [replace]);

@@ -28,6 +28,7 @@ export function useWeightMutations() {
   const key = ["weights", userId];
   const done = () => qc.invalidateQueries({ queryKey: ["weights"] });
   const save = useMutation({
+    networkMode: "always",
     /** One weigh-in per day: saving again on the same date replaces it. */
     mutationFn: async (v: { local_date: ISODate; weight_lb: number; notes?: string | null }) =>
       must(await sb().from("weight_entries").upsert({ ...v, measured_at: new Date().toISOString() }, { onConflict: "user_id,local_date" }).select("*").single()),
@@ -48,6 +49,7 @@ export function useWeightMutations() {
     onSettled: done,
   });
   const remove = useMutation({
+    networkMode: "always",
     mutationFn: async (row: WeightEntry) => {
       must(await sb().from("weight_entries").delete().eq("id", row.id));
       return row;
@@ -80,17 +82,20 @@ export function useMeasurementMutations() {
   const done = () => qc.invalidateQueries({ queryKey: ["measurements"] });
   const onError = (e: Error) => toast.error("Couldn't save", { description: e.message });
   const save = useMutation({
+    networkMode: "always",
     mutationFn: async (v: Omit<Insert<"body_measurements">, "user_id">) =>
       must(await sb().from("body_measurements").upsert(v, { onConflict: "user_id,local_date" }).select("*").single()),
     onSuccess: done,
     onError,
   });
   const update = useMutation({
+    networkMode: "always",
     mutationFn: async ({ id, values }: { id: string; values: Update<"body_measurements"> }) => must(await sb().from("body_measurements").update(values).eq("id", id).select("id").single()),
     onSuccess: done,
     onError,
   });
   const remove = useMutation({
+    networkMode: "always",
     mutationFn: async (id: string) => must(await sb().from("body_measurements").delete().eq("id", id)),
     onSuccess: done,
     onError,
@@ -142,11 +147,13 @@ export function useAthleticMutations() {
   const done = () => qc.invalidateQueries({ queryKey: ["athletic"] });
   const onError = (e: Error) => toast.error("Couldn't save", { description: e.message });
   const add = useMutation({
+    networkMode: "always",
     mutationFn: async (v: Omit<Insert<"athletic_tests">, "user_id">) => must(await sb().from("athletic_tests").insert(v).select("*").single()),
     onSuccess: done,
     onError,
   });
   const remove = useMutation({
+    networkMode: "always",
     mutationFn: async (id: string) => must(await sb().from("athletic_tests").delete().eq("id", id)),
     onSuccess: done,
     onError,

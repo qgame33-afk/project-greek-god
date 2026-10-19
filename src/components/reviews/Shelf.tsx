@@ -99,7 +99,7 @@ export function Shelf({ unit }: { unit: WeightUnit }) {
   };
 
   return (
-    <section id="ascent-chronicles" aria-labelledby="chronicles-h" className="scroll-mt-24">
+    <section id="ascent-chronicles" aria-labelledby="chronicles-h" className="@container scroll-mt-24">
       <div className="flex min-h-11 items-center justify-between gap-3">
         <h2 id="chronicles-h" className="t-title-2 text-ivory">
           Chronicles
@@ -137,14 +137,14 @@ export function Shelf({ unit }: { unit: WeightUnit }) {
                 <Link href={`/reviews/${b.slug}`} className="press-soft flex min-h-[4.5rem] min-w-0 flex-1 items-center gap-4 py-2.5">
                   <Spine numeral={b.numeral} state={b.current ? "writing" : "written"} />
                   <span className="min-w-0 flex-1">
-                    <span className="t-eyebrow block truncate">
+                    <span className="t-eyebrow block truncate @max-[19rem]:whitespace-normal">
                       Book {b.numeral}
                       {milestone ? ` · ${milestone}` : ""}
                     </span>
                     <span className="t-title-2 mt-0.5 block text-ivory">{b.film.charAt(0) + b.film.slice(1).toLowerCase()}</span>
-                    <span className="t-meta block truncate text-stone">{line}</span>
+                    <span className="t-meta block truncate @max-[19rem]:whitespace-normal text-stone">{line}</span>
                   </span>
-                  <ChevronRight className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
+                  <ChevronRight className="size-4 shrink-0 text-ash @max-[19rem]:hidden" strokeWidth={1.6} aria-hidden />
                 </Link>
                 {byMonth.has(b.month) && (
                   <button
@@ -170,13 +170,13 @@ export function Shelf({ unit }: { unit: WeightUnit }) {
             </span>
             <ChevronDown className={cn("size-4 text-ash transition-transform duration-(--dur-fast)", ahead && "rotate-180")} strokeWidth={1.6} aria-hidden />
           </button>
-          <Collapse open={ahead} id="books-ahead">
+          <Collapse open={ahead} id="books-ahead" className="relative">
             <ul className="divide-y divide-vein border-y border-vein">
               {future.map((m) => (
                 <li key={m.month} className="flex items-center gap-4 py-2.5">
                   <Spine numeral={roman(m.offset + 1)} state="ahead" />
                   <span className="min-w-0 flex-1">
-                    <span className="t-eyebrow block truncate">
+                    <span className="t-eyebrow block truncate @max-[19rem]:whitespace-normal">
                       {m.month.slice(0, 4)} · {m.title || "No milestone yet"}
                     </span>
                     <span className="t-title-2 mt-0.5 block text-stone">{monthLabelShort(m.month)}</span>

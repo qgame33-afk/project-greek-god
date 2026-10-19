@@ -103,11 +103,11 @@ function BookRow({ b, unit, today, saved }: { b: ShelfBook; unit: WeightUnit; to
             Book {b.numeral}
             {saved ? " · saved" : ""}
           </span>
-          <span className="t-film mt-1 block truncate text-ivory" style={{ fontSize: "1.5rem" }}>
+          <span className="t-film mt-1 block truncate text-ivory" style={{ fontSize: "min(1.5rem, 7.5vw)" }}>
             {b.film}
           </span>
           <span className="t-title-2 mt-0.5 block font-medium italic text-stone">{b.subtitle}</span>
-          <span className="t-meta tnum mt-1 block truncate text-stone">{line}</span>
+          <span className="t-meta tnum mt-1 block text-stone">{line}</span>
         </span>
         <ChevronRight className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
       </Link>

@@ -65,7 +65,7 @@ export function TerraceCard({ terrace, unit, today, onDismiss }: { terrace: Terr
       aria-label={`Terrace ${NUMBER_WORDS[terrace.index] ?? terrace.index}${terrace.final ? ", Olympus" : ""}, ${lbText} ${unit === "kg" ? "kilograms" : "pounds"}, reached ${reached}. Tap to close.`}
     >
       <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_30%,var(--leaf-tint),transparent_70%)]" />
-      <span aria-hidden className="t-film relative text-ivory" style={{ fontSize: "max(1.5rem, 24px)" }}>
+      <span aria-hidden className="t-film relative text-ivory" style={{ fontSize: "min(max(1.5rem, 24px), 7vw)" }}>
         {terrace.final ? "Olympus" : `Terrace ${terrace.numeral}`}
       </span>
       <span aria-hidden className="t-monument relative mt-1 text-leaf-300">

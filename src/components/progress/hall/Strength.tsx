@@ -51,7 +51,7 @@ export function Strength({ lifts, summaries, unit, today, onOpen }: { lifts: Hal
             </span>
             <ChevronDown className={cn("size-4 text-ash transition-transform duration-(--dur-fast)", others && "rotate-180")} strokeWidth={1.6} aria-hidden />
           </button>
-          <Collapse open={others} id="hall-others">
+          <Collapse open={others} id="hall-others" className="relative">
             <ul className="divide-y divide-vein border-y border-vein">
               {rest.map((l) => (
                 <LiftRow key={l.key} lift={l} s={summaries.get(l.key)!} unit={unit} today={today} onOpen={() => onOpen(l.key)} />
@@ -71,7 +71,7 @@ function LiftRow({ lift, s, unit, today, onOpen }: { lift: HallLift; s: LiftSumm
       <li>
         <button type="button" onClick={onOpen} className="press-soft flex min-h-16 w-full items-center gap-3 py-2.5 text-left" aria-label={`${lift.name}: not logged yet. Open`}>
           <span className="min-w-0 flex-1">
-            <span className="t-title-3 block truncate text-stone">{lift.name}</span>
+            <span className="t-title-3 block truncate @max-[19rem]:whitespace-normal text-stone">{lift.name}</span>
             <span className="t-meta block text-stone">Not logged yet</span>
           </span>
           <span className="t-num-s text-stone">—</span>
@@ -91,8 +91,8 @@ function LiftRow({ lift, s, unit, today, onOpen }: { lift: HallLift; s: LiftSumm
     <li>
       <button type="button" onClick={onOpen} className="press-soft flex min-h-16 w-full items-center gap-3 py-2.5 text-left" aria-label={words}>
         <span aria-hidden className="min-w-0 flex-1">
-          <span className="t-title-3 block truncate text-ivory">{lift.name}</span>
-          <span className="t-meta tnum block truncate text-stone">
+          <span className="t-title-3 block truncate @max-[19rem]:whitespace-normal text-ivory">{lift.name}</span>
+          <span className="t-meta tnum block truncate @max-[19rem]:whitespace-normal text-stone">
             {word} {one ? `· ${dayMonth(fl.first.date, today)}` : `${metricText(fl.first.value, mode, unit)} → ${metricText(fl.latest.value, mode, unit)}`}
           </span>
         </span>

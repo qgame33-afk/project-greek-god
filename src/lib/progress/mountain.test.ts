@@ -132,6 +132,33 @@ describe("axes and zoom", () => {
     for (const g of [build(f, "season"), build(f, "6w")]) for (const t of g.yTicks) expect(t.y).toBeGreaterThanOrEqual(g.plot.y - 0.5);
   });
 
+  it("widens the left gutter so large-text lb labels are never clipped", () => {
+    const f = FIXTURES[0];
+    const p = pace({ weighIns: f.w, today: f.today, profile: PROFILE });
+    const series = trendSeries(f.w, undefined, f.today);
+    const at = (perChar: number) =>
+      mountainGeometry({
+        width: 390,
+        height: 240,
+        zoom: "3m",
+        today: f.today,
+        start: { date: PROFILE.start_date, lb: PROFILE.start_weight_lb },
+        target: PROFILE.target_date,
+        band: p.band,
+        weighIns: f.w.map((x) => ({ date: x.local_date, lb: x.weight_lb })),
+        series,
+        pace: p,
+        terraces: terraces(p, series, PROFILE.start_weight_lb, p.band!.min),
+        unit: "lb",
+        ax: true,
+        measure: (t) => t.length * perChar,
+      });
+    expect(at(7).plot.x).toBe(40); // default text size: unchanged
+    const big = at(16); // ≈ 28 px root
+    expect(big.plot.x - 7).toBeGreaterThanOrEqual(3 * 16); // "170" fits left of its anchor
+    expect(big.plot.x + big.plot.w).toBeLessThanOrEqual(390);
+  });
+
   it("labels months on Season and 3M, weeks on 6W", () => {
     expect(build(FIXTURES[1], "season").xTicks.map((t) => t.label).join("")).toMatch(/^OND?J?F?M?A?M?J?J?A?$|^[A-Z]+$/);
     expect(build(FIXTURES[0], "3m").xTicks.map((t) => t.label)).toEqual(["Oct", "Nov", "Dec"]);

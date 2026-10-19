@@ -214,9 +214,9 @@ function TestRowView({ line, lu, today, loading, onLog, onOpen }: { line: TestLi
     <li className="flex items-center gap-1">
       <button type="button" onClick={v ? onOpen : onLog} className="press-soft flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5 text-left" aria-label={words}>
         <span aria-hidden className="min-w-0 flex-1">
-          <span className={cn("t-title-3 block truncate", v ? "text-ivory" : "text-stone")}>{label}</span>
+          <span className={cn("t-title-3 block truncate @max-[19rem]:whitespace-normal", v ? "text-ivory" : "text-stone")}>{label}</span>
           <span className={cn("t-meta tnum flex min-w-0 items-center gap-1.5", line.improved ? "text-leaf-300" : "text-stone")}>
-            <span className="truncate">{meta}</span>
+            <span className="truncate @max-[19rem]:whitespace-normal">{meta}</span>
             {line.latestIsRecord && <LaurelSprig className="size-3.5 shrink-0 text-leaf-300" strokeWidth={1.5} />}
           </span>
         </span>

@@ -90,7 +90,7 @@ export function RecordPlaques({ records, unit, today, onOpen, limit = 5 }: { rec
                 <LaurelSprig className="size-5 text-leaf-300" strokeWidth={1.5} />
               </span>
               <span aria-hidden className="min-w-0 flex-1">
-                <span className="t-title-3 block truncate text-ivory">{r.name}</span>
+                <span className="t-title-3 block truncate @max-[19rem]:whitespace-normal text-ivory">{r.name}</span>
                 <span className="t-meta tnum block text-stone">
                   {setText(r, unit)} · {dayMonth(r.date, today)}
                 </span>

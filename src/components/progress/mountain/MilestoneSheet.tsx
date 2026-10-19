@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Sheet } from "@/components/ui/sheet";
+import { isOffline } from "@/lib/data/core";
 import { useProfile, useSaveProfile } from "@/lib/data/profile";
 import { monthName, type ISODate } from "@/lib/dates";
 import type { Json } from "@/lib/supabase/database.types";
@@ -43,6 +45,8 @@ export function MilestoneSheet({ entry, total, onClose }: { entry: MilestoneEntr
 
   const commit = (next: ReturnType<typeof parseRoadmap>) => {
     if (save.isPending) return;
+    // A profile write waits for a connection; say so now instead of a spinner that never ends.
+    if (isOffline()) return void toast.error("You're offline. The milestone didn't change.", { description: "Try again when you're back online." });
     save.mutate({ values: { roadmap: next as unknown as NonNullable<Json> } }, { onSuccess: () => onClose() });
   };
   const saveText = () => {

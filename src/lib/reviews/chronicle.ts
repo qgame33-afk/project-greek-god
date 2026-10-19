@@ -105,8 +105,8 @@ export function titleCredits(s: Pick<ReviewStats, "physical" | "training">, unit
 }
 
 /**
- * Chapter III's month figure: "Trend +4.0 lb (1 → 30 Sep)", from the review's 7-day trend at the
- * month's first and last weigh-ins (lib/reviews/compute). With `earlyWater` the copy adds that the
+ * Chapter III's month figure: "Trend +4.0 lb (1 → 30 Sep)", from the review's averages of the
+ * month's first and last 7 days of weigh-ins (lib/reviews/compute). With `earlyWater` the copy adds that the
  * month includes the programme's first 14 days.
  */
 export function monthChange(s: Pick<ReviewStats, "physical">, unit: WeightUnit): { value: string | null; range: string | null; earlyWater: boolean } {
