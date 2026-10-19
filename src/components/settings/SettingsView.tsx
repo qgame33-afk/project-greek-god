@@ -27,6 +27,7 @@ import { ControlRow, Group, GroupSkeleton, InfoRow, LinkRow, NavRow, SwitchRow }
 import { DailyGoalSheet, GoalHistorySheet, MacroCheck, NutritionSheet } from "./NutritionSheets";
 import { ReminderSection } from "./ReminderSection";
 import { TimezoneSheet } from "./TrainingSheets";
+import { blockedOffline } from "./offline";
 import { useCommit } from "./useCommit";
 
 type SheetId =
@@ -226,9 +227,9 @@ export function SettingsView() {
           <ReminderSection />
 
           <Group id="workout" title="Workout">
-            <SwitchRow label="Tap ✓ logs shown values" detail="One tap logs the prefilled weight and reps." checked={prefs.tapLogsGhost} onChange={(v) => savePrefs.mutate({ tapLogsGhost: v })} />
-            <SwitchRow label="Use system keyboard" detail="Type set values with the phone keyboard instead of the number pad." checked={prefs.systemKeyboard} onChange={(v) => savePrefs.mutate({ systemKeyboard: v })} />
-            <SwitchRow label="Rest chime" detail="A soft two-note chime when rest is over." checked={prefs.restChime} onChange={(v) => savePrefs.mutate({ restChime: v })} />
+            <SwitchRow label="Tap ✓ logs shown values" detail="One tap logs the prefilled weight and reps." checked={prefs.tapLogsGhost} onChange={(v) => !blockedOffline() && savePrefs.mutate({ tapLogsGhost: v })} />
+            <SwitchRow label="Use system keyboard" detail="Type set values with the phone keyboard instead of the number pad." checked={prefs.systemKeyboard} onChange={(v) => !blockedOffline() && savePrefs.mutate({ systemKeyboard: v })} />
+            <SwitchRow label="Rest chime" detail="A soft two-note chime when rest is over." checked={prefs.restChime} onChange={(v) => !blockedOffline() && savePrefs.mutate({ restChime: v })} />
           </Group>
 
           <AppearanceGroup profile={profile} />

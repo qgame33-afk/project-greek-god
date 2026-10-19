@@ -5,6 +5,7 @@ import { saveAppearance, useAppearance, type MotionPref, type NightPref } from "
 import { useSavePrefs, type Profile } from "@/lib/data/profile";
 import { parseAppPrefs } from "@/lib/prefs";
 import { ControlRow, Group, SwitchRow } from "./List";
+import { blockedOffline } from "./offline";
 
 /**
  * Settings → Appearance (docs/DESIGN-V2.md §3.10, §1.1.4): Motion, Reduce transparency and Night
@@ -49,7 +50,7 @@ export function AppearanceGroup({ profile }: { profile: Profile }) {
         label="Gym Mode auto"
         detail="Open straight into Gym Mode when a session is running."
         checked={gymAuto}
-        onChange={(v) => savePrefs.mutate({ gymAuto: v })}
+        onChange={(v) => !blockedOffline() && savePrefs.mutate({ gymAuto: v })}
       />
     </Group>
   );

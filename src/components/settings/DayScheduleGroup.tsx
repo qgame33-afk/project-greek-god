@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { useSavePrefs, type Profile } from "@/lib/data/profile";
+import { blockedOffline } from "./offline";
 import { formatClock, isTime, parseAppPrefs, toMinutes, type DaySchedule, type PrefsPatch } from "@/lib/prefs";
 import { ControlRow, Group } from "./List";
 import { MiniStepper } from "./inputs";
@@ -45,6 +46,7 @@ export function DayScheduleGroup({ profile }: { profile: Profile }) {
   const day = parseAppPrefs(profile.prefs).day;
 
   const commit = (patch: PrefsPatch, undo: PrefsPatch, message: string) =>
+    !blockedOffline() &&
     save.mutate(patch, {
       onSuccess: () => toast(message, { duration: 6000, action: { label: "Undo", onClick: () => save.mutate(undo) } }),
     });
