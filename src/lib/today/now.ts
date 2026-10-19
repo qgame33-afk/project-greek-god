@@ -3,7 +3,7 @@
 // is missing the caller shows "—" and the next step instead of a guess.
 
 import { daysBetween, monthName, parseISODate, dayName, addDays, monthStart, addMonths, type ISODate } from "@/lib/dates";
-import type { DayItem } from "@/lib/now/day-engine";
+import { DAY_START, type DayItem } from "@/lib/now/day-engine";
 import type { HabitStatus } from "@/lib/habits";
 import { roman } from "@/lib/progress/pace";
 import type { CheckinDraft } from "@/lib/recovery/checkin";
@@ -303,3 +303,12 @@ export function minuteOn(iso: string | null | undefined, date: ISODate): number 
 
 /** Tomorrow's date (for "Tomorrow · Push A"). */
 export const tomorrowOf = (d: ISODate) => addDays(d, 1);
+
+/**
+ * The day the Seal card closes. From midnight until DAY_START (05:00) the engine is still in Seal,
+ * but the day being closed is the one that just ended: sealing at 00:40 must not seal the new day
+ * (that would hide its Later today and read "The day, sealed." that evening).
+ */
+export function closingDate(today: ISODate, now: number): ISODate {
+  return now < DAY_START ? addDays(today, -1) : today;
+}

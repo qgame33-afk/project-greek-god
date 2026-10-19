@@ -538,12 +538,13 @@ function LaterItem({ m, item, now, onBegin, starting }: { m: NowModel; item: Day
   if (item.kind === "session") {
     const late = item.at != null ? item.at < now : now >= 18 * 60;
     return (
-      <div className="flex min-h-14 items-center gap-3 py-1">
+      <div className="flex min-h-14 items-center gap-3 py-1 @max-[19rem]:flex-wrap">
         <span className="grid size-10 shrink-0 place-items-center rounded-full text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)]">
           <TrainColumn className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="t-title-3 truncate text-ivory">
+          {/* at accessibility sizes the name wraps and Begin takes its own row, so "Push A" never reads "Pu…" */}
+          <p className="t-title-3 truncate text-ivory @max-[19rem]:whitespace-normal">
             {item.at != null && <span className="tnum text-stone">{clock(item.at).toLowerCase()} · </span>}
             {item.label}
           </p>
@@ -553,7 +554,7 @@ function LaterItem({ m, item, now, onBegin, starting }: { m: NowModel; item: Day
           </p>
         </div>
         {!m.active && (
-          <Button variant="outline" size="sm" className="rounded-full" loading={starting} onClick={onBegin} aria-label={`Begin ${item.label}`}>
+          <Button variant="outline" size="sm" className="rounded-full @max-[19rem]:ml-13" loading={starting} onClick={onBegin} aria-label={`Begin ${item.label}`}>
             <Play className="size-3.5 fill-current" aria-hidden />
             Begin
           </Button>

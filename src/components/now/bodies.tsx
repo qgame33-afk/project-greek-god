@@ -12,10 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Coin } from "@/components/ui/coin";
 import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
-import { formatDuration } from "@/lib/dates";
+import { addDays as addDaysISO, dayName, formatDuration } from "@/lib/dates";
 import { formatClock as clock } from "@/lib/prefs";
 import type { Guidance } from "@/lib/recovery/guidance";
-import { keyLift, readinessChip, restDayWords, sleepShort } from "@/lib/today/now";
+import { keyLift, readinessChip, restDayWords, ritesOf, sleepShort } from "@/lib/today/now";
 import { restDayRecommendations } from "@/lib/today/recovery-recs";
 import { formatClock, remainingSec } from "@/lib/workout/rest";
 import { formatInt, formatLoad, round, toDisplayWeight } from "@/lib/units";
@@ -42,8 +42,9 @@ export function CardHead({
 }) {
   return (
     <div>
-      <div className="flex min-h-5 items-center justify-between gap-3">
-        {/* one line on a phone; at accessibility sizes it wraps rather than cutting the phase name */}
+      <div className="flex min-h-5 items-center justify-between gap-3 @max-[19rem]:flex-wrap @max-[19rem]:gap-y-0">
+        {/* one line on a phone; at accessibility sizes it wraps (and its right-hand chip drops under it)
+            rather than cutting the phase name */}
         <p className="t-eyebrow truncate @max-[19rem]:whitespace-normal">{eyebrow}</p>
         {right}
       </div>
@@ -74,9 +75,10 @@ export function Consequence({ m, meal, verb = "eat" }: { m: NowModel; meal: Pick
 export function MealRow({ meal, now, blocked, className }: { meal: NowMeal; now: number; blocked?: boolean; className?: string }) {
   const past = !meal.eaten && meal.at + 120 < now;
   return (
-    <div className={cn("flex min-h-16 items-center gap-3", className)}>
+    <div className={cn("flex min-h-16 items-center gap-3 @max-[19rem]:flex-wrap", className)}>
       <Coin state={meal.eaten ? "eaten" : past ? "missed" : "planned"} glyph={<FuelAmphora />} size={40} />
-      <div className="min-w-0 flex-1">
+      {/* at accessibility sizes the name and macros keep the row's width and Eaten · ⋯ drop under them */}
+      <div className="min-w-0 flex-1 @max-[19rem]:basis-[calc(100%-40px-0.75rem)]">
         <p className="t-title-3 line-clamp-2 text-ivory">{meal.name}</p>
         <p className="t-meta tnum mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-ash">
           <span>
@@ -86,7 +88,7 @@ export function MealRow({ meal, now, blocked, className }: { meal: NowMeal; now:
           {!meal.eaten && <Tag kind="PLAN" />}
         </p>
       </div>
-      <MealAction meal={meal} compact blocked={blocked} />
+      <MealAction meal={meal} compact blocked={blocked} className="@max-[19rem]:ml-[calc(40px+0.75rem)] @max-[19rem]:items-start" />
     </div>
   );
 }
@@ -142,11 +144,11 @@ export function TrainBody({
         right={<ReadyChip g={guidance} templateKey={t.key} at={checkinAt} />}
         titleId={titleId}
         title={
-          <span className="flex items-end justify-between gap-3">
+          <span className="flex items-end justify-between gap-3 @max-[19rem]:flex-col @max-[19rem]:items-start @max-[19rem]:gap-1">
             <ViewTransition name="session-title">
               <span className="min-w-0">{t.name}</span>
             </ViewTransition>
-            <span className="t-meta tnum mb-1 shrink-0 text-right font-sans not-italic text-stone">
+            <span className="t-meta tnum mb-1 shrink-0 text-right font-sans not-italic text-stone @max-[19rem]:text-left">
               {m.durationMin ? <span className="block">~{m.durationMin} min</span> : null}
               <span className="block">
                 {lifts(t.exercises.length)} · {m.setCount} sets
@@ -163,9 +165,9 @@ export function TrainBody({
         }
       />
       {key && (
-        <div className="mt-3 flex items-center gap-3 rounded-field bg-m1 px-3.5 py-2.5 shadow-[inset_0_0_0_1px_var(--vein)]">
-          <div className="min-w-0 flex-1">
-            <p className="t-title-3 truncate text-ivory">{key.name}</p>
+        <div className="mt-3 flex items-center gap-3 rounded-field bg-m1 px-3.5 py-2.5 shadow-[inset_0_0_0_1px_var(--vein)] @max-[19rem]:flex-wrap @max-[19rem]:gap-y-1">
+          <div className="min-w-0 flex-1 @max-[19rem]:basis-full">
+            <p className="t-title-3 truncate text-ivory @max-[19rem]:whitespace-normal">{key.name}</p>
             <p className="t-meta tnum mt-0.5 flex items-center gap-1.5 text-ash">
               <span className="truncate">{key.from ? `from ${key.from}` : "First time · find a working load"}</span>
               {key.target && <Tag kind="RULE" explain={key.reason} />}
@@ -445,8 +447,8 @@ function MealRowLead({ meal }: { meal: NowMeal }) {
   );
 }
 
-function TomorrowLine({ m, extra }: { m: NowModel; extra?: string | null }) {
-  const n = m.next;
+function TomorrowLine({ m, extra, next }: { m: NowModel; extra?: string | null; next?: NowModel["next"] | { when: string; name: string; minutes: number } }) {
+  const n = next ?? m.next;
   if (!n && !extra) return null;
   return (
     <p className="t-meta mt-3 flex flex-wrap gap-x-2 border-t border-vein pt-3 text-stone">
@@ -454,7 +456,8 @@ function TomorrowLine({ m, extra }: { m: NowModel; extra?: string | null }) {
       {extra && n && <span aria-hidden>·</span>}
       {n && (
         <span>
-          {n.when} · <span className="text-ivory">{n.name}</span> · ~{n.minutes} min
+          {n.when} · <span className="text-ivory">{n.name}</span>
+          {n.minutes > 0 && ` · ~${n.minutes} min`}
         </span>
       )}
     </p>
@@ -470,6 +473,7 @@ export function SealBody({
   onSeal,
   rites,
   compact,
+  night,
 }: {
   m: NowModel;
   titleId: string;
@@ -477,10 +481,15 @@ export function SealBody({
   onSeal: () => void;
   rites: { done: number; total: number };
   compact?: boolean;
+  /** Midnight to 05:00: the card closes yesterday (the day that just ended), from its mission day. */
+  night?: boolean;
 }) {
+  if (night) return <NightSealBody m={m} titleId={titleId} sealed={sealed} onSeal={onSeal} compact={compact} />;
   const kcal = Math.round(m.food.calories);
   const protein = Math.round(m.food.protein);
   const skippedSession = m.template && !m.doneToday && !m.active && !m.sessionsFailed;
+  // nothing logged (or the log didn't load) is "—", never a summary of 0 g (law 1)
+  const noFood = m.foodFailed || m.foodLogged === 0;
   const stat = (label: string, value: ReactNode, earned: boolean, spoken: string) => (
     <div className="min-w-0" aria-label={spoken} role="group">
       <p className="t-eyebrow">{label}</p>
@@ -502,8 +511,18 @@ export function SealBody({
         title={sealed ? "The day, sealed." : "Close the day"}
       />
       <div className={cn("mt-3 grid gap-x-4 gap-y-3 @max-[19rem]:grid-cols-1", compact ? "grid-cols-4 gap-x-2" : "grid-cols-2")}>
-        {stat("Protein", m.foodFailed ? "—" : <>{protein}<span className="t-meta text-ash"> / {m.profile.protein_goal} g</span></>, protein >= m.profile.protein_goal, `Protein ${protein} of ${m.profile.protein_goal} grams`)}
-        {stat("Calories", m.foodFailed ? "—" : <>{formatInt(kcal)}<span className="t-meta text-ash"> / {formatInt(m.profile.calorie_goal)}</span></>, false, `Calories ${kcal} of ${m.profile.calorie_goal}`)}
+        {stat(
+          "Protein",
+          noFood ? "—" : <>{protein}<span className="t-meta text-ash"> / {m.profile.protein_goal} g</span></>,
+          !noFood && protein >= m.profile.protein_goal,
+          noFood ? "Protein: nothing logged today" : `Protein ${protein} of ${m.profile.protein_goal} grams`,
+        )}
+        {stat(
+          "Calories",
+          noFood ? "—" : <>{formatInt(kcal)}<span className="t-meta text-ash"> / {formatInt(m.profile.calorie_goal)}</span></>,
+          false,
+          noFood ? "Calories: nothing logged today" : `Calories ${kcal} of ${m.profile.calorie_goal}`,
+        )}
         {stat("Sessions", m.sealed.planned && !m.sessionsFailed ? <>{m.sealed.done}<span className="t-meta text-ash"> of {m.sealed.planned}</span></> : "—", m.sealed.planned > 0 && m.sealed.done >= m.sealed.planned, `${m.sealed.done} of ${m.sealed.planned} sessions this week`)}
         {stat("Rites", rites.total ? <>{rites.done}<span className="t-meta text-ash"> of {rites.total}</span></> : "—", rites.total > 0 && rites.done === rites.total, `${rites.done} of ${rites.total} rites`)}
       </div>
@@ -518,6 +537,74 @@ export function SealBody({
         </Button>
       )}
       <TomorrowLine m={m} />
+    </>
+  );
+}
+
+/**
+ * Seal between midnight and 05:00: the summary of the day that just ended (yesterday's food, session
+ * and rites), sealing yesterday, and the session ahead today. Never today's zeros as a "summary", and
+ * never "Push A wasn't logged" for a session that is still hours away.
+ */
+function NightSealBody({ m, titleId, sealed, onSeal, compact }: { m: NowModel; titleId: string; sealed: boolean; onSeal: () => void; compact?: boolean }) {
+  const y = m.yesterday;
+  const day = dayName(addDaysISO(m.today, -1));
+  const protein = y && y.foodLogged ? Math.round(y.protein) : null;
+  const kcal = y && y.foodLogged ? Math.round(y.calories) : null;
+  const r = y ? ritesOf(y.statuses) : null;
+  const stat = (label: string, value: ReactNode, earned: boolean, spoken: string) => (
+    <div className="min-w-0" aria-label={spoken} role="group">
+      <p className="t-eyebrow">{label}</p>
+      <p className={cn(compact ? "t-num-s" : "t-num-m", "tnum mt-1 truncate", earned ? "text-leaf-300" : "text-ivory")} aria-hidden>
+        {value}
+      </p>
+    </div>
+  );
+  const goalP = m.profile.protein_goal;
+  const sessionValue = !y ? "—" : y.isTrainingDay ? (y.workoutDone ? (y.sessionName ?? "Sealed") : "—") : "Rest";
+  const sessionSpoken = !y
+    ? "Session: not loaded"
+    : y.isTrainingDay
+      ? y.workoutDone
+        ? `Session: ${y.sessionName ?? "the session"} sealed`
+        : `Session: ${y.sessionName ?? "the session"} not logged`
+      : "Session: rest day";
+  // the session ahead after he sleeps is today's, unless it already ran
+  const ahead = m.template && !m.doneToday && !m.active ? { when: "Today", name: m.template.name, minutes: m.durationMin ?? 0 } : undefined;
+  return (
+    <>
+      <CardHead
+        eyebrow={
+          <span className="inline-flex items-center gap-2">
+            {sealed && <span aria-hidden className="seal-in inline-block size-2 rotate-45 bg-leaf-300" />}
+            {sealed ? `${day} sealed` : `Seal · ${day} in summary`}
+          </span>
+        }
+        titleId={titleId}
+        title={sealed ? "The day, sealed." : "Close the day"}
+      />
+      <div className={cn("mt-3 grid gap-x-4 gap-y-3 @max-[19rem]:grid-cols-1", compact ? "grid-cols-4 gap-x-2" : "grid-cols-2")}>
+        {stat(
+          "Protein",
+          protein == null ? "—" : <>{protein}<span className="t-meta text-ash"> / {goalP} g</span></>,
+          protein != null && protein >= goalP,
+          protein == null ? `Protein: nothing logged ${day}` : `Protein ${protein} of ${goalP} grams ${day}`,
+        )}
+        {stat(
+          "Calories",
+          kcal == null ? "—" : <>{formatInt(kcal)}<span className="t-meta text-ash"> / {formatInt(m.profile.calorie_goal)}</span></>,
+          false,
+          kcal == null ? `Calories: nothing logged ${day}` : `Calories ${kcal} of ${m.profile.calorie_goal} ${day}`,
+        )}
+        {stat("Session", sessionValue, !!y?.workoutDone, sessionSpoken)}
+        {stat("Rites", r && r.total ? <>{r.done}<span className="t-meta text-ash"> of {r.total}</span></> : "—", !!r && r.total > 0 && r.done === r.total, r ? `${r.done} of ${r.total} rites ${day}` : "Rites: not loaded")}
+      </div>
+      {!sealed && (
+        <Button variant="primary" size="lg" block className="mt-3" onClick={onSeal}>
+          Seal the day
+        </Button>
+      )}
+      <TomorrowLine m={m} next={ahead} />
     </>
   );
 }

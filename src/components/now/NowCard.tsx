@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import { ErrorNote } from "@/components/ui/misc";
 import { cn } from "@/lib/cn";
-import type { DayState, Phase } from "@/lib/now/day-engine";
+import { DAY_START, type DayState, type Phase } from "@/lib/now/day-engine";
 import { DuskBody, FuelBody, LiveBody, RefuelBody, RestLine, SealBody, TrainBody } from "./bodies";
 import { usePageVisible } from "./clock";
 import { DawnBody } from "./Dawn";
@@ -55,9 +55,11 @@ export function NowCard({
   const usesMeals = phase === "fuel" || phase === "refuel" || phase === "dusk" || phase === "train";
   const problems: { text: string; retry: () => void }[] = [];
   if (phase === "dawn" && m.recoveryFailed) problems.push({ text: "this morning's check-in", retry: data.refetch.recovery });
-  if ((phase === "train" || phase === "refuel" || phase === "seal") && m.sessionsFailed) problems.push({ text: "today's sessions", retry: data.refetch.sessions });
+  // from midnight to 05:00 the Seal card closes yesterday (closingDate), not the day that just began
+  const night = phase === "seal" && now < DAY_START;
+  if ((phase === "train" || phase === "refuel" || (phase === "seal" && !night)) && m.sessionsFailed) problems.push({ text: "today's sessions", retry: data.refetch.sessions });
   if (usesMeals && m.mealsFailed) problems.push({ text: "today's planned meals", retry: data.refetch.meals });
-  if ((usesMeals || phase === "seal") && m.foodFailed) problems.push({ text: "today's food log", retry: data.refetch.food });
+  if ((usesMeals || (phase === "seal" && !night)) && m.foodFailed) problems.push({ text: "today's food log", retry: data.refetch.food });
   const errorNote = problems.length ? (
     <ErrorNote className="mb-3" onRetry={() => problems.forEach((p) => p.retry())}>
       Couldn&apos;t load {problems.map((p) => p.text).join(" and ")}
@@ -93,7 +95,7 @@ export function NowCard({
       body = <DuskBody m={m} meal={nextMeal} now={now} titleId={titleId} ritesLeft={Math.max(0, rites.total - rites.done)} />;
       break;
     case "seal":
-      body = <SealBody m={m} titleId={titleId} sealed={sealed} onSeal={onSeal} rites={rites} compact={compact} />;
+      body = <SealBody m={m} titleId={titleId} sealed={sealed} onSeal={onSeal} rites={rites} compact={compact} night={night} />;
       break;
     default:
       body = <FuelBody m={m} meal={nextMeal} now={now} titleId={titleId} restLine={rest ? <RestLine m={m} /> : null} compact={compact} />;

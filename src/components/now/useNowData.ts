@@ -61,7 +61,8 @@ export function useNowData() {
   const recovery = useRecovery(addDays(today, -13), today);
   const prs = usePREvents(addDays(today, -365), today);
   const vb = useVolleyball(week[0], week[6]);
-  const mission = useMissionDays(today, today);
+  // yesterday too: from midnight to 05:00 the Seal card closes the day that just ended
+  const mission = useMissionDays(addDays(today, -1), today);
   const workout = useStartWorkout();
   const plan = usePlan(today);
   const mealPrefs = useMealPrefs();
@@ -198,6 +199,7 @@ export function useNowData() {
       record: records[0] ?? null,
       sessionRecords,
       mission: mission.days.find((d) => d.date === today) ?? null,
+      yesterday: mission.days.find((d) => d.date === addDays(today, -1)) ?? null,
       history: history.data ?? {},
     };
   }, [

@@ -7,6 +7,7 @@ import {
   checkinPatchPayload,
   chipFor,
   chronicleDue,
+  closingDate,
   dayEyebrow,
   earlierSummary,
   ENERGY_CHIPS,
@@ -239,5 +240,16 @@ describe("keepTail", () => {
     expect(keepTail("No weigh-in today · last 165.9 Sat")).toBe("No weigh-in today · last\u00A0165.9\u00A0Sat");
     expect(keepTail("Scale 168.6 · 7:04 am")).toBe("Scale 168.6 · 7:04\u00A0am");
     expect(keepTail("No weigh-ins yet")).toBe("No weigh-ins yet");
+  });
+});
+
+describe("closingDate", () => {
+  it("closes the day that just ended until 05:00, then today", () => {
+    expect(closingDate("2026-10-19", 0)).toBe("2026-10-18");
+    expect(closingDate("2026-10-19", 40)).toBe("2026-10-18");
+    expect(closingDate("2026-10-19", 4 * 60 + 59)).toBe("2026-10-18");
+    expect(closingDate("2026-10-19", 5 * 60)).toBe("2026-10-19");
+    expect(closingDate("2026-10-19", 21 * 60 + 30)).toBe("2026-10-19");
+    expect(closingDate("2026-11-01", 30)).toBe("2026-10-31");
   });
 });

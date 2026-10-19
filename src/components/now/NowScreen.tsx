@@ -73,7 +73,7 @@ function useShortViewport() {
 }
 
 function NowContent({ data, m }: { data: NowData; m: NowModel }) {
-  const { state, now, input } = useDayInput(m);
+  const { state, now, input, sealDate } = useDayInput(m);
   useRefreshRestored();
   const router = useRouter();
   const pathname = usePathname();
@@ -114,7 +114,7 @@ function NowContent({ data, m }: { data: NowData; m: NowModel }) {
 
   const rites = useMemo(() => ritesOf(m.mission?.statuses ?? []), [m.mission]);
   const sealed = !!input?.sealed;
-  const onSeal = () => writeLocal(keys.sealed(m.today), new Date().toISOString());
+  const onSeal = () => writeLocal(keys.sealed(sealDate), new Date().toISOString());
   const onLater = () => {
     setForceDawn(false);
     writeLocal(keys.dawnLater(m.today), String(now));

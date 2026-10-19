@@ -5,7 +5,7 @@ import { dayState, type DayInput, type DayState } from "@/lib/now/day-engine";
 import { normalizeSettings } from "@/lib/reminders/schedule";
 import { dawnCheckinDone } from "@/lib/recovery/prefill";
 import { toMinutes } from "@/lib/prefs";
-import { minuteOn } from "@/lib/today/now";
+import { closingDate, minuteOn } from "@/lib/today/now";
 import { useMinuteOfDay } from "./clock";
 import { keys, useLocal } from "./local";
 import type { NowModel } from "./useNowData";
@@ -16,11 +16,13 @@ import type { NowModel } from "./useNowData";
  * meals placed with plannedTime(), Dawn's check-in and weigh-in, and the per-device flags (Dawn put
  * off, the day sealed). Re-evaluates every minute and on focus.
  */
-export function useDayInput(m: NowModel | null): { input: DayInput | null; state: DayState | null; now: number } {
+export function useDayInput(m: NowModel | null): { input: DayInput | null; state: DayState | null; now: number; sealDate: string } {
   const now = useMinuteOfDay();
   const date = m?.today ?? "";
   const later = useLocal(keys.dawnLater(date));
-  const sealed = useLocal(keys.sealed(date)) != null;
+  // after midnight (before 05:00) the Seal card closes yesterday, so its seal is yesterday's
+  const sealDate = date ? closingDate(date, now) : "";
+  const sealed = useLocal(keys.sealed(sealDate)) != null;
 
   const input = useMemo<DayInput | null>(() => {
     if (!m) return null;
@@ -63,5 +65,5 @@ export function useDayInput(m: NowModel | null): { input: DayInput | null; state
   }, [m, date, now, later, sealed]);
 
   const state = useMemo(() => (input ? dayState(input) : null), [input]);
-  return { input, state, now };
+  return { input, state, now, sealDate };
 }

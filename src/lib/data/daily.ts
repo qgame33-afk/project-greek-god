@@ -18,6 +18,12 @@ export interface MissionDay {
   ratio: number;
   workoutDone: boolean;
   isTrainingDay: boolean;
+  /** Logged food totals for the day (0 when nothing was logged; check `foodLogged`). */
+  calories: number;
+  protein: number;
+  foodLogged: boolean;
+  /** The session logged that day (done preferred), else the planned one. */
+  sessionName: string | null;
 }
 
 /**
@@ -82,7 +88,17 @@ export function useMissionDays(from: ISODate, to: ISODate) {
       // a custom habit only counts from the day it was created — adding one never rewrites history
       const statuses = evaluate(habitsOn(defList, date), facts, goals);
       const s = dayScore(statuses);
-      return { date, statuses, ...s, workoutDone: facts.workoutDone, isTrainingDay: facts.isTrainingDay };
+      return {
+        date,
+        statuses,
+        ...s,
+        workoutDone: facts.workoutDone,
+        isTrainingDay: facts.isTrainingDay,
+        calories: facts.calories,
+        protein: facts.protein,
+        foodLogged: !!f,
+        sessionName: facts.sessionName ?? facts.plannedName,
+      };
     });
   }, [profile, defs.data, sessions.data, food.data, water.data, weights, recovery.data, logs.data, plans.data, byKey, from, to]);
 
