@@ -11,6 +11,7 @@ import { fieldLabel, planApply, type ApplyProfile } from "@/lib/coach/apply";
 import { useApplyProfileChange, useRevertProfileChange } from "@/lib/coach/hooks";
 import { suggestionIsCurrent } from "@/lib/coach/suggestions";
 import type { CoachSuggestion, SuggestionStatus } from "@/lib/coach/types";
+import { isOffline } from "@/lib/data/core";
 import type { Profile } from "@/lib/data/profile";
 import { formatInt } from "@/lib/units";
 
@@ -81,6 +82,11 @@ export function Proposal({ suggestion: s, profile, onStatus }: { suggestion: Coa
 
   const apply = () => {
     if (!plan || busy.current) return;
+    // offline: say so at once rather than spinning until the connection comes back
+    if (isOffline()) {
+      toast.error("You're offline", { description: `${label} stays at ${s.currentLabel ?? "its current value"}. Apply it again once you're back online.` });
+      return;
+    }
     busy.current = true;
     // mutateAsync, so the toast's Undo still works after this card unmounts (sheet closed)
     save
