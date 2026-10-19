@@ -411,7 +411,11 @@ export function DuskBody({ m, meal, now, titleId, ritesLeft }: { m: NowModel; me
           gap > 0 && !m.foodFailed && !m.mealsFailed ? (
             <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
               <span className="tnum">
-                {open.length === 0 ? "nothing else planned today" : `${open.length} planned ${open.length === 1 ? "meal" : "meals"} ${closes ? "close it" : `leave ${left} g to go`}`}
+                {open.length === 0
+                  ? "nothing else planned today"
+                  : open.length === 1
+                    ? `1 planned meal ${closes ? "closes it" : `leaves ${left} g to go`}`
+                    : `${open.length} planned meals ${closes ? "close it" : `leave ${left} g to go`}`}
               </span>
               <Tag kind="CALC" explain={`${m.profile.protein_goal} g goal − ${Math.round(m.food.protein)} g logged = ${gap} g; ${plannedP} g still planned.`} />
             </span>
