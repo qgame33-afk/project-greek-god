@@ -9,3 +9,4 @@ export { MakeAheadBadge, OriginBadge, RecipeMeta } from "./RecipeMeta";
 export { ConflictNote, useRecipeConflicts } from "./ConflictNote";
 export { RecipeCard, RecipeCardBody, recipeHref } from "./RecipeCard";
 export { useRecipePool } from "./useRecipePool";
+export { useOnline } from "./useOnline";

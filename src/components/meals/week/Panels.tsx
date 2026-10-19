@@ -5,6 +5,7 @@ import { CalendarPlus, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { MealPrefs } from "@/lib/meals/types";
 import { DIFFICULTY_LABEL, kcalText } from "../shared/format";
+import { useOnline } from "../shared/useOnline";
 import type { DayGoals } from "./hooks";
 
 const BUDGET_LABEL: Record<MealPrefs["budget"], string> = { tight: "Tight budget", normal: "Normal budget", flexible: "Flexible budget" };
@@ -43,13 +44,14 @@ export function EmptyWeek({
   onGenerate: () => void;
   onGenerateWhole?: () => void;
 }) {
+  const online = useOnline();
   return (
     <section className="mt-4 text-center" aria-labelledby="empty-week-title">
       <Button variant="primary" size="lg" block onClick={onGenerate} loading={busy} disabled={!ready}>
         <CalendarPlus className="size-5" strokeWidth={1.8} />
         Plan {fromToday ? "today to Sunday" : range}
       </Button>
-      {!ready && !busy && <p className="t-meta mt-2 text-stone">Loading your preferences…</p>}
+      {!ready && !busy && <p className="t-meta mt-2 text-stone">{online ? "Loading your preferences…" : "Offline · planning needs a connection"}</p>}
       {fromToday && onGenerateWhole && ready && (
         <button type="button" onClick={onGenerateWhole} disabled={busy} className="press t-callout mt-1 inline-flex min-h-11 items-center rounded-field px-3 font-semibold text-stone hover:text-ivory disabled:opacity-50">
           Plan the whole week instead

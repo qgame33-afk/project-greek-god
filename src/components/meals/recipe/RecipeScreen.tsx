@@ -353,7 +353,7 @@ function RecipeView({
             </>
           ) : (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <Button variant="outline" size="md" className="rounded-full" onClick={() => quick.eat(servings)} loading={quick.pending} aria-label={`Eaten: log ${servingsLabel(servings)} of ${recipe.name}`}>
+              <Button variant="outline" size="md" className="h-auto min-h-12 max-w-full whitespace-normal rounded-full py-2" onClick={() => quick.eat(servings)} loading={quick.pending} aria-label={`Eaten: log ${servingsLabel(servings)} of ${recipe.name}`}>
                 <SealTick className="size-5" />
                 Eaten · log {servingsLabel(servings)}
               </Button>

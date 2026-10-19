@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { CalendarPlus, Check, House, Pencil, Plus, RefreshCw, Share } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useRecipePool } from "@/components/meals/shared";
+import { useOnline, useRecipePool } from "@/components/meals/shared";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
 import { Meter } from "@/components/ui/meter";
@@ -102,6 +102,7 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
   const addCustom = useAddCustomGroceryItem();
   const del = useDeleteGroceryItem();
   const updatePlan = useUpdatePlan();
+  const online = useOnline();
 
   const ready = hasData && pool.hasData && prefsQ.hasData;
   // The stored list covers the plan days from the day it was made (steady while you shop);
@@ -168,7 +169,16 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
   const [copied, setCopied] = useState(false);
 
   if (error || grocery.error) return <ErrorNote>Couldn&apos;t load the list. Check your connection and try again.</ErrorNote>;
-  if (loading || !hasData || (plan && (!grocery.hasData || !pool.hasData))) return <GrocerySkeleton />;
+  if (loading || !hasData || (plan && (!grocery.hasData || !pool.hasData))) {
+    // a week never opened on this phone has nothing saved to show offline: say so, never spin
+    if (!online)
+      return (
+        <p role="status" className="t-callout border-y border-vein py-8 text-center text-stone">
+          Offline · this list loads when you&apos;re back online.
+        </p>
+      );
+    return <GrocerySkeleton />;
+  }
   if (!plan || meals.length === 0) {
     return (
       <div className="border-y border-vein px-2 py-9 text-center">
