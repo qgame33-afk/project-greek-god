@@ -41,12 +41,12 @@ describe("planApply", () => {
     const d = planApply(sug({ kind: "deload_week", field: "training_mode", current: "standard", proposed: "deload" }), profile)!;
     expect(d.values).toEqual({ training_mode: "deload" });
     expect(d.previous).toEqual({ training_mode: "standard" });
-    expect(d.effects.join(" ")).toMatch(/Switch back to Standard/);
+    expect(d.effects.join(" ")).toMatch(/Go back to Normal/);
     expect(planApply(sug({ kind: "note", field: null, proposed: null }), profile)).toBeNull();
   });
 
   it("labels fields", () => {
     expect(fieldLabel(sug({}))).toBe("Calorie target");
-    expect(fieldLabel(sug({ kind: "deload_week", field: "training_mode" }))).toBe("Deload week");
+    expect(fieldLabel(sug({ kind: "deload_week", field: "training_mode" }))).toBe("Light week");
   });
 });

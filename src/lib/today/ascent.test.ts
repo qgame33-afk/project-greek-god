@@ -52,9 +52,9 @@ describe("paceTone / paceCaption (old screens)", () => {
   it("says what the rate needs or where it sits", () => {
     expect(paceCaption(pace({ weighIns: [], today: TODAY, profile }))).toBe("0 of 4 weigh-ins · last 4 weeks");
     expect(paceCaption(pace({ weighIns: [11, 12, 14, 17].map((d) => w(`2026-10-${d}`, 166)), today: TODAY, profile }))).toBe("Needs 10 days of weigh-ins");
-    expect(paceCaption(pace({ weighIns: line(0.4), today: TODAY, profile }))).toBe("Top of your corridor");
-    expect(paceCaption(pace({ weighIns: line(0.33), today: TODAY, profile }))).toBe("On pace · last 4 weeks");
-    expect(paceCaption(pace({ weighIns: line(0.1), today: TODAY, profile }))).toBe("Under your corridor");
-    expect(paceCaption(pace({ weighIns: line(1), today: TODAY, profile }))).toBe("Faster than your corridor");
+    expect(paceCaption(pace({ weighIns: line(0.4), today: TODAY, profile }))).toBe("On track");
+    expect(paceCaption(pace({ weighIns: line(0.33), today: TODAY, profile }))).toBe("On track · last 4 weeks");
+    expect(paceCaption(pace({ weighIns: line(0.1), today: TODAY, profile }))).toBe("A bit slow");
+    expect(paceCaption(pace({ weighIns: line(1), today: TODAY, profile }))).toBe("A bit fast");
   });
 });

@@ -1,4 +1,4 @@
-// Rites by month (the Recovery ledger). Leaf only marks a day where every rite was kept; an empty day is a quiet
+// Habits by month (Check-ins). Gold only marks a day where every habit was done; an empty day is a quiet
 // surface, never red. Weeks start on Monday to match the training week.
 
 import {
@@ -102,7 +102,7 @@ export function cellLabel(
       : kind === "pre"
         ? "before your start date"
         : total
-          ? `${done} of ${total} rites kept`
-          : "no rites";
-  return `${longDate(date)}: ${base}${workout ? ", session done" : ""}`;
+          ? `${done} of ${total} habits done`
+          : "no habits";
+  return `${longDate(date)}: ${base}${workout ? ", workout done" : ""}`;
 }

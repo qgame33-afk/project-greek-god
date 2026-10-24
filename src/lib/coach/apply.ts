@@ -56,15 +56,15 @@ export function planApply(s: CoachSuggestion, p: ApplyProfile): ApplyPlan | null
   }
   if (s.field === "water_goal_ml") {
     const ml = Number(s.proposed);
-    return { values: { water_goal_ml: ml }, previous: { water_goal_ml: p.water_goal_ml }, effects: [`The water meter on Fuel and the water rite on Now fill to ${formatLiters(ml)}.`] };
+    return { values: { water_goal_ml: ml }, previous: { water_goal_ml: p.water_goal_ml }, effects: [`Your water goal on Today becomes ${formatLiters(ml)}.`] };
   }
   if (s.field === "training_mode") {
     const mode = String(s.proposed);
     const effects =
       s.kind === "deload_week"
-        ? ["New workouts start about 10% lighter with roughly half the sets and 3+ reps in reserve.", "Switch back to Standard in Train → Program after about 7 days."]
+        ? ["New workouts start about 10% lighter with about half the sets, leaving 3 or more reps in the tank.", "Go back to Normal in Train › Program after about 7 days."]
         : mode === "intro"
-          ? ["New workouts use the lower-volume introductory mode: one fewer set on most lifts."]
+          ? ["New workouts use fewer sets: one set fewer on most lifts, same weights."]
           : mode === "standard"
             ? ["New workouts use the full program again."]
             : ["New workouts start about 10% lighter with roughly half the sets."];
@@ -83,7 +83,7 @@ export function fieldLabel(s: CoachSuggestion): string {
     case "water_goal_ml":
       return "Water target";
     case "training_mode":
-      return s.kind === "deload_week" ? "Deload week" : "Training mode";
+      return s.kind === "deload_week" ? "Light week" : "How hard";
     default:
       return "Note";
   }

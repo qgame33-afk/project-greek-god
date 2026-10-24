@@ -1,5 +1,6 @@
-// What a meal does to today, in one line (docs/DESIGN-V2.md §3.5.1, §3.5.5, §3.9.1). Pure
-// arithmetic on the day's log, so every line is tagged CALC and carries its working (`explain`).
+// What a meal does to today, in one line (docs/DESIGN-V3-SIMPLE.md §4.4.1, §4.7.2). Pure
+// arithmetic on the day's log, so every line carries its working (`explain`), which screens show
+// in the line's "How we got this" sheet (there are no provenance tags any more).
 //
 //   ifYouAdd({kcal: 2140, protein: 121}, {kcal: 380, protein: 30})
 //     → "If you eat it: 2,520 kcal · 151 g"     explain "2,140 eaten + 380 = 2,520 kcal · 121 + 30 = 151 g protein"
@@ -24,7 +25,7 @@ const gText = (n: number) => String(Math.round(fin(n)));
 
 export type ConsequenceVerb = "eat" | "add";
 
-/** Today's totals after one more meal. `verb` "add" for the scanner and Offering ("If you add it"). */
+/** Today's totals after one more meal. `verb` "add" for the scanner and the Add sheet ("If you add it"). */
 export function ifYouAdd(totals: KcalProtein, addition: KcalProtein, verb: ConsequenceVerb = "eat"): Consequence {
   const kcal = fin(totals.kcal) + fin(addition.kcal);
   const protein = fin(totals.protein) + fin(addition.protein);

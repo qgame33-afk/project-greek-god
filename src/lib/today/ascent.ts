@@ -78,7 +78,7 @@ export function planRatePerWeek(startLb: number | null, goalLb: number | null, s
 
 export type TrendTone = "good" | "warn" | "neutral";
 
-/** The old screens' tone for a pace verdict: on pace or arrived reads good, faster than the corridor reads warn. */
+/** The old screens' tone for a pace verdict: on track or arrived reads good, a bit fast reads warn. */
 export function paceTone(verdict: PaceVerdict): TrendTone {
   if (verdict === "on_pace" || verdict === "top" || verdict === "arrived") return "good";
   if (verdict === "above") return "warn";
@@ -93,13 +93,13 @@ export function paceCaption(p: Pick<Pace, "verdict" | "rate">): string {
       if (p.rate.status === "needs_span") return `Needs 10 days of weigh-ins`;
       return "Set a goal band";
     case "below":
-      return "Under your corridor";
+      return "A bit slow";
     case "on_pace":
-      return "On pace · last 4 weeks";
+      return "On track · last 4 weeks";
     case "top":
-      return "Top of your corridor";
+      return "On track";
     case "above":
-      return "Faster than your corridor";
+      return "A bit fast";
     case "arrived":
       return "Inside the goal band";
   }

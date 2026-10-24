@@ -1,9 +1,9 @@
 // Motion tokens — the one place the app's durations, easings and springs are defined
-// (docs/DESIGN-V2.md §1.8). CSS mirrors them as custom properties in src/app/globals.css
+// (docs/DESIGN-V3-SIMPLE.md §1.6). CSS mirrors them as custom properties in src/app/globals.css
 // (`--dur-*`, `--ease-*`), so Tailwind classes, keyframes and view transitions use the same numbers
-// as motion/react and the Web Animations API below. Rules: 150–250 ms for UI feedback, springs for
-// tactile things, transform/opacity/stroke-dashoffset only, and reduced motion always respected
-// (the system setting or Settings → Appearance → Motion, see prefersReducedMotion()).
+// as motion/react and the Web Animations API below. Rules: 150–250 ms, quick and quiet,
+// transform/opacity/stroke-dashoffset only, and reduced motion always respected (the system
+// setting or Settings › Profile › Display › Motion, see prefersReducedMotion()).
 
 import { useLayoutEffect, useRef, type RefObject } from "react";
 
@@ -11,26 +11,26 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 export const DURATION = {
   /** Press-down feedback. */
   press: 90,
-  /** Small state changes: fades, colour swaps, chevrons, a Seal. */
+  /** Small state changes: fades, colour swaps, chevrons, a set dot filling. */
   fast: 160,
-  /** The default: content swaps, dialogs, disclosures. */
+  /** The default: content swaps, dialogs, disclosures, the win card. */
   base: 220,
   /** Route view transitions (tab to tab, push/pop). */
   route: 200,
-  /** Sheets and push routes arriving (Lift). */
-  lift: 320,
-  /** Gold filling: statue, columns, meters, coins (600–1400 by size). */
-  gild: 900,
-  /** Stroke draws: laurel stems, terrace contours, chart lines on first show. */
-  inscribe: 800,
-  /** A hero number counting to its value. */
-  count: 700,
-  /** @deprecated alias of `lift`. */
-  slow: 320,
   /** Bottom sheets (vaul keeps its own 400 ms curve). */
   sheet: 400,
-  /** @deprecated alias of `gild`. */
-  ring: 900,
+  /** A ring or bar filling to a new value (stroke-dashoffset / scaleX). */
+  ring: 600,
+  /** @deprecated Olympus token, an alias of `base` (deleted at integration). */
+  lift: 220,
+  /** @deprecated Olympus token, an alias of `base` (deleted at integration). */
+  gild: 220,
+  /** @deprecated Olympus token, an alias of `base` (deleted at integration). */
+  inscribe: 220,
+  /** @deprecated Olympus token, an alias of `base`; numbers change instantly now. */
+  count: 220,
+  /** @deprecated alias of `base`. */
+  slow: 220,
 } as const;
 
 /** Cubic-bezier easings as motion/react arrays… */
@@ -91,7 +91,7 @@ export type NavDirection = "push" | "pop" | "forward" | "back" | "fade" | "none"
 /** A second navigation within this many ms of the last one skips its route animation. */
 export const ROUTE_SKIP_WITHIN_MS = 400;
 
-/** Capsule order (Now, Train, Fuel, Ascent), then the secondary sections in rail order. */
+/** Tab order (Today, Train, Food, Progress), then the secondary sections in rail order. */
 const SECTIONS = ["/", "/training", "/nutrition", "/progress", "/coach", "/reviews", "/recovery", "/settings"];
 
 function segments(path: string) {

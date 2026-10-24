@@ -18,31 +18,31 @@ const T = [
   { index: 3, numeral: "III", lb: 170, reachedOn: null },
 ];
 
-describe("the Book's subtitle states only what the logs show", () => {
-  it("the current month is being written", () => {
-    expect(bookSubtitle(stats({ records: 4 }) as never, { startDate: "2026-09-11", current: true })).toBe("being written");
+describe("the recap's summary states only what the logs show", () => {
+  it("the current month is so far", () => {
+    expect(bookSubtitle(stats({ records: 4 }) as never, { startDate: "2026-09-11", current: true })).toBe("So far");
   });
-  it("the first month began the climb", () => {
-    expect(bookSubtitle(stats({ from: "2026-09-11", to: "2026-09-30", sessions: 19 }) as never, { startDate: "2026-09-11", current: false })).toBe("in which the climb began");
+  it("the first month is the month he started", () => {
+    expect(bookSubtitle(stats({ from: "2026-09-11", to: "2026-09-30", sessions: 19 }) as never, { startDate: "2026-09-11", current: false })).toBe("The month you started");
   });
-  it("a terrace beats records and sessions", () => {
-    expect(bookSubtitle(stats({ records: 4, sessions: 20 }) as never, { startDate: "2026-09-11", current: false, terraces: T })).toBe("in which Terrace II was reached");
+  it("a milestone beats new bests and workouts", () => {
+    expect(bookSubtitle(stats({ records: 4, sessions: 20 }) as never, { startDate: "2026-09-11", current: false, terraces: T })).toBe("Reached 167.5 lb");
     expect(terracesReachedIn(T, "2026-09-01", "2026-10-31").map((t) => t.numeral)).toEqual(["I", "II"]);
   });
-  it("then records, then sessions, then a quiet month", () => {
+  it("then new bests, then workouts, then a quiet month", () => {
     const o = { startDate: "2026-09-11", current: false, terraces: [] };
-    expect(bookSubtitle(stats({ records: 3, sessions: 12 }) as never, o)).toBe("in which 3 records were set");
-    expect(bookSubtitle(stats({ records: 1 }) as never, o)).toBe("in which a record was set");
-    expect(bookSubtitle(stats({ sessions: 12 }) as never, o)).toBe("in which 12 sessions were sealed");
-    expect(bookSubtitle(stats({ sessions: 1 }) as never, o)).toBe("in which one session was sealed");
-    expect(bookSubtitle(stats() as never, o)).toBe("a quiet month");
+    expect(bookSubtitle(stats({ records: 3, sessions: 12 }) as never, o)).toBe("3 new bests");
+    expect(bookSubtitle(stats({ records: 1 }) as never, o)).toBe("A new best");
+    expect(bookSubtitle(stats({ sessions: 12 }) as never, o)).toBe("12 workouts done");
+    expect(bookSubtitle(stats({ sessions: 1 }) as never, o)).toBe("One workout done");
+    expect(bookSubtitle(stats() as never, o)).toBe("A quiet month");
   });
-  it("titles the Book with its Roman numeral and the month in film capitals", () => {
-    expect(bookTitle(stats({ monthIndex: 2 }) as never, { startDate: "2026-09-11", current: false })).toMatchObject({ book: "Book II", numeral: "II", film: "OCTOBER" });
+  it("titles the recap with the month, in sentence case", () => {
+    expect(bookTitle(stats({ monthIndex: 2 }) as never, { startDate: "2026-09-11", current: false })).toMatchObject({ book: "October recap", numeral: "II", film: "October" });
   });
-  it("sessions read X of Y planned, never a percentage", () => {
-    expect(sessionsLine({ planned: 20, plannedDone: 19, sessions: 21 } as never)).toEqual({ value: "19", label: "sessions of 20" });
-    expect(sessionsLine({ planned: 0, plannedDone: 0, sessions: 0 } as never)).toEqual({ value: "—", label: "sessions" });
+  it("workouts read X of Y planned, never a percentage", () => {
+    expect(sessionsLine({ planned: 20, plannedDone: 19, sessions: 21 } as never)).toEqual({ value: "19", label: "workouts of 20" });
+    expect(sessionsLine({ planned: 0, plannedDone: 0, sessions: 0 } as never)).toEqual({ value: "—", label: "workouts" });
   });
 });
 
@@ -52,9 +52,9 @@ describe("the chapters' numbers", () => {
     training: { planned: 20, plannedDone: 19, sessions: 19, prs: { count: 4, items: Array.from({ length: 4 }, () => ({})) } },
   });
 
-  it("credits: the trend change, sessions of planned, records; a missing change is a dash", () => {
+  it("numbers: the weight change, workouts of planned, new bests; a missing change is a dash", () => {
     expect(titleCredits(phys(4) as never, "lb").map((c) => c.value)).toEqual(["+4.0", "19", "4"]);
-    expect(titleCredits(phys(4) as never, "lb")[0].label).toBe("lb · trend change");
+    expect(titleCredits(phys(4) as never, "lb")[0].label).toBe("lb · weight change");
     expect(titleCredits(phys(null) as never, "lb")[0].value).toBe("—");
     expect(titleCredits(phys(-1.24) as never, "lb")[0].value).toBe("−1.2");
     expect(titleCredits(phys(4.4) as never, "kg")[0].value).toBe("+2.0");
@@ -85,8 +85,8 @@ describe("the chapters' numbers", () => {
     expect(nextMonthPlan("2026-09-01", { ...p, goal_weight_lb: null })).toBeNull();
   });
 
-  it("stamps a sealed Book with its sealing day", () => {
-    expect(chronicleStamp("2026-09-01", "2026-10-17")).toBe("The Chronicle · 1 Oct");
-    expect(chronicleStamp("2026-10-01", "2026-10-17")).toBe("The Chronicle · being written");
+  it("stamps each recap with the day it is ready", () => {
+    expect(chronicleStamp("2026-09-01", "2026-10-17")).toBe("Ready Thu 1 Oct");
+    expect(chronicleStamp("2026-10-01", "2026-10-17")).toBe("Ready Sun 1 Nov");
   });
 });

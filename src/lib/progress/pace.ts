@@ -273,16 +273,16 @@ export function pace(input: { weighIns: WeighIn[]; today: ISODate; profile: Prof
       }
       break;
     case "below":
-      sentence = "A little under your corridor.";
+      sentence = "A bit slow.";
       detail = corridor ? `${rateTxt} · ${windowTxt} lands you in ${f.band(band!)}` : `${rateTxt} · the target date has passed`;
       break;
     case "on_pace":
     case "top":
-      sentence = verdict === "top" ? "On pace, at the top of your corridor." : "On pace for Olympus.";
+      sentence = verdict === "top" ? "On track, a bit fast." : "On track.";
       detail = projection ? `${rateTxt} · ~${f.fixed(projection.lb)} ${unit} by ${dayMonth(projection.date, today)}` : rateTxt;
       break;
     case "above":
-      sentence = "Climbing faster than your corridor.";
+      sentence = "A bit fast.";
       detail = `${rateTxt} · ${windowTxt} is the lean-gain window`;
       break;
     case "arrived": {
@@ -314,16 +314,16 @@ export function pace(input: { weighIns: WeighIn[]; today: ISODate; profile: Prof
         aria = `${base}. ${sentence} ${detail}.`;
         break;
       case "on_pace":
-        aria = `${base}${moving}${proj}, on pace.`;
+        aria = `${base}${moving}${proj}, on track.`;
         break;
       case "top":
-        aria = `${base}${moving}${proj}, on pace, at the top of your corridor.`;
+        aria = `${base}${moving}${proj}, on track, a bit fast.`;
         break;
       case "below":
-        aria = `${base}${moving}${proj}, a little under your corridor${corridorTxt}.`;
+        aria = `${base}${moving}${proj}, a bit slow, against a needed pace${corridorTxt}.`;
         break;
       case "above":
-        aria = `${base}${moving}${proj}, climbing faster than your corridor${corridorTxt}.`;
+        aria = `${base}${moving}${proj}, a bit fast, against a needed pace${corridorTxt}.`;
         break;
       case "arrived":
         aria = `${base}${moving}, ${trend.lb > band!.max ? "above" : "inside"} your goal band of ${f.spoken(band!.min)} to ${f.spoken(band!.max)} ${pounds}.`;
@@ -332,6 +332,25 @@ export function pace(input: { weighIns: WeighIn[]; today: ISODate; profile: Prof
   }
 
   return { trend, rate, corridor, projection, verdict, sentence, detail, ariaLabel: aria, today, band, target };
+}
+
+/**
+ * The pace chip (docs/DESIGN-V3-SIMPLE.md §2.2, §4.1.1, §4.5.1): "On track", "A bit slow" or "A bit
+ * fast"; null while there is no pace yet (fewer than 4 weigh-ins, no goal band) or once the goal
+ * band is reached. A word, never a colour.
+ */
+export function paceChipLabel(verdict: PaceVerdict): "On track" | "A bit slow" | "A bit fast" | null {
+  switch (verdict) {
+    case "on_pace":
+    case "top":
+      return "On track";
+    case "below":
+      return "A bit slow";
+    case "above":
+      return "A bit fast";
+    default:
+      return null;
+  }
 }
 
 /* --------------------------------------------------------------- terraces */

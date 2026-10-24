@@ -19,7 +19,7 @@ describe("navDirection", () => {
     expect(navDirection("/training/exercise/x", "/progress")).toBe("forward");
   });
 
-  it("orders the secondary sections like the rail: Oracle, Chronicle, Recovery, Settings", () => {
+  it("orders the secondary sections like the rail: Coach, Monthly recap, Check-ins, Settings", () => {
     expect(navDirection("/progress", "/coach")).toBe("forward");
     expect(navDirection("/coach", "/reviews")).toBe("forward");
     expect(navDirection("/reviews", "/recovery")).toBe("forward");
@@ -65,15 +65,15 @@ describe("motion tokens", () => {
     expect(DURATION.press).toBeLessThan(DURATION.fast);
   });
 
-  it("keep the old names as aliases of the new ones", () => {
-    expect(DURATION.slow).toBe(DURATION.lift);
-    expect(DURATION.ring).toBe(DURATION.gild);
+  it("keep the retired Olympus names as aliases of base", () => {
+    expect(DURATION.slow).toBe(DURATION.base);
+    expect(DURATION.lift).toBe(DURATION.base);
+    expect(DURATION.gild).toBe(DURATION.base);
+    expect(DURATION.inscribe).toBe(DURATION.base);
+    expect(DURATION.count).toBe(DURATION.base);
   });
 
-  it("keep signature durations inside their ranges", () => {
-    expect(DURATION.gild).toBeGreaterThanOrEqual(600);
-    expect(DURATION.gild).toBeLessThanOrEqual(1400);
-    expect(DURATION.inscribe).toBeGreaterThanOrEqual(700);
-    expect(DURATION.inscribe).toBeLessThanOrEqual(900);
+  it("fills rings and bars over 600 ms", () => {
+    expect(DURATION.ring).toBe(600);
   });
 });

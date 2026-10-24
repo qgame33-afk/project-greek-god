@@ -1,17 +1,7 @@
-"use client";
-
-import { useId, useSyncExternalStore } from "react";
-import { cn } from "@/lib/cn";
-import { DURATION, prefersReducedMotion } from "@/lib/motion";
-
 /**
- * The laurel wreath (docs/DESIGN-V2.md §1.8.2 Inscribe, §3.3): procedural — two branches on a
- * circle, open at the top, leaves alternating along each stem and shrinking toward the tips.
- * `inscribe` draws it: the stems by stroke-dashoffset (800 ms ease-out), the leaves growing from
- * their bases with a 70 ms stagger. Reduced motion: drawn. Earned only, so it is leaf by default;
- * `tone="ivory"` is the unearned outline.
- *
- *   <Laurel size={220} inscribe delay={100} />
+ * The laurel wreath, retired (docs/DESIGN-V3-SIMPLE.md §0 law 6, §1.7.4): a new best is the
+ * WinCard and the word "New best" now. Keeps its exports and props so old screens compile, and
+ * renders nothing. Deleted at integration (§6.7).
  */
 export interface LaurelProps {
   size?: number;
@@ -71,56 +61,6 @@ export function laurelGeometry(n = 9) {
   return { stems, leaves };
 }
 
-const LEAF = "M0 0C2.6-2.4 3-7.6 0-11.5C-3-7.6-2.6-2.4 0 0Z";
-const noop = () => () => {};
-
-export function Laurel({ size = 96, inscribe = false, delay = 0, leaves = 11, tone = "leaf", className }: LaurelProps) {
-  const gid = `laurel-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
-  const reduced = useSyncExternalStore(noop, prefersReducedMotion, () => true);
-  const play = inscribe && !reduced;
-  const { stems, leaves: placed } = laurelGeometry(leaves);
-  const fill = tone === "leaf" ? `url(#${gid})` : "none";
-  const stroke = tone === "leaf" ? "var(--leaf-400)" : "var(--ui-line)";
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" className={cn("overflow-visible", className)} aria-hidden>
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" style={{ stopColor: "var(--leaf-100)" }} />
-          <stop offset="0.5" style={{ stopColor: "var(--leaf-300)" }} />
-          <stop offset="1" style={{ stopColor: "var(--leaf-500)" }} />
-        </linearGradient>
-      </defs>
-      {stems.map((d, i) => (
-        <path
-          key={i}
-          d={d}
-          pathLength={1}
-          strokeDasharray="1 1"
-          style={{
-            stroke,
-            strokeDashoffset: play ? undefined : 0,
-            animation: play ? `inscribe-draw ${DURATION.inscribe}ms var(--ease-out) ${delay}ms both` : undefined,
-          }}
-          strokeWidth={1.2}
-          strokeLinecap="round"
-        />
-      ))}
-      {placed.map((l, i) => (
-        <g key={i} transform={`translate(${l.x.toFixed(2)} ${l.y.toFixed(2)}) rotate(${l.angle.toFixed(1)}) scale(${l.scale.toFixed(3)})`}>
-          <path
-            d={LEAF}
-            fill={fill}
-            style={{
-              stroke: tone === "leaf" ? "var(--leaf-500)" : "var(--ui-line)",
-              strokeOpacity: tone === "leaf" ? 0.5 : 1,
-              transformBox: "fill-box",
-              transformOrigin: "50% 100%",
-              animation: play ? `leaf-grow 320ms var(--ease-gold) ${delay + 180 + l.order * 70}ms both` : undefined,
-            }}
-            strokeWidth={0.5}
-          />
-        </g>
-      ))}
-    </svg>
-  );
+export function Laurel(_props: LaurelProps) {
+  return null;
 }

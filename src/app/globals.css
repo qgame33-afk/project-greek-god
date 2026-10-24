@@ -1,96 +1,256 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   OLYMPUS — Project Greek God design tokens (docs/DESIGN-V2.md §1)
-   Marble darkness lit by one warm light. Gold leaf is earned, aegean is AI only,
-   cinnabar is errors and pain only. Dark is the only theme; Seal (night) and Gym
-   are variants set with attributes (see §1.1.4 and src/lib/appearance.ts).
+   Project Greek God — DESIGN v3 "Simple" (docs/DESIGN-V3-SIMPLE.md §1)
+   Black and gold, one sans font, flat rounded cards, big bold numbers. Gold fills only the one
+   main action of a viewport; gold text or outline marks only real wins. Dark only.
    ========================================================================== */
 
+/* §1.1 colour tokens: exactly the spec's block (src/app/globals.test.ts checks it). */
 :root {
   color-scheme: dark;
+  /* surfaces */
+  --bg: #000000;           /* app, workout, sheet backdrop */
+  --card: #141416;         /* cards, list groups */
+  --card-2: #222226;       /* controls: secondary buttons, steppers, tiles, inputs, pills */
+  --card-3: #2c2c31;       /* selected segment, chips on card-2, the workout bar */
+  --sheet: #18181b;        /* sheet body; cards inside a sheet use --sheet-card */
+  --sheet-card: #232327;
+  --track: #2a2a2f;        /* ring and bar tracks (decoration only, never meaning) */
+  --ui-line: #6b6b72;      /* state marks that must reach 3:1: day rings, empty check circles, outlines */
+  --line: rgb(255 255 255 / 0.08); /* hairlines between rows in a group */
+  --scrim: rgb(0 0 0 / 0.62);
+  /* text */
+  --text: #f5f5f7;
+  --text-2: #a1a1a6;       /* labels, units, captions */
+  --text-3: #6e6e73;       /* chevrons and decorative glyphs only, never words */
+  --tab-off: #8e8e93;      /* inactive tab icon and label */
+  /* gold: the one main action and real wins */
+  --gold: #e9b949;
+  --gold-ink: #141006;     /* text and icons on gold */
+  --gold-soft: rgb(233 185 73 / 0.14); /* win-card and win-chip background */
+  --gold-line: rgb(233 185 73 / 0.55); /* win-card border, protein-hit day ring (use at .75 alpha in the strip) */
+  /* signals */
+  --ai: #a9bef2;           /* only the sparkle, the word "AI", "AI estimate" and AI card borders */
+  --ai-soft: rgb(169 190 242 / 0.12);
+  --ai-line: rgb(169 190 242 / 0.38);
+  --danger: #ff6b5e;       /* errors, destructive actions, pain notes. Never food, pace, misses */
+  --danger-soft: rgb(255 107 94 / 0.12);
+  /* type */
+  --font-sans-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", var(--font-inter), system-ui, sans-serif;
+}
 
-  /* ---------------------------------------------------- neutrals and text */
-  --obsidian: #050506;
-  --night: #09090b;
-  --m1: #0f0f12;
-  --m2: #16161a;
-  --m3: #1e1e23;
-  --m4: #28282e;
-  --m5: #303037;
-  --vein: rgb(236 226 206 / 0.07);
-  --vein-2: rgb(236 226 206 / 0.11);
-  --vein-3: rgb(236 226 206 / 0.18);
-  /* non-text state marks that must reach 3:1 (missed outlines, axes, inactive diamonds) */
-  --ui-line: #7a7366;
-  --ivory: #f2ebdd;
-  --stone: #b9b1a2;
-  --ash: #a39b8d;
-  --disabled: #5e584f;
-  --ink: #1a1206;
-  --glass-solid: #18181c;
+/* §1.1.2 night dimming (Settings › Profile › Display, src/lib/appearance.ts). Only these two. */
+html[data-night="on"] {
+  --text: #e2e2e6;
+  --gold: #d9ae48;
+}
 
-  /* ------------------------------------------------- gold leaf (earned) */
-  --leaf-50: #fbf1d6;
-  --leaf-100: #f8e6b4;
-  --leaf-200: #eed08b;
-  --leaf-300: #e0b866;
-  --leaf-400: #cc9d4c;
-  --leaf-450: #bc8e40;
-  --leaf-500: #ad7f35;
-  --leaf-600: #865f25;
-  --leaf-700: #573d18;
-  --leaf-800: #2e2010;
-  --leaf-tint: rgb(224 184 102 / 0.1);
-  --leaf-line: rgb(224 184 102 / 0.38);
-  --leaf: linear-gradient(112deg, #a97a30 0%, #d9aa52 18%, #f3d791 34%, #fff1c8 44%, #ebc671 56%, #c99640 72%, #edcd84 86%, #b88a3a 100%);
-  --leaf-v: linear-gradient(180deg, #fff0c4 0%, #efcd82 22%, #c99743 52%, #9c6e2a 78%, #d9b266 100%);
-  --leaf-h: linear-gradient(90deg, #ad7f35 0%, #d9aa52 45%, #f3d791 80%, #ebc671 100%);
-  --leaf-btn: linear-gradient(180deg, #fbe6aa 0%, #edc97e 30%, #d9aa55 62%, #cc9a45 82%, #e6c075 100%);
-  --leaf-spec: linear-gradient(105deg, transparent 38%, rgb(255 255 255 / 0.35) 48%, transparent 58%);
-  /* gold text that never drops under leaf-400 (5.9:1 on m4) */
-  --leaf-text: linear-gradient(176deg, #f8e6b4 0%, #eed08b 30%, #e0b866 62%, #cc9d4c 100%);
-  --glow: 0 14px 30px -14px rgb(214 166 80 / 0.65);
+/* Layout, z-order, motion (§1.3, §1.6). */
+:root {
+  /* the gold ring of a protein-hit day in the strip (gold at 75% alpha, 6.6:1 on bg) */
+  --gold-ring: rgb(233 185 73 / 0.75);
+  /* the target band under a Bar fill (Sets by muscle) */
+  --band: #3a3a40;
+  /* the sheet's controls on --sheet-card (tiles, chips, secondary buttons) */
+  --sheet-control: #2e2e33;
 
-  /* ------------------------------------------------------ signal, series */
-  --aegean: #8fb0e0;
-  --aegean-tint: rgb(143 176 224 / 0.1);
-  --aegean-line: rgb(143 176 224 / 0.32);
-  --cinnabar: #e58068;
-  --cinnabar-tint: rgb(229 128 104 / 0.12);
-  --cinnabar-line: rgb(229 128 104 / 0.38);
-  --series-protein: var(--leaf-300);
-  --series-kcal: var(--ivory);
-  --series-carbs: #d08a5c;
-  --series-fat: #a895d0;
-  --series-water: #7fbdb6;
-  --series-sleep: var(--stone);
-  --proj: rgb(242 235 221 / 0.7);
-  --corridor: rgb(242 235 221 / 0.06);
+  --gutter: 20px;
+  --z-content: 0;
+  --z-sticky: 20;
+  --z-deck: 40;
+  --z-chrome: 50;
+  --z-sheet: 60;
+  --z-confirm: 65;
+  --z-toast: 70;
 
-  /* ---------------------------------------------------- light, materials */
-  --spot: radial-gradient(70% 50% at 18% 0%, rgb(236 200 140 / 0.1), transparent 65%);
-  --spot-dawn: radial-gradient(70% 50% at 18% 0%, rgb(236 160 150 / 0.1), transparent 65%);
-  --spot-center: radial-gradient(60% 42% at 50% 0%, rgb(236 200 140 / 0.12), transparent 70%);
-  --spot-opacity: 1;
-  --sheen-opacity: 1;
-  --glass-bg: rgb(24 24 28 / 0.86);
-  --glass-filter: blur(18px) saturate(150%);
-  --e1: inset 0 0 0 1px var(--vein), inset 0 1px 0 rgb(255 244 220 / 0.05);
-  --e2: var(--e1), 0 30px 60px -30px #000;
-  --e3: inset 0 1px 0 rgb(255 244 220 / 0.08), 0 -30px 60px -20px #000;
-  --scrim: rgb(5 5 6 / 0.74);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* the tab bar (49 px + the safe area) and the white + that rises 14 px above it */
+  --tab-bar-h: 49px;
+  --plus-rise: 14px;
+  --workout-bar-h: 56px;
+  --topbar-h: 52px;
+  /* the room the bottom chrome takes: tab bar + safe area + 24 px; +64 px while the workout bar shows */
+  --chrome-clear: calc(var(--tab-bar-h) + var(--safe-bottom) + 24px);
+  /* compat (old screens pin their own bars to `bottom: calc(var(--tabbar-h) + var(--safe-bottom))`):
+     that now lands just above the tab bar and its rising + */
+  --tabbar-h: calc(var(--tab-bar-h) + var(--plus-rise));
+  --capsule-h: var(--tab-bar-h);
+  --capsule-gap: 0px;
+  --slot-h: var(--workout-bar-h);
+  --dock-h: var(--workout-bar-h);
 
-  /* ------------------------------------------------------- type families */
-  --font-sans-stack: -apple-system, BlinkMacSystemFont, var(--font-inter-tight), system-ui, sans-serif;
-  --font-voice-stack: var(--font-cormorant), ui-serif, Georgia, serif;
-  --font-voice-italic-stack: var(--font-cormorant-italic), var(--font-cormorant), ui-serif, Georgia, serif;
-  --font-monument-stack: var(--font-bodoni), ui-serif, Georgia, serif;
-  /* retired families: aliases so inline `var(--font-num)` / `var(--font-serif)` keep working */
+  /* Mirrored in src/lib/motion.ts (DURATION / EASE / SPRING). 150–250 ms; transform, opacity and
+     stroke-dashoffset only. `ring` is a ring or bar filling to a new value. */
+  --dur-press: 90ms;
+  --dur-fast: 160ms;
+  --dur-base: 220ms;
+  --dur-route: 200ms;
+  --dur-sheet: 400ms;
+  --dur-ring: 600ms;
+  /* retired Olympus tokens: aliases of `base` (deleted at integration, §6.7) */
+  --dur-lift: var(--dur-base);
+  --dur-gild: var(--dur-base);
+  --dur-inscribe: var(--dur-base);
+  --dur-count: var(--dur-base);
+  --dur-slow: var(--dur-base);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-gold: var(--ease-out);
+  /* Springs as easing curves (sampled damped springs below); bezier fallbacks first. */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Damped springs sampled into linear(): `spring` (ζ 0.85, no visible overshoot) for indicators,
+   thumbs and releases; `bounce` (ζ 0.62) for tactile pops. */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --ease-spring: linear(0, 0.023 2.8%, 0.062 4.9%, 0.122 7.2%, 0.198 9.8%, 0.287 12.5%, 0.382 15.4%, 0.478 18.4%, 0.57 21.6%, 0.656 24.9%, 0.732 28.3%, 0.798 31.9%, 0.853 35.5%, 0.897 39.2%, 0.932 43.1%, 0.958 47%, 0.976 51%, 0.989 55.1%, 0.998 59.2%, 1.003 63.5%, 1.005 67.8%, 1.006 76.7%, 1.004 90.5%, 1);
+    --ease-bounce: linear(0, 0.035 2.8%, 0.095 4.9%, 0.185 7.2%, 0.301 9.8%, 0.432 12.5%, 0.568 15.4%, 0.699 18.4%, 0.816 21.6%, 0.914 24.9%, 0.989 28.3%, 1.04 31.9%, 1.07 35.5%, 1.083 39.2%, 1.081 43.1%, 1.071 47%, 1.056 51%, 1.04 55.1%, 1.025 59.2%, 1.012 63.5%, 1.003 67.8%, 0.997 72.2%, 0.993 81.2%, 0.997 95.2%, 1);
+  }
+}
+
+/* The workout bar needs room above the tab bar on every screen that shows it. */
+:root:has([data-live-slot]) {
+  --chrome-clear: calc(var(--tab-bar-h) + var(--safe-bottom) + 24px + 64px);
+}
+@media (width < 360px) {
+  :root {
+    --gutter: 16px;
+  }
+}
+
+/* ==========================================================================
+   Olympus aliases (§1.7.1). Every old variable keeps its name and points at a V3 value, so old
+   classes re-theme until each screen stream rebuilds its screens. Deleted at integration (§6.7).
+   ========================================================================== */
+:root {
+  --night: var(--bg);
+  --obsidian: var(--bg);
+  --bg-deep: var(--bg);
+  --m1: var(--sheet);
+  --surface-1: var(--sheet);
+  --m2: var(--card);
+  --surface-2: var(--card);
+  --m3: var(--card-2);
+  --surface-3: var(--card-2);
+  --m4: var(--card-3);
+  --m5: var(--card-3);
+  --surface-4: var(--card-3);
+  --surface-5: var(--card-3);
+  --vein: var(--line);
+  --vein-2: var(--line);
+  --line-hair: var(--line);
+  --vein-3: var(--ui-line);
+  --line-strong: var(--ui-line);
+  --line-field: var(--ui-line);
+  --ivory: var(--text);
+  --text-1: var(--text);
+  /* old tertiary text was words, so it maps to --text-2, never to the glyph-only --text-3 */
+  --stone: var(--text-2);
+  --ash: var(--text-2);
+  --disabled: var(--text-3);
+  --text-disabled: var(--text-3);
+  --ink: var(--gold-ink);
+  --glass-solid: var(--card-3);
+
+  --leaf-50: var(--gold);
+  --leaf-100: var(--gold);
+  --leaf-200: var(--gold);
+  --leaf-300: var(--gold);
+  --leaf-400: var(--gold);
+  --leaf-450: var(--gold);
+  --leaf-500: var(--gold);
+  --leaf-600: var(--gold);
+  --leaf-700: var(--gold);
+  --leaf-800: var(--gold);
+  --gold-50: var(--gold);
+  --gold-100: var(--gold);
+  --gold-200: var(--gold);
+  --gold-300: var(--gold);
+  --gold-400: var(--gold);
+  --gold-500: var(--gold);
+  --gold-600: var(--gold);
+  --gold-700: var(--gold);
+  --gold-800: var(--gold);
+  --gold-900: var(--gold);
+  --success: var(--gold);
+  --series-protein: var(--gold);
+  --s-gold: var(--gold);
+  --leaf-tint: var(--gold-soft);
+  --gold-tint: var(--gold-soft);
+  --success-tint: var(--gold-soft);
+  --leaf-line: var(--gold-line);
+  --line-gold: var(--gold-line);
+  /* gradients die: flat gold */
+  --leaf: var(--gold);
+  --leaf-v: var(--gold);
+  --leaf-h: var(--gold);
+  --leaf-btn: var(--gold);
+  --leaf-text: var(--gold);
+  --grad-leaf: var(--gold);
+  --grad-progress: var(--gold);
+  --grad-card: var(--card);
+  --grad-spotlight: none;
+  --grad-monument-border: var(--card);
+  --leaf-spec: none;
+  --glow: 0 0 0 transparent;
+  --glow-cta: 0 0 0 transparent;
+  --spot: none;
+  --spot-dawn: none;
+  --spot-center: none;
+  --spot-opacity: 0;
+  --sheen-opacity: 0;
+  --e1: 0 0 0 transparent;
+  --e2: 0 0 0 transparent;
+  --e3: 0 0 0 transparent;
+
+  --aegean: var(--ai);
+  --aegean-tint: var(--ai-soft);
+  --aegean-line: var(--ai-line);
+  --lapis-text: var(--ai);
+  --lapis-tint: var(--ai-soft);
+  --lapis-line: var(--ai-line);
+  --info: var(--ai);
+  --cinnabar: var(--danger);
+  --cinnabar-tint: var(--danger-soft);
+  --cinnabar-line: var(--danger);
+  --danger-tint: var(--danger-soft);
+
+  --warning: var(--text-2);
+  --warning-tint: var(--card-2);
+  --series-sleep: var(--text-2);
+  --series-kcal: var(--text-2);
+  --s-marble: var(--text-2);
+  --proj: var(--text-2);
+  --series-carbs: var(--text);
+  --series-fat: var(--text);
+  --series-water: var(--text);
+  --s-terracotta: var(--text);
+  --s-porphyry: var(--text);
+  --s-lapis: var(--text);
+  --s-verdigris: var(--text);
+  --corridor: rgb(255 255 255 / 0.05);
+
+  --glass-bg: var(--card-3);
+  --glass-filter: none;
+
+  /* one family: every retired family is the sans stack */
+  --font-voice-stack: var(--font-sans-stack);
+  --font-voice-italic-stack: var(--font-sans-stack);
+  --font-monument-stack: var(--font-sans-stack);
+  --font-serif: var(--font-sans-stack);
   --font-num: var(--font-sans-stack);
-  --font-serif: var(--font-voice-stack);
+  --font-cormorant: var(--font-sans-stack);
+  --font-cormorant-italic: var(--font-sans-stack);
+  --font-bodoni: var(--font-sans-stack);
+  --font-inter-tight: var(--font-sans-stack);
 
-  /* --------------------------------------------- spacing, radii, z-order */
+  /* old spacing and radius tokens */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -100,156 +260,42 @@
   --sp-7: 32px;
   --sp-8: 40px;
   --sp-9: 56px;
-  --gutter: 20px;
   --r-tag: 5px;
-  --r-field: 12px;
+  --r-field: 18px;
   --r-btn: 16px;
-  --r-card: 22px;
-  --r-sheet: 30px;
+  --r-card: 24px;
+  --r-sheet: 28px;
   --r-capsule: 32px;
-  --z-content: 0;
-  --z-sticky: 20;
-  --z-deck: 40;
-  --z-chrome: 50;
-  --z-sheet: 60;
-  --z-confirm: 65;
-  --z-toast: 70;
-
-  /* ------------------------------------------------------------- layout */
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --capsule-h: 64px;
-  --capsule-gap: 8px;
-  --slot-h: 52px;
-  /* the room floating chrome takes at the bottom edge (capsule + gap + breathing room) */
-  --chrome-clear: calc(var(--capsule-h) + 16px + var(--safe-bottom));
-  /* compat: old screens pin their own bottom bars to `bottom: calc(var(--tabbar-h) + var(--safe-bottom))` —
-     that now lands just above the floating capsule */
-  --tabbar-h: calc(var(--capsule-h) + var(--capsule-gap) + 8px);
-  --dock-h: var(--slot-h);
-  --topbar-h: 52px;
-
-  /* ------------------------------------------------------------- motion */
-  /* Mirrored in src/lib/motion.ts (DURATION / EASE / SPRING). UI feedback stays within
-     150–250 ms; only transform, opacity and stroke-dashoffset animate. */
-  --dur-press: 90ms;
-  --dur-fast: 160ms;
-  --dur-base: 220ms;
-  --dur-route: 200ms;
-  --dur-lift: 320ms;
-  --dur-gild: 900ms;
-  --dur-inscribe: 800ms;
-  --dur-count: 700ms;
-  --dur-slow: var(--dur-lift);
-  --dur-sheet: 400ms;
-  --dur-ring: var(--dur-gild);
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-gold: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
-  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
-  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
-  /* Springs as easing curves (sampled damped springs, see below); bezier fallbacks first. */
-  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
-
-  /* ======================================== compatibility aliases (§1.1.5)
-     Old screens re-theme through these. Each owning stream removes its uses as it rebuilds. */
-  --bg: var(--night);
-  --bg-deep: var(--obsidian);
-  --surface-1: var(--m1);
-  --surface-2: var(--m2);
-  --surface-3: var(--m3);
-  --surface-4: var(--m4);
-  --surface-5: var(--m5);
-  --track: var(--vein-2);
-  --line-hair: var(--vein);
-  --line: var(--vein-2);
-  --line-strong: var(--vein-3);
-  --line-field: var(--ui-line);
-  --line-gold: var(--leaf-line);
-  --text-1: var(--ivory);
-  --text-2: var(--stone);
-  --text-3: var(--ash);
-  --text-disabled: var(--disabled);
-  --gold-50: var(--leaf-50);
-  --gold-100: var(--leaf-100);
-  --gold-200: var(--leaf-200);
-  --gold-300: var(--leaf-300);
-  --gold-400: var(--leaf-400);
-  --gold-500: var(--leaf-450);
-  --gold-600: var(--leaf-500);
-  --gold-700: var(--leaf-600);
-  --gold-800: var(--leaf-700);
-  --gold-900: var(--leaf-800);
-  --gold-tint: var(--leaf-tint);
-  --grad-leaf: var(--leaf);
-  --grad-progress: var(--leaf-h);
-  --grad-card: linear-gradient(180deg, var(--m2) 0%, var(--m2) 100%);
-  --grad-spotlight: var(--spot);
-  --grad-monument-border: linear-gradient(180deg, var(--leaf-line), var(--vein) 45%);
-  --glow-cta: var(--glow);
-  --success: var(--leaf-300);
-  --success-tint: var(--leaf-tint);
-  --warning: var(--stone);
-  --warning-tint: rgb(185 177 162 / 0.1);
-  --danger: var(--cinnabar);
-  --danger-tint: var(--cinnabar-tint);
-  --info: var(--aegean);
-  --lapis-text: var(--aegean);
-  --lapis-tint: var(--aegean-tint);
-  --lapis-line: var(--aegean-line);
-  --s-gold: var(--leaf-300);
-  --s-marble: var(--ivory);
-  --s-terracotta: var(--series-carbs);
-  --s-porphyry: var(--series-fat);
-  --s-lapis: var(--series-water);
-  --s-verdigris: var(--series-water);
-}
-
-/* Damped springs sampled into linear(): `spring` is critically-near (ζ 0.85, no visible
-   overshoot) for indicators, thumbs and releases; `bounce` (ζ 0.62, ~8% overshoot) for tactile
-   pops like a logged set. */
-@supports (transition-timing-function: linear(0, 1)) {
-  :root {
-    --ease-spring: linear(0, 0.023 2.8%, 0.062 4.9%, 0.122 7.2%, 0.198 9.8%, 0.287 12.5%, 0.382 15.4%, 0.478 18.4%, 0.57 21.6%, 0.656 24.9%, 0.732 28.3%, 0.798 31.9%, 0.853 35.5%, 0.897 39.2%, 0.932 43.1%, 0.958 47%, 0.976 51%, 0.989 55.1%, 0.998 59.2%, 1.003 63.5%, 1.005 67.8%, 1.006 76.7%, 1.004 90.5%, 1);
-    --ease-bounce: linear(0, 0.035 2.8%, 0.095 4.9%, 0.185 7.2%, 0.301 9.8%, 0.432 12.5%, 0.568 15.4%, 0.699 18.4%, 0.816 21.6%, 0.914 24.9%, 0.989 28.3%, 1.04 31.9%, 1.07 35.5%, 1.083 39.2%, 1.081 43.1%, 1.071 47%, 1.056 51%, 1.04 55.1%, 1.025 59.2%, 1.012 63.5%, 1.003 67.8%, 0.997 72.2%, 0.993 81.2%, 0.997 95.2%, 1);
-  }
-}
-
-/* The live slot needs room above the capsule on every screen that shows it. */
-:root:has([data-live-slot]) {
-  --chrome-clear: calc(var(--capsule-h) + 16px + var(--slot-h) + 8px + var(--safe-bottom));
-}
-@media (width < 360px) {
-  :root {
-    --gutter: 16px;
-  }
-}
-
-/* ------------------------------------------------------------- variants */
-
-/* Seal (night): set by the Day Engine on Now, app-wide 21:00–05:00, or always (Settings). */
-:root[data-phase="seal"] {
-  --ivory: #e4dccb;
-  --leaf-300: #cda75c;
-  --spot-opacity: 0.5;
-  --sheen-opacity: 0;
-  --glow: 0 0 0 transparent;
-}
-
-/* Reduce transparency (Settings toggle; Safari has no media query for it): glass goes opaque. */
-:root[data-transparency="reduce"] {
-  --glass-bg: var(--glass-solid);
-  --glass-filter: none;
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root {
-    --glass-bg: var(--glass-solid);
-  }
 }
 
 @theme inline {
-  /* new palette */
+  /* §1.1.3 Tailwind names */
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-card-3: var(--card-3);
+  --color-sheet: var(--sheet);
+  --color-sheet-card: var(--sheet-card);
+  --color-sheet-control: var(--sheet-control);
+  --color-track: var(--track);
+  --color-band: var(--band);
+  --color-ui-line: var(--ui-line);
+  --color-line: var(--line);
+  --color-fg: var(--text);
+  --color-fg-2: var(--text-2);
+  --color-fg-3: var(--text-3);
+  --color-tab-off: var(--tab-off);
+  --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-gold-soft: var(--gold-soft);
+  --color-gold-line: var(--gold-line);
+  --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+  --color-ai-line: var(--ai-line);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  /* Olympus / Pantheon class names, re-themed (deleted at integration) */
   --color-obsidian: var(--obsidian);
   --color-night: var(--night);
   --color-m1: var(--m1);
@@ -260,91 +306,85 @@
   --color-vein: var(--vein);
   --color-vein-2: var(--vein-2);
   --color-vein-3: var(--vein-3);
-  --color-ui-line: var(--ui-line);
   --color-ivory: var(--ivory);
-  --color-stone: var(--stone);
-  --color-ash: var(--ash);
+  --color-stone: var(--text-2);
+  --color-ash: var(--text-2);
   --color-disabled: var(--disabled);
   --color-ink: var(--ink);
-  --color-leaf-50: var(--leaf-50);
-  --color-leaf-100: var(--leaf-100);
-  --color-leaf-200: var(--leaf-200);
-  --color-leaf-300: var(--leaf-300);
-  --color-leaf-400: var(--leaf-400);
-  --color-leaf-500: var(--leaf-500);
-  --color-leaf-600: var(--leaf-600);
-  --color-leaf-700: var(--leaf-700);
-  --color-leaf-tint: var(--leaf-tint);
-  --color-leaf-line: var(--leaf-line);
-  --color-aegean: var(--aegean);
-  --color-aegean-tint: var(--aegean-tint);
-  --color-aegean-line: var(--aegean-line);
-  --color-cinnabar: var(--cinnabar);
-  --color-cinnabar-tint: var(--cinnabar-tint);
-  --color-cinnabar-line: var(--cinnabar-line);
-  --color-carbs: var(--series-carbs);
-  --color-fat: var(--series-fat);
-  --color-water: var(--series-water);
+  --color-leaf-50: var(--gold);
+  --color-leaf-100: var(--gold);
+  --color-leaf-200: var(--gold);
+  --color-leaf-300: var(--gold);
+  --color-leaf-400: var(--gold);
+  --color-leaf-500: var(--gold);
+  --color-leaf-600: var(--gold);
+  --color-leaf-700: var(--gold);
+  --color-leaf-tint: var(--gold-soft);
+  --color-leaf-line: var(--gold-line);
+  --color-aegean: var(--ai);
+  --color-aegean-tint: var(--ai-soft);
+  --color-aegean-line: var(--ai-line);
+  --color-cinnabar: var(--danger);
+  --color-cinnabar-tint: var(--danger-soft);
+  --color-cinnabar-line: var(--danger);
+  --color-carbs: var(--text);
+  --color-fat: var(--text);
+  --color-water: var(--text);
+  --color-bg-deep: var(--bg);
+  --color-s1: var(--sheet);
+  --color-s2: var(--card);
+  --color-s3: var(--card-2);
+  --color-s4: var(--card-3);
+  --color-s5: var(--card-3);
+  --color-line-hair: var(--line);
+  --color-line-strong: var(--ui-line);
+  --color-line-field: var(--ui-line);
+  --color-line-gold: var(--gold-line);
+  --color-fg-dis: var(--text-3);
+  --color-gold-50: var(--gold);
+  --color-gold-100: var(--gold);
+  --color-gold-200: var(--gold);
+  --color-gold-300: var(--gold);
+  --color-gold-400: var(--gold);
+  --color-gold-500: var(--gold);
+  --color-gold-600: var(--gold);
+  --color-gold-700: var(--gold);
+  --color-gold-800: var(--gold);
+  --color-gold-900: var(--gold);
+  --color-gold-tint: var(--gold-soft);
+  --color-success: var(--gold);
+  --color-success-tint: var(--gold-soft);
+  --color-danger-tint: var(--danger-soft);
+  --color-warning: var(--text-2);
+  --color-warning-tint: var(--card-2);
+  --color-lapis-text: var(--ai);
+  --color-lapis-tint: var(--ai-soft);
+  --color-lapis-line: var(--ai-line);
+  --color-info: var(--ai);
+  --color-marble: var(--text-2);
+  --color-terracotta: var(--text);
+  --color-porphyry: var(--text);
+  --color-lapis: var(--text);
+  --color-verdigris: var(--text);
 
-  /* aliases (old class names re-themed) */
-  --color-bg: var(--bg);
-  --color-bg-deep: var(--bg-deep);
-  --color-s1: var(--surface-1);
-  --color-s2: var(--surface-2);
-  --color-s3: var(--surface-3);
-  --color-s4: var(--surface-4);
-  --color-s5: var(--surface-5);
-  --color-line-hair: var(--line-hair);
-  --color-line: var(--line);
-  --color-line-strong: var(--line-strong);
-  --color-line-field: var(--line-field);
-  --color-line-gold: var(--line-gold);
-  --color-fg: var(--text-1);
-  --color-fg-2: var(--text-2);
-  --color-fg-3: var(--text-3);
-  --color-fg-dis: var(--text-disabled);
-  --color-gold-50: var(--gold-50);
-  --color-gold-100: var(--gold-100);
-  --color-gold-200: var(--gold-200);
-  --color-gold-300: var(--gold-300);
-  --color-gold-400: var(--gold-400);
-  --color-gold-500: var(--gold-500);
-  --color-gold-600: var(--gold-600);
-  --color-gold-700: var(--gold-700);
-  --color-gold-800: var(--gold-800);
-  --color-gold-900: var(--gold-900);
-  --color-gold-tint: var(--gold-tint);
-  --color-success: var(--success);
-  --color-success-tint: var(--success-tint);
-  --color-danger: var(--danger);
-  --color-danger-tint: var(--danger-tint);
-  --color-warning: var(--warning);
-  --color-warning-tint: var(--warning-tint);
-  --color-lapis-text: var(--lapis-text);
-  --color-lapis-tint: var(--lapis-tint);
-  --color-lapis-line: var(--lapis-line);
-  --color-info: var(--info);
-  --color-marble: var(--s-marble);
-  --color-terracotta: var(--s-terracotta);
-  --color-porphyry: var(--s-porphyry);
-  --color-lapis: var(--s-lapis);
-  --color-verdigris: var(--s-verdigris);
-
-  /* families: the instrument (SF on iPhone, Inter Tight elsewhere), the voice, the monument */
+  /* one family (§1.2.1); the retired families are aliases of it */
   --font-sans: var(--font-sans-stack);
-  --font-voice: var(--font-voice-stack);
-  --font-monument: var(--font-monument-stack);
-  /* retired: Cinzel → the voice, Barlow → the instrument (until every screen is migrated) */
-  --font-serif: var(--font-voice-stack);
+  --font-voice: var(--font-sans-stack);
+  --font-monument: var(--font-sans-stack);
+  --font-serif: var(--font-sans-stack);
   --font-num: var(--font-sans-stack);
 
+  /* §1.3 radii */
+  --radius-card: 24px;
+  --radius-tile-lg: 20px;
+  --radius-field: 18px;
+  --radius-tile: 14px;
+  --radius-pill: 9999px;
+  --radius-sheet: 28px;
+  /* old names */
   --radius-tag: 5px;
-  --radius-field: 12px;
   --radius-btn: 16px;
-  --radius-card: 22px;
-  --radius-sheet: 30px;
   --radius-capsule: 32px;
-  /* old scale, kept for existing screens */
   --radius-xs: 6px;
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -355,11 +395,25 @@
   --container-wide: 1040px;
 
   --ease-out: var(--ease-out);
-  --ease-gold: var(--ease-gold);
+  --ease-gold: var(--ease-out);
   --ease-sheet: var(--ease-sheet);
   --ease-pop: var(--ease-pop);
   --ease-spring: var(--ease-spring);
   --ease-bounce: var(--ease-bounce);
+}
+
+/* The AX layout (§1.2.2): a component's own @container narrower than 18rem — a 390 px phone's
+   column at accessibility text sizes (it is about 20.6rem at the iPhone's default 17 px). The
+   short layout: screens under 700 px tall (375×667). Use as `ax:` and `short:`. */
+@custom-variant ax {
+  @container (width < 18rem) {
+    @slot;
+  }
+}
+@custom-variant short {
+  @media (max-height: 700px) {
+    @slot;
+  }
 }
 
 /* ---------------------------------------------------------------- base */
@@ -369,7 +423,7 @@
      elsewhere. Every size in the type scale is in rem, so it all follows. */
   html {
     font-size: 100%;
-    background: var(--night);
+    background: var(--bg);
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
     text-rendering: optimizeLegibility;
@@ -381,22 +435,23 @@
   }
   body {
     min-height: 100dvh;
-    background: var(--night);
-    color: var(--ivory);
+    background: var(--bg);
+    color: var(--text);
     font-family: var(--font-sans-stack);
     font-size: 1rem;
-    line-height: 1.45;
-    font-weight: 500;
+    line-height: 1.4;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overscroll-behavior-y: none;
   }
   ::selection {
-    background: rgb(224 184 102 / 0.32);
-    color: var(--ivory);
+    background: rgb(233 185 73 / 0.32);
+    color: var(--text);
   }
   :focus-visible {
-    outline: 2px solid var(--leaf-300);
+    outline: 2px solid var(--text);
     outline-offset: 2px;
   }
   button,
@@ -418,8 +473,7 @@
     -webkit-touch-callout: none;
   }
   /* Press feedback for every pressable that doesn't opt into the `press` / `press-soft` scale:
-     an instant iOS-style dim on touch-down that fades back on release. Zero specificity, so any
-     component's own opacity or transition wins. `press-none` opts out entirely. */
+     an instant iOS-style dim on touch-down that fades back on release. `press-none` opts out. */
   :where(button, a[href], [role="button"], [role="tab"], [role="radio"], summary):where(:not(.press, .press-soft, .press-none)) {
     transition: opacity var(--dur-fast) var(--ease-out);
   }
@@ -445,440 +499,416 @@
   }
 }
 
-/* The 11 px text floor for screens that still use fixed pixel sizes (streams migrate them to the
+/* F1 guards (laws 3 and 6): no italics, no uppercase eyebrows, no gradients, glass or blur on any
+   old screen, whatever its classes say. Unlayered and !important so no utility can bring them
+   back. The workout dock's fade is the one allowed gradient. Removed at integration once the
+   §5.2 G-7 greps are clean. */
+*,
+*::before,
+*::after {
+  font-style: normal !important;
+  text-transform: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+body *:not([data-dock-fade]),
+body *::before,
+body *::after {
+  background-image: none !important;
+}
+
+/* The 12 px text floor for screens that still use fixed pixel sizes (streams move them to the
    rem scale). Unlayered, so it wins over the generated utilities. */
 .text-\[8px\],
 .text-\[8\.5px\],
 .text-\[9px\],
 .text-\[9\.5px\],
 .text-\[10px\],
-.text-\[10\.5px\] {
-  font-size: 11px;
+.text-\[10\.5px\],
+.text-\[11px\] {
+  font-size: 12px;
 }
 
-/* ----------------------------------------------------------- typography (§1.2.3) */
+/* ----------------------------------------------------------- type scale (§1.2.3) */
 
-@utility t-monument {
-  font-family: var(--font-monument-stack);
-  font-weight: 500;
-  font-variation-settings: "opsz" 28;
-  font-variant-numeric: tabular-nums lining-nums;
-  font-size: clamp(5.625rem, 26vw, 7.5rem);
+@utility t-gym {
+  font-size: min(6.5rem, 29vw);
+  font-weight: 800;
+  letter-spacing: -0.045em;
   line-height: 0.9;
-  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  @media (max-height: 700px) {
+    font-size: min(5rem, 22vw);
+  }
 }
 @utility t-timer {
-  font-family: var(--font-sans-stack);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
-  font-size: max(96px, min(30vw, 7.5rem));
-  line-height: 0.9;
+  font-size: min(5.5rem, 25vw);
+  font-weight: 800;
   letter-spacing: -0.04em;
-}
-@utility t-dial {
-  font-family: var(--font-sans-stack);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
-  font-size: min(3.5rem, 16vw);
-  line-height: 0.95;
-  letter-spacing: -0.035em;
-}
-@utility t-num-l {
-  font-family: var(--font-sans-stack);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
-  font-size: min(2rem, 10vw);
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-@utility t-num-m {
-  font-family: var(--font-sans-stack);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
-  font-size: 1.375rem;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
-}
-@utility t-num-s {
-  font-family: var(--font-sans-stack);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
-  font-size: 1.0625rem;
-  line-height: 1.2;
-}
-@utility t-title-1 {
-  font-variant-numeric: lining-nums;
-  font-family: var(--font-voice-stack);
-  font-weight: 600;
-  font-size: 2.125rem;
-  line-height: 1.05;
-  letter-spacing: -0.01em;
-}
-@utility t-verdict {
-  font-variant-numeric: lining-nums;
-  font-family: var(--font-voice-italic-stack);
-  font-style: italic;
-  font-weight: 500;
-  font-size: 1.75rem;
-  line-height: 1.12;
-}
-@utility t-title-2 {
-  font-variant-numeric: lining-nums;
-  font-family: var(--font-voice-stack);
-  font-weight: 600;
-  font-size: 1.375rem;
-  line-height: 1.15;
-}
-@utility t-film {
-  font-variant-numeric: lining-nums;
-  font-family: var(--font-voice-stack);
-  font-weight: 600;
-  font-size: 1.5rem;
-  line-height: 1.1;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-}
-@utility t-title-3 {
-  font-family: var(--font-sans-stack);
-  font-weight: 600;
-  font-size: 1.0625rem;
-  line-height: 1.3;
-  letter-spacing: -0.005em;
-}
-@utility t-body {
-  font-family: var(--font-sans-stack);
-  font-weight: 500;
-  font-size: 1rem;
-  line-height: 1.45;
-}
-@utility t-callout {
-  font-family: var(--font-sans-stack);
-  font-weight: 500;
-  font-size: 0.9375rem;
-  line-height: 1.4;
-}
-@utility t-meta {
-  font-family: var(--font-sans-stack);
-  font-weight: 500;
-  font-size: max(12px, 0.8125rem);
-  line-height: 1.35;
-}
-@utility t-eyebrow {
-  font-family: var(--font-sans-stack);
-  font-weight: 600;
-  font-size: max(11px, 0.6875rem);
-  line-height: 1.2;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ash);
-}
-@utility t-tag {
-  font-family: var(--font-sans-stack);
-  font-weight: 600;
-  font-size: max(11px, 0.6875rem);
-  line-height: 1;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-@utility t-key {
-  font-family: var(--font-sans-stack);
-  font-weight: 600;
-  font-size: 1rem;
-  line-height: 1;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-@utility tnum {
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
-}
-
-/* Retired Pantheon type (aliases until each owning stream removes its last use). Cinzel all-caps
-   headers and condensed numbers are gone: titles speak in the voice, numbers in the instrument. */
-@utility num {
-  font-family: var(--font-sans-stack);
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
-}
-@utility num-hero {
-  font-family: var(--font-sans-stack);
-  font-variant-numeric: tabular-nums lining-nums;
-  font-weight: 600;
-  font-size: min(4.25rem, 19vw);
   line-height: 0.9;
-  letter-spacing: -0.04em;
-}
-@utility num-xl {
-  font-family: var(--font-sans-stack);
-  font-variant-numeric: tabular-nums lining-nums;
-  font-weight: 600;
-  font-size: min(3rem, 13vw);
-  line-height: 0.92;
-  letter-spacing: -0.035em;
-  @media (width >= 64rem) {
-    font-size: 3.5rem;
+  font-variant-numeric: tabular-nums;
+  @media (max-height: 700px) {
+    font-size: min(3.75rem, 17vw);
   }
 }
-@utility num-lg {
-  font-family: var(--font-sans-stack);
-  font-variant-numeric: tabular-nums lining-nums;
-  font-weight: 600;
-  font-size: min(2.125rem, 10vw);
-  line-height: 1;
-  letter-spacing: -0.03em;
-}
-@utility num-md {
-  font-family: var(--font-sans-stack);
-  font-variant-numeric: tabular-nums lining-nums;
-  font-weight: 600;
-  font-size: 1.5rem;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-@utility num-sm {
-  font-family: var(--font-sans-stack);
-  font-variant-numeric: tabular-nums lining-nums;
-  font-weight: 600;
-  font-size: 1.1875rem;
-  line-height: 1;
-  letter-spacing: -0.01em;
-}
-@utility num-xs {
-  font-family: var(--font-sans-stack);
-  font-variant-numeric: tabular-nums lining-nums;
-  font-weight: 500;
-  font-size: 0.9375rem;
-  line-height: 1.2;
+@utility t-big {
+  font-size: min(5.625rem, 25vw);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+  @media (max-height: 700px) {
+    font-size: min(4.7rem, 21vw);
+  }
 }
 @utility t-hero {
-  font-variant-numeric: lining-nums;
-  font-family: var(--font-voice-stack);
-  font-weight: 600;
-  font-size: 2.125rem;
-  line-height: 1.04;
-  letter-spacing: -0.01em;
-  @media (width >= 64rem) {
-    font-size: 2.75rem;
-  }
-}
-@utility t-h1 {
-  font-variant-numeric: lining-nums;
-  font-family: var(--font-voice-stack);
-  font-weight: 600;
-  font-size: 2.125rem;
-  line-height: 1.05;
-  letter-spacing: -0.01em;
-  @media (width >= 64rem) {
-    font-size: 2.5rem;
-  }
+  font-size: min(3.3rem, 15vw);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 @utility t-title {
-  font-variant-numeric: lining-nums;
-  font-family: var(--font-voice-stack);
-  font-weight: 600;
-  font-size: 2.125rem;
-  line-height: 1.05;
-  letter-spacing: -0.01em;
-  @media (width >= 64rem) {
-    font-size: 2.5rem;
-  }
+  font-size: 1.875rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
 }
-@utility t-h2 {
-  font-variant-numeric: lining-nums;
-  font-family: var(--font-voice-stack);
-  font-weight: 600;
-  font-size: 1.375rem;
+@utility t-head {
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+@utility t-num {
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+@utility t-num-s {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+@utility t-sheet {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   line-height: 1.15;
 }
-@utility t-card {
-  font-variant-numeric: lining-nums;
-  font-family: var(--font-voice-stack);
-  font-weight: 600;
-  font-size: 1.875rem;
-  line-height: 1.02;
-  letter-spacing: -0.005em;
-}
-@utility t-plaque {
-  font-family: var(--font-sans-stack);
-  font-weight: 600;
-  font-size: max(11px, 0.75rem);
+@utility t-section {
+  font-size: 1.175rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
   line-height: 1.2;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--leaf-300);
 }
-@utility t-h3 {
-  font-family: var(--font-sans-stack);
+@utility t-row {
+  font-size: 1rem;
   font-weight: 600;
-  font-size: 1.0625rem;
+  letter-spacing: -0.01em;
   line-height: 1.3;
-  letter-spacing: -0.005em;
 }
-@utility eyebrow {
-  font-family: var(--font-sans-stack);
+@utility t-body {
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.4;
+}
+@utility t-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.35;
+  color: var(--text-2);
+}
+@utility t-cap {
+  font-size: max(12px, 0.775rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+  color: var(--text-2);
+}
+@utility t-tab {
+  font-size: max(11px, 0.65rem);
   font-weight: 600;
-  font-size: max(11px, 0.6875rem);
-  line-height: 1.2;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ash);
+  letter-spacing: 0;
+  line-height: 1.1;
 }
 @utility t-button {
-  font-family: var(--font-sans-stack);
-  font-weight: 600;
   font-size: 1rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
-/* Gold text: a short leaf gradient that never drops under leaf-400. */
-@utility text-gold {
-  color: var(--leaf-300);
-  background: var(--leaf-text);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
+/* "g", "lb", "kcal" after a number: half its size, never above it */
 @utility unit {
-  font-family: var(--font-sans-stack);
-  font-weight: 500;
-  font-size: max(12px, 0.42em);
-  color: var(--stone);
-  margin-left: 0.2em;
+  font-size: 0.5em;
+  font-weight: 700;
+  color: var(--text-2);
+  margin-left: 3px;
   letter-spacing: 0;
+}
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Type aliases (§1.7.2): old utilities render in the V3 scale. Colours stay as the old ones had
+   them (most inherited), so an old label on a gold button keeps its ink. Deleted at integration. */
+@utility t-monument {
+  font-size: min(5.625rem, 25vw);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+@utility t-dial {
+  font-size: min(3.3rem, 15vw);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+@utility t-title-1 {
+  font-size: 1.875rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+@utility t-h1 {
+  font-size: 1.875rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+@utility t-title-2 {
+  font-size: 1.175rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+@utility t-h2 {
+  font-size: 1.175rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+@utility t-card {
+  font-size: 1.175rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+@utility t-verdict {
+  font-size: 1.175rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+@utility t-film {
+  font-size: 1.175rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+@utility t-title-3 {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+@utility t-h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+@utility t-num-l {
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+@utility t-num-m {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+@utility t-callout {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+@utility t-meta {
+  font-size: max(12px, 0.775rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+@utility t-eyebrow {
+  font-size: max(12px, 0.775rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-transform: none;
+  color: var(--text-2);
+}
+@utility eyebrow {
+  font-size: max(12px, 0.775rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-transform: none;
+  color: var(--text-2);
+}
+@utility t-tag {
+  font-size: max(12px, 0.775rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-transform: none;
+}
+@utility t-key {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-transform: none;
+}
+@utility t-plaque {
+  font-size: max(12px, 0.775rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-transform: none;
+  color: var(--text-2);
+}
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+@utility num-hero {
+  font-size: min(3.3rem, 15vw);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+@utility num-xl {
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+@utility num-lg {
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+@utility num-md {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+@utility num-sm {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+@utility num-xs {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 
 /* -------------------------------------------------------------- surfaces (§1.4) */
 
-/* A slab: m2, hairline edge, a faint top light. The default card for old screens. */
+/* The card: flat --card, radius 24, no border, shadow, gradient or texture. */
 @utility card {
-  background: linear-gradient(180deg, rgb(255 244 220 / 0.022), transparent 120px), var(--m2);
-  border: 1px solid var(--vein);
-  border-radius: var(--r-card);
-  box-shadow: inset 0 1px 0 rgb(255 244 220 / 0.05);
+  background: var(--card);
+  border-radius: var(--radius-card);
 }
+/* Material aliases (§1.7.3), deleted at integration. The inset sits inside a card, so it is a
+   control surface (--card-2) to stay visible there. */
 @utility slab {
-  background: linear-gradient(180deg, rgb(255 244 220 / 0.022), transparent 120px), var(--m2);
-  border-radius: var(--r-card);
-  box-shadow: var(--e2);
+  background: var(--card);
+  border-radius: var(--radius-card);
 }
 @utility card-instrument {
-  background: var(--m1);
-  border: 1px solid var(--vein-2);
-  border-radius: var(--r-btn);
+  background: var(--card);
+  border-radius: var(--radius-tile-lg);
 }
 @utility card-inset {
-  background: var(--m3);
-  border-radius: var(--r-field);
+  background: var(--card-2);
+  border-radius: var(--radius-tile);
 }
 @utility card-accent {
-  background: linear-gradient(180deg, rgb(255 244 220 / 0.022), transparent 120px), var(--m2);
-  border: 1px solid var(--vein);
-  border-top-color: var(--leaf-line);
-  border-radius: var(--r-card);
-  box-shadow: inset 0 1px 0 rgb(255 244 220 / 0.05);
+  background: var(--card);
+  border-radius: var(--radius-card);
 }
-/* Monument surfaces only (Now hero, Inscription, Chronicle, Terrace, sign-in): marble veins
-   (pre-rendered, ~4%) under the one warm light. */
 @utility card-monument {
   position: relative;
-  isolation: isolate;
-  border-radius: var(--r-card);
-  border: 1px solid transparent;
-  background:
-    var(--spot) padding-box,
-    url("/art/marble-veins.svg") padding-box,
-    linear-gradient(var(--m1), var(--m1)) padding-box,
-    var(--grad-monument-border) border-box;
-  background-size:
-    auto,
-    400px 400px,
-    auto,
-    auto;
-  box-shadow: var(--e2);
+  background: var(--card);
+  border-radius: var(--radius-card);
 }
 @utility monument {
-  background:
-    var(--spot),
-    url("/art/marble-veins.svg"),
-    var(--night);
-  background-size:
-    auto,
-    400px 400px,
-    auto;
+  background: var(--card);
 }
-/* Glass: only the capsule, the Offering button and the live slot (≤ 3 per screen, ≤ 64 px tall). */
 @utility glass {
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
-  box-shadow:
-    inset 0 0 0 1px var(--vein-2),
-    inset 0 1px 0 rgb(255 244 220 / 0.07),
-    0 18px 40px -16px rgb(0 0 0 / 0.9);
+  background: var(--card-3);
 }
-/* Old sticky bars: opaque night, never blurred (only the three glass elements blur). */
 @utility chrome {
-  background: rgb(9 9 11 / 0.96);
+  background: var(--bg);
 }
 @utility spotlight {
-  background-image: var(--spot);
+  background-image: none;
 }
-/* Gold-leaf surface (columns, coins, the laurel's fills). Not for controls: use Button primary. */
 @utility leaf {
-  background: var(--leaf);
-  box-shadow:
-    inset 0 1px 0 rgb(255 248 225 / 0.55),
-    var(--glow);
+  background: var(--gold);
 }
 @utility leaf-btn {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background: var(--leaf-btn);
-  color: var(--ink);
-  box-shadow:
-    inset 0 1px 0 rgb(255 250 230 / 0.6),
-    inset 0 -1px 0 rgb(80 52 14 / 0.45),
-    0 0 0 1px rgb(120 84 30 / 0.55),
-    var(--glow);
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background: var(--leaf-spec);
-    opacity: var(--sheen-opacity);
-    pointer-events: none;
-  }
+  background: var(--gold);
+  color: var(--gold-ink);
 }
-/* Hatched fill: the planned part of a meter, "under" in a target zone. */
 @utility hatch {
-  background-image: repeating-linear-gradient(135deg, var(--ui-line) 0 1.5px, transparent 1.5px 5px);
+  background-image: none;
 }
-/* Pre-rendered grain for leaf surfaces taller than 64 px. */
 @utility grain {
   position: relative;
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: url("/art/grain.png");
-    background-size: 128px 128px;
-    opacity: 0.06;
-    pointer-events: none;
-  }
 }
+@utility sheen {
+  position: relative;
+}
+@utility flash-gold {
+  animation: none;
+}
+@utility pulse-soft {
+  animation: none;
+}
+@utility spot-in {
+  animation: none;
+}
+
 @utility pb-tabbar {
-  padding-bottom: calc(var(--chrome-clear) + 24px);
+  padding-bottom: var(--chrome-clear);
 }
 @utility pb-chrome {
-  padding-bottom: calc(var(--chrome-clear) + 24px);
+  padding-bottom: var(--chrome-clear);
 }
 @utility pt-safe {
   padding-top: var(--safe-top);
@@ -909,16 +939,12 @@
     transform: translate(-50%, -50%);
   }
 }
-/* Shared press feedback. Presses down in 90 ms and springs back on release. Uses the
-   independent `scale` property, so it composes with translate/transform animations (a dock
-   sliding up, a check popping) instead of being overridden by them, and the `:not(:disabled)`
-   bump lets it win over a plain `transition-colors` on the same element. Pressed colours
-   (active:bg-*) land instantly and fade back on release, like UIKit highlights. `press` for
-   buttons, chips and icons; `press-soft` for cards and rows. */
+/* Press feedback (§1.6): buttons scale .97, cards .98, 90 ms down, a spring back on release. The
+   independent `scale` property composes with transform animations. */
 @utility press {
   &:not(:disabled) {
     transition-property: scale, color, background-color, border-color, opacity, box-shadow;
-    transition-duration: var(--dur-lift), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast);
+    transition-duration: var(--dur-base), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast);
     transition-timing-function: var(--ease-bounce), var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out);
   }
   &:not(:disabled, [aria-disabled="true"]):active {
@@ -930,11 +956,11 @@
 @utility press-soft {
   &:not(:disabled) {
     transition-property: scale, color, background-color, border-color, opacity, box-shadow;
-    transition-duration: var(--dur-lift), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast);
+    transition-duration: var(--dur-base), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast);
     transition-timing-function: var(--ease-spring), var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out);
   }
   &:not(:disabled, [aria-disabled="true"]):active {
-    scale: 0.985;
+    scale: 0.98;
     transition-duration: var(--dur-press), 0s, 0s, 0s, 0s, 0s;
     transition-timing-function: var(--ease-out);
   }
@@ -964,10 +990,8 @@
   }
 }
 
-/* Horizontal chip rails on phones (every `no-scrollbar` + `overflow-x-auto` row): the edges fade
-   instead of cutting a chip in half, which also says "there's more this way". Where scroll-driven
-   animations exist the leading fade appears once you scroll and the trailing one clears at the
-   end. Paint-only (mask), no layout. */
+/* Horizontal chip rails on phones (`no-scrollbar` + `overflow-x-auto`): the edges fade (a mask,
+   not a background) instead of cutting a chip in half. */
 @property --rail-l {
   syntax: "<length>";
   inherits: false;
@@ -1007,42 +1031,13 @@
   }
 }
 
-/* -------------------------------------------------------------- Gym Mode (§1.1.4) */
-
-/* The Gym Mode root: true black, no veins, no glass, no grain. All chrome is opaque. */
+/* The workout uses the same tokens (the background is already black). Kept for the old root. */
 [data-mode="gym"] {
-  --glass-bg: var(--m1);
-  --glass-filter: none;
-  --spot: none;
-  background-color: var(--obsidian);
-  color: var(--ivory);
-}
-[data-mode="gym"] .grain::before {
-  display: none;
+  background-color: var(--bg);
+  color: var(--text);
 }
 
-/* --------------------------------------------------------------- effects (§1.8) */
-
-/* One Sheen pass over gold (once per event). */
-@utility sheen {
-  position: relative;
-  overflow: hidden;
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.38) 50%, transparent 80%);
-    transform: translateX(-120%);
-    opacity: var(--sheen-opacity);
-    animation: sheen 900ms var(--ease-out) 400ms 1 both;
-    pointer-events: none;
-  }
-}
-@keyframes sheen {
-  to {
-    transform: translateX(220%);
-  }
-}
+/* --------------------------------------------------------------- motion (§1.6) */
 
 @keyframes rise {
   from {
@@ -1055,10 +1050,9 @@
   }
 }
 @utility rise {
-  animation: rise var(--dur-lift) var(--ease-out) both;
+  animation: rise var(--dur-base) var(--ease-out) both;
 }
-
-/* Seal: an outline becomes leaf (a logged set, Eaten on a coin, a rite done). */
+/* A mark filling (a logged set's dot, a check): scale .6 → 1 in 160 ms. */
 @keyframes seal-in {
   from {
     transform: scale(0.6);
@@ -1066,9 +1060,8 @@
   }
 }
 @utility seal-in {
-  animation: seal-in var(--dur-fast) var(--ease-pop) both;
+  animation: seal-in var(--dur-fast) var(--ease-out) both;
 }
-/* Turn: the Now card changes phase. */
 @keyframes turn-in {
   from {
     opacity: 0;
@@ -1076,37 +1069,11 @@
   }
 }
 @utility turn-in {
-  animation: turn-in 240ms var(--ease-out) both;
-}
-@keyframes spot-in {
-  from {
-    opacity: 0;
-  }
-}
-@utility spot-in {
-  animation: spot-in 600ms var(--ease-out) both;
+  animation: turn-in var(--dur-base) var(--ease-out) both;
 }
 
-/* Inscribe: stroke draws (laurel stems, terrace contours); leaves grow from their bases. Paths
-   use pathLength="1" with a 1 1 dasharray. */
-@keyframes inscribe-draw {
-  from {
-    stroke-dashoffset: 1;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-@keyframes leaf-grow {
-  from {
-    transform: scale(0);
-    opacity: 0;
-  }
-}
-
-/* The Sundial's rest arc drains linearly (pathLength 100), started with a negative delay =
-   elapsed seconds so it is right after any refresh. It carries information, so it keeps
-   draining under reduced motion (`motion-keep`). */
+/* Rest drains (pathLength 100), started with a negative delay = elapsed seconds so it is right
+   after any refresh. It carries information, so it keeps draining under reduced motion. */
 @keyframes sundial-drain {
   from {
     stroke-dashoffset: 0;
@@ -1134,6 +1101,8 @@
   animation-play-state: paused;
 }
 
+/* Skeleton (§1.4.24): --card blocks in the final shapes, a 1.2 s opacity pulse (none under
+   reduced motion). Invisible for the first 150 ms so fast loads never flash. */
 @keyframes skeleton-in {
   from {
     opacity: 0;
@@ -1148,41 +1117,14 @@
     opacity: 0.55;
   }
 }
-/* Placeholders stay invisible for the first 150 ms, so fast loads never flash a skeleton;
-   then a slow opacity pulse in m2 (static under reduced motion). */
 @utility skeleton {
   position: relative;
   overflow: hidden;
-  background: var(--m2);
-  border-radius: var(--r-field);
+  background: var(--card);
+  border-radius: var(--radius-tile-lg);
   animation:
     skeleton-in var(--dur-base) var(--ease-out) 150ms both,
-    skeleton-pulse 1.8s ease-in-out 400ms infinite;
-}
-
-@keyframes flash-gold {
-  0% {
-    background-color: var(--leaf-tint);
-  }
-  100% {
-    background-color: transparent;
-  }
-}
-@utility flash-gold {
-  animation: flash-gold 1200ms var(--ease-out) both;
-}
-
-@keyframes pulse-soft {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
-@utility pulse-soft {
-  animation: pulse-soft 2s ease-in-out infinite;
+    skeleton-pulse 1.2s ease-in-out 400ms infinite;
 }
 
 /* ------------------------------------------------------ dialogs (radix) */
@@ -1209,7 +1151,6 @@
     transform: translateY(6px) scale(0.98);
   }
 }
-/* Radix waits for the closing animation before unmounting, so both directions animate. */
 @utility anim-overlay {
   &[data-state="open"] {
     animation: fade-in var(--dur-base) var(--ease-out) both;
@@ -1220,7 +1161,7 @@
 }
 @utility anim-dialog {
   &[data-state="open"] {
-    animation: dialog-in var(--dur-lift) var(--ease-spring) both;
+    animation: dialog-in var(--dur-base) var(--ease-spring) both;
   }
   &[data-state="closed"] {
     animation: dialog-out var(--dur-fast) var(--ease-in) both;
@@ -1251,7 +1192,6 @@
 @utility swap-in {
   animation: swap-in var(--dur-base) var(--ease-out) both;
 }
-/* Keyed panels that slide in from a side: set --swap-dx (e.g. ±14px) on the element. */
 @keyframes swap-in-x {
   from {
     opacity: 0;
@@ -1259,54 +1199,24 @@
   }
 }
 
-/* ---------------------------------------------------------------- the shell (§2.1) */
+/* ---------------------------------------------------------------- the shell (§3) */
 
-/* Floating capsule: 4 tabs. Labels hide on scroll down (Capsule shrink) and at large text sizes
-   (a rem container query: at an AX root the capsule measures narrow), icons stay 44 px. */
+/* Old capsule (until the tab bar replaces it in F3). */
 .capsule {
   container: capsule / inline-size;
 }
 .capsule-label {
-  font-size: max(11px, 0.6875rem);
+  font-size: max(11px, 0.65rem);
   line-height: 1;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  transition:
-    opacity var(--dur-base) var(--ease-out),
-    transform var(--dur-base) var(--ease-out);
-}
-.capsule-icon {
-  transition: transform var(--dur-base) var(--ease-out);
-}
-.capsule[data-compact="true"] .capsule-label {
-  opacity: 0;
-  transform: translateY(4px);
-}
-.capsule[data-compact="true"] .capsule-icon {
-  transform: translateY(7px);
-}
-@container capsule (width < 15rem) {
-  .capsule-label {
-    display: none;
-  }
-  .capsule-icon {
-    transform: none !important;
-  }
-}
-
-/* The scroll edge under the floating chrome: content fades out before it reaches the capsule. */
-.scroll-edge {
-  background: linear-gradient(180deg, rgb(9 9 11 / 0) 0%, rgb(9 9 11 / 0.82) 55%, var(--night) 100%);
 }
 
 /* ------------------------------------------------------ view transitions */
 
-/* Route changes. AppShell sets <html data-nav="push|pop|forward|back|fade|instant"> (from the two
-   paths, see navDirection in src/lib/motion.ts) inside the transition's update, and each page
-   is a <ViewTransition enter="page" exit="page">. Push/pop slide 24 px by depth; tab changes
-   crossfade with a short drift in tab order. The app chrome (top bar, capsule, rail, Offering,
-   live slot, toasts) is its own layer above the pages and never moves. A second navigation
-   within 400 ms skips the animation (`instant`), so a transition never eats a gym tap. */
+/* Route changes. AppShell sets <html data-nav="push|pop|forward|back|fade|instant"> inside the
+   transition's update, and each page is a <ViewTransition enter="page" exit="page">. Push/pop
+   slide by depth; tab changes crossfade with a short drift in tab order. The chrome is its own
+   layer above the pages and never moves. A second navigation within 400 ms is `instant`. */
 ::view-transition {
   pointer-events: none;
 }
@@ -1351,7 +1261,6 @@
 ::view-transition-new(.shell) {
   animation: none;
 }
-/* chrome that leaves (into a focus route) fades; chrome that returns fades in */
 ::view-transition-old(.shell):only-child {
   animation: vt-fade-out var(--dur-fast) var(--ease-out) both;
 }
@@ -1359,7 +1268,6 @@
   animation: fade-in var(--dur-route) var(--ease-out) both;
 }
 
-/* pages: default crossfade with a small rise */
 ::view-transition-old(.page) {
   animation: vt-fade-out 100ms var(--ease-out) both;
 }
@@ -1441,10 +1349,10 @@
   }
 }
 
-/* ------------------------------------------------------ reduced motion (§1.8)
-   From the system setting or Settings → Appearance → Motion = Reduce (<html data-motion="reduce">).
-   Everything settles at once; pages swap with a short opacity fade. Information that moves
-   (the rest arc, its meter: `.wk-ring-arc`, `.wk-meter`, `.motion-keep`) keeps moving. */
+/* ------------------------------------------------------ reduced motion (§1.6)
+   The system setting or Settings › Display › Motion = Reduce (<html data-motion="reduce">).
+   Everything settles at once; pages swap with a short opacity fade. Information that moves (the
+   rest ring: `.motion-keep`, `.wk-ring-arc`, `.wk-meter`) keeps moving. */
 @media (prefers-reduced-motion: reduce) {
   *:where(:not(.wk-ring-arc, .wk-meter, .motion-keep)),
   *::before,
@@ -1486,35 +1394,33 @@
   animation: fade-in 150ms linear both !important;
 }
 
-/* --------------------------------------------------------- sonner toasts */
+/* --------------------------------------------------------- toasts (§1.4.18) */
 
 [data-sonner-toaster] [data-sonner-toast] {
-  background: var(--m3) !important;
-  border: 1px solid var(--vein-3) !important;
-  color: var(--ivory) !important;
-  border-radius: var(--r-btn) !important;
-  box-shadow: var(--e3) !important;
+  background: var(--card-2) !important;
+  border: 0 !important;
+  color: var(--text) !important;
+  border-radius: 16px !important;
+  box-shadow: none !important;
   font-family: var(--font-sans-stack) !important;
-  font-weight: 600 !important;
-  font-size: max(14px, 0.875rem) !important;
+  font-weight: 500 !important;
+  font-size: max(15px, 0.875rem) !important;
 }
 [data-sonner-toaster] [data-sonner-toast] [data-description] {
-  color: var(--stone) !important;
+  color: var(--text-2) !important;
   font-weight: 500 !important;
 }
 [data-sonner-toaster] [data-sonner-toast] [data-button] {
   background: transparent !important;
-  color: var(--leaf-300) !important;
-  font-weight: 700 !important;
-  font-size: max(12px, 0.75rem) !important;
-  letter-spacing: 0.12em !important;
-  text-transform: uppercase !important;
+  color: var(--text) !important;
+  font-weight: 600 !important;
+  font-size: max(15px, 0.875rem) !important;
+  letter-spacing: 0 !important;
   min-height: 32px;
 }
 [data-sonner-toaster] [data-sonner-toast][data-type="error"] [data-icon] {
-  color: var(--cinnabar) !important;
+  color: var(--danger) !important;
 }
-
 [data-sonner-toaster] [data-sonner-toast][data-visible="true"] {
   pointer-events: auto;
 }
@@ -1522,15 +1428,14 @@
 /* ------------------------------------------------------ bottom sheets (vaul) */
 
 /* vaul's own CSS is injected at runtime (unlayered, same specificity), so these use `html` to
-   win. Sheets present on the iOS sheet curve in 400 ms (vaul's default is a slower 500 ms) and
-   the scrim follows a touch quicker; drag-release keeps vaul's inline physics. */
+   win. Sheets present on vaul's iOS curve in 400 ms; drag-release keeps vaul's inline physics. */
 html [data-vaul-drawer] {
   animation-duration: var(--dur-sheet);
   transition-duration: var(--dur-sheet);
 }
 html [data-vaul-drawer][data-state="closed"] {
-  animation-duration: var(--dur-lift);
+  animation-duration: var(--dur-base);
 }
 html [data-vaul-overlay] {
-  animation-duration: var(--dur-lift);
+  animation-duration: var(--dur-base);
 }

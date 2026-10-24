@@ -1,5 +1,5 @@
-// Copy for the Mountain (docs/DESIGN-V2.md §3.6.1). Every number here is read from pace(),
-// calorieSuggestion() or terraces(); nothing is recomputed. Pure.
+// Copy for Progress › Weight and its pace sheet (docs/DESIGN-V3-SIMPLE.md §4.5.1–§4.5.2). Every
+// number here is read from pace(), calorieSuggestion() or the milestones; nothing is recomputed. Pure.
 
 import type { CalorieSuggestion } from "@/lib/bodyweight";
 import { formatInt, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
@@ -35,23 +35,23 @@ export function mountainExplain(p: Pace, unit: WeightUnit): { text: string; proj
   const first = `You ${verb} ${w2(rate!, unit).replace("−", "")} ${unit} a week.`;
   if (!c || !p.band || !by) return { text: first, proj: false };
   const window = `${plain2(c.minRate, unit)} to ${plain2(c.maxRate, unit)}`;
-  if (p.verdict === "above") return { text: `${first} ${window} is the lean-gain window that lands you in ${bandTxt(p.band, unit)} by ${by}.`, proj: true };
+  if (p.verdict === "above") return { text: `${first} ${window} is the pace that lands you in ${bandTxt(p.band, unit)} by ${by}.`, proj: true };
   return { text: `${first} Anything from ${window} lands you in ${bandTxt(p.band, unit)} by ${by}.`, proj: true };
 }
 
-/** Where the rate sits in the window, as the first half of the gauge's RULE call. */
+/** Where the rate sits against the pace he needs, in the pace chip's words. */
 export function windowPhrase(p: Pace): string | null {
   switch (p.verdict) {
     case "top":
-      return "Top of the window.";
+      return "On track, a bit fast.";
     case "on_pace":
-      return "Inside the window.";
+      return "On track.";
     case "below":
-      return "Under the window.";
+      return "A bit slow.";
     case "above":
-      return "Above the window.";
+      return "A bit fast.";
     case "arrived":
-      return "Inside the goal band.";
+      return "Inside your goal.";
     default:
       return null;
   }

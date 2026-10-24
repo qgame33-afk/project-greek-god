@@ -1,53 +1,54 @@
-// The Chronicle (docs/DESIGN-V2.md §3.8): each month of the programme is a Book. These helpers
-// turn a month's review numbers (lib/reviews/compute.ts, unchanged) into the Book's title and
-// the facts its chapters quote. Every phrase states something that happened in the logs; a
-// month with nothing logged says so plainly. Pure.
+// The monthly recap (docs/DESIGN-V3-SIMPLE.md §4.5.5–§4.5.6; the old Chronicle's helpers keep
+// their names). These turn a month's review numbers (lib/reviews/compute.ts, unchanged) into the
+// recap's title, its one-line summary and the facts it quotes. Every phrase states something that
+// happened in the logs; a month with nothing logged says so plainly. Pure.
 
 import { plannedWeight, type WeighIn } from "@/lib/bodyweight";
-import { addMonths, monthEnd, monthName, parseISODate, type ISODate } from "@/lib/dates";
+import { addMonths, dayName, monthEnd, monthName, parseISODate, type ISODate } from "@/lib/dates";
 import { gildFraction, roman, trendAt, type Terrace } from "@/lib/progress/pace";
 import { round, toDisplayWeight, type WeightUnit } from "@/lib/units";
 import type { ReviewStats } from "./compute";
 
 export interface BookTitle {
-  /** "BOOK I" */
+  /** "September recap" */
   book: string;
+  /** The month's place in the programme (data; never shown as a roman numeral). */
   numeral: string;
-  /** "SEPTEMBER" (with the year when the programme spans two of the same month) */
+  /** "September" (with the year when the programme spans two of the same month) */
   film: string;
-  /** "in which the climb began" */
+  /** "The month you started", "So far", "Reached 165 lb" */
   subtitle: string;
 }
 
-/** Terraces whose first crossing falls inside [from, to]. */
+/** Milestones whose first crossing falls inside [from, to]. */
 export function terracesReachedIn(ts: Pick<Terrace, "numeral" | "lb" | "reachedOn" | "index">[], from: ISODate, to: ISODate) {
   return ts.filter((t) => t.reachedOn && t.reachedOn >= from && t.reachedOn <= to);
 }
 
 /**
- * The subtitle, from the logs only, in this order: the month the climb began; a terrace
- * reached; records set; sessions sealed; otherwise "a quiet month". The current month is
- * "being written".
+ * The one-line summary, from the logs only, in this order: the month he started; a milestone
+ * reached; new bests; workouts done; otherwise "A quiet month". The current month is "So far".
  */
 export function bookSubtitle(
   s: Pick<ReviewStats, "window" | "training">,
   opts: { startDate: ISODate; current: boolean; terraces?: Pick<Terrace, "numeral" | "lb" | "reachedOn" | "index">[] },
 ): string {
-  if (opts.current) return "being written";
+  if (opts.current) return "So far";
   const { from, to } = s.window;
-  if (opts.startDate >= from && opts.startDate <= to) return "in which the climb began";
+  if (opts.startDate >= from && opts.startDate <= to) return "The month you started";
   const reached = opts.terraces ? terracesReachedIn(opts.terraces, from, to) : [];
   if (reached.length) {
+    const first = reached.reduce((a, b) => (b.index < a.index ? b : a));
     const top = reached.reduce((a, b) => (b.index > a.index ? b : a));
-    return reached.length > 1 ? `in which Terraces ${reached[0].numeral} to ${top.numeral} were reached` : `in which Terrace ${top.numeral} was reached`;
+    return reached.length > 1 ? `Reached ${lbTxt(first.lb)} to ${lbTxt(top.lb)} lb` : `Reached ${lbTxt(top.lb)} lb`;
   }
   const records = s.training.prs.items.length;
-  if (records > 1) return `in which ${records} records were set`;
-  if (records === 1) return "in which a record was set";
+  if (records > 1) return `${records} new bests`;
+  if (records === 1) return "A new best";
   const n = s.training.sessions;
-  if (n > 1) return `in which ${n} sessions were sealed`;
-  if (n === 1) return "in which one session was sealed";
-  return "a quiet month";
+  if (n > 1) return `${n} workouts done`;
+  if (n === 1) return "One workout done";
+  return "A quiet month";
 }
 
 export function bookTitle(
@@ -56,17 +57,17 @@ export function bookTitle(
 ): BookTitle {
   const numeral = roman(Math.max(1, s.window.monthIndex));
   return {
-    book: `Book ${numeral}`,
+    book: `${monthName(s.month)} recap`,
     numeral,
-    film: `${monthName(s.month).toUpperCase()}${opts.withYear ? ` ${s.month.slice(0, 4)}` : ""}`,
+    film: `${monthName(s.month)}${opts.withYear ? ` ${s.month.slice(0, 4)}` : ""}`,
     subtitle: bookSubtitle(s, opts),
   };
 }
 
-/** "19 of 20 sessions" (planned training days sealed), or the plain count when none were planned. */
+/** "24 of 26 workouts" (planned training days done), or the plain count when none were planned. */
 export function sessionsLine(t: ReviewStats["training"]): { value: string; label: string } {
-  if (t.planned > 0) return { value: String(t.plannedDone), label: `sessions of ${t.planned}` };
-  return { value: t.sessions ? String(t.sessions) : "—", label: t.sessions === 1 ? "session" : "sessions" };
+  if (t.planned > 0) return { value: String(t.plannedDone), label: `workouts of ${t.planned}` };
+  return { value: t.sessions ? String(t.sessions) : "—", label: t.sessions === 1 ? "workout" : "workouts" };
 }
 
 /** True when the month overlaps the programme's first 14 days (water and glycogen). */
@@ -81,14 +82,16 @@ export interface Credit {
   spoken: string;
 }
 
+const lbTxt = (lb: number) => (Number.isInteger(lb) ? String(lb) : String(round(lb, 1)));
+
 const signed1 = (v: number) => {
   const r = round(v, 1);
   return `${r > 0 ? "+" : r < 0 ? "−" : ""}${Math.abs(r).toFixed(1)}`;
 };
 
 /**
- * Chapter I's three credits: the month's trend change (a change, never a rate), sessions sealed
- * of those planned, and records set. Missing data is "—", never zero.
+ * The month's three numbers: the change in the 7-day average (a change, never a rate), workouts
+ * done of those planned, and new bests. Missing data is "—", never zero.
  */
 export function titleCredits(s: Pick<ReviewStats, "physical" | "training">, unit: WeightUnit): Credit[] {
   const ch = s.physical.change;
@@ -97,10 +100,10 @@ export function titleCredits(s: Pick<ReviewStats, "physical" | "training">, unit
   const rec = s.training.prs.items.length;
   return [
     ch == null
-      ? { value: "—", label: `${unit} · trend change`, spoken: "Trend change: not enough weigh-ins" }
-      : { value: signed1(toDisplayWeight(ch, unit)), label: `${unit} · trend change`, spoken: `Trend changed ${signed1(toDisplayWeight(ch, unit)).replace("−", "minus ")} ${u}` },
-    { value: ses.value, label: ses.label, spoken: ses.value === "—" ? "No sessions" : `${ses.value} ${ses.label}` },
-    { value: String(rec), label: rec === 1 ? "record" : "records", spoken: `${rec} ${rec === 1 ? "record" : "records"}` },
+      ? { value: "—", label: `${unit} · weight change`, spoken: "Weight change: not enough weigh-ins" }
+      : { value: signed1(toDisplayWeight(ch, unit)), label: `${unit} · weight change`, spoken: `7-day average changed ${signed1(toDisplayWeight(ch, unit)).replace("−", "minus ")} ${u}` },
+    { value: ses.value, label: ses.label, spoken: ses.value === "—" ? "No workouts" : `${ses.value} ${ses.label}` },
+    { value: String(rec), label: rec === 1 ? "new best" : "new bests", spoken: `${rec} ${rec === 1 ? "new best" : "new bests"}` },
   ];
 }
 
@@ -138,8 +141,8 @@ export function nextMonthPlan(
   return { month: next, end, lb: round(plannedWeight(end < profile.target_date ? end : profile.target_date, profile.start_date, profile.target_date, s, g), 1) };
 }
 
-/** "The Chronicle · 1 Nov" (the day the Book is sealed) or "The Chronicle · being written". */
-export function chronicleStamp(month: ISODate, today: ISODate): string {
-  const sealed = addMonths(month, 1);
-  return sealed <= today ? `The Chronicle · ${parseISODate(sealed).getDate()} ${monthName(sealed, true)}` : "The Chronicle · being written";
+/** "Ready Sun 1 Nov": the day a month's recap is ready (the 1st of the next month). */
+export function chronicleStamp(month: ISODate, _today?: ISODate): string {
+  const ready = addMonths(month, 1);
+  return `Ready ${dayName(ready, true)} ${parseISODate(ready).getDate()} ${monthName(ready, true)}`;
 }

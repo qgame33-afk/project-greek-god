@@ -1,59 +1,29 @@
-import { useId } from "react";
+/* eslint-disable @next/next/no-img-element -- a 76 px static icon from /public, no optimisation needed */
+import { cn } from "@/lib/cn";
 
 /**
- * Brand mark: a gold-leaf laurel wreath (open at the top, stems crossed at the base)
- * around a Trajan-style serif "A" for The Ascent. Pure SVG; scales cleanly from 16px up.
+ * The brand mark (docs/DESIGN-V3-SIMPLE.md §0 law 6, §4.11). The laurel-A app icon appears on the
+ * sign-in screen only, as the real app icon (`/icons/icon-192.png`, 76 px, radius 18): that is
+ * <AppIcon />. The old drawn wreath, <Mark />, keeps its props for old callers and renders nothing.
+ * At integration (§6.7) <Mark /> goes and <AppIcon /> stays (the sign-in icon wrapper).
  */
-const LEAVES =
-  "M25.53 54.2C24.32 52.45 20.7 52.76 18.24 55.48C21.48 57.2 24.99 56.25 25.53 54.2ZM22.63 53.23C23.38 51.42 21.32 48.78 17.99 48.25C18.29 51.61 20.78 53.84 22.63 53.23ZM19.36 51.62C18.69 49.71 15.29 49.08 12.34 50.96C14.88 53.35 18.34 53.37 19.36 51.62ZM16.82 49.92C17.96 48.44 16.74 45.5 13.82 44.17C13.24 47.33 14.96 50.01 16.82 49.92ZM14.09 47.49C13.96 45.57 11 44.14 7.83 45.12C9.55 47.96 12.72 48.85 14.09 47.49ZM12.1 45.18C13.52 44.12 13.14 41.12 10.79 39.16C9.47 41.91 10.37 44.8 12.1 45.18ZM10.11 42.12C10.47 40.33 8.12 38.28 4.98 38.38C5.84 41.4 8.52 43.01 10.11 42.12ZM8.8 39.36C10.36 38.75 10.77 35.91 9.12 33.53C7.22 35.72 7.32 38.58 8.8 39.36ZM7.69 35.89C8.47 34.35 6.85 31.89 3.96 31.19C3.99 34.16 6.02 36.3 7.69 35.89ZM7.16 32.88C8.74 32.71 9.82 30.23 8.91 27.65C6.63 29.16 6 31.79 7.16 32.88ZM7.01 29.23C8.1 28.03 7.24 25.39 4.79 24.04C4.08 26.74 5.39 29.19 7.01 29.23ZM7.3 26.19C8.77 26.43 10.38 24.45 10.2 21.88C7.75 22.68 6.52 24.92 7.3 26.19ZM8.12 22.64C9.41 21.82 9.29 19.22 7.41 17.38C6.09 19.66 6.67 22.19 8.12 22.64ZM9.21 19.78C10.48 20.36 12.42 18.97 12.9 16.6C10.49 16.72 8.82 18.44 9.21 19.78ZM10.94 16.57C12.3 16.15 12.84 13.78 11.6 11.67C9.85 13.38 9.74 15.81 10.94 16.57ZM12.74 14.11C13.75 14.95 15.84 14.17 16.86 12.15C14.66 11.66 12.73 12.8 12.74 14.11ZM15.27 11.47C16.59 11.43 17.66 9.44 17.07 7.24C15.08 8.35 14.38 10.49 15.27 11.47ZM17.66 9.57C18.35 10.57 20.42 10.39 21.83 8.84C19.97 7.85 17.97 8.4 17.66 9.57ZM18.75 8.85C19.88 9.56 21.99 8.47 22.85 6.29C20.51 6.11 18.61 7.53 18.75 8.85ZM38.47 54.2C39.01 56.25 42.52 57.2 45.76 55.48C43.3 52.76 39.68 52.45 38.47 54.2ZM41.37 53.23C43.22 53.84 45.71 51.61 46.01 48.25C42.68 48.78 40.62 51.42 41.37 53.23ZM44.64 51.62C45.66 53.37 49.12 53.35 51.66 50.96C48.71 49.08 45.31 49.71 44.64 51.62ZM47.18 49.92C49.04 50.01 50.76 47.33 50.18 44.17C47.26 45.5 46.04 48.44 47.18 49.92ZM49.91 47.49C51.28 48.85 54.45 47.96 56.17 45.12C53 44.14 50.04 45.57 49.91 47.49ZM51.9 45.18C53.63 44.8 54.53 41.91 53.21 39.16C50.86 41.12 50.48 44.12 51.9 45.18ZM53.89 42.12C55.48 43.01 58.16 41.4 59.02 38.38C55.88 38.28 53.53 40.33 53.89 42.12ZM55.2 39.36C56.68 38.58 56.78 35.72 54.88 33.53C53.23 35.91 53.64 38.75 55.2 39.36ZM56.31 35.89C57.98 36.3 60.01 34.16 60.04 31.19C57.15 31.89 55.53 34.35 56.31 35.89ZM56.84 32.88C58 31.79 57.37 29.16 55.09 27.65C54.18 30.23 55.26 32.71 56.84 32.88ZM56.99 29.23C58.61 29.19 59.92 26.74 59.21 24.04C56.76 25.39 55.9 28.03 56.99 29.23ZM56.7 26.19C57.48 24.92 56.25 22.68 53.8 21.88C53.62 24.45 55.23 26.43 56.7 26.19ZM55.88 22.64C57.33 22.19 57.91 19.66 56.59 17.38C54.71 19.22 54.59 21.82 55.88 22.64ZM54.79 19.78C55.18 18.44 53.51 16.72 51.1 16.6C51.58 18.97 53.52 20.36 54.79 19.78ZM53.06 16.57C54.26 15.81 54.15 13.38 52.4 11.67C51.16 13.78 51.7 16.15 53.06 16.57ZM51.26 14.11C51.27 12.8 49.34 11.66 47.14 12.15C48.16 14.17 50.25 14.95 51.26 14.11ZM48.73 11.47C49.62 10.49 48.92 8.35 46.93 7.24C46.34 9.44 47.41 11.43 48.73 11.47ZM46.34 9.57C46.03 8.4 44.03 7.85 42.17 8.84C43.58 10.39 45.65 10.57 46.34 9.57ZM45.25 8.85C45.39 7.53 43.49 6.11 41.15 6.29C42.01 8.47 44.12 9.56 45.25 8.85Z";
-const ALPHA =
-  "M32.6 15.15L43.5 41.75L40.05 41.75L30.85 19.28ZM32.6 15.15L33.19 16.6L22.51 41.75L21.3 41.75ZM26.56 31.75L36.16 31.75L36.57 32.75L26.13 32.75ZM19 40.8L24.58 40.8L24.58 41.75L19 41.75ZM38.1 40.8L45.91 40.8L45.91 41.75L38.1 41.75Z";
-const STEMS =
-  "M36.2 57.36Q31.37 56.14 28.95 54.86A25 25 0 0 1 18.75 8.85M27.8 57.36Q32.63 56.14 35.05 54.86A25 25 0 0 0 45.25 8.85";
+export function Mark(_props: { size?: number; className?: string }) {
+  return null;
+}
 
-export function Mark({
-  size = 28,
-  className,
-}: {
-  size?: number;
-  className?: string;
-}) {
-  const gid = `mark-gold-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+/** The laurel-A app icon for the sign-in screen. Decorative: the page title names the app. */
+export function AppIcon({ size = 76, className }: { size?: number; className?: string }) {
   return (
-    <svg
+    <img
+      src="/icons/icon-192.png"
       width={size}
       height={size}
-      viewBox="0 0 64 64"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      role="img"
-      aria-label="The Ascent"
-    >
-      <defs>
-        <linearGradient
-          id={gid}
-          x1="10"
-          y1="6"
-          x2="54"
-          y2="60"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0" style={{ stopColor: "var(--leaf-100)" }} />
-          <stop offset="0.42" style={{ stopColor: "var(--leaf-300)" }} />
-          <stop offset="0.78" style={{ stopColor: "var(--leaf-500)" }} />
-          <stop offset="1" style={{ stopColor: "var(--leaf-200)" }} />
-        </linearGradient>
-      </defs>
-      <path d={LEAVES} fill={`url(#${gid})`} />
-      <path d={ALPHA} fill={`url(#${gid})`} />
-      <path
-        d={STEMS}
-        stroke={`url(#${gid})`}
-        strokeWidth={0.9}
-        strokeLinecap="round"
-      />
-    </svg>
+      alt=""
+      aria-hidden
+      draggable={false}
+      className={cn("shrink-0 select-none", className)}
+      style={{ width: size, height: size, borderRadius: Math.round(size * (18 / 76)) }}
+    />
   );
 }
 

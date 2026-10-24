@@ -59,9 +59,9 @@ describe("the mock day (§4.1.2 #1)", () => {
     expect(p.projection).toEqual({ lb: 184.9, date: TARGET });
     expect(p.corridor).toEqual({ minRate: 0.28, maxRate: 0.4, weeksLeft: 41.14, bandMin: 180, bandMax: 185 });
     expect(p.verdict).toBe("top");
-    expect(p.sentence).toBe("On pace, at the top of your corridor.");
+    expect(p.sentence).toBe("On track, a bit fast.");
     expect(p.detail).toBe("+0.40 lb a week · ~184.9 lb by 1 Aug");
-    expect(p.ariaLabel).toBe("Trend 168.4 pounds, gaining 0.4 pounds a week, projected 184.9 on 1 August, on pace, at the top of your corridor.");
+    expect(p.ariaLabel).toBe("Trend 168.4 pounds, gaining 0.4 pounds a week, projected 184.9 on 1 August, on track, a bit fast.");
     expect(p.band).toEqual({ min: 180, max: 185 });
   });
 
@@ -319,19 +319,19 @@ describe("pace copy", () => {
   it("below, on pace, above, arrived", () => {
     const below = pace({ weighIns: line(TODAY, 168.4, 0.2), today: TODAY, profile });
     expect(below.verdict).toBe("below");
-    expect(below.sentence).toBe("A little under your corridor.");
+    expect(below.sentence).toBe("A bit slow.");
     expect(below.detail).toBe("+0.20 lb a week · 0.28–0.40 lands you in 180–185 lb");
-    expect(below.ariaLabel).toContain("a little under your corridor of 0.28 to 0.4 pounds a week.");
+    expect(below.ariaLabel).toContain("a bit slow, against a needed pace of 0.28 to 0.4 pounds a week.");
 
     const on = pace({ weighIns: line(TODAY, 168.4, 0.33), today: TODAY, profile });
     expect(on.verdict).toBe("on_pace");
-    expect(on.sentence).toBe("On pace for Olympus.");
+    expect(on.sentence).toBe("On track.");
     expect(on.detail).toBe("+0.33 lb a week · ~182.0 lb by 1 Aug");
-    expect(on.ariaLabel.endsWith(", on pace.")).toBe(true);
+    expect(on.ariaLabel.endsWith(", on track.")).toBe(true);
 
     const fast = pace({ weighIns: line(TODAY, 168.4, 0.9), today: TODAY, profile });
     expect(fast.verdict).toBe("above");
-    expect(fast.sentence).toBe("Climbing faster than your corridor.");
+    expect(fast.sentence).toBe("A bit fast.");
     expect(fast.detail).toBe("+0.90 lb a week · 0.28–0.40 is the lean-gain window");
 
     const there = pace({ weighIns: line(TODAY, 181.2, 0.1), today: TODAY, profile });
