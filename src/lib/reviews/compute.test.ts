@@ -70,6 +70,23 @@ describe("parseMonthParam / reviewMonths / milestones", () => {
     expect(plannedKey("2026-09-07", sched, {})).toBe("legs_a"); // Monday
     expect(plannedKey("2026-09-07", sched, { "2026-09-07": "rest" })).toBe("rest");
   });
+
+  it("merges the weekly schedule over the active program's default week", () => {
+    // a new account (no program yet) follows the Arnold split
+    expect(scheduleFrom({})["2"]).toBe("chest_back_a");
+    // an account still on Push/Pull/Legs keeps its week
+    expect(scheduleFrom({ "1": "push_a" })["2"]).toBe("pull_a");
+    // prefs.program wins
+    expect(scheduleFrom({}, { program: "ppl" })["4"]).toBe("push_b");
+  });
+
+  it("maps a stale other-program key on or after the switch, never the switch's own rows", () => {
+    const ctx = { program: "arnold" as const, since: "2026-10-22" };
+    const sched = scheduleFrom({ "4": "shoulders_arms_b" }, { program: "arnold" });
+    expect(plannedKey("2026-10-23", sched, { "2026-10-23": "push_b" }, ctx)).toBe("shoulders_arms_b");
+    expect(plannedKey("2026-10-21", sched, { "2026-10-21": "pull_a" }, ctx)).toBe("pull_a");
+    expect(plannedKey("2026-10-22", sched, { "2026-10-22": { template_key: "pull_a", note: "program-switch" } }, ctx)).toBe("pull_a");
+  });
 });
 
 describe("window", () => {
@@ -401,14 +418,13 @@ describe("nutrition & recovery", () => {
     expect(n.waterGoalDays).toBe(1);
   });
 
-  it("summarises check-ins, sleep against the goal, pain notes and volleyball", () => {
+  it("summarises check-ins, sleep against the goal and pain notes (no volleyball)", () => {
     const rows = empty();
     rows.recovery = [
-      { local_date: "2026-09-01", sleep_hours: "7.5", sleep_quality: 3, energy: 3, soreness: 2, fatigue: 2, stress: 2, volleyball: true, pain_notes: "" },
-      { local_date: "2026-09-02", sleep_hours: 8.25, sleep_quality: 4, energy: 4, soreness: 3, fatigue: 3, stress: 1, volleyball: false, pain_notes: "left knee" },
-      { local_date: "2026-09-03", sleep_hours: null, sleep_quality: null, energy: 2, soreness: null, fatigue: 4, stress: null, volleyball: false },
+      { local_date: "2026-09-01", sleep_hours: "7.5", sleep_quality: 3, energy: 3, soreness: 2, fatigue: 2, stress: 2, pain_notes: "" },
+      { local_date: "2026-09-02", sleep_hours: 8.25, sleep_quality: 4, energy: 4, soreness: 3, fatigue: 3, stress: 1, pain_notes: "left knee" },
+      { local_date: "2026-09-03", sleep_hours: null, sleep_quality: null, energy: 2, soreness: null, fatigue: 4, stress: null },
     ];
-    rows.volleyball = [{ local_date: "2026-09-01" }, { local_date: "2026-09-10" }];
     const s = computeReview({ month: "2026-09-01", today: TODAY, profile, rows });
     const r = s.recovery;
     expect(r.checkIns).toBe(3);
@@ -418,7 +434,7 @@ describe("nutrition & recovery", () => {
     expect(r.avgFatigue).toBe(3);
     expect(r.avgEnergy).toBe(3);
     expect(r.painDays).toBe(1);
-    expect(r.volleyballDays).toBe(2);
+    expect(r.volleyballDays).toBeUndefined();
   });
 });
 
@@ -428,7 +444,7 @@ function richMonth(opts: { gainPerDay: number; calories: number; protein: number
   const rows = empty();
   rows.weights = SEPT.map((d, i) => ({ local_date: d, weight_lb: 163 + i * opts.gainPerDay }));
   rows.nutrition = SEPT.map((d) => ({ local_date: d, calories: opts.calories, protein_g: opts.protein, carbs_g: 400, fat_g: 90, entries: 4 }));
-  rows.recovery = SEPT.map((d) => ({ local_date: d, sleep_hours: opts.sleep, sleep_quality: 3, energy: 3, soreness: 2, fatigue: opts.fatigue ?? 2, stress: 2, volleyball: false }));
+  rows.recovery = SEPT.map((d) => ({ local_date: d, sleep_hours: opts.sleep, sleep_quality: 3, energy: 3, soreness: 2, fatigue: opts.fatigue ?? 2, stress: 2 }));
   rows.sessions = sessionsOn(SEPT.filter((d) => weekday(d) !== 0));
   rows.photos = [{ id: "p", local_date: "2026-09-02", pose: "front", storage_path: "u/p.jpg" }];
   rows.measurements = [{ local_date: "2026-09-02", waist_in: 30.5 }];
@@ -516,7 +532,7 @@ describe("headline & AI digest", () => {
   it("gives the AI computed numbers only — no file paths, notes or raw rows", () => {
     const rows = empty();
     rows.photos = [{ id: "p", local_date: "2026-09-02", pose: "front", storage_path: "user-123/secret.jpg" }];
-    rows.recovery = [{ local_date: "2026-09-02", sleep_hours: 7, sleep_quality: 3, energy: 3, soreness: 2, fatigue: 2, stress: 2, volleyball: false, pain_notes: "my private note" }];
+    rows.recovery = [{ local_date: "2026-09-02", sleep_hours: 7, sleep_quality: 3, energy: 3, soreness: 2, fatigue: 2, stress: 2, pain_notes: "my private note" }];
     const s = computeReview({ month: "2026-09-01", today: TODAY, profile, rows });
     const d = aiDigest(s, computePriorities(s));
     const json = JSON.stringify(d);

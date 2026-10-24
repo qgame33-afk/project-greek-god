@@ -119,3 +119,37 @@ export function recordReps(weightLb: number | null | undefined, prior: PriorBest
   }
   return null;
 }
+
+/* --------------------------------------------------- rest actually taken */
+
+/** A gap longer than this between two sets is a break, not a rest. */
+export const REST_GAP_MAX_SEC = 15 * 60;
+
+/**
+ * The rest actually taken before each completed set (PROGRAM-ARNOLD §3.8): seconds since the
+ * previous completed set of the same session, by completed_at. Null for a session's first set,
+ * for a gap over 15 min (not a rest) and for sets that aren't completed. Keyed by set id.
+ */
+export function timeBetweenSets(sets: Pick<WSet, "id" | "session_id" | "completed" | "completed_at">[]): Map<string, number | null> {
+  const out = new Map<string, number | null>();
+  const bySession = new Map<string, { id: string; t: number }[]>();
+  for (const s of sets) {
+    const t = s.completed && s.completed_at ? Date.parse(s.completed_at) : Number.NaN;
+    if (!Number.isFinite(t)) {
+      out.set(s.id, null);
+      continue;
+    }
+    const list = bySession.get(s.session_id) ?? [];
+    list.push({ id: s.id, t });
+    bySession.set(s.session_id, list);
+  }
+  for (const list of bySession.values()) {
+    list.sort((a, b) => a.t - b.t);
+    list.forEach((x, i) => {
+      if (i === 0) return out.set(x.id, null);
+      const gap = Math.round((x.t - list[i - 1].t) / 1000);
+      out.set(x.id, gap > REST_GAP_MAX_SEC ? null : gap);
+    });
+  }
+  return out;
+}

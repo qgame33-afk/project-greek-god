@@ -5,20 +5,22 @@
 
 import { calorieSuggestion, progressPct, requiredWeeklyGain, weightStats, type CalorieSuggestion, type WeighIn } from "@/lib/bodyweight";
 import { MIN_SPAN_DAYS, MIN_WEIGHINS, rateAt, trendAt } from "@/lib/progress/pace";
-import { addDays, dayName, daysBetween, monthLabel, shortDate, weekDates, type ISODate } from "@/lib/dates";
+import { addDays, dayName, daysBetween, monthLabel, shortDate, weekDates, weekStart, type ISODate } from "@/lib/dates";
+import { parseAppPrefs } from "@/lib/prefs";
+import { lighterWeekAdvice } from "@/lib/training/block";
 import { getExercise } from "@/lib/training/library";
-import { PROGRAM, TRAINING_RULES } from "@/lib/training/program";
+import { activeProgram, programSince, PROGRAMS, templateDef, visibleExercises } from "@/lib/training/programs";
+import type { Mode, PastSet } from "@/lib/training/progression";
 import type { MuscleGroup, TemplateExercise } from "@/lib/training/types";
+import { GROUP_LABEL, GROUP_ZONES, GROUPS, groupCredit, groupSets, groupTrends, volumeSuggestions } from "@/lib/training/volume-zones";
 import { formatBodyweight, formatDelta, formatHeight, formatInt, formatLength, formatLoad, formatLiters, round } from "@/lib/units";
 import { CATEGORY_META, sharedCategories } from "./access";
 import {
-  MUSCLE_LABEL,
   describeSets,
   liftTrends,
   measurementChanges,
   mergeSchedule,
   monthlyWeights,
-  muscleSets,
   nutritionWindow,
   recoverySummary,
   resolvePlan,
@@ -53,7 +55,8 @@ export interface RawProfile {
   sleep_goal_h: number;
   weekly_schedule: unknown;
   training_mode: string;
-  volleyball_per_week: number;
+  /** profiles.prefs: the active program, its start, and the lighter-week snooze. */
+  prefs?: unknown;
 }
 
 export interface RawSession {
@@ -66,10 +69,11 @@ export interface RawSession {
   sets_completed: number | null;
   pr_count: number | null;
   status: string;
+  mode?: string | null;
 }
 
 export interface RawTraining {
-  /** done + active sessions, last 28 days */
+  /** done + active sessions, last 56 days (facts list the last 28) */
   sessions: RawSession[];
   /** completed working sets (set_history), last 56 days */
   sets: HistorySet[];
@@ -80,9 +84,6 @@ export interface RawTraining {
   /** the user's editable templates (empty → built-in program) */
   templates: { key: string; name: string; exercises: TemplateExercise[] }[];
   overrides: PlanOverride[];
-  /** last 14 days */
-  volleyball: { local_date: ISODate; kind: string; duration_min: number | null; intensity: number | null }[];
-  athletic: { local_date: ISODate; test_type: string; value: number }[];
   custom: Record<string, MuscleGroup[]>;
 }
 
@@ -123,14 +124,6 @@ const HREF: Record<CoachCategory, string> = {
   bodyweight: "/progress?tab=weight",
   recovery: "/recovery",
   measurements: "/progress?tab=body",
-};
-
-const ATHLETIC_LABEL: Record<string, string> = {
-  standing_vertical: "Standing vertical",
-  approach_vertical: "Approach vertical",
-  standing_reach: "Standing reach",
-  broad_jump: "Broad jump",
-  sprint: "Sprint",
 };
 
 const GOAL_FIELD_LABEL: Record<string, string> = {
@@ -210,7 +203,6 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
     fact("profile", "logged", "goal.start", "Start", `${bw(p.start_weight_lb)} on ${sd(p.start_date)}`, `start date ${p.start_date}; ${weeksBetween(p.start_date, today)} weeks elapsed`);
     if (p.height_cm) fact("profile", "logged", "prof.height", "Height", formatHeight(p.height_cm, lu));
     fact("profile", "logged", "prof.experience", "Training experience", cap(p.experience));
-    fact("profile", "plan", "prof.volleyball", "Volleyball planned", `${p.volleyball_per_week}× per week`);
     const recent = raw.goalChanges.filter((g) => changedOn(g.changed_at) >= addDays(today, -90)).slice(0, 6);
     for (const [i, g] of recent.entries()) {
       fact(
@@ -316,17 +308,25 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
   }
 
   /* ----------------------------------------------------------- training */
+  const program = activeProgram({ prefs: p.prefs, weekly_schedule: p.weekly_schedule });
+  const def = PROGRAMS[program];
   if (access.training && raw.training) {
     const t = raw.training;
     section("TRAINING (logged sessions and sets; program = plan)");
-    fact("training", "plan", "tr.mode", "Training mode", cap(p.training_mode), "standard = full program; intro = lower-volume introductory mode; deload = ~10% lighter, about half the sets, 3+ RIR");
-    const schedule = mergeSchedule(p.weekly_schedule);
-    const tplName = (key: string) => (key === "rest" ? "Rest day" : (t.templates.find((x) => x.key === key)?.name ?? PROGRAM.find((x) => x.key === key)?.name ?? key));
-    const doneDates = t.sessions.filter((s) => s.status === "done").map((s) => s.local_date);
-    const planOf = (d: ISODate) => resolvePlan(d, schedule, t.overrides).key;
-    const sessionsOn = (d: ISODate) => t.sessions.filter((s) => s.local_date === d);
+    const since = programSince(p.prefs, program);
+    const other = PROGRAMS[program === "arnold" ? "ppl" : "arnold"];
+    fact("training", "plan", "prog.active", "Program", `${def.name}${since ? ` since ${sd(since)}` : ""}`, "the active weekly plan; the user can move single days or switch programs");
+    fact("training", "plan", "prog.saved", "Saved alternative", `${other.name} (saved, not active)`, "kept with the user's own edits; switching is the user's choice");
+    fact("training", "plan", "tr.mode", "Training mode", cap(p.training_mode), "standard = full program; intro = one set fewer on most exercises (\"Fewer sets\"); deload = ~10% lighter, about half the sets, 3–4 RIR");
+    const schedule = mergeSchedule(p.weekly_schedule, p.prefs);
+    const ctx = { program, since };
+    const tplName = (key: string) => (key === "rest" ? "Rest day" : (t.templates.find((x) => x.key === key)?.name ?? templateDef(key)?.name ?? key));
+    const recentSessions = t.sessions.filter((s) => s.local_date >= addDays(today, -27));
+    const doneDates = recentSessions.filter((s) => s.status === "done").map((s) => s.local_date);
+    const planOf = (d: ISODate) => resolvePlan(d, schedule, t.overrides, ctx).key;
+    const sessionsOn = (d: ISODate) => recentSessions.filter((s) => s.local_date === d);
     const planLine = (d: ISODate) => {
-      const r = resolvePlan(d, schedule, t.overrides);
+      const r = resolvePlan(d, schedule, t.overrides, ctx);
       const why = r.overridden ? (r.movedFrom ? `moved from ${sd(r.movedFrom)}` : `changed for this date${r.reason ? ` (${r.reason})` : ""}`) : "weekly schedule";
       const done = sessionsOn(d);
       const status = done.length ? `; logged: ${done.map((s) => `${s.name} (${s.status === "active" ? "in progress" : "done"})`).join(", ")}` : "";
@@ -366,7 +366,7 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
       `${a28.plannedDone} of ${a28.planned} planned training days done${a28.planned ? ` (${Math.round((a28.plannedDone / a28.planned) * 100)}% adherence)` : ""}${a28.extra > 0 ? `, ${a28.extra} extra` : ""}${sinceStart(addDays(today, -27))}`,
     );
 
-    const sessions = [...t.sessions].filter((s) => s.status === "done").sort((a, b) => b.local_date.localeCompare(a.local_date));
+    const sessions = [...recentSessions].filter((s) => s.status === "done").sort((a, b) => b.local_date.localeCompare(a.local_date));
     if (!sessions.length) note("No finished workouts in the last 28 days.");
     const seen = new Map<string, number>();
     for (const s of sessions) {
@@ -382,9 +382,14 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
       fact("training", "logged", id, `${sd(s.local_date)} · ${s.name}`, parts.join(" · ") || "logged", `${dayName(s.local_date)}`);
     }
 
-    // per-lift trends over the 8-week window
+    // per-lift trends over the 8-week window (retired lifts are history only)
     const bestBy = new Map(t.bests.map((b) => [b.exercise_slug, b]));
-    const trends = liftTrends(t.sets).filter((x) => getExercise(x.slug)?.category !== "explosive").slice(0, 26);
+    const trends = liftTrends(t.sets)
+      .filter((x) => {
+        const lib = getExercise(x.slug);
+        return !lib?.retired && lib?.category !== "explosive";
+      })
+      .slice(0, 26);
     if (trends.length) note("Lift trends use the best Epley e1RM per session (1–12 rep sets only) over the last 8 weeks.");
     for (const tr of trends) {
       const last = tr.sessions.at(-1)!;
@@ -427,50 +432,78 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
       fact("training", "logged", "tr.prs", "PRs, last 28 days", "0", "no e1RM PRs logged in the last 28 days", "/progress?tab=strength");
     }
 
-    // weekly working sets per primary muscle
-    const vol = muscleSets(t.sets, addDays(today, -6), today, t.custom);
-    note("Weekly volume = completed working sets in the last 7 days counted for each exercise's PRIMARY muscles only (secondary work not counted, jumps excluded).");
-    for (const v of vol) {
-      fact("training", "logged", `vol.${v.muscle}`, `${MUSCLE_LABEL[v.muscle]} sets, last 7 days`, `${v.sets} set${v.sets === 1 ? "" : "s"}`, v.exercises.length ? v.exercises.join(", ") : "none logged");
+    // weekly hard sets per muscle group (§5: a secondary muscle counts half a set)
+    const last7 = t.sets.filter((x) => x.local_date >= addDays(today, -6) && x.local_date <= today);
+    const vol = groupSets(last7, t.custom);
+    note("Weekly volume = completed working sets in the last 7 days per muscle group; a secondary muscle counts half a set.");
+    for (const g of GROUPS) {
+      const ex = [...new Set(last7.filter((x) => (groupCredit(x.exercise_slug, t.custom)[g] ?? 0) > 0).map((x) => x.exercise_name || x.exercise_slug))];
+      const [lo, hi] = GROUP_ZONES[g];
+      fact("training", "logged", `vol.${g}`, `${GROUP_LABEL[g]} sets, last 7 days`, `${vol[g]} set${vol[g] === 1 ? "" : "s"}`, `zone ${lo}–${hi}; ${ex.length ? ex.join(", ") : "none logged"}`);
     }
 
-    // volleyball
-    const vb = [...t.volleyball].sort((a, b) => b.local_date.localeCompare(a.local_date));
-    const vbDesc = (x: (typeof vb)[number]) => `${x.kind.replace("_", " ")}${x.duration_min ? `, ${x.duration_min} min` : ""}${x.intensity ? `, intensity ${x.intensity}/5` : ""}`;
-    const vbShort = (x: (typeof vb)[number]) => `${x.kind.replace("_", " ")}${x.duration_min ? ` · ${x.duration_min} min` : ""}`;
-    fact("training", "logged", "vb.14", "Volleyball, last 14 days", `${vb.length} session${vb.length === 1 ? "" : "s"}`, vb.length ? vb.map((x) => `${sd(x.local_date)} ${vbDesc(x)}`).join("; ") : "none logged");
-    const y = addDays(today, -1);
-    const vy = vb.filter((x) => x.local_date === y);
-    fact("training", "logged", "vb.yesterday", "Volleyball yesterday", vy.length ? `Yes · ${vy.map(vbShort).join(" + ")}` : "None logged", vy.length ? `${sd(y)}: ${vy.map(vbDesc).join("; ")}` : sd(y));
-    const vt = vb.filter((x) => x.local_date === today);
-    if (vt.length) fact("training", "logged", "vb.today", "Volleyball today", `Yes · ${vt.map(vbShort).join(" + ")}`, vt.map(vbDesc).join("; "));
-
-    // athletic tests (latest vs first per type)
-    const types = [...new Set(t.athletic.map((a) => a.test_type))];
-    for (const ty of types) {
-      const xs = t.athletic.filter((a) => a.test_type === ty).sort((a, b) => a.local_date.localeCompare(b.local_date));
-      const fmt = (v: number) => (ty === "sprint" ? `${round(v, 2)} s` : formatLength(v, lu));
-      const f = xs[0];
-      const l = xs.at(-1)!;
-      fact(
-        "training",
-        "logged",
-        `ath.${ty}`,
-        ATHLETIC_LABEL[ty] ?? ty,
-        fmt(Number(l.value)),
-        xs.length > 1 ? `latest ${sd(l.local_date)}; first ${fmt(Number(f.value))} on ${sd(f.local_date)}` : `tested ${sd(l.local_date)}`,
-        "/progress?tab=athletic",
+    // lighter-week and volume advice, from the same rules the app shows
+    const modeOf = new Map(t.sessions.map((s) => [s.id, (s.mode ?? "standard") as Mode]));
+    const keyOf = new Map(t.sessions.map((s) => [s.id, s.template_key]));
+    const history: Record<string, PastSet[]> = {};
+    for (const x of [...t.sets].sort((a, b) => b.local_date.localeCompare(a.local_date) || a.set_index - b.set_index)) {
+      (history[x.exercise_slug] ??= []).push({ local_date: x.local_date, session_id: x.session_id, set_index: x.set_index, weight_lb: x.weight_lb, reps: x.reps, duration_sec: x.duration_sec, rir: null, mode: modeOf.get(x.session_id) ?? "standard", template_key: keyOf.get(x.session_id) ?? null, completed_at: x.completed_at ?? null });
+    }
+    const checkins = raw.recovery?.logs ?? [];
+    const prefs = parseAppPrefs(p.prefs);
+    const plannedByWeek = [2, 1].map((i) => {
+      const ws = addDays(weekStart(today), -7 * i);
+      const ad = trainingAdherence(
+        t.sessions.filter((s) => s.status === "done").map((s) => s.local_date),
+        started(ws),
+        addDays(ws, 6),
+        today,
+        planOf,
       );
+      return { weekStart: ws, planned: ad.planned, done: ad.plannedDone };
+    });
+    const lighter = lighterWeekAdvice({
+      today,
+      mode: (p.training_mode ?? "standard") as Mode,
+      modeSetAt: (prefs.modeSetAt as ISODate | undefined) ?? null,
+      snoozedUntil: (prefs.lighterSnoozedUntil as ISODate | undefined) ?? null,
+      sessions: t.sessions,
+      checkins,
+      sleepGoalH: Number(p.sleep_goal_h),
+      history,
+      plannedByWeek,
+      historyFrom: p.start_date,
+    });
+    if (lighter.kind) {
+      const title = lighter.kind === "deload" ? "Light week suggested (deload: half the sets, about 10% lighter, 3–4 RIR)" : lighter.kind === "lighter" ? "Fewer sets this week (one set fewer on every exercise, same weights)" : "Back to the full plan";
+      fact("training", "plan", "tr.lighter", "Lighter-week check", title, lighter.reasons.length ? lighter.reasons.join(" ") : "the lighter mode has run for 7 days or more");
     }
+    const active = def.keys.map((k) => {
+      const row = t.templates.find((x) => x.key === k);
+      const d = templateDef(k)!;
+      return { key: k, name: row?.name ?? d.name, exercises: visibleExercises(row?.exercises ?? d.exercises) };
+    });
+    const suggestions = volumeSuggestions({
+      today,
+      sets: t.sets,
+      sessions: t.sessions,
+      checkins,
+      templates: active,
+      trends: groupTrends(history, today, t.custom),
+      mode: (p.training_mode ?? "standard") as Mode,
+      programSince: since,
+      startDate: p.start_date,
+      custom: t.custom,
+    });
+    if (suggestions.length) fact("training", "plan", "vol.suggest", "Volume check", suggestions[0].reason, suggestions.map((v) => v.reason).join(" "));
 
-    // the program (plan)
-    const tpls = t.templates.length ? t.templates : PROGRAM.map((x) => ({ key: x.key, name: x.name, exercises: x.exercises }));
+    // the active program (plan): his stored templates, else the built-ins
     const dayOf = (key: string) =>
       Object.entries(schedule)
         .filter(([, v]) => v === key)
         .map(([k]) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][Number(k)])
         .join("/");
-    for (const tp of tpls) {
+    for (const tp of active) {
       const ex = tp.exercises
         .map((e) => `${e.name} ${e.sets}×${e.repLow === e.repHigh ? e.repLow : `${e.repLow}–${e.repHigh}`}${e.unit === "sec" ? " s" : e.unit === "each" ? " each" : ""}${e.rir ? ` @${e.rir === "Fresh" ? "fresh" : `${e.rir} RIR`}` : ""}${e.optional ? " (optional)" : ""}`)
         .join("; ");
@@ -559,7 +592,6 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
           c.soreness != null ? `soreness ${c.soreness}/5` : null,
           c.fatigue != null ? `fatigue ${c.fatigue}/5` : null,
           c.stress != null ? `stress ${c.stress}/5` : null,
-          c.volleyball ? "played volleyball" : null,
           c.pain_notes?.trim() ? `PAIN NOTE: "${c.pain_notes.trim().slice(0, 160)}"` : null,
         ].filter(Boolean);
         const head = [c.sleep_hours != null ? `${hours(Number(c.sleep_hours))} sleep` : null, c.energy != null ? `energy ${c.energy}/5` : null].filter(Boolean).join(" · ");
@@ -598,7 +630,7 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
     "Fact lines are `[id] label: value — detail`. Logged facts are the user's records or calculations from them; targets, the schedule and the program are the plan.",
   ];
   const body = sections.filter((s) => s.lines.length).map((s) => `## ${s.title}\n${s.lines.join("\n")}`);
-  const rules = access.training ? `## PROGRAM RULES (the app's training rules)\n${TRAINING_RULES.map((r) => `- ${r}`).join("\n")}` : "";
+  const rules = access.training ? `## PROGRAM RULES (${def.name})\n${def.rules.map((r) => `- ${r}`).join("\n")}` : "";
   const text = [head.join("\n"), ...body, rules].filter(Boolean).join("\n\n");
 
   return { facts, text, shared, derived: { trendLb, calorieCheck, lastCalorieChange } };

@@ -1,7 +1,7 @@
 // Rest-day recommendations: three items built from the programme's Sunday recovery protocol,
 // adjusted by the latest check-in and pointed at the next planned session.
 
-import { SUNDAY_RECOVERY } from "@/lib/training/program";
+import { SUNDAY_RECOVERY } from "@/lib/training/programs";
 import { fmtHours, type CheckinFacts } from "./daily-line";
 
 export interface Rec {
@@ -24,7 +24,7 @@ export function restDayRecommendations(checkin: CheckinFacts | null, sleepGoalH:
   const walk = item("Easy walk");
   const mobility = item("Mobility");
   const sleep = item("Sleep");
-  const fuel = item("Hydration");
+  const fuel = item("Food and water");
 
   const out: Rec[] = [];
   const push = (r: Rec | null | undefined) => {

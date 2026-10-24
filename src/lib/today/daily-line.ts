@@ -1,5 +1,5 @@
 // The rule-based daily line under the hero greeting: one focus plus one number.
-// "Push A today. Protein is the lever: 185 g." · "Legs A today. Jumps first, while you're fresh."
+// "Chest & Back A today. Protein is the lever: 185 g." · "Legs & Abs A today on 6 h of sleep. Keep 2 reps in reserve."
 // Deterministic and built only from real data the caller passes in — no AI, no invented numbers.
 
 import { readinessLine, type Guidance } from "@/lib/recovery/guidance";
@@ -13,7 +13,7 @@ export interface CheckinFacts {
   pain: boolean;
 }
 
-export type PlanFacts = { kind: "train"; name: string; explosiveFirst: boolean; legs: boolean } | { kind: "rest" };
+export type PlanFacts = { kind: "train"; name: string; legs: boolean } | { kind: "rest" };
 
 export interface DailyLineInput {
   plan: PlanFacts;
@@ -21,9 +21,6 @@ export interface DailyLineInput {
   session: "none" | "active" | "done";
   /** Name of the active / finished session (falls back to the plan name). */
   sessionName?: string | null;
-  volleyballToday: boolean;
-  /** Distinct volleyball days in the last 7 (including today). */
-  volleyballDays7: number;
   /** Today's recovery check-in (covers last night's sleep), or null. */
   checkin: CheckinFacts | null;
   protein: { eaten: number; goal: number };
@@ -77,13 +74,9 @@ export function dailyLine(i: DailyLineInput): string {
     // readinessLine already carries the pain caveat, so every screen words it the same way.
     if (r) return r;
     if (pain) return `${n} today. You noted pain, so skip anything that aggravates it.`;
-    if (i.volleyballToday && (i.plan.legs || i.plan.explosiveFirst)) return `${n} today. Volleyball too, so the jumps are optional.`;
-    if (i.volleyballToday) return `${n} today, volleyball later. Fuel both: ${formatInt(i.calories.goal)} kcal.`;
     if (shortNight != null) return `${n} today on ${fmtHours(shortNight)} h of sleep. Keep 2 reps in reserve.`;
     if (lowEnergy != null) return `${n} today. Energy is ${lowEnergy}/5, so warm up longer and keep 2 in reserve.`;
     if (highFatigue != null) return `${n} today. Fatigue is ${highFatigue}/5, so keep 2 reps in reserve.`;
-    if (i.plan.legs && i.volleyballDays7 >= 3) return `${n} today. ${i.volleyballDays7} volleyball days this week, so trim the jumps.`;
-    if (i.plan.explosiveFirst) return `${n} today. Jumps first, while you're fresh.`;
     if (i.protein.eaten > 0 && proteinLeft > 0) return `${n} today. Protein is the lever: ${proteinLeft} g to go.`;
     return `${n} today. Protein is the lever: ${Math.round(i.protein.goal)} g.`;
   }
@@ -94,6 +87,5 @@ export function dailyLine(i: DailyLineInput): string {
   if (pain) return "Rest day. You noted pain, so keep it to gentle movement.";
   if (shortNight != null) return `Rest day. Last night was ${fmtHours(shortNight)} h, so aim for ${goalH} h tonight.`;
   if (sore != null) return `Rest day. Soreness is ${sore}/5: walk, stretch, nothing heavy.`;
-  if (i.volleyballToday) return `Rest day, volleyball later. Eat to target: ${formatInt(i.calories.goal)} kcal.`;
   return `Rest day. Walk, stretch, sleep ${goalH} h.`;
 }

@@ -1,4 +1,4 @@
-import { estimateDurationMin } from "@/lib/training/program";
+import { estimateDurationMin } from "@/lib/training/programs";
 import type { DayTemplate } from "@/lib/training/types";
 import { templateSummary } from "@/lib/training/volume";
 import { formatInt, round, toDisplayWeight, type WeightUnit } from "@/lib/units";

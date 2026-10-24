@@ -20,8 +20,6 @@ export interface WeekInput {
   food: { local_date: ISODate | null; calories: number | null; protein_g: number | null; entries: number | null }[];
   /** Recovery check-ins. */
   sleep: { local_date: ISODate; sleep_hours: number | null }[];
-  /** Volleyball session dates. */
-  volleyball: ISODate[];
   prEvents: { session_id: string | null; exercise_slug: string | null; local_date: ISODate | null }[];
   /** Programme start (profile.start_date). Training days before it are never "due" or missed. */
   startDate?: ISODate;
@@ -33,7 +31,6 @@ export interface ColonnadeDay {
   label: string;
   done: boolean;
   today: boolean;
-  volleyball: boolean;
   missed: boolean;
 }
 
@@ -66,7 +63,6 @@ export function weeklyOverview(w: WeekInput): WeekOverview {
   const doneBy = new Map<ISODate, number>();
   for (const s of w.doneSessions) if (inWeekToDate(s.local_date)) doneBy.set(s.local_date, (doneBy.get(s.local_date) ?? 0) + 1);
   const done = [...doneBy.values()].reduce((a, b) => a + b, 0);
-  const vb = new Set(w.volleyball);
   const started = (d: ISODate) => !w.startDate || d >= w.startDate;
 
   const colonnade: ColonnadeDay[] = w.days.map((d) => ({
@@ -75,7 +71,6 @@ export function weeklyOverview(w: WeekInput): WeekOverview {
     label: d.label,
     done: (doneBy.get(d.date) ?? 0) > 0,
     today: d.date === w.today,
-    volleyball: vb.has(d.date),
     missed: d.kind === "train" && started(d.date) && d.date < w.today && !doneBy.has(d.date),
   }));
 

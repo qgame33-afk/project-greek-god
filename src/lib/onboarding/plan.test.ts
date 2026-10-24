@@ -11,6 +11,7 @@ import {
   profileUpdateFromAnswers,
   restoreDraft,
   roadmapSteps,
+  SCHEDULE_OPTIONS,
   scheduleSummary,
   shiftRange,
   validateStep,
@@ -39,7 +40,6 @@ const ownerProfile = {
   sleep_goal_h: 8,
   weekly_schedule: { "0": "rest", "1": "push_a", "2": "pull_a", "3": "legs_a", "4": "push_b", "5": "pull_b", "6": "legs_b" },
   training_mode: "standard",
-  volleyball_per_week: 2,
   timezone: "America/Toronto",
   onboarded: false,
 };
@@ -101,19 +101,24 @@ describe("answersFromProfile", () => {
 });
 
 describe("normalizeSchedule / restoreDraft", () => {
-  it("fills missing or bad days from the default split", () => {
-    const s = normalizeSchedule({ "1": "legs_b", "2": "nonsense" });
-    expect(s["1"]).toBe("legs_b");
-    expect(s["2"]).toBe("pull_a");
+  it("fills missing or bad days from the Arnold week (a Push/Pull/Legs day is not an option)", () => {
+    const s = normalizeSchedule({ "1": "legs_abs_b", "2": "nonsense", "3": "legs_a" });
+    expect(s["1"]).toBe("legs_abs_b");
+    expect(s["2"]).toBe("chest_back_a");
+    expect(s["3"]).toBe("legs_abs_a");
     expect(s["0"]).toBe("rest");
+    expect(normalizeSchedule(undefined)).toEqual({ "1": "shoulders_arms_a", "2": "chest_back_a", "3": "legs_abs_a", "4": "shoulders_arms_b", "5": "chest_back_b", "6": "legs_abs_b", "0": "rest" });
+  });
+  it("offers the Arnold days by their short names, then Rest", () => {
+    expect(SCHEDULE_OPTIONS.map((o) => o.label)).toEqual(["Shoulders & Arms A", "Chest & Back A", "Legs & Abs A", "Shoulders & Arms B", "Chest & Back B", "Legs & Abs B", "Rest"]);
   });
   it("restores a stored draft but drops malformed fields", () => {
-    const d = restoreDraft(owner(), { goalWeightLb: 185, weightUnit: "stone", calorieGoal: "lots", todayWeighInLb: 163.4, schedule: { "0": "push_a" } });
+    const d = restoreDraft(owner(), { goalWeightLb: 185, weightUnit: "stone", calorieGoal: "lots", todayWeighInLb: 163.4, schedule: { "0": "chest_back_a" } });
     expect(d.goalWeightLb).toBe(185);
     expect(d.weightUnit).toBe("lb");
     expect(d.calorieGoal).toBe(3300);
     expect(d.todayWeighInLb).toBe(163.4);
-    expect(d.schedule["0"]).toBe("push_a");
+    expect(d.schedule["0"]).toBe("chest_back_a");
     expect(restoreDraft(owner(), null)).toEqual(owner());
   });
 });
@@ -231,6 +236,9 @@ describe("profileUpdateFromAnswers", () => {
     expect(u.goal_range_max_lb).toBe(186);
     expect(u.start_date).toBe(TODAY);
     expect(u.weekly_schedule["0"]).toBe("rest");
+    // a Push/Pull/Legs week from an old profile starts on the Arnold split; volleyball is never written
+    expect(u.weekly_schedule["1"]).toBe("shoulders_arms_a");
+    expect("volleyball_per_week" in u).toBe(false);
   });
   it("stores an empty name as null", () => {
     expect(profileUpdateFromAnswers(owner()).display_name).toBeNull();
@@ -243,8 +251,8 @@ describe("profileUpdateFromAnswers", () => {
 
 describe("scheduleSummary", () => {
   it("names the default split", () => {
-    expect(scheduleSummary(owner().schedule)).toBe("6 days · Push/Pull/Legs × 2");
-    expect(scheduleSummary({ ...owner().schedule, "6": "rest" })).toBe("5 days");
+    expect(scheduleSummary(owner().schedule)).toBe("6 days · Arnold split");
+    expect(scheduleSummary({ ...owner().schedule, "6": "rest" })).toBe("5 days · Arnold split");
   });
 });
 
@@ -263,10 +271,10 @@ describe("the Oath (five steps)", () => {
     expect(restoreDraft(owner(), { trainAt: "late" }).trainAt).toBeNull();
   });
   it("validates exactly what the seven steps validated, grouped into five", () => {
-    const bad = { ...owner(), startWeightLb: 20, timezone: " ", goalWeightLb: 9, volleyballPerWeek: 20, calorieGoal: 100 };
+    const bad = { ...owner(), startWeightLb: 20, timezone: " ", goalWeightLb: 9, calorieGoal: 100 };
     expect(Object.keys(validateOathStep("climber", bad, TODAY)).sort()).toEqual(["startWeightLb", "timezone"]);
     expect(validateOathStep("summit", bad, TODAY).goalWeightLb).toBeTruthy();
-    expect(validateOathStep("training", bad, TODAY).volleyballPerWeek).toBeTruthy();
+    expect(validateOathStep("training", { ...bad, volleyballPerWeek: 20 }, TODAY)).toEqual({});
     expect(validateOathStep("fuel", bad, TODAY).calorieGoal).toBeTruthy();
     expect(validateOathStep("oath", bad, TODAY)).toEqual({});
     expect(firstInvalidOathStep(bad, TODAY)).toBe("climber");

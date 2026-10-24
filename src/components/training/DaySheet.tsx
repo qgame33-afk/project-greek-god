@@ -12,7 +12,7 @@ import { cn } from "@/lib/cn";
 import { dayName, longDate, relativeDay, shortDate, weekday, type ISODate } from "@/lib/dates";
 import { scheduleOf, type Session } from "@/lib/data/training";
 import { useStartWorkout } from "@/lib/data/workout";
-import { SUNDAY_RECOVERY } from "@/lib/training/program";
+import { SUNDAY_RECOVERY } from "@/lib/training/programs";
 import type { Mode } from "@/lib/training/progression";
 import { describeMove, linkedMoveDates, planMove, rescheduleOptions, type RescheduleOption } from "@/lib/training/schedule";
 import { isLegDay, modeTemplate } from "@/lib/training/volume";

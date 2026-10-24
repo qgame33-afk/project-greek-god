@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { sessionsSealed } from "@/lib/adherence";
 import { weekDates } from "@/lib/dates";
-import { sealedDays, splitLabel, volleyballDaysLabel, weekRangeLabel } from "./week";
+import { programLabel, sealedDays, splitLabel, volleyballDaysLabel, weekRangeLabel } from "./week";
 
 const SCHEDULE = { "0": "rest", "1": "push_a", "2": "pull_a", "3": "legs_a", "4": "push_b", "5": "pull_b", "6": "legs_b" };
 const TODAY = "2026-10-17";
@@ -14,17 +14,17 @@ describe("sealedDays", () => {
     expect(sessionsSealed(days, TODAY)).toEqual({ done: 4, planned: 6 });
   });
 
-  it("turns a training day set to rest with volleyball played into one counted swap", () => {
+  it("counts a training day set to rest as rest, whatever else happened (no volleyball swaps)", () => {
     const plan: Record<string, string> = { "2026-10-15": "rest" };
     const days = sealedDays({
       dates,
       planKey: (d) => plan[d] ?? SCHEDULE[String(new Date(`${d}T12:00:00Z`).getUTCDay()) as keyof typeof SCHEDULE],
-      schedule: SCHEDULE,
       sessions: [{ local_date: "2026-10-12", status: "done" }],
       volleyballDates: ["2026-10-15"],
     });
-    expect(days.find((d) => d.date === "2026-10-15")).toEqual({ date: "2026-10-15", kind: "volleyball", done: true });
-    expect(sessionsSealed(days, TODAY)).toEqual({ done: 2, planned: 6 });
+    expect(days.find((d) => d.date === "2026-10-15")).toEqual({ date: "2026-10-15", kind: "rest", done: false });
+    expect(days.every((d) => d.kind === "train" || d.kind === "rest")).toBe(true);
+    expect(sessionsSealed(days, TODAY)).toEqual({ done: 1, planned: 5 });
   });
 
   it("never plans days before the programme started", () => {
@@ -34,7 +34,12 @@ describe("sealedDays", () => {
 });
 
 describe("labels", () => {
-  it("names the split from the week's templates", () => {
+  it("names the program with the one spelling every screen shows (CR-2)", () => {
+    expect(programLabel("arnold")).toBe("Arnold split");
+    expect(programLabel("ppl")).toBe("Push/Pull/Legs");
+  });
+
+  it("names the split from the week's templates (deprecated)", () => {
     expect(splitLabel(["legs_a", "push_a", "rest", "pull_b"])).toBe("push, pull, legs");
     expect(splitLabel(["push_a", "push_b"])).toBe("push");
     expect(splitLabel(["rest"])).toBeNull();

@@ -3,37 +3,64 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { toast } from "sonner";
-import { addDays, weekday, type ISODate } from "@/lib/dates";
-import { DEFAULT_SCHEDULE, PROGRAM, PROGRAM_BY_KEY } from "@/lib/training/program";
-import type { DayTemplate, TemplateExercise, TemplateKey, WarmupStep } from "@/lib/training/types";
-import { fetchAll, must, sb, useUser, type Insert, type Row } from "./core";
-import type { Profile } from "./profile";
+import { addDays, type ISODate } from "@/lib/dates";
+import {
+  activeProgram,
+  DEFAULT_PROGRAM,
+  isTemplateKey,
+  programOfKey,
+  programSince,
+  PROGRAM_IDS,
+  PROGRAMS,
+  resolvePlanKey,
+  scheduleFor,
+  templateDef,
+  visibleExercises,
+  visibleWarmup,
+} from "@/lib/training/programs";
+import type { DayTemplate, ProgramId, TemplateExercise, TemplateKey, WarmupStep } from "@/lib/training/types";
+import { fetchAll, isOffline, must, sb, useUser, type Insert, type Row } from "./core";
+import { useProfile, type Profile } from "./profile";
 
 export type Session = Row<"workout_sessions">;
 export type SetRow = Row<"exercise_sets">;
 export type DayPlan = Row<"day_plans">;
+/** @deprecated volleyball is no longer read by the app (PROGRAM-ARNOLD §6); the table stays for the export. */
 export type Volleyball = Row<"volleyball_sessions">;
 
 /* -------------------------------------------------------------- templates */
 
 export type StoredTemplate = DayTemplate & { id?: string };
 
-function fromRow(r: Row<"program_templates">): StoredTemplate {
-  const def = PROGRAM_BY_KEY[r.key as TemplateKey];
+/**
+ * A stored template row as the app shows it: name, focus, warm-up and exercises from the row
+ * (jumps and their warm-up filtered out, never rewritten), everything else from the built-in
+ * definition of its key. Null for a key neither program knows.
+ */
+export function fromRow(r: Pick<Row<"program_templates">, "id" | "key" | "name" | "focus" | "warmup" | "exercises">): StoredTemplate | null {
+  const def = templateDef(r.key);
+  if (!def) return null;
+  const warmup = Array.isArray(r.warmup) && r.warmup.length ? (r.warmup as unknown as WarmupStep[]) : def.warmup;
   return {
     id: r.id,
-    key: r.key as TemplateKey,
+    key: def.key,
+    program: def.program,
     name: r.name,
-    subtitle: def?.subtitle ?? "",
-    focus: r.focus ?? def?.focus ?? "",
-    weekday: def?.weekday ?? 0,
-    warmup: (Array.isArray(r.warmup) && r.warmup.length ? (r.warmup as unknown as WarmupStep[]) : def?.warmup) ?? [],
-    exercises: (r.exercises as unknown as TemplateExercise[]) ?? [],
+    short: def.short,
+    abbr: def.abbr,
+    family: def.family,
+    subtitle: def.subtitle,
+    notes: def.notes,
+    focus: r.focus ?? def.focus,
+    weekday: def.weekday,
+    warmup: visibleWarmup(warmup),
+    exercises: visibleExercises(Array.isArray(r.exercises) ? (r.exercises as unknown as TemplateExercise[]) : []),
   };
 }
 
-export function programSeedRows(): Omit<Insert<"program_templates">, "user_id">[] {
-  return PROGRAM.map((t, i) => ({
+/** The built-in templates of a program as program_templates rows (sort = index within the program). */
+export function programSeedRows(program: ProgramId = DEFAULT_PROGRAM): Omit<Insert<"program_templates">, "user_id">[] {
+  return PROGRAMS[program].templates.map((t, i) => ({
     key: t.key,
     name: t.name,
     focus: t.focus,
@@ -43,25 +70,48 @@ export function programSeedRows(): Omit<Insert<"program_templates">, "user_id">[
   }));
 }
 
-/** The user's (editable) six templates. Falls back to the built-in program until seeded. */
-export function useTemplates() {
+/**
+ * Insert the program's missing built-in rows (never overwriting a stored one: a second device
+ * inserting at the same moment is a no-op). Offline it writes nothing.
+ */
+export async function ensureProgramRows(program: ProgramId, presentKeys: string[]): Promise<boolean> {
+  const missing = PROGRAMS[program].keys.filter((k) => !presentKeys.includes(k));
+  if (!missing.length || isOffline()) return false;
+  const rows = programSeedRows(program).filter((r) => missing.includes(r.key as TemplateKey));
+  must(await sb().from("program_templates").upsert(rows, { onConflict: "user_id,key", ignoreDuplicates: true }).select("id"));
+  return true;
+}
+
+/** Stored rows over built-ins for one program, in its weekday order. */
+function programTemplates(program: ProgramId, stored: Map<string, StoredTemplate>): StoredTemplate[] {
+  return PROGRAMS[program].templates.map((t) => stored.get(t.key) ?? t);
+}
+
+/**
+ * The active program's six templates (stored rows over built-ins), plus every template of both
+ * programs by key, so a frozen past day or an open PPL session still resolves. Ensures the
+ * active program's rows exist (§3.4). Waits for the profile, which decides the program.
+ */
+export function useTemplates(): { templates: StoredTemplate[]; byKey: Record<string, StoredTemplate>; program: ProgramId; all: Record<ProgramId, StoredTemplate[]>; loading: boolean } {
   const { userId } = useUser();
+  const { profile, loading: profileLoading } = useProfile();
+  const program = activeProgram(profile);
   const q = useQuery({
-    queryKey: ["templates", userId],
-    enabled: !!userId,
+    queryKey: ["templates", userId, program],
+    enabled: !!userId && !!profile,
     queryFn: async () => {
       let rows = must(await sb().from("program_templates").select("*").order("sort"));
-      if (!rows.length) {
-        // first use — seed the user's copy of the program (idempotent on (user_id, key))
-        await sb().from("program_templates").upsert(programSeedRows(), { onConflict: "user_id,key", ignoreDuplicates: true });
-        rows = must(await sb().from("program_templates").select("*").order("sort"));
-      }
-      return rows.map(fromRow);
+      if (await ensureProgramRows(program, rows.map((r) => r.key))) rows = must(await sb().from("program_templates").select("*").order("sort"));
+      return rows.map(fromRow).filter((t): t is StoredTemplate => !!t);
     },
   });
-  const templates: StoredTemplate[] = useMemo(() => (q.data?.length ? q.data : PROGRAM), [q.data]);
-  const byKey = useMemo(() => Object.fromEntries(templates.map((t) => [t.key, t])) as Record<TemplateKey, StoredTemplate>, [templates]);
-  return { templates, byKey, loading: q.isLoading };
+  const all = useMemo(() => {
+    const stored = new Map((q.data ?? []).map((t) => [t.key as string, t]));
+    return Object.fromEntries(PROGRAM_IDS.map((p) => [p, programTemplates(p, stored)])) as Record<ProgramId, StoredTemplate[]>;
+  }, [q.data]);
+  const templates = all[program];
+  const byKey = useMemo(() => Object.fromEntries(PROGRAM_IDS.flatMap((p) => all[p].map((t) => [t.key, t]))) as Record<string, StoredTemplate>, [all]);
+  return { templates, byKey, program, all, loading: q.isLoading || profileLoading };
 }
 
 export function useSaveTemplate() {
@@ -78,7 +128,7 @@ export function useSaveTemplate() {
               key: t.key,
               name: t.name,
               focus: t.focus,
-              sort: PROGRAM.findIndex((p) => p.key === t.key),
+              sort: Math.max(0, PROGRAMS[programOfKey(t.key) ?? DEFAULT_PROGRAM].keys.indexOf(t.key)),
               warmup: t.warmup as unknown as Insert<"program_templates">["warmup"],
               exercises: t.exercises as unknown as Insert<"program_templates">["exercises"],
             },
@@ -105,19 +155,21 @@ export interface DayPlanResolved {
   movedFrom: ISODate | null;
 }
 
+/** The weekly schedule merged over the active program's default week (= scheduleFor). */
 export function scheduleOf(profile: Profile | undefined): Record<string, PlanKey> {
-  const s = (profile?.weekly_schedule ?? DEFAULT_SCHEDULE) as Record<string, PlanKey>;
-  return { ...(DEFAULT_SCHEDULE as Record<string, PlanKey>), ...s };
+  return scheduleFor(profile) as Record<string, PlanKey>;
 }
 
-/** What's planned on a date: explicit override first, else the weekly schedule. */
+/** What's planned on a date: the override first (program-aware, §2.4), else the weekly schedule. */
 export function planFor(date: ISODate, profile: Profile | undefined, plans: DayPlan[], byKey: Record<string, StoredTemplate>): DayPlanResolved {
   const o = plans.find((p) => p.plan_date === date);
-  const key = (o?.template_key ?? scheduleOf(profile)[String(weekday(date))] ?? "rest") as PlanKey;
+  const program = activeProgram(profile);
+  const raw = resolvePlanKey(date, scheduleFor(profile), o, { program, since: programSince(profile?.prefs, program) });
+  const key = (raw === "rest" || isTemplateKey(raw) ? raw : "rest") as PlanKey;
   return {
     date,
     key,
-    template: key === "rest" ? null : (byKey[key] ?? PROGRAM_BY_KEY[key as TemplateKey] ?? null),
+    template: key === "rest" ? null : (byKey[key] ?? templateDef(key) ?? null),
     overridden: !!o,
     reason: o?.reason ?? null,
     movedFrom: o?.moved_from ?? null,
@@ -235,6 +287,7 @@ export function useSetsInRange(from: ISODate, to: ISODate) {
 
 /* ------------------------------------------------------------- volleyball */
 
+/** @deprecated nothing reads volleyball any more (PROGRAM-ARNOLD §6); removed in P2. */
 export function useVolleyball(from: ISODate, to: ISODate) {
   const { userId } = useUser();
   return useQuery({
@@ -244,6 +297,7 @@ export function useVolleyball(from: ISODate, to: ISODate) {
   });
 }
 
+/** @deprecated removed in P2 (PROGRAM-ARNOLD §6). */
 export function useVolleyballMutations() {
   const qc = useQueryClient();
   const done = () => qc.invalidateQueries({ queryKey: ["volleyball"] });
@@ -261,7 +315,7 @@ export function useVolleyballMutations() {
   return { add, remove };
 }
 
-/** Days in the last 7 (including `date`) with volleyball. */
+/** @deprecated removed in P2. Days in the last 7 (including `date`) with volleyball. */
 export function volleyballLoad(v: Volleyball[], date: ISODate) {
   const from = addDays(date, -6);
   return new Set(v.filter((x) => x.local_date >= from && x.local_date <= date).map((x) => x.local_date)).size;

@@ -1,10 +1,10 @@
 // Pure aggregation helpers for the coach context. Every number here is computed from the
 // user's own rows — nothing is estimated or filled in. Unit-tested in aggregate.test.ts.
 
-import { addDays, daysBetween, weekday, type ISODate } from "@/lib/dates";
+import { addDays, daysBetween, type ISODate } from "@/lib/dates";
 import { getExercise } from "@/lib/training/library";
-import { DEFAULT_SCHEDULE } from "@/lib/training/program";
-import type { MuscleGroup } from "@/lib/training/types";
+import { resolvePlanKey, scheduleFor } from "@/lib/training/programs";
+import type { MuscleGroup, ProgramId } from "@/lib/training/types";
 import { round } from "@/lib/units";
 
 /* ------------------------------------------------------------------ lifts */
@@ -226,6 +226,7 @@ export interface PlanOverride {
   template_key: string;
   reason: string | null;
   moved_from: ISODate | null;
+  note?: string | null;
 }
 
 export interface ResolvedPlan {
@@ -236,20 +237,22 @@ export interface ResolvedPlan {
   movedFrom: ISODate | null;
 }
 
-/** Weekly schedule merged over the default (JS weekday "0".."6" → template key or "rest"). */
-export function mergeSchedule(raw: unknown): Record<string, string> {
-  const s = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-  const out: Record<string, string> = { ...DEFAULT_SCHEDULE };
-  for (const [k, v] of Object.entries(s)) if (typeof v === "string" && /^[0-6]$/.test(k)) out[k] = v;
-  return out;
+/** Weekly schedule merged over the active program's default week (= scheduleFor). */
+export function mergeSchedule(raw: unknown, prefs?: unknown): Record<string, string> {
+  return scheduleFor({ weekly_schedule: raw, prefs });
 }
 
-/** What's planned on a date: a per-date override first, else the weekly schedule. */
-export function resolvePlan(date: ISODate, schedule: Record<string, string>, overrides: PlanOverride[]): ResolvedPlan {
+/** What's planned on a date: the one plan resolver (programs.ts resolvePlanKey). */
+export function resolvePlan(
+  date: ISODate,
+  schedule: Record<string, string>,
+  overrides: PlanOverride[],
+  ctx: { program: ProgramId; since: ISODate | null } = { program: "arnold", since: null },
+): ResolvedPlan {
   const o = overrides.find((p) => p.plan_date === date);
   return {
     date,
-    key: o?.template_key ?? schedule[String(weekday(date))] ?? "rest",
+    key: resolvePlanKey(date, schedule, o, ctx),
     overridden: !!o,
     reason: o?.reason ?? null,
     movedFrom: o?.moved_from ?? null,
@@ -358,7 +361,6 @@ export interface CheckIn {
   fatigue: number | null;
   stress: number | null;
   pain_notes: string | null;
-  volleyball: boolean | null;
 }
 
 type Metric = "sleep_hours" | "sleep_quality" | "energy" | "soreness" | "fatigue" | "stress";

@@ -17,6 +17,10 @@ export interface PastSet {
   rir: number | null;
   /** The mode of the session the set belongs to (what it prescribed); unknown = standard. */
   mode?: Mode;
+  /** The template the session was started from (withSessionModes fills it); unknown = null. */
+  template_key?: string | null;
+  /** When the set was logged (rest-aware comparisons). */
+  completed_at?: string | null;
 }
 
 export type SuggestionKind = "first" | "increase" | "add_reps" | "hold" | "reset" | "deload" | "explosive" | "bodyweight";

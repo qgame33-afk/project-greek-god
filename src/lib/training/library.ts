@@ -7,7 +7,8 @@ import type { LibraryExercise } from "./types";
  * Conventions:
  * - Loads in lb. Dumbbell lifts log the weight of ONE dumbbell (perHand).
  * - perSide = reps are counted per arm / per leg.
- * - Jumps are never loaded and never taken to failure.
+ * - retired = kept only so past sessions still resolve (name, category); never offered in a
+ *   picker, a substitutes list, a new template or a coach trend (pickableLibrary()).
  */
 export const LIBRARY: LibraryExercise[] = [
   // ───────────────────────── Chest: horizontal & incline press ─────────────────────────
@@ -537,7 +538,7 @@ export const LIBRARY: LibraryExercise[] = [
       "Keep your elbows narrow and still; don't let them flare out.",
       "Brace your core so your lower back doesn't arch.",
     ],
-    substitutes: ["skull-crusher", "rope-triceps-pushdown"],
+    substitutes: ["skull-crusher", "rope-triceps-pushdown", "single-arm-overhead-cable-triceps-extension"],
   },
   {
     slug: "skull-crusher",
@@ -938,7 +939,7 @@ export const LIBRARY: LibraryExercise[] = [
       "Keep your shoulders down — shrugging steals tension from the rear delts.",
       "Light and strict wins; rear delts respond to high-quality reps.",
     ],
-    substitutes: ["face-pull", "rear-delt-db-fly"],
+    substitutes: ["face-pull", "rear-delt-db-fly", "cable-rear-delt-fly"],
   },
   {
     slug: "face-pull",
@@ -960,7 +961,7 @@ export const LIBRARY: LibraryExercise[] = [
       "Finish with your hands beside your ears, like a double-biceps pose.",
       "Great for shoulder health — keep it light enough for perfect reps.",
     ],
-    substitutes: ["reverse-pec-deck", "rear-delt-db-fly"],
+    substitutes: ["reverse-pec-deck", "rear-delt-db-fly", "cable-rear-delt-fly"],
   },
   {
     slug: "rear-delt-db-fly",
@@ -983,7 +984,7 @@ export const LIBRARY: LibraryExercise[] = [
       "Lead with your pinkies and keep your shoulders down.",
       "Stay light — heavy reps turn it into a row.",
     ],
-    substitutes: ["reverse-pec-deck", "face-pull"],
+    substitutes: ["reverse-pec-deck", "face-pull", "cable-rear-delt-fly"],
   },
 
   // ───────────────────────── Biceps ─────────────────────────
@@ -1062,6 +1063,7 @@ export const LIBRARY: LibraryExercise[] = [
       "barbell-curl",
       "incline-db-curl",
       "preacher-curl",
+      "reverse-curl",
     ],
   },
   {
@@ -1133,7 +1135,7 @@ export const LIBRARY: LibraryExercise[] = [
       "The neutral grip builds the brachialis and forearms — thickness you see from the front.",
       "Don't swing; keep your torso still.",
     ],
-    substitutes: ["cable-hammer-curl", "reverse-curl"],
+    substitutes: ["cable-hammer-curl", "reverse-curl", "cross-body-hammer-curl"],
   },
   {
     slug: "cable-hammer-curl",
@@ -1155,7 +1157,7 @@ export const LIBRARY: LibraryExercise[] = [
       "Keep your elbows fixed at your sides — only your forearms move.",
       "Squeeze the rope hard to recruit more forearm.",
     ],
-    substitutes: ["hammer-curl", "reverse-curl"],
+    substitutes: ["hammer-curl", "reverse-curl", "cross-body-hammer-curl"],
   },
   {
     slug: "reverse-curl",
@@ -1276,9 +1278,10 @@ export const LIBRARY: LibraryExercise[] = [
     substitutes: ["farmer-carry", "trap-bar-carry"],
   },
 
-  // ───────────────────────── Jumps & power ─────────────────────────
+  // ───────────────────────── Retired: history only ─────────────────────────
   {
     slug: "box-jump",
+    retired: true,
     name: "Box Jump",
     primary: ["quads", "glutes"],
     secondary: ["calves", "hamstrings"],
@@ -1303,7 +1306,8 @@ export const LIBRARY: LibraryExercise[] = [
   },
   {
     slug: "approach-jump",
-    name: "Volleyball Approach Jump",
+    retired: true,
+    name: "Approach Jump",
     primary: ["glutes", "quads", "calves"],
     secondary: ["hamstrings", "full_body"],
     category: "explosive",
@@ -1321,12 +1325,13 @@ export const LIBRARY: LibraryExercise[] = [
       "Make the penultimate step long and low and the final step quick — speed into the plant.",
       "Land on two feet with soft knees and hips back; never land stiff-legged.",
       "Stop the set the moment height drops — every rep is max intent, never to failure.",
-      "Cut or skip these after heavy volleyball sessions.",
+      "Cut or skip these when your legs are tired.",
     ],
     substitutes: ["box-jump", "squat-jump"],
   },
   {
     slug: "broad-jump",
+    retired: true,
     name: "Broad Jump",
     primary: ["glutes", "quads", "hamstrings"],
     secondary: ["calves"],
@@ -1350,6 +1355,7 @@ export const LIBRARY: LibraryExercise[] = [
   },
   {
     slug: "squat-jump",
+    retired: true,
     name: "Squat Jump",
     primary: ["quads", "glutes"],
     secondary: ["calves", "hamstrings"],
@@ -1960,6 +1966,78 @@ export const LIBRARY: LibraryExercise[] = [
       "Increase the range gradually; it's harder than it looks.",
     ],
     substitutes: ["hanging-leg-raise", "cable-crunch", "hanging-knee-raise"],
+  },
+  // ───────────────────────── Arnold split additions ─────────────────────────
+  {
+    slug: "cable-rear-delt-fly",
+    name: "Cable Rear Delt Fly",
+    primary: ["rear_delts"],
+    secondary: ["upper_back", "traps"],
+    category: "isolation",
+    equipment: "cable",
+    tracking: "weight_reps",
+    rest: 60,
+    increment: 5,
+    instructions: [
+      "Set both pulleys at shoulder height and take the handles off, or use single D-handles.",
+      "Cross the cables: hold the left cable in your right hand and the right cable in your left hand, then step back to the middle.",
+      "With long arms and a slight bend in the elbows, sweep your hands out and back until they line up with your body.",
+      "Pause for a second, then return slowly until the cables cross again.",
+    ],
+    formTips: [
+      "Lead with the back of your hands and keep your shoulders down. No shrugging.",
+      "Stop when your arms reach your sides; going further turns it into an upper-back squeeze.",
+      "Keep it light enough to pause on every rep.",
+    ],
+    substitutes: ["reverse-pec-deck", "rear-delt-db-fly", "face-pull"],
+  },
+  {
+    slug: "single-arm-overhead-cable-triceps-extension",
+    name: "Single-Arm Overhead Cable Triceps Extension",
+    primary: ["triceps"],
+    secondary: [],
+    category: "isolation",
+    equipment: "cable",
+    tracking: "weight_reps",
+    rest: 60,
+    increment: 5,
+    perSide: true,
+    instructions: [
+      "Set a D-handle on a low pulley and stand facing away from the stack.",
+      "Hold the handle behind your head with one hand, upper arm pointing up beside your ear.",
+      "Straighten your arm overhead, keeping the upper arm still.",
+      "Lower slowly into a deep stretch behind your head, finish all reps, then switch arms.",
+    ],
+    formTips: [
+      "The overhead stretch trains the long head of the triceps, so don't cut the range short.",
+      "Keep your elbow pointing up; if it drifts out, the weight is too heavy.",
+      "Brace your core so your lower back doesn't arch.",
+    ],
+    substitutes: ["overhead-cable-triceps-extension", "skull-crusher", "rope-triceps-pushdown"],
+  },
+  {
+    slug: "cross-body-hammer-curl",
+    name: "Cross-Body Hammer Curl",
+    primary: ["brachialis", "forearms"],
+    secondary: ["biceps"],
+    category: "isolation",
+    equipment: "dumbbell",
+    tracking: "weight_reps",
+    rest: 75,
+    increment: 5,
+    perHand: true,
+    instructions: [
+      "Stand tall with a dumbbell in each hand at your sides, palms facing your thighs.",
+      "Curl one dumbbell up and across your body toward the opposite shoulder, thumb up.",
+      "Squeeze at the top, then lower it slowly along the same path.",
+      "Alternate arms. One rep is one curl with each arm.",
+    ],
+    formTips: [
+      "Keep the upper arm close to your side; the elbow moves forward only a little.",
+      "The neutral grip and cross-body path build the brachialis and forearm.",
+      "Don't twist your torso to swing the weight up.",
+    ],
+    substitutes: ["hammer-curl", "cable-hammer-curl", "reverse-curl"],
   },
 ];
 

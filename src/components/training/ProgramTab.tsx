@@ -16,7 +16,7 @@ import { useSavePrefs, useSaveProfile } from "@/lib/data/profile";
 import { scheduleOf, useAllSessions } from "@/lib/data/training";
 import { effectiveTrainAt, formatClock, isTime, parseAppPrefs, toMinutes } from "@/lib/prefs";
 import { normalizeSettings } from "@/lib/reminders/schedule";
-import { DEFAULT_SCHEDULE, SUNDAY_RECOVERY, estimateDurationMin } from "@/lib/training/program";
+import { ARNOLD_SCHEDULE as DEFAULT_SCHEDULE, SUNDAY_RECOVERY, estimateDurationMin } from "@/lib/training/programs";
 import type { Mode } from "@/lib/training/progression";
 import { scheduleIssues, weekdaysFor } from "@/lib/training/schedule";
 import { modeTemplate, templateSummary } from "@/lib/training/volume";

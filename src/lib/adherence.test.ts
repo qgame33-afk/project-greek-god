@@ -51,10 +51,9 @@ describe("sessionsSealed", () => {
     expect(sessionsLabel({ done: 4, planned: 6 })).toBe("4 of 6 sessions");
   });
 
-  it("one volleyball swap per week counts as sealed", () => {
-    const swaps = { "2026-10-20": "volleyball" as const, "2026-10-21": "volleyball" as const };
-    expect(sessionsSealed(week(["2026-10-19", "2026-10-20"], swaps), TODAY)).toEqual({ done: 2, planned: 6 });
-    expect(sessionsSealed(week(["2026-10-19", "2026-10-20", "2026-10-21"], swaps), TODAY)).toEqual({ done: 2, planned: 6 });
+  it("counts training days only: a legacy volleyball day is neither planned nor done", () => {
+    const legacy = { "2026-10-20": "volleyball" as const };
+    expect(sessionsSealed(week(["2026-10-19", "2026-10-20"], legacy), TODAY)).toEqual({ done: 1, planned: 5 });
   });
 
   it("a session moved to the rest day still counts, never above the plan", () => {

@@ -1,0 +1,657 @@
+[
+  {
+    "key": "push_a",
+    "name": "Push A",
+    "focus": "Heavy pressing strength and upper-body development.",
+    "sort": 0,
+    "warmup": [
+      {
+        "label": "General warm-up",
+        "detail": "5–8 min easy rower, bike or incline walk until you're lightly sweating."
+      },
+      {
+        "label": "Shoulder mobility",
+        "detail": "Band dislocates ×10, wall slides ×10, open-book thoracic rotations ×8 each side."
+      },
+      {
+        "label": "Activation",
+        "detail": "Band pull-aparts ×15, band external rotations ×12 each arm, scap push-ups ×10."
+      },
+      {
+        "label": "Bench ramp-up",
+        "detail": "Empty bar ×10, 50% ×5, 70% ×3, 85% ×1 of today's working weight, then start your working sets."
+      },
+      {
+        "label": "Feeder sets",
+        "detail": "One light set at ~50% ×8 before the incline press and the shoulder press."
+      }
+    ],
+    "exercises": [
+      {
+        "slug": "barbell-bench-press",
+        "name": "Barbell Bench Press",
+        "sets": 3,
+        "repLow": 5,
+        "repHigh": 8,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 180,
+        "note": "Main strength lift. When all 3 sets hit 8 with good form, add 5 lb."
+      },
+      {
+        "slug": "incline-db-press",
+        "name": "Incline Dumbbell Press",
+        "sets": 3,
+        "repLow": 8,
+        "repHigh": 10,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 120,
+        "note": "30° incline for upper chest. Add 5 lb per hand once all sets reach 10."
+      },
+      {
+        "slug": "seated-db-shoulder-press",
+        "name": "Seated Dumbbell Shoulder Press",
+        "sets": 3,
+        "repLow": 6,
+        "repHigh": 10,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 120,
+        "note": "Elbows slightly forward. Stop if the shoulder pinches."
+      },
+      {
+        "slug": "cable-lateral-raise",
+        "name": "Cable Lateral Raises",
+        "sets": 3,
+        "repLow": 12,
+        "repHigh": 20,
+        "unit": "each",
+        "rir": "1–2",
+        "rest": 60,
+        "note": "Last set can go to 0–1."
+      },
+      {
+        "slug": "cable-triceps-pushdown",
+        "name": "Cable Triceps Pushdown",
+        "sets": 3,
+        "repLow": 10,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 75,
+        "note": "Last set can go to 0–1."
+      },
+      {
+        "slug": "overhead-cable-triceps-extension",
+        "name": "Overhead Cable Triceps Extension",
+        "sets": 2,
+        "repLow": 10,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 75,
+        "note": "Last set can go to 0–1."
+      }
+    ]
+  },
+  {
+    "key": "pull_a",
+    "name": "Pull A",
+    "focus": "Back width, thickness, strong biceps and grip.",
+    "sort": 1,
+    "warmup": [
+      {
+        "label": "General warm-up",
+        "detail": "5–8 min easy rower or bike until you're lightly sweating."
+      },
+      {
+        "label": "Mobility",
+        "detail": "Cat-cow ×8, foam-roller thoracic extensions ×10, lat stretch 30 s each side."
+      },
+      {
+        "label": "Activation",
+        "detail": "Band pull-aparts ×15, scap pull-ups ×8, dead hang 20–30 s."
+      },
+      {
+        "label": "Pull-up ramp-up",
+        "detail": "Bodyweight pull-ups ×5, then 50% ×3 and 80% ×1 of today's added load. Pulldown instead: 50% ×10, 70% ×5, 85% ×2."
+      },
+      {
+        "label": "Feeder sets",
+        "detail": "One light set at ~50% ×8 before the row and the first curl."
+      }
+    ],
+    "exercises": [
+      {
+        "slug": "weighted-pull-up",
+        "name": "Weighted Pull-Ups or Lat Pulldown",
+        "sets": 3,
+        "repLow": 6,
+        "repHigh": 10,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 150,
+        "note": "Use the lat pulldown until you can do 6 strict bodyweight reps."
+      },
+      {
+        "slug": "chest-supported-row",
+        "name": "Chest-Supported Row",
+        "sets": 3,
+        "repLow": 6,
+        "repHigh": 10,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 120,
+        "note": "Chest stays on the pad. Drive the elbows back."
+      },
+      {
+        "slug": "single-arm-cable-row",
+        "name": "Single-Arm Cable Row",
+        "sets": 2,
+        "repLow": 10,
+        "repHigh": 12,
+        "unit": "each",
+        "rir": "1–2",
+        "rest": 120,
+        "note": "Reps per arm. Reach into the stretch, pull the elbow to your hip."
+      },
+      {
+        "slug": "reverse-pec-deck",
+        "name": "Reverse Pec Deck",
+        "sets": 3,
+        "repLow": 12,
+        "repHigh": 20,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 60,
+        "note": "Last set can go to 0–1."
+      },
+      {
+        "slug": "ez-bar-curl",
+        "name": "EZ-Bar Biceps Curl",
+        "sets": 3,
+        "repLow": 8,
+        "repHigh": 12,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 90,
+        "note": "Last set can go to 0–1."
+      },
+      {
+        "slug": "hammer-curl",
+        "name": "Hammer Curl",
+        "sets": 3,
+        "repLow": 10,
+        "repHigh": 12,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 75,
+        "note": "Last set can go to 0–1."
+      },
+      {
+        "slug": "farmer-carry",
+        "name": "Farmer Carries",
+        "sets": 2,
+        "repLow": 30,
+        "repHigh": 45,
+        "unit": "sec",
+        "rir": "1–2",
+        "rest": 90,
+        "note": "Heaviest load you can carry with tall posture. Stop when grip opens or posture breaks."
+      }
+    ]
+  },
+  {
+    "key": "legs_a",
+    "name": "Legs A",
+    "focus": "Maximum lower-body strength, athletic performance and explosive power.",
+    "sort": 2,
+    "warmup": [
+      {
+        "label": "General warm-up",
+        "detail": "5–8 min easy bike or incline walk until you're lightly sweating."
+      },
+      {
+        "label": "Mobility",
+        "detail": "Leg swings ×10 each direction, hip 90/90 switches ×5 each side, ankle rocks ×10 each, deep squat hold 30 s."
+      },
+      {
+        "label": "Activation",
+        "detail": "Glute bridges ×12, lateral band walks ×10 each way, bodyweight squats ×10."
+      },
+      {
+        "label": "Jump prep",
+        "detail": "Pogo hops 2×15, A-skips 2×20 m, low-box (12–18 in) stick landings ×5, then 2 easy box jumps."
+      },
+      {
+        "label": "Squat ramp-up",
+        "detail": "After the jumps: empty bar ×10, 50% ×5, 70% ×3, 85% ×1 of today's working weight."
+      }
+    ],
+    "exercises": [
+      {
+        "slug": "box-jump",
+        "name": "Box Jumps",
+        "sets": 3,
+        "repLow": 3,
+        "repHigh": 3,
+        "unit": "reps",
+        "rir": "Fresh",
+        "rest": 120,
+        "note": "Jumps first, while fresh. Full recovery between sets — stop the set the moment height drops. Never to failure."
+      },
+      {
+        "slug": "approach-jump",
+        "name": "Volleyball Approach Jumps",
+        "sets": 3,
+        "repLow": 3,
+        "repHigh": 3,
+        "unit": "reps",
+        "rir": "Fresh",
+        "rest": 120,
+        "optional": true,
+        "note": "Skip when volleyball volume is already high this week."
+      },
+      {
+        "slug": "back-squat",
+        "name": "Barbell Back Squat",
+        "sets": 4,
+        "repLow": 4,
+        "repHigh": 6,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 210,
+        "note": "Main strength lift. Safeties set. When all 4 sets hit 6, add 10 lb."
+      },
+      {
+        "slug": "romanian-deadlift",
+        "name": "Romanian Deadlift",
+        "sets": 3,
+        "repLow": 6,
+        "repHigh": 8,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 180,
+        "note": "Flat back, bar on your legs. Stop at your hamstring stretch, not the floor."
+      },
+      {
+        "slug": "bulgarian-split-squat",
+        "name": "Bulgarian Split Squat",
+        "sets": 2,
+        "repLow": 8,
+        "repHigh": 8,
+        "unit": "each",
+        "rir": "1–2",
+        "rest": 120,
+        "note": "8 reps per leg. Start with your weaker leg."
+      },
+      {
+        "slug": "seated-leg-curl",
+        "name": "Seated Leg Curl",
+        "sets": 3,
+        "repLow": 10,
+        "repHigh": 12,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 90,
+        "note": "Lean forward slightly and control the return."
+      },
+      {
+        "slug": "standing-calf-raise",
+        "name": "Standing Calf Raises",
+        "sets": 3,
+        "repLow": 10,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 60,
+        "note": "Pause in the stretch. Last set can go to 0–1."
+      },
+      {
+        "slug": "hanging-knee-raise",
+        "name": "Hanging Knee Raises",
+        "sets": 3,
+        "repLow": 10,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 60,
+        "note": "Curl the pelvis up at the top. No swinging."
+      }
+    ]
+  },
+  {
+    "key": "push_b",
+    "name": "Push B",
+    "focus": "Muscle hypertrophy with emphasis on upper chest, shoulders, and triceps.",
+    "sort": 3,
+    "warmup": [
+      {
+        "label": "General warm-up",
+        "detail": "5–8 min easy rower, bike or incline walk until you're lightly sweating."
+      },
+      {
+        "label": "Shoulder mobility",
+        "detail": "Band dislocates ×10, wall slides ×10, doorway pec stretch 30 s each side."
+      },
+      {
+        "label": "Activation",
+        "detail": "Band pull-aparts ×15, push-ups ×10–15, band external rotations ×12 each arm."
+      },
+      {
+        "label": "Incline Smith ramp-up",
+        "detail": "Empty bar ×10, 50% ×5, 70% ×3, 85% ×1 of today's working weight."
+      },
+      {
+        "label": "Feeder sets",
+        "detail": "One light set at ~50% ×8 before the machine press and the shoulder press."
+      }
+    ],
+    "exercises": [
+      {
+        "slug": "incline-smith-press",
+        "name": "Incline Smith Machine Press",
+        "sets": 3,
+        "repLow": 8,
+        "repHigh": 12,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 150,
+        "note": "Upper-chest priority. Bar touches high on the chest. Add load when all sets hit 12."
+      },
+      {
+        "slug": "machine-chest-press",
+        "name": "Machine Chest Press",
+        "sets": 3,
+        "repLow": 10,
+        "repHigh": 12,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 120,
+        "note": "Slow 2–3 s lowering, full stretch, strong squeeze."
+      },
+      {
+        "slug": "seated-db-shoulder-press",
+        "name": "Seated Dumbbell Shoulder Press",
+        "sets": 2,
+        "repLow": 8,
+        "repHigh": 12,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 120,
+        "note": "Lighter than Monday — smooth, controlled reps."
+      },
+      {
+        "slug": "cable-lateral-raise",
+        "name": "Cable Lateral Raises",
+        "sets": 4,
+        "repLow": 12,
+        "repHigh": 20,
+        "unit": "each",
+        "rir": "1–2",
+        "rest": 60,
+        "note": "Last set can go to 0–1."
+      },
+      {
+        "slug": "cable-chest-fly",
+        "name": "Cable Chest Fly",
+        "sets": 2,
+        "repLow": 12,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 75,
+        "note": "Low pulleys, sweep up and in for upper chest. Elbow angle stays locked."
+      },
+      {
+        "slug": "overhead-cable-triceps-extension",
+        "name": "Overhead Cable Triceps Extension",
+        "sets": 3,
+        "repLow": 10,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 75,
+        "note": "Last set can go to 0–1."
+      },
+      {
+        "slug": "rope-triceps-pushdown",
+        "name": "Rope Triceps Pushdown",
+        "sets": 2,
+        "repLow": 12,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 75,
+        "note": "Last set can go to 0–1."
+      }
+    ]
+  },
+  {
+    "key": "pull_b",
+    "name": "Pull B",
+    "focus": "V-taper aesthetics, lat development, arms and forearms.",
+    "sort": 4,
+    "warmup": [
+      {
+        "label": "General warm-up",
+        "detail": "5–8 min easy rower or bike until you're lightly sweating."
+      },
+      {
+        "label": "Mobility",
+        "detail": "Cat-cow ×8, foam-roller thoracic extensions ×10, child's-pose lat stretch 30 s each side."
+      },
+      {
+        "label": "Activation",
+        "detail": "Band pull-aparts ×15, straight-arm band pulldowns ×12, dead hang 20–30 s."
+      },
+      {
+        "label": "Pulldown ramp-up",
+        "detail": "50% ×10, 70% ×5, 85% ×2 of today's working weight."
+      },
+      {
+        "label": "Elbows & wrists",
+        "detail": "Wrist circles ×10 each way and one light curl set ×15 before the arm work."
+      }
+    ],
+    "exercises": [
+      {
+        "slug": "neutral-grip-lat-pulldown",
+        "name": "Neutral-Grip Lat Pulldown",
+        "sets": 3,
+        "repLow": 8,
+        "repHigh": 12,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 120,
+        "note": "Full stretch at the top, elbows to your hips."
+      },
+      {
+        "slug": "chest-supported-wide-row",
+        "name": "Chest-Supported Wide Row",
+        "sets": 3,
+        "repLow": 8,
+        "repHigh": 12,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 120,
+        "note": "Elbows wide for upper back and rear delts. No shrugging."
+      },
+      {
+        "slug": "single-arm-lat-pulldown",
+        "name": "Single-Arm Lat Pulldown",
+        "sets": 2,
+        "repLow": 10,
+        "repHigh": 15,
+        "unit": "each",
+        "rir": "1–2",
+        "rest": 120,
+        "note": "Reps per arm. Pull the elbow down to your hip."
+      },
+      {
+        "slug": "reverse-pec-deck",
+        "name": "Reverse Pec Deck",
+        "sets": 3,
+        "repLow": 15,
+        "repHigh": 20,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 60,
+        "note": "Last set can go to 0–1."
+      },
+      {
+        "slug": "preacher-curl",
+        "name": "Preacher Curls",
+        "sets": 3,
+        "repLow": 8,
+        "repHigh": 12,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 75,
+        "note": "Control the bottom. Last set can go to 0–1."
+      },
+      {
+        "slug": "cable-hammer-curl",
+        "name": "Cable Hammer Curls",
+        "sets": 3,
+        "repLow": 10,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 75,
+        "note": "Last set can go to 0–1."
+      },
+      {
+        "slug": "wrist-curl",
+        "name": "Wrist Curls or Reverse Curls",
+        "sets": 2,
+        "repLow": 12,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 60,
+        "note": "Pick one per session. Slow reps; stop if your wrists ache."
+      }
+    ]
+  },
+  {
+    "key": "legs_b",
+    "name": "Legs B",
+    "focus": "Lower-body muscle growth, balanced proportions, calves and core.",
+    "sort": 5,
+    "warmup": [
+      {
+        "label": "General warm-up",
+        "detail": "5–8 min easy bike or incline walk until you're lightly sweating."
+      },
+      {
+        "label": "Mobility",
+        "detail": "Leg swings ×10 each direction, couch stretch 30 s each side, ankle rocks ×10 each."
+      },
+      {
+        "label": "Activation",
+        "detail": "Glute bridges ×12, bodyweight squats ×10, dead bugs ×8 each side."
+      },
+      {
+        "label": "Jump prep",
+        "detail": "If doing broad jumps: pogo hops 2×15, skips 2×20 m, low-box stick landings ×5, then 2 easy broad jumps."
+      },
+      {
+        "label": "Hack squat ramp-up",
+        "detail": "Empty sled ×10, 50% ×5, 70% ×3, 85% ×1 of today's working weight."
+      }
+    ],
+    "exercises": [
+      {
+        "slug": "broad-jump",
+        "name": "Broad Jumps",
+        "sets": 3,
+        "repLow": 3,
+        "repHigh": 3,
+        "unit": "reps",
+        "rir": "Fresh",
+        "rest": 120,
+        "optional": true,
+        "note": "Optional — skip if legs are fatigued from volleyball."
+      },
+      {
+        "slug": "hack-squat",
+        "name": "Hack Squat",
+        "sets": 3,
+        "repLow": 8,
+        "repHigh": 12,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 150,
+        "note": "Deep, controlled reps. When all sets hit 12, add 10 lb."
+      },
+      {
+        "slug": "leg-press",
+        "name": "Leg Press",
+        "sets": 3,
+        "repLow": 10,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 120,
+        "note": "Hips stay on the pad. Don't lock the knees out."
+      },
+      {
+        "slug": "hip-thrust",
+        "name": "Hip Thrust",
+        "sets": 2,
+        "repLow": 8,
+        "repHigh": 12,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 120,
+        "note": "Chin tucked, ribs down. Pause and squeeze at the top."
+      },
+      {
+        "slug": "seated-leg-curl",
+        "name": "Seated Leg Curl",
+        "sets": 3,
+        "repLow": 10,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 90,
+        "note": "Slow lowering. Lean forward for a deeper stretch."
+      },
+      {
+        "slug": "leg-extension",
+        "name": "Leg Extension",
+        "sets": 2,
+        "repLow": 12,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 75,
+        "note": "Pause for a second at the top of every rep."
+      },
+      {
+        "slug": "seated-calf-raise",
+        "name": "Seated Calf Raises",
+        "sets": 4,
+        "repLow": 12,
+        "repHigh": 20,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 60,
+        "note": "Pause in the stretch. Last set can go to 0–1."
+      },
+      {
+        "slug": "cable-crunch",
+        "name": "Cable Crunches",
+        "sets": 3,
+        "repLow": 10,
+        "repHigh": 15,
+        "unit": "reps",
+        "rir": "1–2",
+        "rest": 60,
+        "note": "Ribs to pelvis — your hips stay still."
+      }
+    ]
+  }
+]

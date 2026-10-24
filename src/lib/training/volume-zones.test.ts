@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PROGRAM_BY_KEY } from "./program";
+import { TEMPLATE_DEFS as PROGRAM_BY_KEY } from "./programs";
 import { LIBRARY } from "./library";
 import { modeTemplate, weeklySetsByMuscle } from "./volume";
 import { SET_ZONES, ZONE_OF, ZONE_ORDER, plannedSetsByZone, setsByZone, zoneRows, zoneStatus, zonesOf } from "./volume-zones";

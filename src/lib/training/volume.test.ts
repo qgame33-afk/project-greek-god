@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { PROGRAM_BY_KEY, estimateDurationMin } from "./program";
+import { TEMPLATE_DEFS as PROGRAM_BY_KEY, estimateDurationMin } from "./programs";
 import {
+  RIR_OPTIONS,
   isLegDay,
   modeTemplate,
   moveItem,
@@ -81,17 +82,24 @@ describe("templates", () => {
     // bench 5–8 → 5–6, laterals 12–20 → 12–18 (matches the deload suggestion's target)
     expect([d.exercises[0].repLow, d.exercises[0].repHigh]).toEqual([5, 6]);
     expect(d.exercises[3].repHigh).toBe(pushA.exercises[3].repHigh - 2);
-    // jumps keep their fixed target
-    const jumps = modeTemplate(legsA, "deload").exercises.find((e) => e.slug === legsA.exercises[0].slug)!;
-    expect(jumps.repHigh).toBe(legsA.exercises[0].repHigh);
+    // a retired jump in an old stored row keeps its fixed target
+    const jumpDay = { ...legsA, exercises: [{ slug: "box-jump", name: "Box Jumps", sets: 3, repLow: 3, repHigh: 3, unit: "reps" as const, rir: "Fresh", rest: 120 }, ...legsA.exercises] };
+    const jumps = modeTemplate(jumpDay, "deload").exercises.find((e) => e.slug === "box-jump")!;
+    expect(jumps.repHigh).toBe(3);
     // never below the bottom of the range
     expect(modeTemplate({ ...pushA, exercises: [{ ...pushA.exercises[0], repLow: 5, repHigh: 6 }] }, "deload").exercises[0].repHigh).toBe(5);
   });
 
-  it("lighter legs drops optional jumps and trims leg accessories", () => {
+  it("leaves optional exercises out unless asked (Thursday's reverse curls never start)", () => {
+    const thu = PROGRAM_BY_KEY.shoulders_arms_b;
+    expect(modeTemplate(thu, "standard").exercises.map((e) => e.slug)).not.toContain("reverse-curl");
+    expect(modeTemplate(thu, "standard").exercises.reduce((n, e) => n + e.sets, 0)).toBe(19);
+    expect(modeTemplate(thu, "standard", { includeOptional: true }).exercises.reduce((n, e) => n + e.sets, 0)).toBe(21);
+  });
+
+  it("the deprecated lighter-legs form still trims leg accessories", () => {
     const light = modeTemplate(legsA, "standard", true);
     expect(light.exercises.some((e) => e.optional)).toBe(false);
-    expect(light.exercises.length).toBe(legsA.exercises.length - 1);
     const squat = light.exercises.find((e) => e.slug === "back-squat");
     const orig = legsA.exercises.find((e) => e.slug === "back-squat");
     expect(squat!.sets).toBe(orig!.sets - 1);
@@ -129,9 +137,18 @@ describe("templates", () => {
 });
 
 describe("template editing", () => {
+  it("offers the Arnold effort targets among the RIR options", () => {
+    expect([...RIR_OPTIONS]).toEqual(["0–1", "0–2", "1–2", "1–3", "2–3", "3–4", "Fresh"]);
+  });
   it("creates a starting prescription from the library", async () => {
     const { getExercise } = await import("./library");
-    expect(newTemplateExercise(getExercise("barbell-bench-press")!)).toMatchObject({ sets: 3, repLow: 6, repHigh: 10, unit: "reps", rir: "1–2", rest: 180 });
+    expect(newTemplateExercise(getExercise("barbell-bench-press")!)).toMatchObject({ sets: 3, repLow: 6, repHigh: 10, unit: "reps", rir: "1–3", rest: 180 });
+    // effortDefaults: compounds 1–3 RIR and 120–180 s, isolation 0–2 RIR and 60–120 s
+    expect(newTemplateExercise(getExercise("leg-press")!)).toMatchObject({ rir: "1–3", rest: 120 });
+    expect(newTemplateExercise(getExercise("back-squat")!)).toMatchObject({ rir: "1–3", rest: 180 });
+    expect(newTemplateExercise(getExercise("cable-lateral-raise")!)).toMatchObject({ rir: "0–2", rest: 60, unit: "each" });
+    expect(newTemplateExercise(getExercise("hanging-leg-raise")!)).toMatchObject({ rir: "0–2" });
+    expect(newTemplateExercise(getExercise("farmer-carry")!)).toMatchObject({ rir: "1–2", rest: 90, unit: "sec" });
     expect(newTemplateExercise(getExercise("box-jump")!)).toMatchObject({ repLow: 3, repHigh: 3, rir: "Fresh" });
     expect(newTemplateExercise(getExercise("cable-crunch")!)).toMatchObject({ repLow: 10, repHigh: 15 });
   });

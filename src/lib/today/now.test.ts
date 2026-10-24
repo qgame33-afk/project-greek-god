@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { HabitStatus } from "@/lib/habits";
 import { mergeCheckin } from "@/lib/recovery/prefill";
-import { PROGRAM_BY_KEY } from "@/lib/training/program";
+import { TEMPLATE_DEFS as PROGRAM_BY_KEY } from "@/lib/training/programs";
 import type { PastSet } from "@/lib/training/progression";
 import {
   checkinPatchPayload,

@@ -4,7 +4,7 @@ export const CATEGORY_ORDER: CoachCategory[] = ["training", "nutrition", "recove
 
 export const CATEGORY_META: Record<CoachCategory, { label: string; chip: string; description: string }> = {
   profile: { label: "Profile & goals", chip: "Goals", description: "Height, experience, goal weight, dates and daily targets." },
-  training: { label: "Training", chip: "Training", description: "Sessions, sets, lifts, program, volleyball and jump tests." },
+  training: { label: "Training", chip: "Training", description: "Sessions, sets, lifts and the program." },
   nutrition: { label: "Nutrition", chip: "Nutrition", description: "Food log, calories, macros and water." },
   bodyweight: { label: "Bodyweight", chip: "Weight", description: "Weigh-ins and the trend." },
   recovery: { label: "Recovery", chip: "Recovery", description: "Sleep, soreness, fatigue, stress and pain notes." },

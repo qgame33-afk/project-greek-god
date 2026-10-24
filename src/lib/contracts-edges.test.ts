@@ -153,9 +153,9 @@ describe("adherence edges", () => {
     expect(planFollowed([{ id: "a", local_date: TODAY, at: t("12:00") }], new Set(), TODAY, t("13:59"))).toEqual({ done: 0, due: 0 });
   });
 
-  it("two volleyball swaps in a week count once; done never exceeds planned", () => {
+  it("done never exceeds planned, even with a session on the rest day", () => {
     const week = ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18"];
-    const days = week.map((date, i) => ({ date, kind: (i === 1 || i === 3 ? "volleyball" : i === 6 ? "rest" : "train") as "train" | "rest" | "volleyball", done: date <= TODAY }));
-    expect(sessionsSealed(days, TODAY)).toEqual({ done: 5, planned: 6 });
+    const days = week.map((date, i) => ({ date, kind: (i === 6 ? "rest" : "train") as "train" | "rest", done: true }));
+    expect(sessionsSealed(days, "2026-10-18")).toEqual({ done: 6, planned: 6 });
   });
 });

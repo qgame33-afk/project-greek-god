@@ -1637,6 +1637,10 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string;
       };
+      program_of: {
+        Args: { p_prefs: Json; p_schedule: Json };
+        Returns: string;
+      };
       replace_meal_plan: {
         Args: {
           p_keep_locked?: boolean;
@@ -1646,6 +1650,10 @@ export type Database = {
           p_week_start: string;
         };
         Returns: string;
+      };
+      set_training_program: {
+        Args: { p_program: string; p_today?: string; p_user?: string };
+        Returns: Json;
       };
       sync_grocery_items: {
         Args: { p_items: Json; p_plan_id: string };

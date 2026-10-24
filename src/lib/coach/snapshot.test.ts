@@ -34,7 +34,6 @@ function raw(over: Partial<RawCoachData> = {}): RawCoachData {
       sleep_goal_h: 8,
       weekly_schedule: null,
       training_mode: "standard",
-      volleyball_per_week: 2,
     },
     access: ALL_ACCESS,
     goalChanges: [],
@@ -49,8 +48,6 @@ function raw(over: Partial<RawCoachData> = {}): RawCoachData {
       prs: [],
       templates: [],
       overrides: [],
-      volleyball: [{ local_date: "2026-10-15", kind: "practice", duration_min: 90, intensity: 4 }],
-      athletic: [],
       custom: {},
     },
     nutrition: {
@@ -60,7 +57,7 @@ function raw(over: Partial<RawCoachData> = {}): RawCoachData {
       ],
       water: [{ local_date: today, total_ml: 1500 }],
     },
-    recovery: { logs: [{ local_date: "2026-10-15", sleep_hours: 6.5, sleep_quality: 3, energy: 3, soreness: 4, fatigue: 3, stress: 2, pain_notes: "left knee ache on landings", volleyball: true }] },
+    recovery: { logs: [{ local_date: "2026-10-15", sleep_hours: 6.5, sleep_quality: 3, energy: 3, soreness: 4, fatigue: 3, stress: 2, pain_notes: "left knee ache on landings" }] },
     measurements: { rows: [{ local_date: "2026-09-11", waist_in: 30.5 }, { local_date: "2026-10-09", waist_in: 30.75 }] },
     ...over,
   };
@@ -77,18 +74,39 @@ describe("buildSnapshot", () => {
     expect(fact("nut.avg7")?.detail).toMatch(/1 of 7 days/);
   });
 
-  it("resolves today's plan from the weekly schedule", () => {
-    expect(fact("plan.today")).toMatchObject({ value: "Pull B", kind: "plan" });
-    expect(fact("vb.yesterday")).toMatchObject({ value: "Yes · practice · 90 min", detail: "Oct 15: practice, 90 min, intensity 4/5" });
+  it("resolves today's plan from the weekly schedule (a new account follows the Arnold split)", () => {
+    expect(fact("plan.today")).toMatchObject({ value: "Chest & Back B", kind: "plan" });
+    expect(fact("prog.active")?.value).toBe("Arnold split");
+    expect(fact("prog.saved")?.value).toBe("Push/Pull/Legs (saved, not active)");
+    expect(fact("prog.chest_back_b")?.detail).toMatch(/^Incline Smith Machine Press 3×8–12 @1–3 RIR/);
+    expect(fact("prog.push_a")).toBeUndefined();
+    expect(snap.text).toContain("## PROGRAM RULES (Arnold split)");
+    expect(snap.text).toContain("Six training days are not mandatory.");
+  });
+
+  it("follows Push/Pull/Legs for an account still on it, and names the switch date", () => {
+    const ppl = buildSnapshot(raw({ profile: { ...raw().profile, weekly_schedule: { "1": "push_a", "2": "pull_a", "3": "legs_a", "4": "push_b", "5": "pull_b", "6": "legs_b", "0": "rest" } } }));
+    expect(ppl.facts.find((f) => f.id === "plan.today")?.value).toBe("Pull B");
+    expect(ppl.facts.find((f) => f.id === "prog.active")?.value).toBe("Push/Pull/Legs");
+    const switched = buildSnapshot(raw({ profile: { ...raw().profile, prefs: { program: "arnold", programSwitch: { from: "ppl", to: "arnold", at: "2026-10-14T12:00:00Z", date: "2026-10-14", frozen: 0, mapped: 0 } } } }));
+    expect(switched.facts.find((f) => f.id === "prog.active")?.value).toBe("Arnold split since Oct 14");
+  });
+
+  it("never mentions volleyball or jump tests", () => {
+    expect(snap.facts.some((f) => /^(vb|ath)\./.test(f.id) || f.id === "prof.volleyball")).toBe(false);
+    expect(snap.text).not.toMatch(/volley|jump test|vertical/i);
   });
 
   it("covers lifts, muscle volume, recovery pain notes and measurements", () => {
     expect(fact("lift.barbell-bench-press")?.href).toBe("/training/exercise/barbell-bench-press");
     expect(fact("vol.biceps")?.value).toBe("1 set");
     expect(fact("vol.hamstrings")?.value).toBe("0 sets");
+    // a secondary muscle counts half a set: bench press → triceps 0.5
+    expect(fact("vol.triceps")?.value).toBe("0.5 sets");
+    expect(fact("vol.chest")?.label).toBe("Upper chest and chest sets, last 7 days");
     expect(fact("rec.pain")?.detail).toMatch(/left knee ache/);
     expect(fact("rec.sleep")?.value).toBe("6.5 h");
-    expect(fact("rec.2026-10-15")?.detail).toMatch(/played volleyball, PAIN NOTE/);
+    expect(fact("rec.2026-10-15")?.detail).toMatch(/stress 2\/5, PAIN NOTE/);
     expect(fact("meas.waist")?.value).toBe("30.5 in → 30.75 in");
     expect(snap.text).toContain("[nut.left.protein] Protein left today: 65 g");
     expect(snap.text).toContain("Everything is shared.");
@@ -130,7 +148,7 @@ describe("buildSnapshot", () => {
     const f = (id: string) => s.facts.find((x) => x.id === id);
     expect(f("tr.count7")?.detail).toBe("0 of 0 planned training days done so far (counting from the start date, Oct 16)");
     expect(f("tr.count28")?.detail).not.toMatch(/adherence/);
-    expect(f("plan.week")?.detail).toMatch(/Mon Push A — before the start date/);
+    expect(f("plan.week")?.detail).toMatch(/Mon Shoulders, Biceps & Triceps A — before the start date/);
     expect(f("plan.week")?.detail).not.toMatch(/not logged/);
   });
 
@@ -174,7 +192,7 @@ describe("schema helpers", () => {
     expect(titleFrom("  Am I eating enough?  ")).toBe("Am I eating enough?");
     expect(titleFrom("[About: Push A today]\nWhat should I focus on?")).toBe("What should I focus on?");
     expect(titleFrom("Give me my weekly summary: training, nutrition, bodyweight and recovery for the last 7 days.")).toBe("Weekly summary");
-    expect(titleFrom("Should I reduce leg training because I played volleyball yesterday and my knees hurt?")).toBe("Should I reduce leg training because I played volleyball…");
+    expect(titleFrom("Should I trim my chest day because my arms are still sore from yesterday?")).toBe("Should I trim my chest day because my arms are still sore…");
   });
   it("puts the context inside the system prompt", () => {
     expect(buildSystemPrompt("CTX")).toMatch(/=== ACCOUNT CONTEXT[\s\S]*CTX[\s\S]*END ACCOUNT CONTEXT ===$/);

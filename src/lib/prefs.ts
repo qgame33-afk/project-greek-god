@@ -21,16 +21,48 @@ export const DEFAULT_DAY_SCHEDULE: DaySchedule = {
   preWorkoutMin: 60,
 };
 
+/** One program's weekly order, as stored by set_training_program() ("0" = Sunday … "6"). */
+export type StoredWeek = Record<string, string>;
+
+/** The last program switch, written by set_training_program() (docs/PROGRAM-ARNOLD.md §2.3). */
+export interface ProgramSwitch {
+  from: "arnold" | "ppl";
+  to: "arnold" | "ppl";
+  /** ISO timestamp of the switch. */
+  at: string;
+  /** The local date the new program applies from. */
+  date: string;
+  frozen: number;
+  mapped: number;
+}
+
 export interface AppPrefs extends WorkoutPrefs {
   day: DaySchedule;
   /** Land in Gym Mode when the app opens with a session active. Default on. */
   gymAuto: boolean;
   coachNoteSeen?: boolean;
+  /** Read-only here: written only by the database function set_training_program(). */
+  readonly program?: "arnold" | "ppl";
+  /** Read-only: each program's last weekly order, restored when switching back. */
+  readonly schedules?: { ppl?: StoredWeek; arnold?: StoredWeek };
+  /** Read-only: the last switch. */
+  readonly programSwitch?: ProgramSwitch;
+  /** The date the training mode was last set (lighter-week advice, §4.3). */
+  modeSetAt?: string;
+  /** Lighter-week and ease-in suggestions stay hidden until after this date. */
+  lighterSnoozedUntil?: string;
+  /** The carried-swap question (§3.7) was answered. */
+  swapsOffered?: boolean;
+  /** ISO timestamp: the one-time "Your plan is now the Arnold split" notice was seen (DESIGN-V3 CR-1). */
+  switchNoticeSeenAt?: string;
   [k: string]: unknown;
 }
 
-/** A patch for mergePrefs(): any top-level key, and any part of `day`. */
-export type PrefsPatch = Partial<Omit<AppPrefs, "day">> & {
+/** Keys only set_training_program() writes; a client prefs patch can never carry them. */
+type ServerOnlyKeys = "program" | "schedules" | "programSwitch";
+
+/** A patch for mergePrefs(): any top-level key except the program's, and any part of `day`. */
+export type PrefsPatch = Partial<Omit<AppPrefs, "day" | ServerOnlyKeys>> & { [K in ServerOnlyKeys]?: never } & {
   day?: {
     trainAt?: string | null;
     preWorkoutMin?: number;
@@ -103,7 +135,22 @@ export function parseAppPrefs(json: unknown): AppPrefs {
   const out: AppPrefs = { ...o, ...parsePrefs(o), day: parseDay(o.day), gymAuto: typeof o.gymAuto === "boolean" ? o.gymAuto : true };
   if (typeof o.coachNoteSeen === "boolean") out.coachNoteSeen = o.coachNoteSeen;
   else delete out.coachNoteSeen;
+  const w = out as Record<string, unknown>;
+  if (o.program !== "arnold" && o.program !== "ppl") delete w.program;
+  if (!isObj(o.schedules)) delete w.schedules;
+  if (!isProgramSwitch(o.programSwitch)) delete w.programSwitch;
+  for (const k of ["modeSetAt", "lighterSnoozedUntil"] as const) if (!isDate(o[k])) delete w[k];
+  if (typeof o.swapsOffered !== "boolean") delete w.swapsOffered;
+  if (typeof o.switchNoticeSeenAt !== "string" || Number.isNaN(Date.parse(o.switchNoticeSeenAt))) delete w.switchNoticeSeenAt;
   return out;
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const isDate = (v: unknown): v is string => typeof v === "string" && DATE_RE.test(v);
+const isProgram = (v: unknown) => v === "arnold" || v === "ppl";
+
+function isProgramSwitch(v: unknown): v is ProgramSwitch {
+  return isObj(v) && isProgram(v.from) && isProgram(v.to) && typeof v.at === "string" && isDate(v.date);
 }
 
 function mergeDay(current: unknown, p: NonNullable<PrefsPatch["day"]>): Record<string, unknown> {
@@ -133,16 +180,19 @@ function mergeDay(current: unknown, p: NonNullable<PrefsPatch["day"]>): Record<s
   return c;
 }
 
+const SERVER_ONLY = new Set<string>(["program", "schedules", "programSwitch"]);
+
 /**
  * The JSON to store: `current` (the stored prefs, read fresh) with `patch` applied.
- * Deep-merges `day` (and `day.meals`), keeps every key it doesn't know, skips undefined
- * values and ignores invalid times rather than storing them.
+ * Deep-merges `day` (and `day.meals`), keeps every key it doesn't know (so a client write never
+ * drops `program`, `schedules` or `programSwitch`), never writes those three itself, skips
+ * undefined values and ignores invalid times rather than storing them.
  */
 export function mergePrefs(current: unknown, patch: PrefsPatch): Record<string, unknown> {
   const cur = isObj(current) ? current : {};
   const out: Record<string, unknown> = { ...cur };
   for (const [k, v] of Object.entries(patch)) {
-    if (k === "day" || v === undefined) continue;
+    if (k === "day" || v === undefined || SERVER_ONLY.has(k)) continue;
     out[k] = v;
   }
   if (patch.day) out.day = mergeDay(cur.day, patch.day);

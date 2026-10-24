@@ -6,7 +6,7 @@ import { addDays, addMonths, dateRange, daysBetween, monthEnd, monthLabel, month
 import { defaultMilestone, parseRoadmap } from "@/lib/progress/months";
 import { EARLY_WATER_DAYS, rateAt } from "@/lib/progress/pace";
 import { formatDelta, formatBodyweight, formatInt, round, type WeightUnit } from "@/lib/units";
-import { plannedKey, scheduleFrom } from "./plan";
+import { planContext, plannedKey, scheduleFrom } from "./plan";
 
 /* ------------------------------------------------------------------ input */
 
@@ -22,6 +22,8 @@ export interface ReviewProfile {
   sleep_goal_h: Num;
   water_goal_ml: number;
   weekly_schedule: unknown;
+  /** profiles.prefs: decides the active program for the plan (PROGRAM-ARNOLD §2.4). */
+  prefs?: unknown;
   roadmap?: unknown;
 }
 
@@ -62,11 +64,9 @@ export interface ReviewRows {
     soreness: number | null;
     fatigue: number | null;
     stress: number | null;
-    volleyball: boolean | null;
     pain_notes?: string | null;
   }[];
-  plans: { plan_date: ISODate; template_key: string }[];
-  volleyball?: { local_date: ISODate }[];
+  plans: { plan_date: ISODate; template_key: string; note?: string | null }[];
 }
 
 /* ----------------------------------------------------------------- output */
@@ -216,7 +216,8 @@ export interface ReviewStats {
     avgFatigue: number | null;
     avgStress: number | null;
     painDays: number;
-    volleyballDays: number;
+    /** @deprecated never computed (no volleyball); saved reviews that still hold it are not rendered. */
+    volleyballDays?: number;
     consistency: { weeksOnPlan: number; weeks: number; avgSessionsPerWeek: number | null };
   };
 }
@@ -400,8 +401,9 @@ export function computeReview({ month: anyDay, today, profile, rows }: ComputeOp
   const photosIn = outOfRange ? [] : rows.photos.filter((p) => inWin(p.local_date, from, to)).sort((a, b) => a.local_date.localeCompare(b.local_date));
 
   /* -------- training: plan vs done */
-  const schedule = scheduleFrom(profile.weekly_schedule);
-  const overrides = new Map(rows.plans.map((p) => [p.plan_date, p.template_key]));
+  const schedule = scheduleFrom(profile.weekly_schedule, profile.prefs);
+  const planCtx = planContext(profile.weekly_schedule, profile.prefs);
+  const overrides = new Map(rows.plans.map((p) => [p.plan_date, { template_key: p.template_key, note: p.note ?? null }]));
   const done = outOfRange ? [] : rows.sessions.filter((s) => s.status === "done" && inWin(s.local_date, from, to));
   const doneDates = new Set(done.map((s) => s.local_date));
   let planned = 0;
@@ -412,7 +414,7 @@ export function computeReview({ month: anyDay, today, profile, rows }: ComputeOp
     const ws = weekStart(d);
     const wk = weekMap.get(ws) ?? { weekStart: ws, planned: 0, done: 0, extra: 0 };
     weekMap.set(ws, wk);
-    const isTraining = plannedKey(d, schedule, overrides) !== "rest";
+    const isTraining = plannedKey(d, schedule, overrides, planCtx) !== "rest";
     // today only counts once it's done — the day isn't over yet
     if (isTraining && !(d === today && !doneDates.has(d))) {
       planned++;
@@ -520,7 +522,6 @@ export function computeReview({ month: anyDay, today, profile, rows }: ComputeOp
   const recIn = outOfRange ? [] : rows.recovery.filter((r) => inWin(r.local_date, from, to));
   const sleeps = recIn.map((r) => num(r.sleep_hours)).filter((x): x is number => x != null);
   const avgOf = (k: "sleep_quality" | "energy" | "soreness" | "fatigue" | "stress") => r1(mean(recIn.map((r) => r[k]).filter((x): x is number => x != null)));
-  const vbDates = new Set<ISODate>([...recIn.filter((r) => r.volleyball).map((r) => r.local_date), ...(rows.volleyball ?? []).map((v) => v.local_date).filter((d) => inWin(d, from, to))]);
   const plannedWeeks = weeks.filter((w) => w.planned > 0);
   const weeksOnPlan = plannedWeeks.filter((w) => w.done / w.planned >= 0.8).length;
 
@@ -602,7 +603,6 @@ export function computeReview({ month: anyDay, today, profile, rows }: ComputeOp
       avgFatigue: avgOf("fatigue"),
       avgStress: avgOf("stress"),
       painDays: recIn.filter((r) => r.pain_notes && r.pain_notes.trim()).length,
-      volleyballDays: vbDates.size,
       consistency: {
         weeksOnPlan,
         weeks: plannedWeeks.length,
@@ -941,7 +941,6 @@ export function aiDigest(s: ReviewStats, priorities: Priority[], unit: WeightUni
       sleepGoalH: s.recovery.sleepGoal,
       avgFatigue1to5: s.recovery.avgFatigue,
       avgSoreness1to5: s.recovery.avgSoreness,
-      volleyballDays: s.recovery.volleyballDays,
     },
     priorities: priorities.map((x) => x.title),
   };

@@ -6,9 +6,9 @@ import webpush from "web-push";
 import { addMonths, weekStart, type ISODate } from "@/lib/dates";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
-import { estimateDurationMin, PROGRAM_BY_KEY } from "@/lib/training/program";
-import type { DayTemplate, TemplateExercise, TemplateKey } from "@/lib/training/types";
-import { plannedKey, scheduleFrom } from "@/lib/reviews/plan";
+import { estimateDurationMin, templateDef, visibleExercises } from "@/lib/training/programs";
+import type { DayTemplate, TemplateExercise } from "@/lib/training/types";
+import { planContext, plannedKey, scheduleFrom } from "@/lib/reviews/plan";
 import type { DispatchDeps, PushPayload, PushTarget, SendResult } from "./dispatch";
 import type { ReminderFacts } from "./schedule";
 
@@ -114,10 +114,12 @@ export async function sendPush(keys: { publicKey: string; privateKey: string }, 
 
 /* ---------------------------------------------------------- facts (admin) */
 
+/** The planned template: the stored row over the built-in of either program (jumps filtered out). */
 function templateFromRow(r: { key: string; name: string; focus: string | null; exercises: unknown } | null, key: string): DayTemplate | null {
-  const def = PROGRAM_BY_KEY[key as TemplateKey];
-  if (!r) return def ?? null;
-  return { ...(def ?? { key: key as TemplateKey, subtitle: "", weekday: 0, warmup: [] }), key: key as TemplateKey, name: r.name, focus: r.focus ?? def?.focus ?? "", exercises: (Array.isArray(r.exercises) ? r.exercises : []) as TemplateExercise[] } as DayTemplate;
+  const def = templateDef(key);
+  if (!def) return null;
+  if (!r) return { ...def, exercises: visibleExercises(def.exercises) };
+  return { ...def, name: r.name, focus: r.focus ?? def.focus, exercises: visibleExercises((Array.isArray(r.exercises) ? r.exercises : []) as TemplateExercise[]) };
 }
 
 /** Today's facts for one user, read with the service role and always filtered by user_id. */
@@ -128,8 +130,8 @@ export async function loadFacts(admin: Admin, userId: string, date: ISODate): Pr
   };
   const prev = addMonths(date, -1);
   const [profile, plan, sessions, food, water, weights, photo, review] = await Promise.all([
-    admin.from("profiles").select("calorie_goal,water_goal_ml,sleep_goal_h,weekly_schedule").eq("id", userId).single(),
-    admin.from("day_plans").select("template_key").eq("user_id", userId).eq("plan_date", date).maybeSingle(),
+    admin.from("profiles").select("calorie_goal,water_goal_ml,sleep_goal_h,weekly_schedule,prefs").eq("id", userId).single(),
+    admin.from("day_plans").select("template_key,note").eq("user_id", userId).eq("plan_date", date).maybeSingle(),
     admin.from("workout_sessions").select("id").eq("user_id", userId).eq("local_date", date).eq("status", "done").limit(1),
     admin.from("food_entries").select("meal,calories").eq("user_id", userId).eq("local_date", date),
     admin.from("water_logs").select("amount_ml").eq("user_id", userId).eq("local_date", date),
@@ -138,10 +140,9 @@ export async function loadFacts(admin: Admin, userId: string, date: ISODate): Pr
     admin.from("monthly_reviews").select("id").eq("user_id", userId).eq("month", prev).maybeSingle(),
   ]);
   const p = must(profile, "profile");
-  const overrides: Record<string, string> = {};
   const planRow = must(plan, "plan");
-  if (planRow) overrides[date] = planRow.template_key;
-  const key = plannedKey(date, scheduleFrom(p.weekly_schedule), overrides);
+  const overrides = planRow ? { [date]: { template_key: planRow.template_key, note: planRow.note } } : {};
+  const key = plannedKey(date, scheduleFrom(p.weekly_schedule, p.prefs), overrides, planContext(p.weekly_schedule, p.prefs));
   let plannedWorkout: ReminderFacts["plannedWorkout"] = null;
   if (key !== "rest") {
     const t = must(await admin.from("program_templates").select("key,name,focus,exercises").eq("user_id", userId).eq("key", key).maybeSingle(), "template");

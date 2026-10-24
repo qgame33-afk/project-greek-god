@@ -18,7 +18,7 @@ import { useUser } from "@/lib/data/core";
 import { useProfile } from "@/lib/data/profile";
 import { scheduleOf, useSaveTemplate, useTemplates, type StoredTemplate } from "@/lib/data/training";
 import { getExercise } from "@/lib/training/library";
-import { PROGRAM_BY_KEY } from "@/lib/training/program";
+import { TEMPLATE_DEFS as PROGRAM_BY_KEY } from "@/lib/training/programs";
 import { weekdaysFor } from "@/lib/training/schedule";
 import type { RepUnit, TemplateExercise, TemplateKey } from "@/lib/training/types";
 import { RIR_OPTIONS, moveItem, newTemplateExercise, sameTemplateContent, substituteExercise, validateTemplate } from "@/lib/training/volume";

@@ -10,7 +10,7 @@ import { addDays, dayName, type ISODate } from "@/lib/dates";
 import { useRecentHistory, useSessionDetail, useStartWorkout } from "@/lib/data/workout";
 import { effectiveTrainAt, formatClock, parseAppPrefs, toMinutes } from "@/lib/prefs";
 import { keyLift } from "@/lib/today/now";
-import { estimateDurationMin } from "@/lib/training/program";
+import { estimateDurationMin } from "@/lib/training/programs";
 import { isLegDay, modeTemplate } from "@/lib/training/volume";
 import { formatInt, formatLoad, toDisplayWeight } from "@/lib/units";
 import { MODE_LABEL, useTypicalDurations, useUnits, type useTrainingWeek } from "../hooks";

@@ -28,7 +28,7 @@ export type ExerciseCategory = "compound" | "isolation" | "explosive" | "carry" 
 export type Tracking =
   | "weight_reps" // load × reps (most lifts)
   | "bodyweight_reps" // reps, optional added load (pull-ups, hanging raises)
-  | "reps" // reps only, no load (jumps)
+  | "reps" // reps only, no load (retired explosive work)
   | "weight_time"; // load × seconds (carries)
 
 export type Equipment =
@@ -67,6 +67,8 @@ export interface LibraryExercise {
   formTips: string[];
   /** Slugs of reasonable swaps (same pattern / muscles). */
   substitutes: string[];
+  /** No longer offered anywhere (jumps); kept so history resolves. */
+  retired?: boolean;
 }
 
 export type RepUnit = "reps" | "sec" | "each";
@@ -79,7 +81,7 @@ export interface TemplateExercise {
   repLow: number;
   repHigh: number;
   unit: RepUnit;
-  /** Target reps in reserve, shown as text: "1–2", "0–1", or "Fresh" for explosive work. */
+  /** Target reps in reserve, shown as text: "1–3", "0–2", "1–2", or "Fresh" (retired explosive work). */
   rir: string;
   rest: number;
   optional?: boolean;
@@ -92,14 +94,26 @@ export interface WarmupStep {
   detail: string;
 }
 
-export type TemplateKey = "push_a" | "pull_a" | "legs_a" | "push_b" | "pull_b" | "legs_b";
+export type ProgramId = "arnold" | "ppl";
+export type ArnoldKey = "shoulders_arms_a" | "chest_back_a" | "legs_abs_a" | "shoulders_arms_b" | "chest_back_b" | "legs_abs_b";
+export type PplKey = "push_a" | "pull_a" | "legs_a" | "push_b" | "pull_b" | "legs_b";
+export type TemplateKey = ArnoldKey | PplKey;
+export type DayFamily = "shoulders_arms" | "chest_back" | "legs_abs" | "push" | "pull" | "legs";
 
 export interface DayTemplate {
   key: TemplateKey;
+  program: ProgramId;
   name: string;
-  /** e.g. "Upper Body Strength" */
+  /** For tight places (top bar, cards): "Shoulders & Arms A". */
+  short: string;
+  /** Under-date label in week strips, ≤ 5 characters: "Arms". */
+  abbr: string;
+  family: DayFamily;
+  /** e.g. "Side-delt width and arms" */
   subtitle: string;
   focus: string;
+  /** Quinton's training notes for the day (built-in guidance; not stored per user). */
+  notes: string[];
   /** JS weekday the template defaults to: 1 = Monday … 6 = Saturday. */
   weekday: number;
   warmup: WarmupStep[];

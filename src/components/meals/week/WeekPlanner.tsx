@@ -38,7 +38,7 @@ import type { FeedbackReason, MealPrefs, Slot } from "@/lib/meals/types";
 import { useSwapIn } from "@/lib/motion";
 import { plannedTime, type MealRole } from "@/lib/now/meal-times";
 import { effectiveTrainAt, formatClock, parseAppPrefs, toMinutes } from "@/lib/prefs";
-import { estimateDurationMin } from "@/lib/training/program";
+import { estimateDurationMin } from "@/lib/training/programs";
 import { formatInt } from "@/lib/units";
 import { useMinuteNow } from "@/components/nutrition/today/useFuelDay";
 import { useEatenChanged } from "../shared/EatenButton";

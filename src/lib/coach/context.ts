@@ -55,20 +55,20 @@ export function toRawProfile(p: ProfileRow): RawProfile {
     sleep_goal_h: Number(p.sleep_goal_h),
     weekly_schedule: p.weekly_schedule,
     training_mode: p.training_mode,
-    volleyball_per_week: Number(p.volleyball_per_week),
+    prefs: p.prefs,
   };
 }
 
 async function loadTraining(sb: SB, today: ISODate): Promise<RawTraining> {
   const from28 = addDays(today, -27);
   const from56 = addDays(today, -55);
-  const [sessions, sets, bests, prs, templates, overrides, volleyball, athletic, custom] = await Promise.all([
+  const [sessions, sets, bests, prs, templates, overrides, custom] = await Promise.all([
     pageAll((a, b) =>
       sb
         .from("workout_sessions")
-        .select("id,local_date,name,template_key,duration_sec,total_volume_lb,sets_completed,pr_count,status")
+        .select("id,local_date,name,template_key,duration_sec,total_volume_lb,sets_completed,pr_count,status,mode")
         .in("status", ["done", "active"])
-        .gte("local_date", from28)
+        .gte("local_date", from56)
         .lte("local_date", today)
         .order("local_date")
         .range(a, b),
@@ -88,9 +88,7 @@ async function loadTraining(sb: SB, today: ISODate): Promise<RawTraining> {
       sb.from("pr_events").select("local_date,exercise_slug,exercise_name,weight_lb,reps,e1rm_lb").gte("local_date", from28).lte("local_date", today).order("local_date", { ascending: false }).range(a, b),
     ),
     sb.from("program_templates").select("key,name,exercises").order("sort").then(ok),
-    sb.from("day_plans").select("plan_date,template_key,reason,moved_from").gte("plan_date", from28).lte("plan_date", addDays(today, 7)).then(ok),
-    sb.from("volleyball_sessions").select("local_date,kind,duration_min,intensity").gte("local_date", addDays(today, -13)).lte("local_date", today).then(ok),
-    sb.from("athletic_tests").select("local_date,test_type,value").order("local_date").limit(500).then(ok),
+    sb.from("day_plans").select("plan_date,template_key,reason,moved_from,note").gte("plan_date", from56).lte("plan_date", addDays(today, 7)).then(ok),
     sb.from("custom_exercises").select("slug,primary_muscles").then(ok),
   ]);
   return {
@@ -115,8 +113,6 @@ async function loadTraining(sb: SB, today: ISODate): Promise<RawTraining> {
     prs: prs.filter((r) => r.exercise_slug && r.local_date).map((r) => ({ ...r, local_date: r.local_date!, exercise_slug: r.exercise_slug!, weight_lb: n(r.weight_lb), e1rm_lb: n(r.e1rm_lb) })),
     templates: (templates ?? []).map((t) => ({ key: t.key, name: t.name, exercises: (Array.isArray(t.exercises) ? t.exercises : []) as unknown as TemplateExercise[] })),
     overrides: overrides ?? [],
-    volleyball: volleyball ?? [],
-    athletic: (athletic ?? []).map((a) => ({ ...a, value: Number(a.value) })),
     custom: Object.fromEntries((custom ?? []).map((c) => [c.slug, (c.primary_muscles ?? []) as MuscleGroup[]])),
   };
 }
@@ -158,7 +154,7 @@ export async function buildCoachContext(
     access.recovery
       ? sb
           .from("recovery_logs")
-          .select("local_date,sleep_hours,sleep_quality,energy,soreness,fatigue,stress,pain_notes,volleyball")
+          .select("local_date,sleep_hours,sleep_quality,energy,soreness,fatigue,stress,pain_notes")
           .gte("local_date", addDays(today, -13))
           .lte("local_date", today)
           .order("local_date", { ascending: false })

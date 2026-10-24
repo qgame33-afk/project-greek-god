@@ -13,7 +13,7 @@ import { recipeMacros } from "@/lib/meals/recipe";
 import type { Recipe } from "@/lib/meals/types";
 import { effectiveTrainAt, parseAppPrefs, toMinutes, type Min } from "@/lib/prefs";
 import { minuteOn } from "@/lib/today/now";
-import { estimateDurationMin } from "@/lib/training/program";
+import { estimateDurationMin } from "@/lib/training/programs";
 
 export interface FuelPlanned extends TimelinePlanned {
   local_date: ISODate;

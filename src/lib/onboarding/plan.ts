@@ -1,16 +1,16 @@
 // Pure onboarding logic: defaults from the profile, per-step validation, the plan summary shown
-// on the finale, and the profile update written when the user taps BEGIN THE ASCENT.
+// on the finale, and the profile update written when the user finishes.
 // No React, no Supabase — everything here is unit-tested.
 
 import { DEFAULT_ROADMAP, requiredWeeklyGain } from "@/lib/bodyweight";
 import { isTime, parseAppPrefs } from "@/lib/prefs";
 import { addDays, addMonths, daysBetween, monthStart, parseISODate, type ISODate } from "@/lib/dates";
-import { DEFAULT_SCHEDULE } from "@/lib/training/program";
-import type { TemplateKey } from "@/lib/training/types";
+import { ARNOLD_SCHEDULE, PROGRAMS } from "@/lib/training/programs";
+import type { ArnoldKey } from "@/lib/training/types";
 import { round, toDisplayWeight, type LengthUnit, type WeightUnit } from "@/lib/units";
 import { balancedCarbs, macroLine, macrosOverflow } from "./macros";
 
-export type PlanKey = TemplateKey | "rest";
+export type PlanKey = ArnoldKey | "rest";
 export type Experience = "beginner" | "intermediate" | "advanced";
 export type Schedule = Record<string, PlanKey>;
 
@@ -23,7 +23,7 @@ export type StepId = (typeof STEPS)[number];
  */
 export const OATH_STEPS = ["climber", "summit", "training", "fuel", "oath"] as const;
 export type OathStepId = (typeof OATH_STEPS)[number];
-export const OATH_LABELS: Record<OathStepId, string> = { climber: "The climber", summit: "The summit", training: "The training", fuel: "The fuel", oath: "The oath" };
+export const OATH_LABELS: Record<OathStepId, string> = { climber: "About you", summit: "Goal", training: "Training", fuel: "Food", oath: "Done" };
 const OATH_COVERS: Record<OathStepId, StepId[]> = { climber: ["body", "units"], summit: ["goal"], training: ["training"], fuel: ["nutrition"], oath: [] };
 
 export const STEP_LABELS: Record<StepId, string> = {
@@ -36,13 +36,9 @@ export const STEP_LABELS: Record<StepId, string> = {
   finale: "Your plan",
 };
 
+/** The Arnold days (their short names) and Rest: onboarding always starts on the Arnold split. */
 export const SCHEDULE_OPTIONS: { value: PlanKey; label: string }[] = [
-  { value: "push_a", label: "Push A" },
-  { value: "pull_a", label: "Pull A" },
-  { value: "legs_a", label: "Legs A" },
-  { value: "push_b", label: "Push B" },
-  { value: "pull_b", label: "Pull B" },
-  { value: "legs_b", label: "Legs B" },
+  ...PROGRAMS.arnold.templates.map((t) => ({ value: t.key as ArnoldKey, label: t.short })),
   { value: "rest", label: "Rest" },
 ];
 
@@ -59,7 +55,6 @@ export const OWNER_DEFAULTS = {
   goalRangeMaxLb: 185,
   targetDate: "2027-08-01",
   experience: "intermediate" as Experience,
-  volleyballPerWeek: 2,
   calorieGoal: 3300,
   proteinGoal: 185,
   fatGoal: 85,
@@ -82,6 +77,7 @@ export interface OnboardingAnswers {
   targetDate: ISODate;
   experience: Experience;
   schedule: Schedule;
+  /** @deprecated always 0, never validated or written (PROGRAM-ARNOLD §6); removed in P2 once the step drops it. */
   volleyballPerWeek: number;
   introVolume: boolean;
   calorieGoal: number;
@@ -108,7 +104,6 @@ export interface ProfileLike {
   target_date?: string | null;
   experience?: string | null;
   weekly_schedule?: unknown;
-  volleyball_per_week?: number | null;
   training_mode?: string | null;
   calorie_goal?: number | null;
   protein_goal?: number | null;
@@ -127,9 +122,9 @@ const num = (v: unknown, fallback: number) => {
 
 const KEYS = new Set<string>(SCHEDULE_OPTIONS.map((o) => o.value));
 
-/** A clean 7-day schedule: unknown keys or missing days fall back to the default split. */
+/** A clean 7-day Arnold schedule: unknown keys (a Push/Pull/Legs day too) or missing days fall back to the Arnold week. */
 export function normalizeSchedule(raw: unknown): Schedule {
-  const out: Schedule = { ...(DEFAULT_SCHEDULE as Schedule) };
+  const out: Schedule = { ...(ARNOLD_SCHEDULE as Schedule) };
   if (raw && typeof raw === "object") {
     for (const d of WEEK_ORDER) {
       const v = (raw as Record<string, unknown>)[d];
@@ -164,7 +159,7 @@ export function answersFromProfile(p: ProfileLike | null | undefined, today: ISO
     targetDate: target,
     experience: exp,
     schedule: normalizeSchedule(p?.weekly_schedule),
-    volleyballPerWeek: Math.round(num(p?.volleyball_per_week, D.volleyballPerWeek)),
+    volleyballPerWeek: 0,
     introVolume: p?.training_mode === "intro",
     calorieGoal: Math.round(num(p?.calorie_goal, D.calorieGoal)),
     proteinGoal: Math.round(num(p?.protein_goal, D.proteinGoal)),
@@ -327,7 +322,6 @@ export function validateStep(step: StepId, a: OnboardingAnswers, today: ISODate)
     if (!(a.goalRangeMinLb <= a.goalRangeMaxLb)) e.goalRangeMinLb = "The range's low end must be below its high end.";
   }
   if (step === "training") {
-    if (!(a.volleyballPerWeek >= 0 && a.volleyballPerWeek <= 14)) e.volleyballPerWeek = "Between 0 and 14 sessions.";
     if (a.trainAt != null && !isTime(a.trainAt)) e.trainAt = "Pick a time, or leave it unset.";
   }
   if (step === "nutrition") {
@@ -387,15 +381,13 @@ export function profileUpdateFromAnswers(a: OnboardingAnswers) {
     sleep_goal_h: round(a.sleepGoalH, 2),
     weekly_schedule: normalizeSchedule(a.schedule),
     training_mode: a.introVolume ? "intro" : "standard",
-    volleyball_per_week: Math.round(a.volleyballPerWeek),
     timezone: a.timezone,
     onboarded: true,
   };
 }
 
-/** "6 days · PPL × 2" style schedule summary. */
+/** "6 days · Arnold split" schedule summary. */
 export function scheduleSummary(s: Schedule) {
   const td = trainingDays(s);
-  const isDefault = WEEK_ORDER.every((d) => s[d] === (DEFAULT_SCHEDULE as Schedule)[d]);
-  return `${td} ${td === 1 ? "day" : "days"}${isDefault ? " · Push/Pull/Legs × 2" : ""}`;
+  return `${td} ${td === 1 ? "day" : "days"} · ${PROGRAMS.arnold.name}`;
 }

@@ -2,6 +2,7 @@
 // working sets (warm-ups never count), matching the database views.
 
 import { getExercise } from "./library";
+import { effortDefaults } from "./programs";
 import { plannedSetCount, type Mode } from "./progression";
 import type { DayTemplate, LibraryExercise, MuscleGroup, TemplateExercise, WarmupStep } from "./types";
 
@@ -70,14 +71,17 @@ export function templateSummary(t: Pick<DayTemplate, "exercises">): { exercises:
 
 /**
  * The template as it would actually start in a given mode: intro and deload set counts,
- * deload rep targets (top of the range − 2, as the deload suggestion sets them), and for
- * "lighter legs" the optional jumps are dropped and every leg lift loses a set (never below
- * 2). Mirrors `buildSessionSets`, so the sets, ranges and durations shown before starting
- * are honest.
+ * deload rep targets (top of the range − 2, as the deload suggestion sets them), and optional
+ * exercises left out (a workout never starts with them; `includeOptional` keeps them).
+ * Mirrors `buildSessionSets`, so the sets, ranges and durations shown before starting are
+ * honest. The deprecated boolean form (`true` = "lighter legs") also trims a set from every
+ * leg lift; it goes in P2.
  */
-export function modeTemplate<T extends DayTemplate>(t: T, mode: Mode, lighterLegs = false): T {
+export function modeTemplate<T extends DayTemplate>(t: T, mode: Mode, opts: boolean | { includeOptional?: boolean } = {}): T {
+  const lighterLegs = opts === true;
+  const includeOptional = typeof opts === "object" && !!opts.includeOptional;
   const exercises = t.exercises
-    .filter((e) => !(lighterLegs && e.optional))
+    .filter((e) => includeOptional || !e.optional)
     .map((e) => {
       const lib = getExercise(e.slug);
       const sets = plannedSetCount(e, lib, mode, lighterLegs);
@@ -214,15 +218,16 @@ export function regionOf(primary: MuscleGroup[]): Region | null {
 /* ------------------------------------------------------- template editing */
 
 
-export const RIR_OPTIONS = ["0–1", "1–2", "2–3", "3–4", "Fresh"] as const;
+export const RIR_OPTIONS = ["0–1", "0–2", "1–2", "1–3", "2–3", "3–4", "Fresh"] as const;
 
-/** A sensible starting prescription when an exercise is added to a template. */
+/** A sensible starting prescription when an exercise is added to a template (effort per Q§10: effortDefaults). */
 export function newTemplateExercise(lib: LibraryExercise): TemplateExercise {
-  const base = { slug: lib.slug, name: lib.name, sets: 3, rest: lib.rest } as const;
+  const { rir, rest } = effortDefaults(lib);
+  const base = { slug: lib.slug, name: lib.name, sets: 3, rest, rir } as const;
   if (lib.category === "explosive" || lib.tracking === "reps") return { ...base, repLow: 3, repHigh: 3, unit: lib.perSide ? "each" : "reps", rir: "Fresh" };
-  if (lib.category === "carry" || lib.tracking === "weight_time") return { ...base, sets: 2, repLow: 30, repHigh: 45, unit: "sec", rir: "1–2" };
-  if (lib.category === "compound") return { ...base, repLow: 6, repHigh: 10, unit: lib.perSide ? "each" : "reps", rir: "1–2" };
-  return { ...base, repLow: 10, repHigh: 15, unit: lib.perSide ? "each" : "reps", rir: "1–2" };
+  if (lib.category === "carry" || lib.tracking === "weight_time") return { ...base, sets: 2, repLow: 30, repHigh: 45, unit: "sec" };
+  if (lib.category === "compound") return { ...base, repLow: 6, repHigh: 10, unit: lib.perSide ? "each" : "reps" };
+  return { ...base, repLow: 10, repHigh: 15, unit: lib.perSide ? "each" : "reps" };
 }
 
 /** Swap an exercise for a substitute, keeping the prescription (sets, reps, RIR, rest, notes). */

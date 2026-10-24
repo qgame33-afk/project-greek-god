@@ -29,10 +29,9 @@ export function planFollowed(planned: { id: string; local_date: ISODate; at: Min
 /**
  * Sealed sessions ÷ planned training days this week (Mon–Sun of `today`).
  * - `train`: a planned training day; `done` = a session was sealed that day.
- * - `volleyball`: a planned training day swapped for volleyball; `done` = it was played.
- *   One swap per week counts as sealed; more than one count only as planned.
  * - `rest`: not planned; a session sealed on a rest day (`done`) still counts, up to the plan.
- * Only days up to today can be done.
+ * Only days up to today can be done. (A deprecated `volleyball` day from an older caller counts
+ * as rest: nothing reads volleyball any more.)
  */
 export function sessionsSealed(days: { date: ISODate; kind: "train" | "rest" | "volleyball"; done: boolean }[], today: ISODate): { done: number; planned: number } {
   const week = new Set(weekDates(today));
@@ -40,14 +39,12 @@ export function sessionsSealed(days: { date: ISODate; kind: "train" | "rest" | "
   for (const d of days) if (week.has(d.date)) byDate.set(d.date, d);
   let planned = 0;
   let sealed = 0;
-  let swaps = 0;
   for (const [date, d] of byDate) {
-    if (d.kind !== "rest") planned++;
-    if (!d.done || date > today) continue;
-    if (d.kind === "volleyball") swaps++;
-    else sealed++;
+    if (d.kind === "volleyball") continue;
+    if (d.kind === "train") planned++;
+    if (d.done && date <= today) sealed++;
   }
-  return { done: Math.min(planned, sealed + Math.min(1, swaps)), planned };
+  return { done: Math.min(planned, sealed), planned };
 }
 
 /** "Plan followed 24 of 28", "4 of 6 sessions". Null-safe: nothing due yet reads "—". */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PROGRAM_BY_KEY } from "@/lib/training/program";
+import { TEMPLATE_DEFS as PROGRAM_BY_KEY } from "@/lib/training/programs";
 import { ascentProgress, bustFillLine, planRatePerWeek, rangePlaque } from "./ascent";
 import { dailyLine, fmtHours, type DailyLineInput } from "./daily-line";
 import { nextSession, planFacts, prescription, upcomingLabel } from "./plan";
@@ -112,27 +112,23 @@ describe("ascentProgress — one p for the hero, bust and meter", () => {
 
 describe("dailyLine", () => {
   const base: DailyLineInput = {
-    plan: { kind: "train", name: "Push A", explosiveFirst: false, legs: false },
+    plan: { kind: "train", name: "Push A", legs: false },
     session: "none",
-    volleyballToday: false,
-    volleyballDays7: 0,
     checkin: null,
     protein: { eaten: 0, goal: 185 },
     calories: { eaten: 0, goal: 3300 },
     sleepGoalH: 8,
   };
-  const legs = { kind: "train" as const, name: "Legs A", explosiveFirst: true, legs: true };
+  const legs = { kind: "train" as const, name: "Legs & Abs A", legs: true };
 
   it("names the session and one number", () => {
     expect(dailyLine(base)).toBe("Push A today. Protein is the lever: 185 g.");
     expect(dailyLine({ ...base, protein: { eaten: 60, goal: 185 } })).toBe("Push A today. Protein is the lever: 125 g to go.");
-    expect(dailyLine({ ...base, plan: legs })).toBe("Legs A today. Jumps first, while you're fresh.");
+    expect(dailyLine({ ...base, plan: legs })).toBe("Legs & Abs A today. Protein is the lever: 185 g.");
   });
 
-  it("is volleyball- and recovery-aware", () => {
-    expect(dailyLine({ ...base, plan: legs, volleyballToday: true })).toBe("Legs A today. Volleyball too, so the jumps are optional.");
-    expect(dailyLine({ ...base, volleyballToday: true })).toBe("Push A today, volleyball later. Fuel both: 3,300 kcal.");
-    expect(dailyLine({ ...base, plan: legs, volleyballDays7: 3 })).toBe("Legs A today. 3 volleyball days this week, so trim the jumps.");
+  it("is recovery-aware and never mentions volleyball or jumps", () => {
+    for (const plan of [base.plan, legs]) expect(dailyLine({ ...base, plan })).not.toMatch(/volley|jump/i);
     const tired = { sleepHours: 5.75, energy: 3, soreness: 2, fatigue: 2, pain: false };
     expect(dailyLine({ ...base, checkin: tired })).toBe("Push A today on 5.75 h of sleep. Keep 2 reps in reserve.");
     expect(dailyLine({ ...base, checkin: { ...tired, sleepHours: 7.5, energy: 2 } })).toBe("Push A today. Energy is 2/5, so warm up longer and keep 2 in reserve.");
@@ -218,7 +214,6 @@ describe("weeklyOverview", () => {
       { local_date: "2026-10-16", sleep_hours: 8 },
       { local_date: "2026-10-14", sleep_hours: null },
     ],
-    volleyball: ["2026-10-13", "2026-10-15"],
     prEvents: [
       { session_id: "a", exercise_slug: "bench", local_date: "2026-10-12" },
       { session_id: "a", exercise_slug: "bench", local_date: "2026-10-12" },
@@ -242,7 +237,6 @@ describe("weeklyOverview", () => {
     expect(o.colonnade[2].missed).toBe(true);
     expect(o.colonnade[4].today).toBe(true);
     expect(o.colonnade[4].missed).toBe(false);
-    expect(o.colonnade[1].volleyball).toBe(true);
   });
 
   it("returns nulls, not guesses, when nothing is logged", () => {
@@ -328,8 +322,10 @@ describe("restDayRecommendations", () => {
 
 describe("plan helpers", () => {
   it("describes templates and finds the next session", () => {
-    expect(planFacts(PROGRAM_BY_KEY.legs_a)).toEqual({ kind: "train", name: "Legs A", explosiveFirst: true, legs: true });
-    expect(planFacts(PROGRAM_BY_KEY.push_a)).toMatchObject({ explosiveFirst: false, legs: false });
+    expect(planFacts(PROGRAM_BY_KEY.legs_a)).toEqual({ kind: "train", name: "Legs A", legs: true });
+    expect(planFacts(PROGRAM_BY_KEY.legs_abs_a)).toEqual({ kind: "train", name: "Legs & Abs A", legs: true });
+    expect(planFacts(PROGRAM_BY_KEY.shoulders_arms_a)).toMatchObject({ legs: false });
+    expect(planFacts(PROGRAM_BY_KEY.push_a)).toMatchObject({ legs: false });
     expect(planFacts(null)).toEqual({ kind: "rest" });
     expect(prescription({ sets: 3, repLow: 5, repHigh: 8, unit: "reps" })).toBe("3 × 5–8");
     expect(prescription({ sets: 3, repLow: 12, repHigh: 20, unit: "each" })).toBe("3 × 12–20 each");

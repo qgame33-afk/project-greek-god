@@ -1,16 +1,22 @@
-import { getExercise } from "./library";
-import type { DayTemplate, TemplateKey } from "./types";
+import type { DayTemplate, PplKey } from "./types";
 
 const LAST_SET = "Last set can go to 0–1.";
 
 /**
- * The six-day split. Sets and rep ranges are the program — change them here only.
+ * Push/Pull/Legs, the optional alternative to the Arnold split (docs/PROGRAM-ARNOLD.md §1.10).
+ * Sets and rep ranges are the program — change them here only. Jump work was taken out of the
+ * built-in days; stored rows that still hold it are filtered on read (visibleExercises).
  * Ramp-up percentages refer to today's first working weight.
  */
-export const PROGRAM: DayTemplate[] = [
+export const PPL_TEMPLATES: DayTemplate[] = [
   {
     key: "push_a",
+    program: "ppl",
     name: "Push A",
+    short: "Push A",
+    abbr: "Push",
+    family: "push",
+    notes: [],
     subtitle: "Upper Body Strength",
     focus: "Heavy pressing strength and upper-body development.",
     weekday: 1,
@@ -112,7 +118,12 @@ export const PROGRAM: DayTemplate[] = [
   },
   {
     key: "pull_a",
+    program: "ppl",
     name: "Pull A",
+    short: "Pull A",
+    abbr: "Pull",
+    family: "pull",
+    notes: [],
     subtitle: "Back and Biceps Strength",
     focus: "Back width, thickness, strong biceps and grip.",
     weekday: 2,
@@ -222,10 +233,14 @@ export const PROGRAM: DayTemplate[] = [
   },
   {
     key: "legs_a",
+    program: "ppl",
     name: "Legs A",
-    subtitle: "Lower Body Strength and Power",
-    focus:
-      "Maximum lower-body strength, athletic performance and explosive power.",
+    short: "Legs A",
+    abbr: "Legs",
+    family: "legs",
+    notes: [],
+    subtitle: "Lower Body Strength",
+    focus: "Lower-body strength and muscle.",
     weekday: 3,
     warmup: [
       {
@@ -244,40 +259,12 @@ export const PROGRAM: DayTemplate[] = [
           "Glute bridges ×12, lateral band walks ×10 each way, bodyweight squats ×10.",
       },
       {
-        label: "Jump prep",
-        detail:
-          "Pogo hops 2×15, A-skips 2×20 m, low-box (12–18 in) stick landings ×5, then 2 easy box jumps.",
-      },
-      {
         label: "Squat ramp-up",
         detail:
-          "After the jumps: empty bar ×10, 50% ×5, 70% ×3, 85% ×1 of today's working weight.",
+          "Empty bar ×10, 50% ×5, 70% ×3, 85% ×1 of today's working weight.",
       },
     ],
     exercises: [
-      {
-        slug: "box-jump",
-        name: "Box Jumps",
-        sets: 3,
-        repLow: 3,
-        repHigh: 3,
-        unit: "reps",
-        rir: "Fresh",
-        rest: 120,
-        note: "Jumps first, while fresh. Full recovery between sets — stop the set the moment height drops. Never to failure.",
-      },
-      {
-        slug: "approach-jump",
-        name: "Volleyball Approach Jumps",
-        sets: 3,
-        repLow: 3,
-        repHigh: 3,
-        unit: "reps",
-        rir: "Fresh",
-        rest: 120,
-        optional: true,
-        note: "Skip when volleyball volume is already high this week.",
-      },
       {
         slug: "back-squat",
         name: "Barbell Back Squat",
@@ -348,7 +335,12 @@ export const PROGRAM: DayTemplate[] = [
   },
   {
     key: "push_b",
+    program: "ppl",
     name: "Push B",
+    short: "Push B",
+    abbr: "Push",
+    family: "push",
+    notes: [],
     subtitle: "Chest, Shoulders and Triceps Hypertrophy",
     focus:
       "Muscle hypertrophy with emphasis on upper chest, shoulders, and triceps.",
@@ -462,7 +454,12 @@ export const PROGRAM: DayTemplate[] = [
   },
   {
     key: "pull_b",
+    program: "ppl",
     name: "Pull B",
+    short: "Pull B",
+    abbr: "Pull",
+    family: "pull",
+    notes: [],
     subtitle: "Back, Biceps and Forearm Hypertrophy",
     focus: "V-taper aesthetics, lat development, arms and forearms.",
     weekday: 5,
@@ -573,7 +570,12 @@ export const PROGRAM: DayTemplate[] = [
   },
   {
     key: "legs_b",
+    program: "ppl",
     name: "Legs B",
+    short: "Legs B",
+    abbr: "Legs",
+    family: "legs",
+    notes: [],
     subtitle: "Lower Body Hypertrophy and Abs",
     focus: "Lower-body muscle growth, balanced proportions, calves and core.",
     weekday: 6,
@@ -594,29 +596,12 @@ export const PROGRAM: DayTemplate[] = [
           "Glute bridges ×12, bodyweight squats ×10, dead bugs ×8 each side.",
       },
       {
-        label: "Jump prep",
-        detail:
-          "If doing broad jumps: pogo hops 2×15, skips 2×20 m, low-box stick landings ×5, then 2 easy broad jumps.",
-      },
-      {
         label: "Hack squat ramp-up",
         detail:
           "Empty sled ×10, 50% ×5, 70% ×3, 85% ×1 of today's working weight.",
       },
     ],
     exercises: [
-      {
-        slug: "broad-jump",
-        name: "Broad Jumps",
-        sets: 3,
-        repLow: 3,
-        repHigh: 3,
-        unit: "reps",
-        rir: "Fresh",
-        rest: 120,
-        optional: true,
-        note: "Optional — skip if legs are fatigued from volleyball.",
-      },
       {
         slug: "hack-squat",
         name: "Hack Squat",
@@ -698,12 +683,8 @@ export const PROGRAM: DayTemplate[] = [
   },
 ];
 
-export const PROGRAM_BY_KEY = Object.fromEntries(
-  PROGRAM.map((template) => [template.key, template]),
-) as Record<TemplateKey, DayTemplate>;
-
 /** JS weekday ("0" = Sunday … "6" = Saturday) → template. */
-export const DEFAULT_SCHEDULE: Record<string, TemplateKey | "rest"> = {
+export const PPL_SCHEDULE: Record<string, PplKey | "rest"> = {
   "1": "push_a",
   "2": "pull_a",
   "3": "legs_a",
@@ -713,74 +694,10 @@ export const DEFAULT_SCHEDULE: Record<string, TemplateKey | "rest"> = {
   "0": "rest",
 };
 
-export const TRAINING_RULES: string[] = [
+export const PPL_RULES: string[] = [
   "Warm up every session: 5–8 min general, then mobility, activation and ramp-up sets for the first big lift.",
-  "Jumps come first, while you're fresh. Rest fully and stop the set the moment height drops — explosive work is never taken to failure.",
   "Heavy compounds: leave 1–2 reps in reserve and rest 2.5–3.5 min (squat 3.5, bench and RDL 3).",
   "Isolation work: 1–2 reps in reserve. The last set of laterals, rear delts, curls, triceps and calves can go to 0–1.",
   "Double progression: once every set hits the top of the rep range with clean form, add the smallest load jump.",
   "Pain is a stop sign. Never train through sharp or joint pain — swap the exercise or skip it.",
-  "Volleyball counts as training. Drop the optional jumps when on-court volume is high.",
 ];
-
-export const SUNDAY_RECOVERY: {
-  title: string;
-  items: { label: string; detail: string }[];
-} = {
-  title: "Sunday Recovery",
-  items: [
-    {
-      label: "Easy walk (optional)",
-      detail: "20–40 min at a conversational pace, outside if you can.",
-    },
-    {
-      label: "Mobility flow",
-      detail:
-        "10–15 min for hips, ankles, thoracic spine and shoulders. Gentle — never forced.",
-    },
-    {
-      label: "Sleep",
-      detail: "Aim for 8–9 hours in bed. Growth and jump recovery happen here.",
-    },
-    {
-      label: "Hydration & food",
-      detail:
-        "Drink 3–4 L of water and still hit your calorie and protein targets — rest days count for the gain.",
-    },
-    {
-      label: "Weekly review",
-      detail:
-        "Check lifts, bodyweight trend and how you felt, then plan next week's loads around volleyball.",
-    },
-    {
-      label: "Sauna or stretch (optional)",
-      detail:
-        "15–20 min sauna or light static stretching if it helps you unwind. Skip it if it leaves you drained.",
-    },
-  ],
-};
-
-/** Rough session length in minutes, rounded to the nearest 5. */
-export function estimateDurationMin(t: DayTemplate): number {
-  const WARMUP_MIN = 10;
-  const TRANSITION_MIN = 1;
-
-  let seconds = 0;
-  for (const ex of t.exercises) {
-    let work: number;
-    if (getExercise(ex.slug)?.category === "explosive") {
-      work = 15;
-    } else if (ex.unit === "sec") {
-      work = ex.repHigh;
-    } else if (ex.unit === "each") {
-      work = 40 * 2; // both sides
-    } else {
-      work = 40;
-    }
-    seconds += ex.sets * work + Math.max(0, ex.sets - 1) * ex.rest;
-  }
-
-  const minutes =
-    seconds / 60 + WARMUP_MIN + TRANSITION_MIN * t.exercises.length;
-  return Math.round(minutes / 5) * 5;
-}

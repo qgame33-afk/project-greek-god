@@ -24,7 +24,7 @@ import { useReadiness } from "@/lib/recovery/hooks";
 import { volleyballEntries } from "@/lib/recovery/volleyball";
 import { nextSession } from "@/lib/today/plan";
 import { latestRecords } from "@/lib/today/records";
-import { estimateDurationMin } from "@/lib/training/program";
+import { estimateDurationMin } from "@/lib/training/programs";
 import { getExercise } from "@/lib/training/library";
 import { plannedSetCount, type Mode } from "@/lib/training/progression";
 import type { WeightUnit } from "@/lib/units";

@@ -9,7 +9,7 @@ import { useDailyNutrition, useDailyWater } from "@/lib/data/nutrition";
 import { useProfile } from "@/lib/data/profile";
 import { usePlannedMealsRange } from "@/lib/data/meals";
 import { useHabitLogs, useRecovery } from "@/lib/data/recovery";
-import { useDayPlans, usePREvents, useSessions, useSetsInRange, useVolleyball } from "@/lib/data/training";
+import { useDayPlans, usePREvents, useSessions, useSetsInRange } from "@/lib/data/training";
 import type { Json } from "@/lib/supabase/database.types";
 import type { ISODate } from "@/lib/dates";
 import { monthLabel } from "@/lib/dates";
@@ -34,9 +34,8 @@ export function useReviewSource(from: ISODate, to: ISODate, { withSets = true }:
   const water = useDailyWater(from, to);
   const recovery = useRecovery(from, to);
   const plans = useDayPlans(from, to);
-  const volleyball = useVolleyball(from, to);
 
-  const queries = [measurements, photos, sessions, sets, prs, nutrition, water, recovery, plans, volleyball];
+  const queries = [measurements, photos, sessions, sets, prs, nutrition, water, recovery, plans];
   const loading = pLoading || weights.loading || queries.some((q) => q.isLoading);
   const error = (pError as Error | null) ?? (weights.error as Error | null) ?? queries.find((q) => q.error)?.error ?? null;
   // Retry everything that can fail here, the profile and weigh-ins included (they gate the page).
@@ -59,9 +58,8 @@ export function useReviewSource(from: ISODate, to: ISODate, { withSets = true }:
       water: water.data ?? [],
       recovery: recovery.data ?? [],
       plans: plans.data ?? [],
-      volleyball: volleyball.data ?? [],
     };
-  }, [loading, weights.weights, measurements.data, photos.data, sessions.data, sets.data, prs.data, nutrition.data, water.data, recovery.data, plans.data, volleyball.data, withSets]);
+  }, [loading, weights.weights, measurements.data, photos.data, sessions.data, sets.data, prs.data, nutrition.data, water.data, recovery.data, plans.data, withSets]);
 
   const reviewProfile = useMemo<ReviewProfile | null>(
     () =>
@@ -76,6 +74,7 @@ export function useReviewSource(from: ISODate, to: ISODate, { withSets = true }:
             sleep_goal_h: profile.sleep_goal_h,
             water_goal_ml: profile.water_goal_ml,
             weekly_schedule: profile.weekly_schedule,
+            prefs: profile.prefs,
             roadmap: profile.roadmap,
           }
         : null,

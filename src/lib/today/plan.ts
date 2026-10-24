@@ -1,25 +1,16 @@
 // Small helpers that describe today's planned session for the hero line and the workout card.
 
 import { addDays, dayName, type ISODate } from "@/lib/dates";
-import { getExercise } from "@/lib/training/library";
-import { estimateDurationMin } from "@/lib/training/program";
+import { estimateDurationMin } from "@/lib/training/programs";
+import { isLegDay } from "@/lib/training/volume";
 import type { DayTemplate, TemplateExercise } from "@/lib/training/types";
 import type { PlanFacts } from "./daily-line";
 import type { NextSession } from "./recovery-recs";
 
-export function isExplosive(slug: string): boolean {
-  return getExercise(slug)?.category === "explosive";
-}
-
+/** The plan as the daily line needs it. A leg day is judged by its content (isLegDay), never its key. */
 export function planFacts(t: Pick<DayTemplate, "key" | "name" | "exercises"> | null): PlanFacts {
   if (!t) return { kind: "rest" };
-  const first = t.exercises[0];
-  return {
-    kind: "train",
-    name: t.name,
-    explosiveFirst: !!first && isExplosive(first.slug),
-    legs: t.key.startsWith("legs"),
-  };
+  return { kind: "train", name: t.name, legs: isLegDay(t) };
 }
 
 /** "3 × 5–8", "3 × 12–20 each", "3 × 30–45 s", "3 × 3" */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getExercise } from "./library";
-import { PROGRAM_BY_KEY } from "./program";
+import { TEMPLATE_DEFS as PROGRAM_BY_KEY } from "./programs";
 import { plannedSetCount, suggest, type Mode, type PastSet } from "./progression";
 
 const bench = PROGRAM_BY_KEY.push_a.exercises.find((e) => e.slug === "barbell-bench-press")!; // 3 × 5–8

@@ -17,13 +17,13 @@ const TOPICS: { test: RegExp; ids: (s: Snapshot) => string[]; follow: string }[]
   { test: /protein (goal|target)/, ids: () => ["goal.protein", "bw.avg7", "nut.avg14"], follow: "Is my protein target right?" },
   { test: /protein|left today/, ids: () => ["nut.left.protein", "nut.today.protein", "goal.protein", "nut.left.kcal"], follow: "How much protein do I have left today?" },
   { test: /water|hydrat/, ids: () => ["nut.water", "goal.water", "nut.water7"], follow: "Am I drinking enough water?" },
-  { test: /deload|tired|fatigue/, ids: () => ["rec.fatigue", "rec.soreness", "rec.sleep", "tr.mode", "tr.count7"], follow: "Do I need a deload week?" },
-  { test: /bench|plateau|stall|improv/, ids: (s) => ["lift.barbell-bench-press", ...s.facts.filter((f) => f.id.startsWith("lift.") && /STALLED/.test(f.detail ?? "")).map((f) => f.id).slice(0, 2), "rec.sleep", "bw.rate"], follow: "Why hasn't my bench press improved?" },
-  { test: /volume|biceps|sets/, ids: () => ["vol.biceps", "vol.brachialis", "vol.forearms", "tr.count7"], follow: "Am I doing enough volume for my biceps?" },
-  { test: /volleyball|leg/, ids: () => ["vb.yesterday", "vb.14", "plan.today", "rec.soreness", "rec.fatigue"], follow: "Should I reduce leg training after volleyball?" },
+  { test: /deload|lighter|tired|fatigue/, ids: () => ["tr.lighter", "rec.fatigue", "rec.soreness", "rec.sleep", "tr.mode", "tr.count7"], follow: "Do I need a lighter week?" },
+  { test: /bench|press|plateau|stall|improv/, ids: (s) => ["lift.incline-db-press", ...s.facts.filter((f) => f.id.startsWith("lift.") && /STALLED/.test(f.detail ?? "")).map((f) => f.id).slice(0, 2), "rec.sleep", "bw.rate"], follow: "Why hasn't my incline press improved?" },
+  { test: /volume|biceps|sets/, ids: () => ["vol.biceps", "vol.forearms", "vol.suggest", "tr.count7"], follow: "Am I doing enough volume for my biceps?" },
+  { test: /arm|chest|tuesday|overlap/, ids: () => ["plan.today", "plan.yesterday", "rec.soreness"], follow: "Should I trim a set after arm day?" },
   { test: /gain|since|weigh/, ids: (s) => ["bw.fromStart", "bw.first", "bw.avg7", ...s.facts.filter((f) => f.id.startsWith("bw.m.")).map((f) => f.id).slice(0, 2)], follow: "How much weight have I gained since I started?" },
   { test: /calorie|eating enough|increase|reach/, ids: () => ["bw.check", "bw.avg7", "bw.rate", "bw.required", "nut.avg14", "goal.kcal"], follow: "Should I increase calories?" },
-  { test: /train|today|workout/, ids: () => ["plan.today", "plan.yesterday", "vb.yesterday", "rec.soreness", "tr.mode"], follow: "What should I train today?" },
+  { test: /train|today|workout/, ids: () => ["plan.today", "plan.yesterday", "rec.soreness", "tr.mode"], follow: "What should I train today?" },
 ];
 
 export function buildMockReply(message: string, snap: Snapshot, profile: Pick<RawProfile, "calorie_goal" | "protein_goal" | "water_goal_ml" | "training_mode" | "start_weight_lb">): MockReply {
@@ -45,9 +45,9 @@ export function buildMockReply(message: string, snap: Snapshot, profile: Pick<Ra
     const g = Math.round(((lb / LB_PER_KG) * 2) / 5) * 5;
     if (Math.abs(g - profile.protein_goal) >= 5) suggestions.push({ kind: "protein_goal", title: "Set protein to 2.0 g/kg", proposed: String(g), rationale: "2.0 g per kg of your trend weight (mock text)." });
   }
-  if (/water|hydrat/.test(q)) suggestions.push({ kind: "water_goal_ml", title: "Raise your water target", proposed: String(profile.water_goal_ml + 500), rationale: "Volleyball days add sweat losses (mock text)." });
+  if (/water|hydrat/.test(q)) suggestions.push({ kind: "water_goal_ml", title: "Raise your water target", proposed: String(profile.water_goal_ml + 500), rationale: "Training days add sweat losses (mock text)." });
   if (/deload/.test(q)) suggestions.push({ kind: "deload_week", title: "Take a deload week", proposed: "deload", rationale: "Fatigue and soreness facts above (mock text)." });
-  if (/volleyball|leg/.test(q)) suggestions.push({ kind: "note", title: "Skip the optional jumps today", proposed: "", rationale: "Keep the heavy lifts, drop the optional plyometrics after a volleyball day (mock text)." });
+  if (/\bleg/.test(q)) suggestions.push({ kind: "note", title: "One fewer set on leg lifts", proposed: "", rationale: "One fewer set on leg lifts while legs are sore (mock text)." });
 
   const follow = TOPICS.filter((t) => t !== topic)
     .slice(0, 3)
