@@ -27,15 +27,17 @@ Conflicts resolved here (binding):
   places use the `short` ("Shoulders & Arms A") or `abbr` ("Arms") forms defined in §1.3, read
   from data, never hardcoded in components.
 - **Preview (Q§15.12).** Vercel preview deployments use the production database and skip
-  migrations (`scripts/migrate.mjs`). So the switch-over is a migration that runs only on the
+  migrations (`scripts/migrate.mjs`). So the switch-over is a migration that runs only on a
   production deploy (the publication), and no client code switches a saved program on its own
-  (§3.1). Previews never change Quinton's saved program. Nobody runs the migration against
-  production by hand before he approves publication.
+  (§3.1). Previews never change Quinton's saved program. Nobody runs the migrations against
+  production by hand before he approves publication. The approved publication is **two
+  production deploys in a row** (§3.1a): A ships the new app and the database functions, B ships
+  only the one-time switch, so no old app code ever reads an Arnold schedule.
 
 Contents: §1 the program · §2 keys, types and the active program · §3 the switch-over ·
 §4 progression, lighter weeks, rest days, fatigue overlap · §5 muscle-group analytics ·
 §6 volleyball removal in logic · §7 ownership, phases and the interface for screen streams ·
-§8 acceptance tests.
+§8 acceptance tests · §9 traceability (every line of Quinton's request → where it is met).
 
 ---
 
@@ -62,6 +64,14 @@ the new keys: the weekly schedule editor (Program) and per-day move/swap (`planM
 `rescheduleOptions`, `useDayPlanWrites`). Every rule below that depends on day order (the fatigue
 overlap, §4.6) reads what was *actually* trained yesterday, not weekday names, so it stays right
 after he rearranges.
+
+**When a new weekly order applies (decided here; DESIGN-V3 §4.3.6 words it).** A saved order
+applies **from today**. Days before today keep the plan they had: the editor writes
+`scheduleFreeze()` rows for the last 14 days (existing behaviour). Today keeps its plan too when a
+workout was started or finished today: `scheduleFreeze()` gains `trainedToday: boolean`, and when
+it is true the loop runs through today (`d <= today`), so a finished workout is never shown on a
+day that now says something else. The sheet's caption: "Starts today. Days before today keep the
+plan they had." One-off changes for a single date stay in the Day sheet (move, swap, rest).
 
 Lengths the UI must hold (for the designer): longest template name "Shoulders, Biceps & Triceps A"
 (29 characters); longest exercise name "Single-Arm Overhead Cable Triceps Extension" (43).
@@ -96,7 +106,12 @@ order. Sets, rep ranges and exercise order are Quinton's. RIR and rest follow §
 short form cues; the day's `notes` array is Quinton's "Training notes" verbatim and is shown with
 the day (it is built-in guidance, not stored in `program_templates`). Intro sets follow §4.2.
 `unit: "each"` means reps are per arm or per leg (Q§7 "8–12 per leg"; also the single-arm and
-cable-lateral work, as the library marks them `perSide`).
+cable-lateral work, as the library marks them `perSide`). Quinton's rep ranges are unchanged;
+"each" only says how they are counted. Cable Lateral Raises were already logged per arm under PPL
+(`unit: "each"` in Push A and Push B), so his history compares like with like.
+
+Cross-checked against `arnold-2.0.md` line by line (day order, names, every exercise, sets, rep
+ranges, focus lines and training notes): identical. Sums: 19 · 15 · 18 · 19 · 15 · 19 = 105.
 
 #### Monday — Shoulders, Biceps & Triceps A (`shoulders_arms_a`)
 
@@ -257,12 +272,22 @@ gives 45–50 min per day.
 "Add two sets of reverse curls for forearms when recovery permits, or substitute them for another
 curling exercise rather than simply accumulating excessive volume." Both halves are implemented:
 
-1. **As an optional exercise** (row 8 above, `optional: true`). `buildSessionSets()` (§7.3)
-   materialises optional exercises only when `StartOptions.includeOptional` is true. The caller
-   decides with `includeOptionalByDefault(mode, readinessLevel)`: true only when the mode is
-   `standard` and today's readiness level is `go` or `unknown` (no check-in). In intro or deload
-   mode, or when readiness says `trim`, `legs`, `ease`, `recover` or `rest`, they are left out.
-   Once started, the optional exercise is skippable like any other.
+1. **As an optional add-on** (row 8 above, `optional: true`). "Add two sets ... when recovery
+   permits" is an add-on he chooses, so a workout never **starts** with it:
+   `buildSessionSets()` (§7.3) materialises optional exercises only when
+   `StartOptions.includeOptional` is true, and every app start passes `false` (the flag stays for
+   tests and dev scripts). The planned counts (hero, Up next, top bar, summary) therefore never
+   include it until he adds it. The workout **offers** it:
+   - `suggestOptional(mode, readinessLevel): boolean` (programs.ts, pure): true only when the mode
+     is `standard` and today's readiness level is `go` or `unknown` (no check-in). In intro or
+     deload mode, or when readiness says `trim`, `legs`, `ease`, `recover` or `rest`, it is false.
+   - When it is true, after the last planned working set is logged the workout shows one offer
+     ("Reverse Curls · 2 sets of 10–15 · Optional, for forearms", DESIGN-V3 §4.2.4). "Add them"
+     appends the exercise through the existing add-exercise op with the template row's sets,
+     range, RIR and rest: `templateExerciseSets(t, mode, firstSetIndex)` (new pure helper in
+     `src/lib/workout/session.ts`, the same row builder `buildSessionSets()` uses). The Lifts sheet
+     also lists optional lifts under "Optional" with "Add" at any time, whatever the readiness.
+   - Once added, it is logged, skipped or removed like any other lift.
 2. **As a documented substitute**: `reverse-curl` is in the `substitutes` of
    `cross-body-hammer-curl` (new), `cable-curl`, `hammer-curl` and `cable-hammer-curl`, so the swap
    sheet on any Thursday curl offers it. The optional row's note tells him to swap rather than add.
@@ -543,7 +568,10 @@ export function templateLabels(t: { key: string; name: string }): { name: string
 export function effortDefaults(lib: LibraryExercise): { rir: string; rest: number };
 export function rirRange(text: string | null | undefined): [number, number] | null;
 export function exerciseDisplayName(slug: string, active: { exercises: TemplateExercise[] }[]): string;
-export function estimateDurationMin(t: DayTemplate): number;   // moved from program.ts, unchanged formula
+export function estimateDurationMin(t: DayTemplate): number;   // moved from program.ts, unchanged formula; optional exercises not counted
+export function suggestOptional(mode: Mode, level: ReadinessLevel | null): boolean; // §1.4
+export function carriedSwaps(storedPpl: StoredTemplate[], arnold: StoredTemplate[]): { from: string; to: string; keys: ArnoldKey[] }[]; // §3.7
+export function pickableLibrary(): LibraryExercise[];          // §1.9
 export const SUNDAY_RECOVERY: { title: string; items: { label: string; detail: string }[] };
 ```
 
@@ -576,7 +604,12 @@ The old exports `PROGRAM`, `PROGRAM_BY_KEY`, `DEFAULT_SCHEDULE`, `TRAINING_RULES
   active program, else `null`.
 - `parseAppPrefs()` (src/lib/prefs.ts) types these keys as read-only fields of `AppPrefs`
   (`program?`, `schedules?`, `programSwitch?`) and adds the client-written ones used below:
-  `modeSetAt?: ISODate`, `lighterSnoozedUntil?: ISODate`, `swapsOffered?: boolean`.
+  `modeSetAt?: ISODate`, `lighterSnoozedUntil?: ISODate`, `swapsOffered?: boolean`, and
+  `switchNoticeSeenAt?: string` (an ISO timestamp; DESIGN-V3 CR-1, the one-time "Your plan is now
+  the Arnold split" notice, DESIGN-V3 §4.3.8). All four are in `PrefsPatch`.
+- `useSavePrefs` reads the stored prefs from the server, merges the patch and writes (it never
+  merges into the cached copy), and `mergePrefs()` keeps every key it does not know, so a client
+  prefs write never drops `program`, `schedules` or `programSwitch`.
 
 ### 2.4 One plan resolver for every reader
 
@@ -610,34 +643,35 @@ The coach context and reminder server must select `day_plans.note` and `profiles
 | Live workout, Inscription / summary | components/workout (workout screens) | template lookup by `session.template_key` through `byKey` (any program), so a PPL session in progress keeps its notes and warm-up. Titles show `session.name` (stored). The "Next {template}" block: when the session's template belongs to the active program, title "Next {short}"; otherwise title "Next time" and only lines for slugs that appear in an active template. |
 | History, exercise detail, records | Train screens | stored `session.name` / `exercise_name` per row (Push A stays Push A); page titles via `exerciseDisplayName`. |
 | Today / Now | `useNowData`, `useDayInput` (screens) | via `planFor`; this week's count via `sealedDays` (no volleyball, §6). |
-| Meals week labels | WeekPlanner (screens) | via `planFor`; label `templateLabels(t).short`. |
+| Meals week labels | WeekPlanner / Food (screens) | via `planFor`; label `templateLabels(t).abbr` ("Arms day", "Mon 19 · Arms"), as DESIGN-V3 §4.4.1 and §6.3 place it. |
 | Coach snapshot | `src/lib/coach/*` (program) | resolver above; program facts for the active program only plus one fact naming the saved alternative; rules = `PROGRAMS[program].rules` (§6.3). |
 | Monthly reviews | `src/lib/reviews/*` (program) | `scheduleFrom()` merges over the active program's default; adherence only asks "training day or rest", and both programs train Monday–Saturday, so past months count the same. |
 | Reminders | `src/lib/reminders/server.ts` (program) | resolver above (select `prefs`, `note`); `templateFromRow()` uses `templateDef(key)` (both programs) and `visibleExercises`. |
 | Onboarding | `src/lib/onboarding/plan.ts` (program) | `SCHEDULE_OPTIONS` = Arnold keys with their `short` labels + Rest; `normalizeSchedule()` defaults to `ARNOLD_SCHEDULE` and accepts only Arnold keys; `scheduleSummary()` → "6 days · Arnold split". Onboarding seeds Arnold rows (`programSeedRows()` defaults to `DEFAULT_PROGRAM`), so `OnboardingFlow.tsx` needs no program change. |
-| Weekly split label | `src/lib/training/week.ts` (program) | `splitLabel(keys)` is replaced by `programLabel(program)`: "Arnold split" / "Push, pull, legs". |
+| Weekly split label | `src/lib/training/week.ts` (program) | `splitLabel(keys)` is replaced by `programLabel(program)`, which returns `PROGRAMS[program].name` ("Arnold split" / "Push/Pull/Legs"; DESIGN-V3 CR-2), so every place shows one spelling. |
 | Key-prefix logic | `today/plan.ts` `planFacts().legs`, `today/now.ts` `readinessChip()`, `recovery/guidance.ts` `planLite().isLegs` (program) | no more `key.startsWith(...)`. Leg day = `isLegDay(template)` (content, volume.ts); the chip uses `family`: `shoulders_arms` → "Ready for arms", `chest_back` → "Ready for chest and back", `legs_abs`/`legs` → "Ready for legs", `push`/`pull` → "Ready to push"/"Ready to pull", null → "Ready to train" (designer may shorten). |
 
 ---
 
 ## 3. The switch-over of saved data
 
-### 3.1 Decision: a production migration plus one database function; template rows from the client
+### 3.1 Decision: production migrations plus one database function; template rows from the client
 
-- **The switch is a SQL migration** `supabase/migrations/20261021000000_arnold_program.sql`
-  (`-- migrate:idempotent`), applied by `scripts/migrate.mjs` on the production deploy only.
-  Reasons:
+- **The switch is SQL migrations**, applied by `scripts/migrate.mjs` on production deploys only:
+  `supabase/migrations/20261021000000_arnold_program.sql` (`-- migrate:idempotent`: the column
+  default and the two functions, §3.2) and `supabase/migrations/20261021000100_arnold_switch.sql`
+  (`-- migrate:idempotent`: only the one-time switch of existing accounts, §3.2 step 4). The two
+  files ship in two consecutive deploys (§3.1a). Reasons:
   1. *Publication is the switch.* Preview deployments share the production database and skip
      migrations, so a preview can never switch Quinton's real program (Q§15.12). A client-side
      "switch on load" would switch him the first time he opened a preview link.
   2. *Atomic.* One transaction per account: schedule, prefs and plan rows change together or not
      at all. A client doing four writes could stop halfway (offline, app closed) and leave the
      schedule on Arnold with prefs still saying PPL.
-  3. *Multi-device and offline safe.* No device runs it, so two phones cannot race, an offline
-     phone cannot half-apply it, and an old cached app (the service worker serves the new build on
-     the next launch) reads already-switched data.
-  4. *Exactly once.* It runs before `next build`, so the new client never sees an unswitched
-     production account.
+  3. *Multi-device and offline safe.* No device runs it, so two phones cannot race and an offline
+     phone cannot half-apply it.
+  4. *Exactly once.* `scripts/migrate.mjs` records each file in `public.app_migrations`, so the
+     switch runs once; the function itself is also a no-op on an account already on Arnold.
 - **One function does the work**, `public.set_training_program(p_program, p_today, p_user)`
   (security definer, row lock). The migration calls it once per account; the app calls it when he
   switches programs himself (§3.6); dev scripts call it to seed demo/QA users (§3.9). One code path
@@ -649,7 +683,32 @@ The coach context and reminder server must select `day_plans.note` and `profiles
   back to the built-in definition, so nothing shows empty. In a preview against production the
   active program reads as PPL, whose rows exist, so the client writes nothing.
 
-### 3.2 The migration (complete text; validated against the local database inside a rolled-back transaction)
+### 3.1a Publication in two deploys (why the switch is its own file)
+
+The app that is live today (`PROGRAM_BY_KEY` with PPL keys only) cannot read an Arnold key:
+`planFor()` returns `template: null` for `shoulders_arms_a`, so every training day would read as a
+rest day and "Start" would have nothing to start. Old code meets switched data in three ways if
+the switch shipped with the new app: (1) `scripts/migrate.mjs` runs **before** `next build`, and the
+old deployment keeps serving until the new build is promoted, so for a few minutes the old app
+reads switched data; (2) if `next build` then fails, production stays on the old app with switched
+data until someone fixes the build; (3) an iOS home-screen app resumed from the background keeps
+running the old JavaScript and refetches the profile on focus. So:
+
+1. **Deploy A** (after Quinton approves): every code change plus
+   `20261021000000_arnold_program.sql` (column default, `program_of`, `set_training_program`,
+   grants). Nothing is switched. Quinton's account still reads as PPL (no `prefs.program`, PPL keys
+   in the schedule), and the new app shows it correctly: the new UI, no volleyball, his PPL week.
+2. Open the app once on his phone (a cold launch loads the new build: navigations are
+   network-first in `public/sw.js`), so no old JavaScript is left running.
+3. **Deploy B**, straight after: adds only `20261021000100_arnold_switch.sql` (§3.2 step 4). Every
+   client that can meet switched data is now the new one, which reads both programs. If B's build
+   failed after its migration, deploy A (program-aware) is still live, so nothing breaks.
+
+Both deploys are part of the one approved publication (Q§15.12). Locally, `supabase start` /
+`db reset` apply both files; `scripts/dev/setup-users.mjs` and `qa-arnold.mjs` (§3.9, §8) handle
+the users.
+
+### 3.2 The migrations (complete text; validated against the local database inside a rolled-back transaction)
 
 ```sql
 -- migrate:idempotent
@@ -663,7 +722,8 @@ The coach context and reminder server must select `day_plans.note` and `profiles
 --      the second call is a no-op. It writes only profiles.weekly_schedule, profiles.prefs
 --      and day_plans; it never touches workout_sessions, exercise_sets, program_templates,
 --      volleyball_sessions, athletic_tests or recovery_logs.
---   4. Every existing account that never chose a program is switched to Arnold, once.
+--   Step 4, the one-time switch of existing accounts, is its own file
+--   (20261021000100_arnold_switch.sql) and ships one deploy later (§3.1a).
 
 alter table public.profiles alter column weekly_schedule
   set default '{"1":"shoulders_arms_a","2":"chest_back_a","3":"legs_abs_a","4":"shoulders_arms_b","5":"chest_back_b","6":"legs_abs_b","0":"rest"}'::jsonb;
@@ -795,14 +855,21 @@ begin
            'programSwitch', jsonb_build_object('from', cur, 'to', p_program, 'at', now(), 'date', today, 'frozen', frozen, 'mapped', mapped))
    where id = uid;
 
-  return jsonb_build_object('changed', true, 'from', cur, 'to', p_program, 'date', today, 'frozen', frozen, 'mapped', mapped, 'cleared', cleared);
+  return jsonb_build_object('changed', true, 'from', cur, 'to', p_program, 'at', now(), 'date', today, 'frozen', frozen, 'mapped', mapped, 'cleared', cleared);
 end $$;
 
 revoke all on function public.set_training_program(text, date, uuid) from public, anon;
 grant execute on function public.set_training_program(text, date, uuid) to authenticated, service_role;
 grant execute on function public.program_of(jsonb, jsonb) to authenticated, service_role;
+```
 
--- 4. the one-time switch: every account that never chose a program follows Arnold from today
+`supabase/migrations/20261021000100_arnold_switch.sql` (deploy B only, §3.1a):
+
+```sql
+-- migrate:idempotent
+-- Arnold Split 2.0, step 4 (docs/PROGRAM-ARNOLD.md §3.1a): every account that never chose a
+-- program follows Arnold from today. Needs 20261021000000_arnold_program.sql. Safe to run again:
+-- an account already on Arnold only gets prefs.program written.
 do $$
 begin
   perform public.set_training_program('arnold', null, p.id)
@@ -828,17 +895,17 @@ Notes for the implementer:
   rows.
 - Regenerate `src/lib/supabase/database.types.ts` afterwards (`program_of` and
   `set_training_program` appear under `Functions`).
-- Known benign race: a client prefs write (`useSavePrefs` reads prefs, merges, writes the whole
-  object) that read prefs *before* the migration and writes *after* it would drop `program`,
-  `schedules` and `programSwitch`. `activeProgram()` still reads Arnold from the weekly schedule,
-  so nothing visible changes; only the saved PPL week is lost, and it equals the PPL default for
-  Quinton. No mitigation beyond this note.
+- Known benign race: `useSavePrefs` reads the stored prefs, merges and writes the whole object.
+  A write whose read lands in the milliseconds *before* the switch commits and whose write lands
+  *after* it would drop `program`, `schedules` and `programSwitch`. `activeProgram()` still reads
+  Arnold from the weekly schedule, so nothing visible changes; only the saved PPL week is lost
+  (it equals the PPL default unless he had reordered it). No mitigation beyond this note.
 
 ### 3.3 What the switch does, and what it never does
 
 | Data | What happens | Why |
 |---|---|---|
-| `profiles.weekly_schedule` | becomes the Arnold week (or his own saved Arnold week from an earlier switch) | Q§13 "active weekly schedule" |
+| `profiles.weekly_schedule` | becomes the Arnold week (or his own saved Arnold week from an earlier switch). If he had reordered his PPL days, that order is not mapped onto Arnold: Q§1 fixes the Arnold order. His PPL order is kept in `prefs.schedules.ppl` and comes back if he switches back. | Q§13 "active weekly schedule", Q§1 |
 | `profiles.prefs` | gains `program`, `schedules.<old program>` = the old week, `programSwitch`; every other key unchanged (server-side `jsonb ||`) | switching back restores his PPL week exactly |
 | `profiles.training_mode` | **unchanged** (intro or deload stay on) | task 3 |
 | `program_templates` | **unchanged** (PPL rows with his customisations stay; Arnold rows are added by the client, §3.4) | Q§13 "preserve those customizations" |
@@ -890,6 +957,8 @@ return rows.map(fromRow)
   and is kept.
 - **A second device with a stale screen.** It refetches the profile on focus. If it writes a
   `day_plans` row with an old key before that, the resolver's safety net (§2.4) maps it.
+- **Old app code.** The pre-Arnold app never meets switched data: the switch ships one deploy
+  after the program-aware app (§3.1a).
 
 ### 3.6 Switching programs in the app (both ways)
 
@@ -905,13 +974,19 @@ setProgram(next):
       toast "Switching programs is available once this update is published." → false
   other error → toast "Couldn't switch. Nothing changed." → false
   invalidate ["profile"], ["templates"], ["day-plans"], ["sessions"]
+  savePrefs({ switchNoticeSeenAt: r.at ?? now })   // quiet; the one-time notice never follows his own switch (CR-1)
   toast "{PROGRAMS[next].name} is your program" with Undo → setProgram(previous)
   → true
 ```
 
-Facts the confirm sheet must state (copy by DESIGN-V3): both programs keep their templates and
-his edits; logged workouts and records don't change; a workout in progress finishes as it
-started; the last two weeks keep the plan they had; days he moved keep their days.
+`set_training_program` returns `at` (the same `now()` it wrote to `programSwitch.at`; one
+transaction, so the values are equal) with `changed`, `from`, `to`, `date`, `frozen`, `mapped`,
+`cleared`.
+
+Facts the confirm sheet must state (DESIGN-V3 §4.3.7 words them as four checked lines plus one
+when a workout is live): the program he leaves stays saved with his edits; past workouts and bests
+don't change (the last two weeks keep the plan they had); days he moved stay moved; it starts with
+his next workout; a workout in progress finishes as it started.
 
 ### 3.7 Carried exercise swaps ("ask before replacing", Q§13)
 
@@ -1011,8 +1086,10 @@ Tests to add in `progression.test.ts` (Arnold templates from `programs.ts`):
    `add_reps` at 225.
 8. Never more than one increment, whatever the RIR.
 9. `rirRange("1–3")` → `[1,3]`, `"0–2"` → `[0,2]`, `"Fresh"` → null.
-10. Reverse curls (optional) are not in `buildSessionSets()` output when `includeOptional` is false,
-    and are when it is true.
+10. Reverse curls (optional) are not in `buildSessionSets()` output when `includeOptional` is false
+    (every app start), and are when it is true; `templateExerciseSets(t, mode, i)` builds exactly
+    the rows `buildSessionSets()` would for that exercise (2 sets, 10–15, RIR `0–2`, rest 60,
+    `set_index` from `i`); `suggestOptional()` is true only for `standard` + `go`/unknown.
 
 ### 4.2 Intro low-volume option (Q§10) — `training_mode = 'intro'`
 
@@ -1032,10 +1109,13 @@ exercises stay at 2:
 
 Every §12 muscle group stays inside its zone in the intro week (§5.3). Intro is offered, never
 forced: the switch-over leaves `training_mode` as it was. One suggestion is allowed: in the first
-7 days after the switch (`programSince`), while mode is `standard` and no Arnold session is done
-yet, Train may show once "New split: ease in with fewer sets this week?" → `setMode("intro")`
-with Undo. The mode's on-screen name comes from DESIGN-V3's vocabulary ("Lighter start"); the
-stored value stays `intro`.
+7 days after the switch (`programSince`), while mode is `standard`, no Arnold session is done yet
+and `prefs.lighterSnoozedUntil` is not in the future, `useTrainingWeek().easeIn` is true (DESIGN-V3
+CR-4) and Train shows "Ease into the new split?" → "Use fewer sets" = `setMode("intro")` with
+Undo; "Not now" snoozes it (`useLighterSnooze`, which hides it for the rest of the window). The
+mode's on-screen name comes from DESIGN-V3's vocabulary: **"Fewer sets"** (Program › How hard), and
+onboarding's switch reads "Start lighter" (one name for the mode, because the same mode also
+serves a mid-program lighter week, §4.3). The stored value stays `intro`.
 
 Deload (unchanged rule): sets `max(1, ceil(n/2))`, about 10% lighter, RIR "3–4". Arnold deload week
 = 62 sets.
@@ -1067,8 +1147,8 @@ Signals (each adds one reason when it fires):
 | Signal | Fires when | Reason text |
 |---|---|---|
 | `streak` | `deloadAdvice().hardWeeks ≥ DELOAD_WINDOW` (5) | "5 hard weeks in a row." |
-| `fatigue` | fatigue ≥ 4 on ≥ 3 of the last 7 check-ins | "Fatigue 4/5 or higher on 3 of your last 6 check-ins." |
-| `soreness` | soreness ≥ 4 on ≥ 3 of the last 7 check-ins | same shape |
+| `fatigue` | fatigue ≥ 4 on ≥ 3 of the last 7 check-ins | "Tiredness 4 of 5 or higher on 3 of your last 7 check-ins." (the numbers are the real counts; "fatigue" is asked as "Tiredness", DESIGN-V3 §4.1.3) |
+| `soreness` | soreness ≥ 4 on ≥ 3 of the last 7 check-ins | "Soreness 4 of 5 or higher on 3 of your last 7 check-ins." |
 | `sleep` | ≥ 4 nights logged in the last 7 and their average < goal − 1.5 h | "Sleep averaged 6.25 h against 8." |
 | `performance` | `performanceDips()` ≥ 3 distinct exercises **and** ≥ 40% of those compared | "Reps dropped on 4 of 9 lifts at the same weight." |
 | `adherence` | in each of the last 2 complete weeks, planned − done ≥ 2 | (no reason line on its own) |
@@ -1083,7 +1163,9 @@ drop is explained by rest, not fatigue).
 Decision:
 
 - Nothing while `mode === "deload"`, within 14 days after a completed deload week, before
-  `snoozedUntil`, or before 3 weeks of history since `programSince` / `start_date`.
+  `snoozedUntil`, or with fewer than 3 weeks since `start_date` (`historyFrom`). `programSince` does
+  **not** reset this gate: PPL weeks are real training, so 5 hard PPL weeks still earn a light
+  week right after the switch (Train shows it above the ease-in, DESIGN-V3 §4.3.1).
 - **deload** when `streak` fires, or two or more of {fatigue, soreness, sleep, performance} fire.
   Copy: title "Take a deload week", body "Half the sets, about 10% lighter, 3–4 reps in reserve."
   + reasons. Action "Start deload week" → `setMode("deload")`.
@@ -1093,11 +1175,12 @@ Decision:
   lighter week" → `setMode("intro")`.
 - **standard** (return) when mode is `intro` or `deload` and `modeSetAt` is 7 or more days ago.
   Copy: "Back to the full program?" Action → `setMode("standard")`.
-- Wording: the titles and bodies above give the facts each card must state; the words come from
-  DESIGN-V3's vocabulary, which calls the deload a "Light week" ("Lighter week suggested", "Start
-  a lighter week Monday") and intro mode "Lighter start". Logic keeps the two apart: `deload` sets
-  mode `deload` (half the sets, about 10% lighter, 3–4 in reserve); `lighter` sets mode `intro`
-  (one set fewer, same weights).
+- Wording: the titles and bodies above give the facts each card must state; the words are
+  DESIGN-V3's (§2.2, §4.3.4): `deload` → "Light week suggested" / gold "Start light week";
+  `lighter` → "Fewer sets this week?" / gold "Use fewer sets"; `standard` → "Back to the full
+  plan?" / gold "Back to normal". A change applies to the next workout started (no "Monday").
+  Logic keeps the two apart: `deload` sets mode `deload` (half the sets, about 10% lighter, 3–4 in
+  reserve); `lighter` sets mode `intro` (one set fewer, same weights; on screen "Fewer sets").
 - Every suggestion has "Not now" → `prefs.lighterSnoozedUntil = today + 7`. Mode changes always
   go through `useSetTrainingMode()` (tap, Undo), which now also writes `prefs.modeSetAt = today`.
   Never automatic.
@@ -1110,8 +1193,10 @@ recovery review keeps its `lighter`/`deload` recommendations from soreness and f
 
 ### 4.4 "Six training days should not be mandatory" (Q§10) — rest today
 
-When today's readiness level is `recover` (score ≥ 6), or `ease` while `lighterWeekAdvice()` has a
-`kind`, and today is a planned training day with no session started, Today and Train offer:
+When today's readiness level is `recover` (score ≥ 6), or `ease` while `lighterWeekAdvice().kind`
+is `deload` or `lighter` (not `standard`, which is a "back to normal" note), and today is a planned
+training day with no session started, Today and Train offer (DESIGN-V3 §4.3.4 "Options for
+today"):
 
 1. **"Rest today, shift the week"** → `shiftWeek({ from: today, plans, horizon: 7 })` (new, pure,
    `schedule.ts`): find the first planned rest day `R` within 7 days (resolved plan); write
@@ -1178,7 +1263,9 @@ Three entry points:
    most recent previous real session (`usePriorHistory`). A set **dips** when: weight ≥ reference
    weight − 0.1 lb and reps ≤ reference reps − 2; or weight < reference weight and e1RM ≤ reference
    e1RM × 0.97 (1–12 rep sets). Skip set 2 when its `timeBetweenSets` is ≥ 45 s shorter than the
-   reference set 2's. **Fires** when both of the first two working sets dip. Pressing lift →
+   reference set 2's. **Fires** when both of the first two working sets dip. The reference is the
+   last real session of that slug whatever its program, so on the first Arnold Tuesday a PPL Push A
+   incline press is a fair reference (same slug, same movement, §1.7). Pressing lift →
    muscle `triceps`; pulling lift → `biceps`; each fires at most once per session.
    - triceps advice: `[{ kind: "reorder", move: <chest isolation: Low-to-High Cable Fly / Pec Deck>, before: <press accessory> }, { kind: "drop", slug: <press accessory>, sets: 1 }]`;
      copy "Triceps look tired from {Monday}: Incline Dumbbell Press is down 2 reps at 70 lb. Try
@@ -1186,10 +1273,10 @@ Three entry points:
    - biceps advice: `[{ kind: "drop", slug: <pull accessory>, sets: 1 }]`; copy "Biceps look tired
      from {Monday}: Neutral-Grip Lat Pulldown is down 2 reps at 140 lb. One set fewer on
      Single-Arm Cable Lat Pulldown."
-   - One suggestion card in the workout under the lift header (suggestion style, dismissible).
-     "Apply" moves the exercise group order (existing reorder ops) and deletes the last unlogged
-     set(s) (`ops.deleteSets`), with Undo; "Keep plan" dismisses. Skipped when those exercises are
-     already done.
+   - One tip card in the workout (placement and words: DESIGN-V3 §4.2.15, where it takes the rest
+     ring's place; calm, never gold or red, dismissible). "Apply" moves the exercise group order
+     (existing reorder ops) and deletes the last unlogged set(s) (`ops.deleteSets`), with Undo;
+     "Keep plan" dismisses it for the session. Skipped when those exercises are already done.
 3. `overlapNextArmDay({ sessions, sets, template })` — prevention (Quinton's Monday note "Do not
    unnecessarily exhaust triceps during shoulder presses" and Thursday note "Shoulder pressing
    volume can be reduced if it interferes with Friday's chest session"): look at the last 3
@@ -1256,9 +1343,17 @@ export const SECONDARY_CREDIT = 0.5;
 export function groupCredit(slug: string, custom?: Record<string, MuscleGroup[]>): Partial<Record<GroupKey, number>>;
 export function groupSets(sets: SetLike[], custom?): Record<GroupKey, number>;          // rounded to 0.5
 export function plannedGroupSets(templates: Pick<DayTemplate, "exercises">[], mode: Mode): Record<GroupKey, number>;
-export function groupRows(done: Record<GroupKey, number>, planned?: Record<GroupKey, number>): GroupRow[];
-export interface GroupRow { group: GroupKey; label: string; sets: number; planned: number; zone: [number, number]; status: "under" | "in" | "above"; aria: string }
+export function groupRows(done: Record<GroupKey, number>, planned?: Record<GroupKey, number>, trends?: Record<GroupKey, GroupTrend>): GroupRow[];
+export function groupTrends(history: Record<string, PastSet[]>, today: ISODate, custom?): Record<GroupKey, GroupTrend>; // §5.4's trend, shared
+export interface GroupTrend { trend: "up" | "flat" | "down" | "unknown"; changePct: number | null; weeks: 6; lifts: { slug: string; name: string; changePct: number }[] }
+export interface GroupRow { group: GroupKey; label: string; sets: number; planned: number; zone: [number, number]; status: "under" | "in" | "above"; trend: GroupTrend | null; aria: string }
 ```
+
+"Track arm and shoulder progression separately" (Q§5 Thursday note) is met three ways: every lift
+progresses on its own (§4.1, one rep range per slug); Sets by muscle keeps side, rear and front
+delts, biceps, triceps and forearms as separate rows; and each row carries its own strength trend
+(`GroupRow.trend`, the §5.4 trend: median e1RM change of the lifts that train it as a primary over
+the last 6 weeks, with the lifts behind it), shown in the row's sheet (DESIGN-V3 §4.3.9).
 
 ### 5.3 Zones (fractional hard sets per week; a RULE, "a common range")
 
@@ -1302,16 +1397,19 @@ neutrally, never as a failure.
 | `trim` | weekly sets > zone high **and** trend `flat`/`down` | "Lats and upper back: about 3 fewer sets a week. It hasn't progressed at 24 sets." + the exercise to trim: the group's last accessory by day order |
 | `hold` | trend `down` **and** recovery strained | "Biceps: keep the sets where they are and recover first. Curls are down 3% with soreness 4/5." |
 | `add` | weekly sets < zone low **and** trend `flat`/`down` **and** recovery not strained | "Side delts: add 2 sets a week, for example one more set of Dumbbell Lateral Raises." |
-| none | trend `up` (whatever the sets: it's working), `unknown`, deload/intro week, fewer than 3 weeks since `programSince`/`start_date` | — |
+| none | trend `up` (whatever the sets: it's working), `unknown`, deload/intro week, fewer than 3 weeks since the later of `programSince` and `start_date` (weekly sets per group change with the program, so a volume judgement waits for 3 weeks of the current one) | — |
 
-At most 2 suggestions, priority trim > hold > add, larger deviation first. "Apply" opens the
-template editor on the named template; nothing edits a template automatically. Shown at the top of
-"Sets by muscle" (Train → More) and as coach facts (`vol.*`, `vol.suggest`).
+At most 2 suggestions, priority trim > hold > add, larger deviation first. "Apply" (DESIGN-V3:
+"Open the workout") opens the template editor on the named template; nothing edits a template
+automatically. Shown at the top of Train › Sets by muscle (DESIGN-V3 §4.3.9; Train's
+SuggestionRow shows `suggestions[0]` when nothing outranks it) and as coach facts (`vol.*`,
+`vol.suggest`).
 
 Tests (`volume-zones.test.ts`): credit examples above; one set per group per exercise; traps
 ignored; retired and unknown slugs credit nothing; the standard and intro tables of §5.3; each
 suggestion rule including "under zone but progressing → none" and "above zone but progressing →
-none"; at most 2; nothing in deload weeks.
+none"; at most 2; nothing in deload weeks; `groupTrends` gives side delts and biceps separate
+trends from the same week of sets.
 
 ---
 
@@ -1346,9 +1444,13 @@ updates) and in the export. Writes must not touch them either: the check-in upse
 | `src/lib/data/training.ts` | delete `Volleyball`, `useVolleyball`, `useVolleyballMutations`, `volleyballLoad` (P2) |
 | `src/lib/data/workout.ts` | `StartOptions.lighterLegs` removed (P2) in favour of `adjust` and `includeOptional` |
 | `src/components/training/hooks.ts` | `useTrainingWeek` loses `volleyball`, `volleyballDays`, `load7d`, `vbAdvice`; delete `useVolleyballLog`, `VB_KINDS`, `vbKindLabel` (P2) |
-| `src/lib/progress/athletic.ts` (+test) | delete `volleyballFrequency`; delete the module with the Hall Athletic UI (P2) |
+| `src/lib/progress/athletic.ts` (+`body-photos-athletic-strength.test.ts`) | delete `volleyballFrequency`; delete the module with the Hall Athletic UI (P2); the test file keeps its photo and strength cases and loses the athletic ones |
+| `src/lib/progress/hall.ts` (+`hall.test.ts`) | P2: delete the athletic part (`TestLine`, `testLine` and the `./athletic` import, which would break when `athletic.ts` goes) and the "athletic tests" describe block; records and strength stay |
+| `src/lib/progress/hooks.ts` | P2: delete `useAthleticWrite` and `AthleticValues` (their only callers, the athletic sheets, are deleted by PROGRESS) |
+| `src/lib/data/body.ts` | P2: delete `useAthleticTests` and `useAthleticMutations` (no caller left); keep the `AthleticTest` row type only if something still imports it. The `athletic_tests` table and its rows stay, and the export reads it through `export/tables.ts` |
 | `src/lib/onboarding/plan.ts` (+test) | remove `volleyballPerWeek` (answers, defaults, validation); the profile update no longer writes `volleyball_per_week` |
-| `src/lib/offline/persist.ts` | drop `"volleyball"` from persisted query keys |
+| `src/lib/offline/persist.ts` | drop `"volleyball"` and `"athletic"` from persisted query keys |
+| CR-3 copy (DESIGN-V3 §2.3) | `now/day-engine.ts` chip "Dawn · N left" → "Check-in · N left"; `today/now.ts` "{label} sealed" → "{label} done"; `today/daily-line.ts` "Fuel both" → "Eat for both"; `onboarding/plan.ts` step labels ("The climber" → "About you", "The summit" → "Goal", "The training" → "Training", "The fuel" → "Food", "The oath" → "Done"); `recovery/guidance.ts` "Refuel tonight" → "Eat well tonight" |
 | `src/lib/export/tables.ts` | tables stay in `EXPORT_TABLES` and the erase order; on-screen labels become `volleyball_sessions: ["archived sport session", "archived sport sessions"]`, `athletic_tests: ["archived test result", "archived test results"]` |
 | `src/lib/coach/*` | §6.3 |
 
@@ -1357,8 +1459,12 @@ updates) and in the export. Writes must not touch them either: the check-in upse
 `components/art/icons.tsx` (volleyball icon), `meals/week/Mosaic.tsx`, `meals/week/WeekPlanner.tsx`,
 `now/CheckIn.tsx`, `now/NowScreen.tsx`, `now/bodies.tsx`, `now/useDayInput.ts`, `now/useNowData.ts`,
 `onboarding/OathArt.tsx`, `onboarding/OathSummary.tsx`, `onboarding/steps.tsx` (volleyball per week),
-`oracle/context.ts` (two suggested questions: use "Is my arm day hurting my chest day?" and "Do I
-need a lighter week?"), `progress/athletic/AthleticLogSheet.tsx`, `progress/hall/Athletic.tsx`,
+`oracle/context.ts` (the two volleyball suggested questions become "Is my arm day hurting my chest
+day?" and "Do I need a lighter week?"; the existing "Do I need a deload week?" chip goes too, since
+"deload" is a banned word on screen and the new lighter-week question covers it, and "Why hasn't my
+bench press improved?" names a lift from data, not barbell bench, which the Arnold split does not
+have), `progress/charts/HistoryChart.tsx` (its `invert` option and "sprint times" comment exist
+only for athletic tests), `progress/athletic/AthleticLogSheet.tsx`, `progress/hall/Athletic.tsx`,
 `progress/hall/HallTab.tsx`, `progress/hall/TestSheet.tsx`, `progress/context.tsx`,
 `progress/ProgressScreen.tsx`, `recovery/DateStrip.tsx`, `recovery/GuidanceCard.tsx`,
 `recovery/LedgerCheckIn.tsx`, `recovery/VolleyballSheet.tsx`, `recovery/WeeklyReviewCard.tsx`,
@@ -1445,6 +1551,7 @@ entries), `src/lib/training/programs.ts` (`visibleWarmup`'s "Jump prep" filter),
 New: `src/lib/training/program-arnold.ts`, `src/lib/training/programs.ts` (+`programs.test.ts`),
 `src/lib/training/overlap.ts` (+test), `src/lib/data/program.ts`,
 `supabase/migrations/20261021000000_arnold_program.sql`,
+`supabase/migrations/20261021000100_arnold_switch.sql` (shipped in deploy B, §3.1a),
 `scripts/dev/fixtures/ppl-rows-2026-10.json`, `scripts/dev/qa-arnold.mjs`,
 `scripts/dev/qa-arnold-ui.mjs`, `src/lib/__tests__/no-volleyball.test.ts`,
 `src/lib/__tests__/migration-arnold.test.ts`.
@@ -1456,9 +1563,11 @@ Changed: `src/lib/training/{types,library,progression,volume,volume-zones,block,
 `src/lib/adherence.ts`, `src/lib/now/day-engine.ts`, `src/lib/today/{daily-line,weekly,now,plan}.ts`,
 `src/lib/recovery/{guidance,checkin,hooks,weekly}.ts` (`volleyball.ts` deleted),
 `src/lib/reviews/{compute,hooks,plan}.ts`, `src/lib/coach/{prompt,context,aggregate,snapshot,mock,access,types}.ts`,
-`src/lib/onboarding/plan.ts`, `src/lib/progress/athletic.ts`, `src/lib/offline/persist.ts`,
-`src/lib/export/tables.ts`, `src/lib/reminders/server.ts`, `src/lib/supabase/database.types.ts`,
-`scripts/dev/setup-users.mjs`, and every listed test.
+`src/lib/onboarding/plan.ts`, `src/lib/progress/{athletic,hall,hooks}.ts` (+`hall.test.ts`,
+`body-photos-athletic-strength.test.ts`), `src/lib/data/body.ts` (athletic hooks only, P2),
+`src/lib/offline/persist.ts`, `src/lib/export/tables.ts`, `src/lib/reminders/server.ts`,
+`src/lib/supabase/database.types.ts`, `scripts/dev/setup-users.mjs`, and every listed test. Every
+other `src/lib/**` file is FOUNDATION's (DESIGN-V3 §6.2); no file is on both lists.
 
 Not owned (screens implement against §7.3): everything under `src/components/**` except
 `training/hooks.ts`, and `src/app/**`.
@@ -1482,7 +1591,9 @@ Not owned (screens implement against §7.3): everything under `src/components/**
 // src/lib/training/programs.ts — §2.2 (DEFAULT_PROGRAM, PROGRAMS, TEMPLATE_DEFS, templateDef,
 //   programOfKey, counterpartKey, activeProgram, programSince, scheduleFor, resolvePlanKey,
 //   visibleExercises, visibleWarmup, templateLabels, effortDefaults, rirRange,
-//   exerciseDisplayName, estimateDurationMin, SUNDAY_RECOVERY, carriedSwaps, pickableLibrary)
+//   exerciseDisplayName, estimateDurationMin, SUNDAY_RECOVERY, carriedSwaps, pickableLibrary,
+//   suggestOptional)
+export function suggestOptional(mode: Mode, level: ReadinessLevel | null): boolean;   // §1.4: offer the optional lift after the last planned set
 
 // src/lib/data/program.ts
 export function useActiveProgram(): { program: ProgramId; def: ProgramDef; since: ISODate | null; loading: boolean };
@@ -1497,22 +1608,25 @@ export function programSeedRows(program?: ProgramId): Omit<Insert<"program_templ
 // src/lib/data/workout.ts
 export interface StartOptions {
   template: StoredTemplate; date: ISODate; mode: Mode;
-  includeOptional?: boolean;                                       // §1.4
+  includeOptional?: boolean;                                       // §1.4; app starts pass false (default)
   adjust?: { dropSets?: Record<string, number>; rir?: Record<string, string>; order?: string[] }; // §4.6
 }
-export function includeOptionalByDefault(mode: Mode, level: ReadinessLevel | null): boolean;
 export function startTarget(t: string | null, activeKeys: string[]): string | null;   // ?t= rule, §2.5
 
+// src/lib/workout/session.ts
+export function templateExerciseSets(t: TemplateExercise, mode: Mode, firstSetIndex: number): SetDraft[]; // §1.4 "Add them"; the row builder buildSessionSets uses
+
 // src/components/training/hooks.ts
-export function useTrainingWeek(): { …existing minus volleyball…, program: ProgramId; lighter: LighterWeekAdvice; restToday: { shift: DayPlanWrite[]; skip: DayPlanWrite[] } | null };
-export function useWeekVolume(week): { rows: GroupRow[]; suggestions: VolumeSuggestion[]; plannedTotal: number; open; loading; offline; error; refetch };
+export function useTrainingWeek(): { …existing minus volleyball…, program: ProgramId; lighter: LighterWeekAdvice; easeIn: boolean; restToday: { shift: DayPlanWrite[]; skip: DayPlanWrite[] } | null }; // easeIn: §4.2 (DESIGN-V3 CR-4)
+export function useWeekVolume(week): { rows: GroupRow[]; suggestions: VolumeSuggestion[]; plannedTotal: number; open; loading; offline; error; refetch }; // rows carry trend (§5.2)
 export function useOverlapAdvice(input: { date: ISODate; template: StoredTemplate | null; sessionId?: string }): { preStart: OverlapAdvice | null; nextArmDay: OverlapAdvice | null; inSession: OverlapAdvice | null };
 export function useSetTrainingMode(): { mode: Mode; setMode(m: Mode): Promise<boolean>; pending: boolean }; // also writes prefs.modeSetAt
 export function useLighterSnooze(): { snooze(): Promise<boolean> };                     // prefs.lighterSnoozedUntil = today + 7
 
 // pure
 lighterWeekAdvice(…) (block.ts) · shiftWeek(…) (schedule.ts) · overlapPreStart / overlapInSession / overlapNextArmDay (overlap.ts)
-groupCredit / groupSets / plannedGroupSets / groupRows / volumeSuggestions (volume-zones.ts)
+groupCredit / groupSets / plannedGroupSets / groupRows / groupTrends / volumeSuggestions (volume-zones.ts)
+scheduleFreeze({ …, trainedToday }) (schedule.ts, §1.1)
 suggest / plannedSetCount / modeRir (progression.ts) · timeBetweenSets (workout/timing.ts)
 sorenessFocus / computeGuidance / readinessLine (recovery/guidance.ts) · programLabel (week.ts)
 
@@ -1526,8 +1640,8 @@ export interface OverlapAdvice {
 export interface VolumeSuggestion { group: GroupKey; kind: "trim" | "hold" | "add"; sets: number; exercise: { slug: string; name: string; templateKey: string } | null; reason: string }
 ```
 
-All suggestions are lapis/suggestion styled, need a tap, offer Undo, and write nothing until
-tapped.
+All suggestions use DESIGN-V3's calm suggestion styles (SuggestionRow, Options for today, the
+workout tip card: never gold, never red), need a tap, offer Undo, and write nothing until tapped.
 
 ---
 
@@ -1565,7 +1679,13 @@ before publication:
   `food_entries`, `water_logs`, `meal_plans`, `planned_meals`, `grocery_items`, `progress_photos`;
   counts of `set_history`, `pr_events`, `exercise_bests`.
 
-### 8.2 Switch (`--switch`): apply the real migration file to the local DB with `psql -f` (it is idempotent and picks this user because `prefs.program` is absent)
+### 8.2 Switch (`--switch`): apply the real migration files to the local DB with `psql -f`, in deploy order
+
+`--setup` ends by applying `20261021000000_arnold_program.sql` (idempotent `create or replace`),
+so the database looks as it will after deploy A: the functions exist and nothing is switched.
+`--switch` applies `20261021000100_arnold_switch.sql`, exactly as deploy B will (it is idempotent
+and picks this user because `prefs.program` is absent). Between the two, the U-checks marked "A"
+below run against the PPL account to prove the new app reads an unswitched account correctly.
 
 ### 8.3 Database assertions (`--verify`)
 
@@ -1579,7 +1699,7 @@ before publication:
 | D6 | `day_plans`: for each d in [today−14, today): d = today−3 → still `rest`/`rest`; weekday ≠ Sunday → (`custom`, PPL key, `program-switch`); Sunday → no row. Today → (`custom`, today's PPL key, `program-switch`). today+2 → `shoulders_arms_b`, `rescheduled`, `moved_from` today+3. today+3, today+5 → `rest` unchanged | 6, 8 |
 | D7 | volleyball, athletic, recovery, nutrition, meals, photos, weight md5 unchanged | 14 |
 | D8 | `set_history`, `pr_events`, `exercise_bests` counts unchanged | 8 |
-| D9 | Run the migration file again: every md5 above and `day_plans`/`profiles` unchanged (the function returns `changed: false`) | — |
+| D9 | Run both migration files again: every md5 above and `day_plans`/`profiles` unchanged (the function returns `changed: false`) | — |
 | D10 | Two parallel `rpc("set_training_program", {p_program:"ppl"})` calls as the QA user (`Promise.all`): exactly one `changed: true`; while on PPL, `day_plans` equals the fixture (the switch's own rows gone, today+2 back to `push_b`), `weekly_schedule` = the PPL week. Switch back to Arnold: `day_plans` equal to the D6 state, `weekly_schedule` = Arnold. "Equal" compares `(plan_date, template_key, reason, moved_from, note)`, not ids | 13 |
 | D11 | As the QA user with `p_user` = demo's id → error `not allowed`; as anon → permission denied | — |
 | D12 | After the first app load as the QA user: 6 Arnold rows, keys and content equal to the built-ins (`sameTemplateContent`), `sort` 0–5; PPL rows still unchanged | 5, 6 |
@@ -1594,14 +1714,16 @@ before publication:
 | U2 | Each template (Program → template): every row's name, sets, rep range (with "each"), RIR and rest equal §1.3; Thursday shows Reverse Curls as optional; warm-up steps equal §1.3 | 5 |
 | U3 | Next Tuesday, intro mode: Start → `exercise_sets` rows: 2 sets for each of the 6 exercises; `target_rep_low/high` per §1.3; `target_rir` `1–3`/`0–2`; `rest_sec` 150/150/120/120/75/120; `suggested_weight_lb` incline DB press = 65 (increase), machine chest press = 150 (hold, compound at 0 RIR) | 7, 9 |
 | U4 | Log incline DB press set 1 (65 × 8, RIR 2): row `completed`, 65, 8, 2; rest timer starts at 2:30; +15 → 2:45 and the remaining incline sets' `rest_sec` = 165; Undo un-logs | 7, 9 |
-| U5 | Next Monday, standard mode (switch mode, Undo-able): cable lateral raises ghost 20 lb (isolation at 0 RIR progresses), 4 sets; seated DB press ghost 55 lb, 2 sets; Thursday with readiness `go`: reverse curls included; with a `trim` check-in: left out | 9 |
+| U5 | Next Monday, standard mode (switch mode, Undo-able): cable lateral raises ghost 20 lb (isolation at 0 RIR progresses), 4 sets; seated DB press ghost 55 lb, 2 sets. Thursday: Start builds 19 sets (no reverse curls); with readiness `go`, logging the last planned set shows the "Reverse Curls · 2 sets" offer and "Add them" appends 2 rows (10–15, `0–2`, rest 60) and the top bar reads "of 21"; with a `trim` check-in no offer shows, and the Lifts sheet's "Optional" row still adds them | 9 |
 | U6 | History lists the PPL sessions with their names (Push A, Pull B (Q) …); exercise detail for Incline Dumbbell Press shows PPL sessions and today's; records unchanged plus any new one | 8 |
 | U7 | Program → switch to Push/Pull/Legs → PPL week restored, toast with Undo; Undo → Arnold again; `day_plans` as D6 | 6 |
 | U8 | Overlap: fixture yesterday = Shoulders, Biceps & Triceps A done; today Chest & Back A; log incline DB press sets 1–2 at the reference load with 2 fewer reps → one suggestion card; Apply → Low-to-High Cable Fly moves before Machine Chest Press, Machine Chest Press has 1 set, logged sets untouched; Undo restores | — |
 | U9 | Rest day: check-in sleep 4 h, energy 1, soreness 5, fatigue 5 → "Rest today" options; "shift the week" writes the `shiftWeek` rows (Undo works); "skip it" writes one rest row | — |
-| U10 | No volleyball: on `/`, `/training`, Program, every Train sub-view, `/progress`, `/progress?tab=athletic` (lands on Strength, no error), `/recovery`, `/recovery?checkin=1`, `/reviews`, latest month review, `/settings` and sub-pages, `/coach`, `/nutrition`, meals week, and `/onboarding` (fresh user), `document.body.innerText` never matches `/volley|approach jump|box jump|broad jump|sprint|vertical jump|standing vertical|approach vertical|standing reach/i` | (d) |
+| U10 | No volleyball: on `/`, `/training`, Program, every Train sub-view, `/progress`, `/progress?tab=athletic` (lands on Strength, no error), `/recovery`, `/recovery?checkin=1`, `/reviews`, latest month review, `/settings` and sub-pages, `/coach`, `/nutrition`, meals week, and `/onboarding` (fresh user), `document.body.innerText` (and every `aria-label`, `title`, `placeholder`, `alt`) never matches DESIGN-V3 G-1(a): `/volley|approach jump|box jump|broad jump|squat jump|\bsprints?\b|vertical jump|standing vertical|approach vertical|standing reach|jumps (&|and) sprints|\bathletic\b/i` | (d) |
 | U11 | Mobile: screenshots at 390×844 and 375×667 of Train (each weekday), Today, Program, a template, workout mid-set on "Single-Arm Overhead Cable Triceps Extension", the switch sheet, Sets by muscle; `shot.mjs` reports no horizontal overflow and no console errors | 10 |
 | U12 | Fresh user onboarding → schedule step offers the Arnold days; after finishing, `weekly_schedule` = Arnold, 6 Arnold rows, no PPL rows, `volleyball_per_week` not written | 6 |
+| U13 | Change the order on a Wednesday after Wednesday's workout is done (swap Thu and Sat): `weekly_schedule` saved; Mon–Wed of this week keep their plans (frozen rows, Wednesday included because it was trained); Thursday now shows Legs & Abs B and Saturday Shoulders, Biceps & Triceps B; no session or set changes | 6 |
+| U14 (A) | Before `--switch` (deploy A state): the new app on the PPL account shows the PPL week from template data (Push A …), no volleyball, Program shows Push/Pull/Legs selected, no new-plan notice, and nothing is written to `program_templates` or `profiles` by loading the app | 12 |
 
 ### 8.5 Unit tests (vitest) to add or update
 
@@ -1622,7 +1744,8 @@ before publication:
 - `block.test.ts`: `lighterWeekAdvice` each signal alone; deload vs lighter decision; return to
   standard after 7 days; snooze; deload cooldown; rest-explained dips skipped.
 - `schedule.test.ts`: `shiftWeek` (Tuesday example, no rest day within 7 → `[]`, an existing
-  override in the window is carried), no volleyball exports.
+  override in the window is carried); `scheduleFreeze` with `trainedToday` true freezes today and
+  with false does not; no volleyball exports.
 - `overlap.test.ts`: §4.6.
 - `guidance.test.ts`, `checkin.test.ts`, `weekly.test.ts`, `prefill.test.ts`, `day-engine.test.ts`,
   `adherence.test.ts`, `today.test.ts`, `now.test.ts`, `week.test.ts`, `reviews/compute.test.ts`,
@@ -1633,9 +1756,11 @@ before publication:
   not match /volley|jump/i.
 - `workout/session.test.ts`: `defaultTargets`/`retarget` follow `effortDefaults`; `timing.test.ts`:
   `timeBetweenSets`.
-- `migration-arnold.test.ts`: parses the migration file and asserts its key arrays and both weeks
-  equal `PROGRAMS.arnold/ppl.keys` and `.schedule`, and that it contains no `drop`, `delete from
-  public.workout_sessions`, `update public.exercise_sets` or `update public.program_templates`.
+- `migration-arnold.test.ts`: parses both migration files and asserts the key arrays and both weeks
+  equal `PROGRAMS.arnold/ppl.keys` and `.schedule`; that neither contains `drop`, `delete from
+  public.workout_sessions`, `update public.exercise_sets` or `update public.program_templates`;
+  and that `20261021000100_arnold_switch.sql` holds only the `do` block (no `create`, no `alter`),
+  so deploy A's file never switches anyone.
 - `no-volleyball.test.ts`: §6.4 (P2).
 
 ### 8.6 Regression (Q§14) and checks (Q§15.11)
@@ -1644,3 +1769,52 @@ before publication:
 regression flows for meal planner, food scanner, nutrition coach, calorie/protein trackers, meal
 regeneration, grocery list, bodyweight, progress photos, sleep/recovery check-in, sign-in/out and
 export run unchanged on the demo user; D7 proves their rows are untouched by the switch.
+
+---
+
+## 9. Traceability: Quinton's request → this spec (and DESIGN-V3 for screens)
+
+| Request | Met in |
+|---|---|
+| Q main objective: replace the default schedule with the Arnold split; evidence-informed, progressive overload, adjusted to recovery and performance | §1, §2.3 (`DEFAULT_PROGRAM`), §3, §4 |
+| Q: bodybuilding only; no volleyball, box jumps, sprints or sport-specific work | §1.9, §1.10, §6; DESIGN-V3 law 14, G-1(a) |
+| Q§1 weekly order Mon–Sun | §1.1 (`ARNOLD_SCHEDULE`), §3.2 (`arn_week`), U1, D1 |
+| Q§1 shoulders and arms first | Monday and Thursday are shoulders-and-arms days (§1.1); prompt (§6.3) |
+| Q§1 manage overlapping fatigue (triceps → chest pressing, biceps → back) | §4.6 (three rules), §4.5 `sorenessFocus`; DESIGN-V3 §4.2.15, §4.3.4 |
+| Q§1 rearrange the days whenever needed | §1.1 (weekly order from today, `scheduleFreeze`), per-date move/swap/rest; DESIGN-V3 §4.3.2, §4.3.6; U13 |
+| Q§2–§7 every exercise, sets and rep range | §1.3 (checked line by line), `programs.test.ts`, U2, U3 |
+| Q§2–§7 focus lines and training notes | §1.3 `focus`, `notes` (verbatim); DESIGN-V3 §4.2.9 "Notes for today", §4.3.12 |
+| Q§3 recommend volume or order change when Monday fatigue limits Tuesday | §4.6 rules 1–2 (drop a set, reorder), U8 |
+| Q§4 warm-up sets before heavy squats; not to failure | §1.3 Wednesday warm-up, RIR `1–3`, rule 2 (§1.6) |
+| Q§5 optional reverse curls when recovery permits, or substitute | §1.4 (offered after the last planned set when `suggestOptional`; listed substitute), U5 |
+| Q§5 shoulder pressing can be reduced if it hurts Friday | §4.6 rule 3, TRAIN acceptance 5(a) |
+| Q§5 track arm and shoulder progression separately | §4.1 (per lift), §5.2 (`GroupRow.trend` per group); DESIGN-V3 §4.3.9 |
+| Q§8 Sunday rest, optional walking, mobility, recovery; nothing compulsory | §1.5 `SUNDAY_RECOVERY`, rest days never "missed"; DESIGN-V3 §4.3.3, §4.1.2 |
+| Q§9 store weight, reps, sets, RIR, rest, previous performance, records, notes | §3.8 (no new column needed), `timeBetweenSets` |
+| Q§9 double progression; never increase automatically | §4.1, tests 1–10, U3, U5 |
+| Q§10 RIR and rest defaults | §1.2, `effortDefaults()`, U3, U4 |
+| Q§10 introductory low-volume option | §4.2 (`intro`, 82 sets); DESIGN-V3 Program › How hard "Fewer sets", onboarding "Start lighter" |
+| Q§10 lighter-week suggestions from performance, soreness, recovery | §4.3 `lighterWeekAdvice()`; DESIGN-V3 §4.3.1, §4.3.4 |
+| Q§10 six days not mandatory | §4.4 rest today (shift or skip), rule 7; U9 |
+| Q§11 tracker must-haves, fast on iPhone, black and gold | DESIGN-V3 §4.2 and its §4.2.14 table |
+| Q§12 13 muscle groups, overlap counted, performance-based suggestions | §5.1–§5.4; DESIGN-V3 §4.3.9 |
+| Q§13 update the real templates, schedule, cards, start actions, all references | §2.5 (every reader), §3, §3.4, D1, D6, D12, U1 |
+| Q§13 Arnold is the default active plan | §2.3, §3.2, §3.1a deploy B |
+| Q§13 preserve customisations or ask | §3.3 (PPL rows untouched), §3.7 carried swaps (asked once) |
+| Q§13 keep PPL as an alternative | §1.10, §3.6 (switch both ways, Undo), U7 |
+| Q§13 keep history, weights, reps, records | §3.3, D5, D8, U6 |
+| Q§13 never rewrite completed workouts; active workout finishes unchanged | §3.3, §3.5, D5, U0 |
+| Q§13 safe, non-destructive database updates | §3.2 (additive, idempotent, row lock), §3.1a (two deploys), `migration-arnold.test.ts`, D9 |
+| Q§14 every other feature keeps working | §8.6, D7; DESIGN-V3 §3.6, §3.7 |
+| Q§15.1–4 day checks | U1, TRAIN acceptance 1 |
+| Q§15.5 exercises, sets and ranges | `programs.test.ts`, U2 |
+| Q§15.6 saved schedule updated | D1, D2, D6, D12 |
+| Q§15.7 logging works | U0, U3, U4 |
+| Q§15.8 history intact | D5, D8, U6 |
+| Q§15.9 progressive overload and rest timers | §4.1 tests, U3–U5 |
+| Q§15.10 mobile interface | U11; DESIGN-V3 G-3, G-4 |
+| Q§15.11 automated tests, regressions fixed | §8.5, §8.6 |
+| Q§15.12 preview until publication is approved | Conflicts (top), §3.1, §3.1a; DESIGN-V3 §6.0 |
+| (b) Arnold split, no volleyball | all of the above |
+| (d) no volleyball anywhere; tables and rows kept and exported | §6 (logic), §6.2 (screens), §6.4 gate, D7; DESIGN-V3 law 14, G-1(a), G-7 |
+
