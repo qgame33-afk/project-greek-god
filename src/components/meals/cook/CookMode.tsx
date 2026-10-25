@@ -1,17 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { BackLink } from "@/components/shell/BackLink";
 import { useGoUp } from "@/components/shell/trail";
 import { useSearchParams } from "next/navigation";
-import { BellOff, BellRing, ChevronLeft, ChevronRight, ListChecks, RotateCcw, Sun, Timer, Volume2, VolumeX, X } from "lucide-react";
-import { SealTick } from "@/components/art/icons";
+import { BellOff, BellRing, Check, Ellipsis, RotateCcw, Sun, Timer, Volume2, VolumeX, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ConflictNote, MacroLine, recipeHref, servingsLabel, useRecipeConflicts, useRecipePool } from "@/components/meals/shared";
+import { ConflictNote, recipeHref, servingsLabel, useRecipeConflicts, useRecipePool } from "@/components/meals/shared";
+import { BackHeader } from "@/components/shell/BackHeader";
+import { AiMark } from "@/components/ui/ai-chip";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/misc";
+import { ListGroup, Row } from "@/components/ui/list";
+import { Empty, Skeleton } from "@/components/ui/misc";
+import { Bar } from "@/components/ui/progress";
 import { Sheet } from "@/components/ui/sheet";
-import { Tag } from "@/components/ui/tag";
+import { formatInt } from "@/lib/units";
 import { useQuickEaten } from "../shared/EatenButton";
 import { cn } from "@/lib/cn";
 import { useToday } from "@/lib/data/core";
@@ -24,7 +26,7 @@ import { LogMealSheet } from "../log/LogMealSheet";
 import { checkScope, useChecks } from "../recipe/checks";
 import { usePlannedMealById } from "../recipe/hooks";
 import { IngredientList } from "../recipe/IngredientList";
-import { LoggedStrip, loggedText } from "../recipe/RecipeExtras";
+import { loggedText } from "../recipe/RecipeExtras";
 import { clampServings } from "../recipe/servings";
 import { SafetyNote, stepLabel } from "../recipe/StepList";
 import { BigTimer } from "./BigTimer";
@@ -34,10 +36,12 @@ import { readTimerSound, TimerAlarm, useTimers, writeTimerSound } from "./timers
 import { useWakeLock } from "./wake-lock";
 
 /**
- * Cooking mode (docs/MEALS.md §6): a focus route with no tab bar. One step at a time in large
- * type, swipe or tap Next, tick steps off, run each step's timer (chime + vibration where the
- * device allows) and keep the screen awake. Ticks and the current step are shared with the
- * recipe screen and kept on this device.
+ * Cooking mode (docs/DESIGN-V3-SIMPLE.md §4.4.4): a focus route with no tab bar. ✕, "Step 2 of
+ * 6" and a progress bar; the step in large type (readable from the counter); a timer card when the
+ * step has one, with running timers of other steps as chips. Dock: "Back" and the gold "Next step";
+ * on the last step the gold "Log as eaten" (never logs twice: one entry id per screen, and a
+ * planned meal already in the log is not logged again) and "Done". The screen stays on (wake
+ * lock). The ⋯ holds read aloud, the timer sound, every step and the ingredients.
  */
 export function CookMode({ recipeKey }: { recipeKey: string }) {
   const params = useSearchParams();
@@ -52,14 +56,11 @@ export function CookMode({ recipeKey }: { recipeKey: string }) {
   if (!recipe && recipeKey.startsWith("usr:") && !pool.hasData && !pool.error) return <CookSkeleton />;
   if (!recipe) {
     return (
-      <div className="grid min-h-dvh place-items-center bg-obsidian px-6 text-center">
-        <div>
-          <p className="t-title-2 text-ivory">Recipe not found</p>
-          <p className="t-callout mt-2 text-stone">It may have been removed from your recipes.</p>
-          <Button asChild variant="outline" className="mt-6 rounded-full">
-            <Link href="/nutrition?tab=week">Back to your week</Link>
-          </Button>
-        </div>
+      <div className="mx-auto max-w-col px-gutter pt-[calc(var(--safe-top)+4px)]">
+        <BackHeader href="/nutrition" parent="Food" title="Cooking" />
+        <Empty className="mt-4" title="Recipe not found">
+          It may have been removed from your recipes.
+        </Empty>
       </div>
     );
   }
@@ -73,8 +74,8 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
   const checks = useChecks(checkScope(recipe.key, meal?.id));
   const [index, setIndex] = useState(() => resumeStep(checks.steps, n, checks.current));
   const [finished, setFinished] = useState(false);
-  const [ingredientsOpen, setIngredientsOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [lastLog, setLastLog] = useState<LogPlannedMealResult | null>(null);
   const [sound, setSound] = useState(readTimerSound);
   const wake = useWakeLock(!finished);
@@ -146,7 +147,7 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
   /* keyboard: ← → move, Enter = next, Escape leaves */
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
-      if (logOpen || ingredientsOpen || e.defaultPrevented) return;
+      if (logOpen || menuOpen || e.defaultPrevented) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       if (e.key === "ArrowRight" && !finished) goto(index + 1);
@@ -157,7 +158,7 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
     };
     window.addEventListener("keydown", on);
     return () => window.removeEventListener("keydown", on);
-  }, [goto, index, finished, close, logOpen, ingredientsOpen]);
+  }, [goto, index, finished, close, logOpen, menuOpen]);
 
   /* swipe: the step follows the finger, then moves on or springs back */
   const dragEl = useRef<HTMLDivElement>(null);
@@ -198,66 +199,25 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
   };
   const swapRef = useSwapIn<HTMLDivElement, number>(index, { distance: 36 });
 
+  const alreadyLogged = !!priorLog || !!lastLog || quickLogged;
+
   return (
-    <div className="fixed inset-0 flex flex-col bg-obsidian text-ivory">
+    <div className="fixed inset-0 flex flex-col bg-bg text-fg">
       <TimerAlarm sound={sound} />
       {/* ------------------------------------------------------------------ top */}
-      <header className="shrink-0 px-2 pt-[calc(var(--safe-top)+4px)] lg:px-6">
-        <div className="mx-auto flex min-h-14 max-w-[760px] items-center gap-1">
-          <BackLink href={backHref} aria-label="Close cooking mode" className="press grid size-11 shrink-0 place-items-center rounded-full text-stone hover:text-ivory">
-            <X className="size-6" strokeWidth={1.6} aria-hidden />
+      <header className="shrink-0 px-gutter pt-[calc(var(--safe-top)+4px)]">
+        <div className="mx-auto flex min-h-14 max-w-col items-center gap-3">
+          <BackLink href={backHref} aria-label="Close cooking mode" className="press grid size-11 shrink-0 place-items-center rounded-full bg-control text-fg">
+            <X className="size-5" strokeWidth={1.9} aria-hidden />
           </BackLink>
-          <div className="min-w-0 flex-1 px-1 text-center">
-            <p className="t-title-3 line-clamp-2 text-ivory">{recipe.name}</p>
-            <p className="t-meta mt-0.5 truncate text-stone">
-              {servingsLabel(servings)}
-              {wake === "on" && (
-                <>
-                  <span aria-hidden> · </span>
-                  <Sun className="mr-1 inline size-3.5 align-[-0.125em]" strokeWidth={1.6} aria-hidden />
-                  Screen stays on
-                </>
-              )}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              const on = !sound;
-              setSound(on);
-              writeTimerSound(on);
-            }}
-            aria-pressed={sound}
-            aria-label={sound ? "Timer sound on" : "Timer sound off"}
-            className="press grid size-11 shrink-0 place-items-center rounded-full text-stone hover:text-ivory"
-          >
-            {sound ? <BellRing className="size-[22px]" strokeWidth={1.6} aria-hidden /> : <BellOff className="size-[22px]" strokeWidth={1.6} aria-hidden />}
-          </button>
-          <button type="button" onClick={() => setIngredientsOpen(true)} aria-label="Ingredients" className="press relative grid size-11 shrink-0 place-items-center rounded-full text-stone hover:text-ivory">
-            <ListChecks className="size-[22px]" strokeWidth={1.6} aria-hidden />
+          <p className="t-label min-w-0 flex-1 text-center font-semibold" aria-live="polite">
+            {finished ? "All steps done" : `Step ${index + 1} of ${n}`}
+          </p>
+          <button type="button" onClick={() => setMenuOpen(true)} aria-label="Ingredients, steps and timer sound" aria-haspopup="dialog" className="press grid size-11 shrink-0 place-items-center rounded-full bg-control text-fg">
+            <Ellipsis className="size-5" strokeWidth={1.9} aria-hidden />
           </button>
         </div>
-        {/* one segment per step: leaf when done (earned), ivory where you are. Each is a 44px target:
-            the 24px row plus 10px above (up to the icon buttons) and 10px below (down to the timers). */}
-        <ol className="mx-auto mt-1 flex max-w-[760px] gap-1 px-2" aria-label={`${checks.steps.length} of ${n} steps done`}>
-          {recipe.steps.map((_, i) => (
-            <li key={i} className="flex-1">
-              <button
-                type="button"
-                onClick={() => (finished ? (setFinished(false), goto(i)) : goto(i))}
-                aria-label={`Go to step ${i + 1}${checks.steps.includes(i) ? ", done" : ""}`}
-                className="group relative block h-6 w-full before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-['']"
-              >
-                <span
-                  className={cn(
-                    "absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full transition-colors duration-(--dur-base)",
-                    checks.steps.includes(i) ? "bg-leaf-300" : i === index && !finished ? "bg-ivory" : "bg-vein-3 group-hover:bg-ui-line",
-                  )}
-                />
-              </button>
-            </li>
-          ))}
-        </ol>
+        <Bar thin className="mx-auto mt-2 max-w-col" value={finished ? 1 : (index + 1) / Math.max(1, n)} label={`Step ${Math.min(index + 1, n)} of ${n}`} />
         <TimerRail recipeKey={recipe.key} current={finished ? -1 : index} onJump={(i) => (setFinished(false), goto(i))} />
       </header>
 
@@ -295,35 +255,17 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
               resetDrag(true);
             }}
           >
-            <div ref={dragEl} className="mx-auto max-w-[760px] px-5 pt-6 pb-8 lg:px-8">
+            <div ref={dragEl} className="mx-auto max-w-col px-gutter pb-8 pt-6">
               {/* before you start: what this recipe breaks (allergies, diet, dislikes) */}
               {index === 0 && <ConflictNote conflicts={conflicts} className="mb-6" />}
               <div ref={swapRef}>
-                <div className="flex items-end justify-between gap-3">
-                  <p className="flex items-baseline gap-2.5" aria-hidden>
-                    <span className="t-num-l text-ivory">{index + 1}</span>
-                    <span className="t-eyebrow">of {n}</span>
-                  </p>
-                  {speech.supported && (
-                    <button
-                      type="button"
-                      onClick={() => (speech.speaking ? speech.stop() : speech.say(kitchenText(step.text)))}
-                      aria-pressed={speech.speaking}
-                      className="press t-callout -mr-2 inline-flex h-11 items-center gap-2 rounded-full px-3 font-semibold text-stone hover:text-ivory"
-                    >
-                      {speech.speaking ? <VolumeX className="size-5" strokeWidth={1.6} aria-hidden /> : <Volume2 className="size-5" strokeWidth={1.6} aria-hidden />}
-                      {speech.speaking ? "Stop" : "Read aloud"}
-                    </button>
-                  )}
-                </div>
+                <p className="t-label" data-food="">
+                  {recipe.name}
+                </p>
                 <h1 className="sr-only">
                   Step {index + 1} of {n}: {recipe.name}
                 </h1>
-                <p
-                  className={cn("mt-5 font-medium text-pretty transition-colors duration-(--dur-fast)", done ? "text-stone" : "text-ivory")}
-                  style={{ fontSize: "1.75rem", lineHeight: 1.35, letterSpacing: "-0.01em" }}
-                  aria-live="polite"
-                >
+                <p className={cn("t-title mt-3 text-pretty font-bold", done && "text-fg-2")} aria-live="polite" data-food="">
                   {kitchenText(step.text)}
                 </p>
                 {step.safety && <SafetyNote text={step.safety} large className="mt-6" />}
@@ -332,68 +274,89 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
                     <BigTimer recipeKey={recipe.key} step={index} totalSec={step.timerSec} label={stepLabel(index, step.text)} />
                   </div>
                 ) : null}
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={done}
-                  onClick={() => checks.toggleStep(index)}
-                  className={cn(
-                    "press t-callout mt-6 inline-flex h-12 items-center gap-2.5 rounded-full pl-2 pr-4 font-semibold transition-colors",
-                    done ? "bg-leaf-tint text-ivory shadow-[inset_0_0_0_1px_var(--leaf-line)]" : "bg-m2 text-stone shadow-[inset_0_0_0_1px_var(--vein-3)] hover:text-ivory",
-                  )}
-                >
-                  <span className={cn("grid size-8 place-items-center rounded-full transition-colors", done ? "text-leaf-300" : "shadow-[inset_0_0_0_1.5px_var(--ui-line)]")}>
-                    {done ? <SealTick className="seal-in size-7" /> : null}
-                  </span>
-                  {done ? "Done" : "Mark as done"}
-                </button>
               </div>
             </div>
           </main>
 
           {/* ---------------------------------------------------------------- bottom */}
-          <footer className="@container shrink-0 border-t border-vein px-4 pt-3 pb-[calc(12px+var(--safe-bottom))] lg:px-6 lg:pb-6">
-            <div className="mx-auto flex max-w-[760px] gap-3">
-              <Button variant="secondary" size="xl" className="w-16 shrink-0 rounded-btn p-0" onClick={prev} disabled={atStart} aria-label="Previous step">
-                <ChevronLeft className="size-7" strokeWidth={1.6} aria-hidden />
-              </Button>
-              {atEnd && priorLog ? (
-                <Button variant="primary" size="xl" className="flex-1 rounded-btn" onClick={next} aria-label="Finish. This meal is already in your log">
-                  Finish
-                </Button>
-              ) : atEnd ? (
-                <Button variant="primary" size="xl" className="flex-1 rounded-btn" onClick={eatAndFinish} loading={quick.pending} aria-label={`Eaten: log ${servingsLabel(servings)} and finish`}>
-                  Eaten<span className="@max-[19rem]:hidden">&nbsp;· log {servingsLabel(servings)}</span>
+          <footer className="@container shrink-0 bg-bg px-gutter pb-[calc(12px+var(--safe-bottom))] pt-3 lg:pb-6">
+            <div className="mx-auto flex max-w-col gap-3">
+              {atEnd ? (
+                <Button variant="secondary" size="xl" className="shrink-0 basis-[38%]" onClick={next} aria-label={alreadyLogged ? "Done" : "Done without logging"}>
+                  Done
                 </Button>
               ) : (
-                <Button variant="primary" size="xl" className="flex-1 rounded-btn" onClick={next}>
-                  Next<span className="@max-[19rem]:hidden">&nbsp;step</span>
-                  <ChevronRight className="size-6" strokeWidth={1.8} aria-hidden />
+                <Button variant="secondary" size="xl" className="shrink-0 basis-[38%]" onClick={prev} disabled={atStart}>
+                  Back
+                </Button>
+              )}
+              {atEnd && alreadyLogged ? (
+                <Button variant="secondary" size="xl" className="flex-1" disabled aria-label="Already in your food log">
+                  Eaten
+                </Button>
+              ) : atEnd ? (
+                <Button variant="primary" size="xl" className="flex-1" onClick={eatAndFinish} loading={quick.pending} aria-label={`Log ${servingsLabel(servings)} as eaten and finish`}>
+                  Log as eaten
+                </Button>
+              ) : (
+                <Button variant="primary" size="xl" className="flex-1" onClick={next}>
+                  Next step
                 </Button>
               )}
             </div>
-            {atEnd && priorLog ? (
-              <p className="t-meta mt-2 flex min-h-11 items-center justify-center text-center text-stone">{loggedText(priorLog.local_date, today, Number(priorLog.calories))} · Finish won&apos;t add it again</p>
-            ) : atEnd ? (
-              <div className="mt-1 flex items-center justify-center gap-1">
-                {quick.note && <span className="t-meta text-stone">{quick.note} ·</span>}
-                <button type="button" onClick={next} className="press t-callout inline-flex h-11 items-center rounded-field px-2 font-semibold text-stone hover:text-ivory">
-                  Finish without logging
-                </button>
-              </div>
-            ) : (
-              <p className="t-meta mt-2 text-center text-stone">
-                <span className="lg:hidden">Swipe for the next step. </span>
-                <span className="hidden lg:inline">Arrow keys move between steps. </span>
-                Next ticks this one off.
+            {atEnd && (quick.note || priorLog) && (
+              <p role="status" className="t-cap mx-auto mt-2 max-w-col text-center">
+                {quick.note ?? (priorLog ? `${loggedText(priorLog.local_date, today, Number(priorLog.calories))} · it won't be added again` : null)}
               </p>
             )}
           </footer>
         </>
       )}
 
-      <Sheet open={ingredientsOpen} onOpenChange={setIngredientsOpen} title="Ingredients" description={`For ${servingsLabel(servings)}`}>
-        <IngredientList items={ingredients} checked={checks.ingredients} onToggle={(k) => checks.toggleIngredient(k)} dense />
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen} title="Cooking" description={`${recipe.name} · ${servingsLabel(servings)}`}>
+        <div className="flex flex-col gap-5 pb-2">
+          <ListGroup>
+            {speech.supported && !finished && (
+              <Row icon={speech.speaking ? VolumeX : Volume2} title={speech.speaking ? "Stop reading" : "Read this step aloud"} chevron={false} onClick={() => (speech.speaking ? speech.stop() : speech.say(kitchenText(step.text)))} />
+            )}
+            <Row
+              icon={sound ? BellRing : BellOff}
+              title="Timer sound"
+              value={sound ? "On" : "Off"}
+              chevron={false}
+              ariaLabel={`Timer sound, ${sound ? "on" : "off"}. Tap to turn ${sound ? "off" : "on"}`}
+              onClick={() => {
+                const on = !sound;
+                setSound(on);
+                writeTimerSound(on);
+              }}
+            />
+            <Row icon={Sun} title="Screen stays on" value={wake === "on" ? "On" : "Not available"} />
+          </ListGroup>
+          <section aria-label="Steps">
+            <h3 className="t-section mb-3">Steps</h3>
+            <ListGroup>
+              {recipe.steps.map((st, i) => (
+                <Row
+                  key={i}
+                  title={`${i + 1}. ${kitchenText(st.text)}`}
+                  wrap
+                  value={checks.steps.includes(i) ? "Done" : i === index && !finished ? "Now" : undefined}
+                  chevron={false}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setFinished(false);
+                    goto(i);
+                  }}
+                />
+              ))}
+            </ListGroup>
+          </section>
+          <section aria-label="Ingredients">
+            <h3 className="t-section mb-3">Ingredients</h3>
+            <IngredientList items={ingredients} checked={checks.ingredients} onToggle={(k) => checks.toggleIngredient(k)} dense />
+          </section>
+        </div>
       </Sheet>
       <LogMealSheet
         open={logOpen}
@@ -413,8 +376,7 @@ function TimerRail({ recipeKey, current, onJump }: { recipeKey: string; current:
   const others = visibleTimers(all, now).filter((t) => t.recipeKey === recipeKey && t.step !== current);
   if (!others.length) return null;
   return (
-    // The rail's padding lets taps through to the step segments' hit area just above it.
-    <div className="no-scrollbar pointer-events-none mx-auto flex max-w-[760px] gap-2 overflow-x-auto px-2 pt-2.5 pb-1">
+    <div className="no-scrollbar mx-auto flex max-w-col gap-2 overflow-x-auto pb-1 pt-3">
       {others.map((t) => {
         const ring = isDone(t, now);
         return (
@@ -422,15 +384,12 @@ function TimerRail({ recipeKey, current, onJump }: { recipeKey: string; current:
             key={t.id}
             type="button"
             onClick={() => onJump(t.step)}
-            className={cn(
-              "press t-callout pointer-events-auto inline-flex h-11 shrink-0 items-center gap-2 rounded-full px-3.5 font-semibold",
-              ring ? "bg-m2 text-leaf-200 shadow-[inset_0_0_0_1px_var(--leaf-line)]" : "bg-m2 text-stone shadow-[inset_0_0_0_1px_var(--vein-3)]",
-            )}
+            className="press t-label inline-flex h-11 shrink-0 items-center gap-2 rounded-pill bg-control px-3.5 font-semibold text-fg"
             aria-label={`Step ${t.step + 1} timer, ${ring ? "done" : `${clockText(timeLeft(t, now))} left`}. Go to step`}
           >
-            <Timer className="size-4" strokeWidth={1.6} aria-hidden />
+            {ring ? <BellRing className="size-4" strokeWidth={1.9} aria-hidden /> : <Timer className="size-4" strokeWidth={1.9} aria-hidden />}
             <span>Step {t.step + 1}</span>
-            <span className={cn("t-num-s", ring ? "text-leaf-200" : t.endAt ? "text-ivory" : "text-stone")}>{ring ? "Done" : clockText(timeLeft(t, now))}</span>
+            <span className="tabular-nums">{ring ? "Done" : clockText(timeLeft(t, now))}</span>
           </button>
         );
       })}
@@ -471,58 +430,61 @@ function Finished({
   onAgain: () => void;
 }) {
   const logged = !!lastLog || quickLogged || !!priorLog;
+  const loggedLine = lastLog
+    ? loggedText(lastLog.entry.local_date, today, Number(lastLog.entry.calories))
+    : quickLogged
+      ? `Logged today · ${servingsLabel(servings)}`
+      : priorLog
+        ? loggedText(priorLog.local_date, today, Number(priorLog.calories))
+        : null;
   return (
     <main className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto flex min-h-full max-w-col flex-col px-5 pt-10 pb-[calc(24px+var(--safe-bottom))]">
+      <div className="mx-auto flex min-h-full max-w-col flex-col px-gutter pb-[calc(24px+var(--safe-bottom))] pt-8">
         <div className="flex-1">
-          <SealTick className="seal-in size-16 text-leaf-300" />
-          <h1 className="t-title-1 mt-5 text-ivory">Cooked.</h1>
-          <p className="t-callout mt-2 text-stone">
-            All {recipe.steps.length} steps done · {servingsLabel(servings)} of {recipe.name}.
+          <h1 className="t-title">Done cooking</h1>
+          <p className="t-label mt-2">
+            {recipe.steps.length} steps · {servingsLabel(servings)} of <span data-food="">{recipe.name}</span>
           </p>
           {!logged && <ConflictNote conflicts={conflicts} className="mt-6" />}
-          <div className="mt-6 border-y border-vein py-3">
-            <div className="mb-1.5 flex items-center justify-between gap-3">
-              <p className="t-eyebrow">This meal</p>
-              {recipe.origin === "ai" ? <Tag kind="AI" detail="estimate" /> : <Tag kind="CALC" explain="Each ingredient's USDA values × the amounts, for the servings cooked." />}
-            </div>
-            <MacroLine macros={macros} />
+          <div className="mt-6 rounded-card bg-surface px-5 py-4">
+            <p className="t-cap flex items-center gap-2">This meal {recipe.origin === "ai" && <AiMark />}</p>
+            <p className="t-row mt-1 tabular-nums">
+              {formatInt(macros.kcal)} kcal · {Math.round(macros.protein)} g protein · {Math.round(macros.carbs)} g carbs · {Math.round(macros.fat)} g fat
+            </p>
           </div>
-          {lastLog ? (
-            <LoggedStrip className="mt-4" text={loggedText(lastLog.entry.local_date, today, Number(lastLog.entry.calories))} href={`/nutrition?date=${lastLog.entry.local_date}`} />
-          ) : quickLogged ? (
-            <LoggedStrip className="mt-4" text={`Logged today · ${servingsLabel(servings)}`} href="/nutrition" />
-          ) : priorLog ? (
-            <LoggedStrip className="mt-4" text={loggedText(priorLog.local_date, today, Number(priorLog.calories))} href={`/nutrition?date=${priorLog.local_date}`} />
-          ) : null}
+          {loggedLine && (
+            <p role="status" className="t-row mt-3 flex items-center gap-2 px-1">
+              <Check className="size-5 shrink-0" strokeWidth={2.2} aria-hidden />
+              {loggedLine}
+            </p>
+          )}
         </div>
-        <div className="mt-8 space-y-3">
+        <div className="mt-8 flex flex-col gap-3">
           {logged ? (
-            <Button asChild variant="primary" size="lg" block>
-              <BackLink href={backHref}>Back to recipe</BackLink>
+            <Button asChild variant="secondary" size="lg" block>
+              <BackLink href={backHref}>Back to the recipe</BackLink>
             </Button>
           ) : (
             <>
               <Button variant="primary" size="lg" block onClick={onEat} loading={eatPending}>
-                <SealTick className="size-5" />
-                Eaten · log {servingsLabel(servings)}
+                Log as eaten
               </Button>
-              {eatNote && <p className="t-meta text-center text-stone">{eatNote}</p>}
+              {eatNote && <p className="t-cap text-center">{eatNote}</p>}
               <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" size="lg" onClick={onLog}>
+                <Button variant="secondary" size="lg" onClick={onLog}>
                   Log with changes
                 </Button>
-                <Button asChild variant="outline" size="lg">
-                  <BackLink href={backHref}>Back to recipe</BackLink>
+                <Button asChild variant="secondary" size="lg">
+                  <BackLink href={backHref}>Back to the recipe</BackLink>
                 </Button>
               </div>
             </>
           )}
-          <button type="button" onClick={onAgain} className="press t-callout mx-auto flex h-11 items-center gap-1.5 rounded-field px-3 font-semibold text-stone hover:text-ivory">
-            <RotateCcw className="size-4" strokeWidth={1.6} aria-hidden />
+          <Button variant="ghost" size="md" onClick={onAgain}>
+            <RotateCcw className="size-4" strokeWidth={1.9} aria-hidden />
             Cook it again
-          </button>
-          {!logged && <p className="t-meta text-center text-stone">Nothing is logged until you tap Eaten.</p>}
+          </Button>
+          {!logged && <p className="t-cap text-center">Nothing is logged until you tap Log as eaten.</p>}
         </div>
       </div>
     </main>
@@ -556,7 +518,7 @@ function useReadAloud() {
 
 export function CookSkeleton() {
   return (
-    <div className="fixed inset-0 bg-obsidian px-5 pt-[calc(var(--safe-top)+16px)]" aria-busy="true" aria-label="Loading">
+    <div className="fixed inset-0 bg-bg px-gutter pt-[calc(var(--safe-top)+16px)]" aria-busy="true" aria-label="Loading">
       <Skeleton className="mx-auto h-5 w-48" />
       <Skeleton className="mt-6 h-1 w-full" />
       <Skeleton className="mt-10 h-20 w-16" />
