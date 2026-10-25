@@ -100,6 +100,26 @@ export function markMoment(sessionId: string, slug: string): boolean {
   return true;
 }
 
+/* ------------------------------------------- in-workout tip (fatigue overlap) */
+
+const tipKey = (sessionId: string) => `pgg.tip.${sessionId}`;
+type TipMuscle = "triceps" | "biceps";
+const NO_TIPS: TipMuscle[] = [];
+
+/** Muscles whose in-workout tip was applied or dismissed this session (each fires once, §4.2.15). */
+export function useTipFired(sessionId: string): TipMuscle[] {
+  return useSyncExternalStore(
+    subscribe,
+    () => read<TipMuscle[]>(tipKey(sessionId), NO_TIPS),
+    () => NO_TIPS,
+  );
+}
+export function markTipFired(sessionId: string, muscle: "triceps" | "biceps" | "both") {
+  const cur = read<TipMuscle[]>(tipKey(sessionId), NO_TIPS);
+  const add: TipMuscle[] = muscle === "both" ? ["triceps", "biceps"] : [muscle];
+  write(tipKey(sessionId), [...new Set([...cur, ...add])]);
+}
+
 /* ------------------------------------------------- device copy (offline) */
 
 // The live session as this device last showed it, plus the journal of changes made on this
@@ -139,6 +159,7 @@ export function clearSessionStores(sessionId: string) {
   write(restKey(sessionId), null);
   write(skipKey(sessionId), null);
   write(prKey(sessionId), null);
+  write(tipKey(sessionId), null);
   try {
     localStorage.removeItem(copyKey(sessionId));
   } catch {

@@ -1,22 +1,19 @@
 "use client";
 
-// What the shell's live slot shows while a session is active on another screen
-// (docs/DESIGN-V2.md §2.1): the rest digits ticking (tabular, leaf in the last ten seconds) over
-// "PUSH A · rest" and the next set, "Rest ended 0:42 ago" once it is over, else the elapsed
-// time and sets logged. No log button (prevents misfires): the whole slot returns to Gym Mode.
-// It keeps the rest watcher (end chime, announcements) mounted off the workout screen, and it
-// runs Gym Mode auto (§3.2.8): opening the installed app, or coming back to it, with a session
-// active lands in Gym Mode.
+// What the workout bar says (docs/DESIGN-V3-SIMPLE.md §3.3) while a workout is live on another
+// screen: the workout's short name, then "Rest 1:12" (ticking) and "Set 4 of 19". When space runs
+// out it drops the set first, then the rest, then shortens the name. No log button: the whole bar
+// returns to the workout ("Back to …" for VoiceOver). It keeps the rest watcher (the end chime)
+// mounted off the workout screen, and it runs "Open the workout when the app opens" (gymAuto).
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
-import { cn } from "@/lib/cn";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useToday } from "@/lib/data/core";
 import { useProfile } from "@/lib/data/profile";
-import { formatDuration } from "@/lib/dates";
 import { parseAppPrefs } from "@/lib/prefs";
+import { templateLabels } from "@/lib/training/programs";
 import { gymDate } from "@/lib/workout/gym";
-import { endedAgoSec, formatClock, remainingSec, type RestState } from "@/lib/workout/rest";
+import { formatClock, remainingSec, type RestState } from "@/lib/workout/rest";
 import { isStaleSession, lastCompletedAt } from "@/lib/workout/summary";
 import { useLiveSession } from "./data";
 import { RestWatcher, useClockSec } from "./rest";
@@ -29,9 +26,9 @@ export interface LiveSlotSession {
   local_date: string;
 }
 
-/** The slot's accessible name ("Return to Push A"); the visible line is the content below. */
+/** The bar's VoiceOver name: "Back to Shoulders, Biceps & Triceps B". */
 export function liveSlotLabel(s: LiveSlotSession) {
-  return `Return to ${s.name}`;
+  return `Back to ${s.name}`;
 }
 
 export function LiveSlotContent({ session, compact }: { session: LiveSlotSession; compact?: boolean }) {
@@ -49,69 +46,78 @@ export function LiveSlotContent({ session, compact }: { session: LiveSlotSession
   const stale = isStaleSession(session.local_date, today, session.started_at, lastCompletedAt(live.data?.sets ?? []), minute * 60000);
   useGymAuto(session.id, !!profile && prefs.gymAuto && !stale);
 
-  const name = <span className="t-eyebrow truncate !text-ivory">{session.name}</span>;
+  const short = templateLabels({ key: live.data?.session.template_key ?? "", name: session.name }).short;
+  const setText = stale ? `Open since ${gymDate(session.local_date)}` : counts.ready && counts.total > 0 ? (counts.done >= counts.total ? "All sets logged" : `Set ${counts.done + 1} of ${counts.total}`) : null;
   return (
     <>
-      {/* keep: a rest that ends while he is on another screen stays as "Rest ended 0:42 ago" */}
+      {/* keep: a rest that ends while he is on another screen reads "Rest over" until the next set */}
       <RestWatcher sessionId={session.id} chimeOn={prefs.restChime} hapticsOn={false} keep />
-      {rest ? (
-        <RestBody rest={rest} name={session.name} compact={compact} />
-      ) : (
-        <span className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="t-num-m shrink-0 text-ivory">{stale ? "—" : <Elapsed startedAt={session.started_at} />}</span>
-          <span className="flex min-w-0 flex-col leading-tight">
-            {name}
-            <span className="t-meta tnum truncate text-stone">
-              {stale ? `Open since ${gymDate(session.local_date)}` : counts.ready && counts.total > 0 ? `${counts.done} / ${counts.total} sets` : "In progress"}
-            </span>
-          </span>
-        </span>
-      )}
+      <BarLine name={short} rest={stale ? null : rest} setText={setText} compact={compact} />
     </>
   );
 }
 
-function Elapsed({ startedAt }: { startedAt: string }) {
-  const now = useClockSec();
-  return <>{formatDuration(Math.max(0, now - Math.floor(Date.parse(startedAt) / 1000)))}</>;
-}
-
-function RestBody({ rest, name, compact }: { rest: RestState; name: string; compact?: boolean }) {
+function RestText({ rest }: { rest: RestState }) {
   const now = useClockSec();
   const rem = remainingSec(rest, now);
-  const paused = rest.pausedRemaining != null;
-  const ended = rem === 0 && !paused;
-  const ago = endedAgoSec(rest, now);
-  const switching = !!rest.next && rest.next.exercise !== rest.exercise;
-  // The set and its load first: a long lift name is what truncates, never the numbers.
-  const next = rest.next ? [rest.next.set, rest.next.load, switching ? rest.next.exercise : null].filter(Boolean).join(" · ") : "Last set done";
-  const over = ended && ago > 3;
-  const word = ended ? (over ? "rest ended" : "rest over") : paused ? "paused" : "rest";
-  return (
-    <span className="flex min-w-0 flex-1 items-center gap-3" role="timer" aria-label={ended ? `Rest ended ${formatClock(ago)} ago` : `${formatClock(rem)} of rest left`}>
-      <span aria-hidden className={cn("t-num-m shrink-0", ended ? (over ? "text-stone" : "text-leaf-200") : rem <= 10 && !paused ? "text-leaf-200" : paused ? "text-stone" : "text-ivory")}>
-        {ended ? (over ? formatClock(ago) : "GO") : formatClock(rem)}
-        {over && <span className="t-meta ml-1 text-ash">ago</span>}
-      </span>
-      <span aria-hidden className="flex min-w-0 flex-col leading-tight">
-        {/* Ended: "0:42 ago · REST ENDED" — the session is named by the slot's label, and the
-            words that say what the digits mean must not be the part that truncates. */}
-        <span className="t-eyebrow truncate">
-          {over ? (
-            word
-          ) : (
-            <>
-              <span className="!text-ivory">{name}</span> · {word}
-            </>
-          )}
+  return <>{rem > 0 ? `Rest ${formatClock(rem)}` : "Rest over"}</>;
+}
+
+/** Name, rest, set — measured, so the set drops first, then the rest, then the name shortens. */
+function BarLine({ name, rest, setText, compact }: { name: string; rest: RestState | null; setText: string | null; compact?: boolean }) {
+  const nameRef = useRef<HTMLSpanElement>(null);
+  const rowRef = useRef<HTMLSpanElement>(null);
+  const [level, setLevel] = useState(0);
+  const shape = `${name}|${!!rest}|${setText ?? ""}`;
+  const [seen, setSeen] = useState(shape);
+  if (seen !== shape) {
+    setSeen(shape);
+    setLevel(0);
+  }
+  useLayoutEffect(() => {
+    const el = nameRef.current;
+    if (el && level < 2 && el.scrollWidth > el.clientWidth + 1) setLevel((l) => Math.min(2, l + 1));
+  }, [level, shape]);
+  useEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    let w = row.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (row.clientWidth > w + 1) setLevel(0);
+      w = row.clientWidth;
+    });
+    ro.observe(row);
+    return () => ro.disconnect();
+  }, []);
+  const showSet = !!setText && level < 1;
+  const showRest = !!rest && level < 2;
+  const tail = (
+    <>
+      {showRest && rest && <RestText rest={rest} />}
+      {showRest && showSet && " · "}
+      {showSet && setText}
+    </>
+  );
+  if (compact)
+    return (
+      <span ref={rowRef} className="flex min-w-0 flex-1 flex-col leading-tight">
+        <span ref={nameRef} className="t-row min-w-0 truncate" data-budget-name="">
+          {name}
         </span>
-        {!compact && <span className="t-meta tnum truncate text-stone">{next}</span>}
+        {(showRest || showSet) && <span className="t-cap truncate tabular-nums">{tail}</span>}
       </span>
+    );
+  return (
+    <span ref={rowRef} className="flex min-w-0 flex-1 items-center gap-2">
+      <span ref={nameRef} className="t-row min-w-0 truncate" data-budget-name="">
+        {name}
+      </span>
+      {(showRest || showSet) && <span className="t-label shrink-0 whitespace-nowrap tabular-nums">{tail}</span>}
     </span>
   );
 }
 
-/* --------------------------------------------------------- Gym Mode auto */
+/* --------------------------------------------------------- the workout opens when the app opens */
 
 /** Set once per page load: the app-open redirect is considered only on the first mount. */
 let launchChecked = false;
