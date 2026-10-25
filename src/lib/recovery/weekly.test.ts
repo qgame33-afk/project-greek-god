@@ -174,29 +174,19 @@ describe("weeklyReview", () => {
     });
   });
 
-  it("counts volleyball from sessions and check-in flags without double counting", () => {
+  it("ignores volleyball entirely: rest days are days without a finished session", () => {
     const r = weeklyReview(
       base({
-        checkins: week(WS).map((d, i) =>
-          ci(d, { sleep_hours: 8, volleyball: i === 1 || i === 3 || i === 6 }),
-        ),
-        volleyball: [
-          { local_date: addDays(WS, 1), duration_min: 90 },
-          { local_date: addDays(WS, 3), duration_min: 60 },
-          { local_date: addDays(PREV, 1), duration_min: 90 },
-        ],
+        checkins: week(WS).map((d, i) => ci(d, { sleep_hours: 8, volleyball: i === 6 } as Partial<CheckinLite>)),
+        volleyball: [{ local_date: addDays(WS, 6), duration_min: 90 }],
         sessions: plannedSix.map((d) => sess(d)),
       }),
     );
-    expect(r.volleyball).toEqual({
-      sessions: 3,
-      minutes: 150,
-      prevSessions: 1,
-    });
-    expect(r.restDays).toBe(0); // Sunday had volleyball
-    const keys = r.recommendations.map((x) => x.key);
-    expect(keys).toContain("volleyball");
-    expect(keys).toContain("rest");
+    expect(r.volleyball).toEqual({ sessions: 0, minutes: 0, prevSessions: 0 });
+    expect(r.restDays).toBe(1); // Sunday: no session
+    const keys = r.recommendations.map((x) => x.key as string);
+    expect(keys).not.toContain("volleyball");
+    expect(keys).not.toContain("rest");
   });
 
   it("compares training volume with the previous week", () => {

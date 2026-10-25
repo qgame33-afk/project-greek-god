@@ -31,6 +31,7 @@ export interface TrainPlan {
 export interface DayInput {
   date: ISODate;
   now: Min;
+  /** Train or rest. (The `volleyball` variant is @deprecated: read as its training session, or rest; removed in P2.) */
   plan: ({ kind: "train" } & TrainPlan) | { kind: "rest" } | { kind: "volleyball"; train?: TrainPlan };
   session: { status: "none" } | { status: "active"; startedAt: Min } | { status: "done"; endedAt: Min };
   meals: PlannedMealSlot[];
@@ -70,7 +71,7 @@ export interface DayState {
   next: NextAction;
   later: DayItem[]; // at ≥ now or untimed-and-not-done, time order
   earlier: DayItem[]; // done or past
-  skippedChip: string | null; // e.g. "Dawn · 2 left"
+  skippedChip: string | null; // e.g. "Check-in · 2 left"
 }
 
 export const DAY_START: Min = 5 * 60;
@@ -94,7 +95,7 @@ export function minutesSinceMidnight(d: Date): Min {
   return d.getHours() * 60 + d.getMinutes();
 }
 
-/** Today's training session, if any (a volleyball day can carry one). */
+/** Today's training session, if any. */
 export function trainOf(plan: DayInput["plan"]): TrainPlan | null {
   if (plan.kind === "train") return { key: plan.key, name: plan.name, at: plan.at, durationMin: plan.durationMin };
   if (plan.kind === "volleyball" && plan.train) return plan.train;
@@ -247,6 +248,6 @@ export function dayState(i: DayInput): DayState {
     next: nextAction(i, phase),
     later,
     earlier,
-    skippedChip: dawnSkipped && dawnLeft > 0 ? `Dawn · ${dawnLeft} left` : null,
+    skippedChip: dawnSkipped && dawnLeft > 0 ? `Check-in · ${dawnLeft} left` : null,
   };
 }

@@ -313,8 +313,11 @@ describe("targets for swaps and additions", () => {
   const lib = (p: Partial<import("@/lib/training/types").LibraryExercise>) =>
     ({ slug: "x", name: "X", primary: [], secondary: [], category: "compound", equipment: "barbell", tracking: "weight_reps", rest: 150, increment: 5, instructions: [], formTips: [], substitutes: [], ...p }) as import("@/lib/training/types").LibraryExercise;
 
-  it("keeps the prescription for a like-for-like swap", () => {
-    expect(retarget({ low: 5, high: 8, unit: "reps", rir: "1–2", sets: 3 }, lib({ rest: 120, perSide: false }))).toEqual({ sets: 3, low: 5, high: 8, unit: "reps", rir: "1–2", rest: 120 });
+  it("keeps the prescription for a like-for-like swap (same effort class keeps rest and RIR)", () => {
+    expect(retarget({ low: 5, high: 8, unit: "reps", rir: "1–2", sets: 3, slug: "barbell-bench-press", rest: 180 }, lib({ rest: 120, perSide: false }))).toEqual({ sets: 3, low: 5, high: 8, unit: "reps", rir: "1–2", rest: 180 });
+    // an unknown or different effort class takes the new exercise's effort defaults (Q§10)
+    expect(retarget({ low: 5, high: 8, unit: "reps", rir: "1–2", sets: 3 }, lib({ rest: 120, perSide: false }))).toEqual({ sets: 3, low: 5, high: 8, unit: "reps", rir: "1–3", rest: 120 });
+    expect(retarget({ low: 10, high: 15, unit: "reps", rir: "1–3", sets: 2, slug: "machine-chest-press", rest: 120 }, lib({ category: "isolation", rest: 75 }))).toMatchObject({ rir: "0–2", rest: 75 });
     expect(retarget({ low: 10, high: 12, unit: "reps", rir: "1–2", sets: 2 }, lib({ perSide: true })).unit).toBe("each");
   });
 
@@ -324,7 +327,10 @@ describe("targets for swaps and additions", () => {
   });
 
   it("gives added exercises honest defaults", () => {
-    expect(defaultTargets(lib({ category: "isolation", rest: 75 }))).toEqual({ sets: 3, low: 10, high: 15, unit: "reps", rir: "1–2", rest: 75 });
+    expect(defaultTargets(lib({ category: "isolation", rest: 75 }))).toEqual({ sets: 3, low: 10, high: 15, unit: "reps", rir: "0–2", rest: 75 });
+    expect(defaultTargets(lib({ category: "isolation", rest: 45 }))).toMatchObject({ rir: "0–2", rest: 60 });
+    expect(defaultTargets(lib({ category: "compound", rest: 210 }))).toMatchObject({ low: 6, high: 10, rir: "1–3", rest: 180 });
+    expect(defaultTargets(lib({ category: "core", rest: 60 }))).toMatchObject({ rir: "0–2", rest: 60 });
     expect(defaultTargets(lib({ category: "explosive", tracking: "reps" }))).toMatchObject({ low: 3, high: 3, rir: "Fresh" });
   });
 });

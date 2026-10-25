@@ -4,6 +4,10 @@
 // Training and Recovery screens all call `computeGuidance` with the same inputs.
 
 import { addDays, type ISODate } from "@/lib/dates";
+import { isArmSession, type OverlapSet } from "@/lib/training/overlap";
+import { templateDef } from "@/lib/training/programs";
+import type { DayFamily, TemplateExercise } from "@/lib/training/types";
+import { isLegDay } from "@/lib/training/volume";
 import { formatHours, formatSleep } from "./checkin";
 
 export interface CheckinLite {
@@ -15,7 +19,8 @@ export interface CheckinLite {
   fatigue: number | null;
   stress: number | null;
   pain_notes: string | null;
-  volleyball: boolean;
+  /** @deprecated ignored (no volleyball); removed in P2. */
+  volleyball?: boolean;
 }
 
 export interface SessionLite {
@@ -27,13 +32,15 @@ export interface SessionLite {
 }
 
 export interface PlanLite {
-  /** "rest" or a template key such as "legs_a" */
+  /** "rest" or a template key such as "legs_abs_a" */
   key: string;
   name: string | null;
-  /** Lower-body day (squats, hinges, jumps). */
+  /** A leg day, by content (isLegDay). */
   isLegs: boolean;
-  /** The day opens with jumps (box, broad, approach). */
-  hasJumps: boolean;
+  /** The template's family ("chest_back" …), null on rest or unknown keys. */
+  family?: DayFamily | null;
+  /** @deprecated always false; removed in P2. */
+  hasJumps?: boolean;
 }
 
 export interface ReadinessInput {
@@ -41,8 +48,8 @@ export interface ReadinessInput {
   sleepGoalH: number;
   /** Check-ins around the date (the last ~2 weeks is plenty). */
   checkins: CheckinLite[];
-  /** Dates with volleyball, from logged sessions and/or the check-in switch. */
-  volleyballDates: ISODate[];
+  /** @deprecated ignored (no volleyball); removed in P2. */
+  volleyballDates?: ISODate[];
   /** Workout sessions over the last ~4 weeks (only `done` ones count). */
   sessions: SessionLite[];
   plan: PlanLite;
@@ -61,7 +68,6 @@ export interface GuidanceFactor {
     | "fatigue"
     | "stress"
     | "pain"
-    | "volleyball"
     | "streak"
     | "volume";
   label: string;
@@ -78,7 +84,8 @@ export interface Adjustments {
   rir: string | null;
   /** Percent change to working loads, e.g. −10. Null = as planned. */
   loadPct: number | null;
-  skipJumps: boolean;
+  /** @deprecated always false; removed in P2. */
+  skipJumps?: boolean;
   /** Move the session and take the day off. */
   rest: boolean;
 }
@@ -98,8 +105,8 @@ export interface Guidance {
   /** True when today's check-in has at least one recovery signal. */
   hasCheckin: boolean;
   /**
-   * A check-in row exists for the date but holds no recovery signal yet (only the
-   * volleyball switch, say), so the call is "finish the check-in", not "start one".
+   * A check-in row exists for the date but holds no recovery signal yet, so the call is
+   * "finish the check-in", not "start one".
    */
   partialCheckin: boolean;
   /** Text of the pain note when one was logged for the date. */
@@ -228,7 +235,7 @@ export function computeGuidance(input: ReadinessInput): Guidance {
       title: `${name} done`,
       detail: hard
         ? `Recovery tonight: protein with dinner, an easy walk and ${goal} h of sleep. Tomorrow's check-in sets the next call.`
-        : `Refuel tonight and aim for ${goal} h of sleep. Tomorrow's check-in sets the next call.`,
+        : `Eat well tonight and aim for ${goal} h of sleep. Tomorrow's check-in sets the next call.`,
       // the detail already says how long to sleep
       extras: g.extras.filter((e) => !e.startsWith("Aim for")),
       adjustments: calm,
@@ -242,7 +249,7 @@ export function computeGuidance(input: ReadinessInput): Guidance {
       session: "active",
       title: `Keep ${name} light`,
       detail: "Your markers called for a recovery day. Finish with light sets at RIR 3–4, or stop early.",
-      adjustments: { ...g.adjustments, rest: false, dropSets: Math.max(1, g.adjustments.dropSets), rir: "3–4", loadPct: -10, skipJumps: true },
+      adjustments: { ...g.adjustments, rest: false, dropSets: Math.max(1, g.adjustments.dropSets), rir: "3–4", loadPct: -10, skipJumps: false },
     };
   if (g.level === "rest")
     return {
@@ -345,19 +352,6 @@ function planCall(input: ReadinessInput): Guidance {
     });
 
   /* context the trackers already know, with or without a check-in */
-  const vbSet = new Set(input.volleyballDates);
-  const vbDays7 = [...vbSet].filter(
-    (d) => d >= addDays(date, -6) && d <= date,
-  ).length;
-  const vbRecent =
-    vbSet.has(date) || vbSet.has(addDays(date, -1)) || !!today?.volleyball;
-  if (vbDays7 > 0)
-    factors.push({
-      key: "volleyball",
-      label: "Volleyball, 7 days",
-      value: `${vbDays7} ${vbDays7 === 1 ? "day" : "days"}`,
-      points: vbDays7 >= 3 ? 1 : 0,
-    });
   const streak = trainingStreak(input.sessions, date);
   if (streak >= 3)
     factors.push({
@@ -398,9 +392,7 @@ function planCall(input: ReadinessInput): Guidance {
       ? `Slept ${f.value}`
       : f.key === "pain"
         ? `Pain noted: ${f.value}`
-        : f.key === "volleyball"
-          ? `Volleyball ${f.value} of the last 7`
-          : `${f.label} ${f.value}`;
+        : `${f.label} ${f.value}`;
   const positives = factors.filter(
     (f) =>
       f.points === 0 &&
@@ -415,8 +407,8 @@ function planCall(input: ReadinessInput): Guidance {
       "Work around the sore area and skip anything that hurts. Sharp or lasting pain: get it checked.",
     );
 
-  const legsLoaded =
-    plan.isLegs && vbRecent && ((soreness ?? 0) >= 3 || (fatigue ?? 0) >= 3);
+  // a leg day while the legs are still sore (§4.5)
+  const legsSore = plan.isLegs && (soreness ?? 0) >= 4;
   const base = (
     level: ReadinessLevel,
     title: string,
@@ -434,7 +426,6 @@ function planCall(input: ReadinessInput): Guidance {
       dropSets: 0,
       rir: null,
       loadPct: null,
-      skipJumps: false,
       rest: false,
       ...adjustments,
     },
@@ -477,7 +468,7 @@ function planCall(input: ReadinessInput): Guidance {
           ? "Add sleep and soreness"
           : "Check in for today's guidance",
         partialCheckin
-          ? `${today?.volleyball ? "Volleyball is logged. " : ""}Sleep, energy and soreness decide whether to run ${session} as planned.`
+          ? `Sleep, energy and soreness decide whether to run ${session} as planned.`
           : `Sleep, energy and soreness decide whether to run ${session} as planned. It takes 20 seconds.`,
       ),
       reasons: heavy.slice(0, 3).map(reasonOf),
@@ -488,8 +479,8 @@ function planCall(input: ReadinessInput): Guidance {
     return base(
       "recover",
       "Take a recovery day",
-      `Walk, mobility, sleep. Move ${session} to tomorrow.`,
-      { rest: true, skipJumps: true },
+      "Walk, mobility, sleep. Six days aren't mandatory.",
+      { rest: true },
     );
 
   if (score >= THRESHOLDS.ease)
@@ -501,44 +492,11 @@ function planCall(input: ReadinessInput): Guidance {
         dropSets: 1,
         rir: "3",
         loadPct: -10,
-        skipJumps: plan.hasJumps,
       },
     );
 
-  if (legsLoaded) {
-    // Name what triggered the call (volleyball + tired legs) even when neither scores points,
-    // so the reasons never read as "all fine" next to "skip the jumps".
-    const vbWhen =
-      vbSet.has(date) || today?.volleyball
-        ? "Volleyball today"
-        : "Volleyball yesterday";
-    const legs =
-      (soreness ?? 0) >= (fatigue ?? 0)
-        ? `Soreness ${soreness}/5`
-        : `Fatigue ${fatigue}/5`;
-    const why = [vbWhen, legs];
-    return {
-      ...base(
-        "legs",
-        plan.hasJumps ? "Skip the jumps today" : "Ease off the legs",
-        plan.hasJumps
-          ? `Swap jumps for extra rest; legs are carrying volleyball fatigue.${score >= THRESHOLDS.trim ? " Drop one set per exercise too." : ""}`
-          : `Keep leg work at RIR 2–3; legs are carrying volleyball fatigue.${score >= THRESHOLDS.trim ? " Drop one set per exercise." : ""}`,
-        {
-          skipJumps: plan.hasJumps,
-          rir: "2–3",
-          dropSets: score >= THRESHOLDS.trim ? 1 : 0,
-        },
-      ),
-      reasons: [
-        ...why,
-        ...heavy
-          .filter((f) => f.key !== "volleyball")
-          .map(reasonOf)
-          .filter((r) => !why.includes(r)),
-      ].slice(0, 3),
-    };
-  }
+  if (legsSore)
+    return base("legs", "Ease off the legs", "Keep leg work at RIR 2–3 and drop one set per exercise. Your legs are still sore.", { rir: "2–3", dropSets: 1 });
 
   if (score >= THRESHOLDS.trim)
     return base(
@@ -557,19 +515,25 @@ function planCall(input: ReadinessInput): Guidance {
   );
 }
 
-/** Lower-body templates and whether they open with jumps (from the template's exercises). */
-export function planLite(
-  key: string,
-  name: string | null,
-  exerciseSlugs: string[],
-): PlanLite {
-  const JUMPS = /jump/;
-  return {
-    key,
-    name,
-    isLegs: key.startsWith("legs"),
-    hasJumps: exerciseSlugs.some((s) => JUMPS.test(s)),
-  };
+/** The plan as readiness needs it: a leg day by content (isLegDay), the family from the key. */
+export function planLite(key: string, name: string | null, exerciseSlugs: string[]): PlanLite {
+  const exercises = exerciseSlugs.map((slug) => ({ slug }) as TemplateExercise);
+  return { key, name, isLegs: key !== "rest" && isLegDay({ exercises }), family: templateDef(key)?.family ?? null, hasJumps: false };
+}
+
+/**
+ * What the check-in's soreness question asks about (§4.5): the legs before a leg day, the arms
+ * before a chest-and-back day that follows an arm day (§4.6), else soreness in general.
+ */
+export function sorenessFocus(
+  plan: Pick<PlanLite, "isLegs" | "family" | "key"> | null,
+  yesterday: { session: { template_key: string | null; status: string }; sets: OverlapSet[] } | null,
+): "legs" | "arms" | "general" {
+  if (!plan || plan.key === "rest") return "general";
+  if (plan.isLegs) return "legs";
+  const family = plan.family ?? templateDef(plan.key)?.family ?? null;
+  if (family === "chest_back" && yesterday && isArmSession(yesterday.session, yesterday.sets)) return "arms";
+  return "general";
 }
 
 /**
@@ -592,20 +556,18 @@ export function readinessLine(
   if (g.session === "done") {
     return g.level === "recover" || g.level === "ease" || g.score >= THRESHOLDS.ease
       ? `${n} done. Recovery tonight: protein, an easy walk, an early night.`
-      : `${n} done. Refuel and sleep well tonight.`;
+      : `${n} done. Eat well and sleep well tonight.`;
   }
   if (g.session === "active" && g.level === "recover") return `${n} underway: keep the rest light, RIR 3–4, or stop early.${hurts}`;
   switch (g.level) {
     case "recover":
-      return `Recovery day suggested. Move ${n} to tomorrow: walk, mobility, sleep.`;
+      return "Recovery day suggested. Walk, mobility, sleep. Six days aren't mandatory.";
     case "ease":
       return `${n} today, lighter: 10% less load, one set fewer, RIR 3.${hurts}`;
     case "trim":
       return `${n} today, trimmed: one set fewer per exercise, RIR 2–3.${hurts}`;
     case "legs":
-      return g.adjustments.skipJumps
-        ? `${n} today without the jumps${drop}. Volleyball has tired your legs.${hurts}`
-        : `${n} today, leg work at RIR 2–3${drop}. Volleyball has tired your legs.${hurts}`;
+      return `${n} today, leg work at RIR 2–3${drop}. Your legs are still sore.${hurts}`;
     case "go":
       return g.pain ? `${n} today as planned, around the sore area.${hurts}` : `${n} today as planned. Recovery markers look fine.`;
     case "rest":

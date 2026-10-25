@@ -172,7 +172,7 @@ describe("dailyLine", () => {
       "Push A today, trimmed: one set fewer per exercise, RIR 2–3. Skip anything that hurts.",
     );
     expect(dailyLine({ ...base, readiness: { ...trim, level: "recover", score: 7, pain: "left knee" } })).toBe(
-      "Recovery day suggested. Move Push A to tomorrow: walk, mobility, sleep.",
+      "Recovery day suggested. Walk, mobility, sleep. Six days aren't mandatory.",
     );
     // no check-in yet → the guidance has nothing to say and the usual line stands
     expect(dailyLine({ ...base, readiness: { ...trim, level: "unknown", hasCheckin: false } })).toBe("Push A today. Protein is the lever: 185 g.");

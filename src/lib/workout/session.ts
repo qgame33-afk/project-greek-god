@@ -1,8 +1,10 @@
 // Pure session logic for the live workout: grouping sets into exercises, the accordion's
 // current exercise, ghost values, what a ✓ tap logs, input validation and re-ordering.
 
-import type { PastSet } from "@/lib/training/progression";
-import type { LibraryExercise } from "@/lib/training/types";
+import { getExercise } from "@/lib/training/library";
+import { effortDefaults } from "@/lib/training/programs";
+import { modeRir, plannedSetCount, type Mode, type PastSet, type Suggestion } from "@/lib/training/progression";
+import type { LibraryExercise, TemplateExercise } from "@/lib/training/types";
 import { round, type WeightUnit } from "@/lib/units";
 import type { CellField, Tracking, WSet } from "./types";
 
@@ -460,22 +462,36 @@ export interface Targets {
   rest: number;
 }
 
-/** Sensible targets for an exercise added from the library mid-session. */
+/** The effort class an exercise belongs to (Q§10): heavy compound, isolation, carry or (retired) explosive. */
+export function effortClass(lib: Pick<LibraryExercise, "category"> | undefined): "heavy" | "isolation" | "carry" | "explosive" | null {
+  if (!lib) return null;
+  if (lib.category === "compound") return "heavy";
+  if (lib.category === "carry") return "carry";
+  if (lib.category === "explosive") return "explosive";
+  return "isolation";
+}
+
+/** Sensible targets for an exercise added from the library mid-session (RIR and rest from effortDefaults). */
 export function defaultTargets(lib: LibraryExercise): Targets {
-  const rest = lib.rest;
+  const { rir, rest } = effortDefaults(lib);
   if (lib.category === "explosive") return { sets: 3, low: 3, high: 3, unit: "reps", rir: "Fresh", rest };
-  if (lib.tracking === "weight_time") return { sets: 2, low: 30, high: 45, unit: "sec", rir: "1–2", rest };
+  if (lib.tracking === "weight_time") return { sets: 2, low: 30, high: 45, unit: "sec", rir, rest };
   const unit = lib.perSide ? "each" : "reps";
-  if (lib.category === "compound") return { sets: 3, low: 6, high: 10, unit, rir: "1–2", rest };
-  return { sets: 3, low: 10, high: 15, unit, rir: "1–2", rest };
+  if (lib.category === "compound") return { sets: 3, low: 6, high: 10, unit, rir, rest };
+  return { sets: 3, low: 10, high: 15, unit, rir, rest };
 }
 
 /**
- * Targets when swapping one exercise for another: keep the prescription where the movement
- * type matches, otherwise fall back to the new exercise's defaults (a carry can't keep a
- * 5–8 rep range, jumps never inherit a grinding RIR).
+ * Targets when swapping one exercise for another: keep the rep range where the movement type
+ * matches, otherwise fall back to the new exercise's defaults (a carry can't keep a 5–8 rep
+ * range, jumps never inherit a grinding RIR). The previous rest and RIR are kept only when the
+ * old and new exercise are in the same effort class (pass `slug`); otherwise they follow the
+ * new exercise's effortDefaults.
  */
-export function retarget(prev: { low: number | null; high: number | null; unit: string | null; rir: string | null; sets: number }, lib: LibraryExercise): Targets {
+export function retarget(
+  prev: { low: number | null; high: number | null; unit: string | null; rir: string | null; sets: number; slug?: string | null; rest?: number | null },
+  lib: LibraryExercise,
+): Targets {
   const def = defaultTargets(lib);
   const prevTimed = prev.unit === "sec";
   const nextTimed = lib.tracking === "weight_time";
@@ -483,5 +499,55 @@ export function retarget(prev: { low: number | null; high: number | null; unit: 
   const nextFresh = lib.category === "explosive";
   if (prev.low == null || prev.high == null || prevTimed !== nextTimed || prevFresh !== nextFresh) return { ...def, sets: prev.sets || def.sets };
   const unit = nextTimed ? "sec" : lib.perSide ? "each" : "reps";
-  return { sets: prev.sets || def.sets, low: prev.low, high: prev.high, unit, rir: prev.rir ?? def.rir, rest: lib.rest };
+  const sameClass = !!prev.slug && effortClass(getExercise(prev.slug)) === effortClass(lib);
+  return {
+    sets: prev.sets || def.sets,
+    low: prev.low,
+    high: prev.high,
+    unit,
+    rir: sameClass ? (prev.rir ?? def.rir) : def.rir,
+    rest: sameClass && prev.rest != null ? prev.rest : def.rest,
+  };
+}
+
+/** One planned working set as the session start writes it (before ids and the session are known). */
+export interface SetDraft {
+  exercise_slug: string;
+  exercise_name: string;
+  set_index: number;
+  kind: "working";
+  target_rep_low: number;
+  target_rep_high: number;
+  target_unit: TemplateExercise["unit"];
+  target_rir: string;
+  rest_sec: number;
+  suggested_weight_lb: number | null;
+}
+
+/**
+ * The working sets one template exercise starts with in a mode (§1.4): plannedSetCount sets,
+ * the suggestion's targets and load when given (else the template's range), the mode's RIR and
+ * the template's rest, numbered from `firstSetIndex`. buildSessionSets builds every exercise
+ * with this, and "Add them" (an optional lift added mid-session) uses it too.
+ * `dropSets` removes sets from the end (never below 1).
+ */
+export function templateExerciseSets(t: TemplateExercise, mode: Mode, firstSetIndex: number, s?: Pick<Suggestion, "target" | "weightLb"> | null, opts: { dropSets?: number; rir?: string } = {}): SetDraft[] {
+  const lib = getExercise(t.slug);
+  const n = Math.max(1, plannedSetCount(t, lib, mode) - Math.max(0, opts.dropSets ?? 0));
+  const out: SetDraft[] = [];
+  for (let i = 0; i < n; i++) {
+    out.push({
+      exercise_slug: t.slug,
+      exercise_name: t.name,
+      set_index: firstSetIndex + i,
+      kind: "working",
+      target_rep_low: s?.target.low ?? t.repLow,
+      target_rep_high: s?.target.high ?? t.repHigh,
+      target_unit: t.unit,
+      target_rir: opts.rir ?? modeRir(t, mode),
+      rest_sec: t.rest,
+      suggested_weight_lb: s?.weightLb ?? null,
+    });
+  }
+  return out;
 }

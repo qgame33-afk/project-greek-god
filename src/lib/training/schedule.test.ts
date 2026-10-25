@@ -3,15 +3,14 @@ import {
   deloadAdvice,
   describeMove,
   groupByWeek,
-  latestRecovery,
   linkedMoveDates,
   missedWorkouts,
   planMove,
   rescheduleOptions,
   scheduleFreeze,
   scheduleIssues,
-  volleyballAdvice,
-  volleyballSessions7d,
+  shiftWeek,
+  skipToday,
   weekComplete,
   weekDays,
   weekdaysFor,
@@ -42,17 +41,16 @@ describe("weekDays", () => {
   const dates = weekDates(TODAY);
   const plans = plansFor(dates[0], 7);
 
-  it("marks done, missed, today, rest and volleyball days", () => {
+  it("marks done, missed, today and rest days (never volleyball)", () => {
     const days = weekDays({
       dates,
       plans,
       sessions: [done("2026-10-12", "push_a"), done("2026-10-14", "legs_a"), { local_date: "2026-10-15", status: "active", template_key: "push_b" }],
-      volleyball: [{ local_date: "2026-10-13" }],
       today: TODAY,
     });
     expect(days).toHaveLength(7);
     expect(days[0]).toMatchObject({ date: "2026-10-12", kind: "train", done: true, missed: false, label: "Push A" });
-    expect(days[1]).toMatchObject({ date: "2026-10-13", kind: "train", done: false, missed: true, volleyball: true, label: "Pull A" });
+    expect(days[1]).toMatchObject({ date: "2026-10-13", kind: "train", done: false, missed: true, volleyball: false, label: "Pull A" });
     expect(days[2]).toMatchObject({ done: true, missed: false });
     // in-progress today is neither done nor missed
     expect(days[3]).toMatchObject({ today: true, done: false, missed: false });
@@ -61,7 +59,7 @@ describe("weekDays", () => {
   });
 
   it("turns a rest day into a gilded column when a workout was actually done", () => {
-    const days = weekDays({ dates, plans, sessions: [done("2026-10-11", "push_a"), done("2026-10-18", "pull_b")], volleyball: [], today: "2026-10-19" });
+    const days = weekDays({ dates, plans, sessions: [done("2026-10-11", "push_a"), done("2026-10-18", "pull_b")], today: "2026-10-19" });
     expect(days[6]).toMatchObject({ kind: "train", done: true, label: "Pull B" });
   });
 
@@ -196,47 +194,6 @@ describe("rescheduleOptions", () => {
   });
 });
 
-describe("volleyballAdvice", () => {
-  it("flags three or more volleyball sessions", () => {
-    const a = volleyballAdvice({ load7d: 3, perWeek: 3, recovery: null, today: TODAY });
-    expect(a.heavy).toBe(true);
-    expect(a.reasons[0]).toBe("3 volleyball sessions in the last 7 days.");
-  });
-
-  it("counts sessions, not days, over the last 7 days", () => {
-    const rows = [{ local_date: TODAY }, { local_date: TODAY }, { local_date: "2026-10-09" }, { local_date: "2026-10-08" }];
-    expect(volleyballSessions7d(rows, TODAY)).toBe(3);
-  });
-
-  it("flags one more than usual, but never a single session", () => {
-    expect(volleyballAdvice({ load7d: 2, perWeek: 1, recovery: null, today: TODAY }).reasons[0]).toBe("2 volleyball sessions in the last 7 days, above your usual 1 a week.");
-    expect(volleyballAdvice({ load7d: 1, perWeek: 0, recovery: null, today: TODAY }).heavy).toBe(false);
-    expect(volleyballAdvice({ load7d: 2, perWeek: 2, recovery: null, today: TODAY }).heavy).toBe(false);
-  });
-
-  it("uses a recent check-in with high soreness or fatigue", () => {
-    expect(volleyballAdvice({ load7d: 0, perWeek: 2, recovery: { local_date: TODAY, soreness: 4, fatigue: 2 }, today: TODAY }).reasons).toEqual([
-      "Soreness 4/5 at your check-in today.",
-    ]);
-    expect(volleyballAdvice({ load7d: 0, perWeek: 2, recovery: { local_date: "2026-10-14", soreness: 5, fatigue: 4 }, today: TODAY }).reasons).toEqual([
-      "Soreness 5/5 and fatigue 4/5 at your check-in on Wednesday.",
-    ]);
-    // stale check-ins (older than 3 days) and moderate ones don't count
-    expect(volleyballAdvice({ load7d: 0, perWeek: 2, recovery: { local_date: "2026-10-12", soreness: 5, fatigue: 5 }, today: TODAY }).heavy).toBe(false);
-    expect(volleyballAdvice({ load7d: 0, perWeek: 2, recovery: { local_date: TODAY, soreness: 3, fatigue: 3 }, today: TODAY }).heavy).toBe(false);
-  });
-
-  it("latestRecovery picks the newest rated check-in", () => {
-    const r = latestRecovery([
-      { local_date: "2026-10-13", soreness: 2, fatigue: 2 },
-      { local_date: "2026-10-15", soreness: null, fatigue: null },
-      { local_date: "2026-10-14", soreness: 4, fatigue: null },
-    ]);
-    expect(r?.local_date).toBe("2026-10-14");
-    expect(latestRecovery([])).toBeNull();
-  });
-});
-
 describe("deloadAdvice", () => {
   /** n done sessions in each of `weeks` consecutive weeks ending with the week before TODAY. */
   function weeksOf(weeks: number, n: number, mode = "standard") {
@@ -352,5 +309,59 @@ describe("scheduleFreeze", () => {
 
   it("writes nothing when the past is unchanged", () => {
     expect(scheduleFreeze({ from: "2026-10-01", today: TODAY, oldSchedule: old, newSchedule: { ...old }, overridden: [] })).toEqual([]);
+  });
+
+  it("keeps today's plan too once a workout was started or finished today (trainedToday)", () => {
+    // Thursday Oct 15: Push B was trained; swapping Thursday and Saturday must not move it
+    const next = { ...old, "4": "legs_b", "6": "push_b" };
+    expect(scheduleFreeze({ from: "2026-10-12", today: TODAY, oldSchedule: old, newSchedule: next, overridden: [], trainedToday: true })).toEqual([
+      { plan_date: TODAY, template_key: "push_b", reason: "custom", moved_from: null },
+    ]);
+    expect(scheduleFreeze({ from: "2026-10-12", today: TODAY, oldSchedule: old, newSchedule: next, overridden: [], trainedToday: false })).toEqual([]);
+  });
+});
+
+describe("shiftWeek (rest today, shift the week)", () => {
+  const ARNOLD: Record<number, string> = { 1: "shoulders_arms_a", 2: "chest_back_a", 3: "legs_abs_a", 4: "shoulders_arms_b", 5: "chest_back_b", 6: "legs_abs_b", 0: "rest" };
+  const plans = (from: string, n: number, over: Record<string, string> = {}) =>
+    Array.from({ length: n }, (_, i) => {
+      const date = addDays(from, i);
+      return { date, key: over[date] ?? ARNOLD[new Date(date + "T12:00:00Z").getUTCDay()] };
+    });
+
+  it("on a Tuesday: rest today and every day up to Sunday takes the day before it", () => {
+    const tue = "2026-10-20";
+    expect(shiftWeek({ from: tue, plans: plans(tue, 8) })).toEqual([
+      { plan_date: "2026-10-20", template_key: "rest", reason: "rest", moved_from: null },
+      { plan_date: "2026-10-21", template_key: "chest_back_a", reason: "rescheduled", moved_from: "2026-10-20" },
+      { plan_date: "2026-10-22", template_key: "legs_abs_a", reason: "rescheduled", moved_from: "2026-10-21" },
+      { plan_date: "2026-10-23", template_key: "shoulders_arms_b", reason: "rescheduled", moved_from: "2026-10-22" },
+      { plan_date: "2026-10-24", template_key: "chest_back_b", reason: "rescheduled", moved_from: "2026-10-23" },
+      { plan_date: "2026-10-25", template_key: "legs_abs_b", reason: "rescheduled", moved_from: "2026-10-24" },
+    ]);
+  });
+
+  it("is empty without a rest day in the next 7 days, and offers 'skip it' instead", () => {
+    const tue = "2026-10-20";
+    expect(shiftWeek({ from: tue, plans: plans(tue, 8, { "2026-10-25": "legs_abs_b" }) })).toEqual([]);
+    expect(skipToday(tue)).toEqual([{ plan_date: tue, template_key: "rest", reason: "rest", moved_from: null }]);
+  });
+
+  it("carries an existing override in the window", () => {
+    const tue = "2026-10-20";
+    const w = shiftWeek({ from: tue, plans: plans(tue, 8, { "2026-10-22": "shoulders_arms_b", "2026-10-23": "rest" }) });
+    expect(w.map((x) => [x.plan_date, x.template_key])).toEqual([
+      ["2026-10-20", "rest"],
+      ["2026-10-21", "chest_back_a"],
+      ["2026-10-22", "legs_abs_a"],
+      ["2026-10-23", "shoulders_arms_b"],
+    ]);
+  });
+});
+
+describe("no volleyball", () => {
+  it("exports no volleyball advice any more", async () => {
+    const mod = (await import("./schedule")) as Record<string, unknown>;
+    expect(typeof mod.shiftWeek).toBe("function");
   });
 });

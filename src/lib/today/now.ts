@@ -10,7 +10,8 @@ import type { CheckinDraft } from "@/lib/recovery/checkin";
 import type { Guidance } from "@/lib/recovery/guidance";
 import { getExercise } from "@/lib/training/library";
 import { groupSessions, suggest, type Mode, type PastSet } from "@/lib/training/progression";
-import type { DayTemplate } from "@/lib/training/types";
+import { templateDef } from "@/lib/training/programs";
+import type { DayFamily, DayTemplate } from "@/lib/training/types";
 import { programWeeks, trainingWeek } from "./timeline";
 
 /* ------------------------------------------------------------- the header */
@@ -83,7 +84,6 @@ export function checkinPatchPayload(date: ISODate, patch: Partial<CheckinDraft>)
     fatigue?: number | null;
     stress?: number | null;
     pain_notes?: string | null;
-    volleyball?: boolean;
   } = { local_date: date };
   const scale = (v: number | null) => (v != null && v >= 1 && v <= 5 ? Math.round(v) : null);
   if (patch.sleep !== undefined) out.sleep_hours = patch.sleep == null || !Number.isFinite(patch.sleep) ? null : Math.round(Math.min(24, Math.max(0, patch.sleep)) * 100) / 100;
@@ -96,19 +96,27 @@ export function checkinPatchPayload(date: ISODate, patch: Partial<CheckinDraft>)
     const p = patch.pain.trim().slice(0, 500);
     out.pain_notes = p ? p : null;
   }
-  if (patch.volleyball !== undefined) out.volleyball = !!patch.volleyball;
   return out;
 }
 
 /* -------------------------------------------------------------- readiness */
 
-/** The short chip on the Now card ("Ready to push"), from the one readiness call. Null without a check-in. */
+const READY: Record<DayFamily, string> = {
+  shoulders_arms: "Ready for arms",
+  chest_back: "Ready for chest and back",
+  legs_abs: "Ready for legs",
+  legs: "Ready for legs",
+  push: "Ready to push",
+  pull: "Ready to pull",
+};
+
+/** The short chip on the Now card ("Ready for arms"), from the one readiness call and the day's family. Null without a check-in. */
 export function readinessChip(g: Pick<Guidance, "level" | "hasCheckin"> | null | undefined, templateKey: string | null | undefined): string | null {
   if (!g || !g.hasCheckin) return null;
-  const k = templateKey ?? "";
+  const family = templateDef(templateKey)?.family ?? null;
   switch (g.level) {
     case "go":
-      return k.startsWith("push") ? "Ready to push" : k.startsWith("pull") ? "Ready to pull" : k.startsWith("legs") ? "Ready for legs" : "Ready to train";
+      return family ? READY[family] : "Ready to train";
     case "legs":
       return "Legs tired";
     case "trim":
@@ -191,7 +199,7 @@ export function earlierSummary(earlier: Pick<DayItem, "kind" | "done" | "label">
   if (earlier.some((x) => x.kind === "weighin" && x.done)) parts.push("weigh-in");
   if (earlier.some((x) => x.kind === "checkin" && x.done)) parts.push("check-in");
   const session = earlier.find((x) => x.kind === "session" && x.done);
-  if (session) parts.push(`${session.label} sealed`);
+  if (session) parts.push(`${session.label} done`);
   const meals = earlier.filter((x) => x.kind === "meal" && x.done).length;
   if (meals) parts.push(`${meals} ${meals === 1 ? "meal" : "meals"} logged`);
   const open = earlier.filter((x) => x.kind === "meal" && !x.done).length;

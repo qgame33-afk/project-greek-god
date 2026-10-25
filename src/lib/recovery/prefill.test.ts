@@ -59,12 +59,11 @@ describe("mergeCheckin", () => {
     fatigue: 2,
     stress: 3,
     pain_notes: "left knee",
-    volleyball: true,
   };
 
   it("keeps every field the patch leaves out", () => {
     const d = mergeCheckin(stored, { soreness: 2 });
-    expect(d).toEqual({ sleep: 7.5, quality: 4, energy: null, soreness: 2, fatigue: 2, stress: 3, pain: "left knee", volleyball: true });
+    expect(d).toEqual({ sleep: 7.5, quality: 4, energy: null, soreness: 2, fatigue: 2, stress: 3, pain: "left knee", volleyball: false });
     const payload = draftToPayload(TODAY, d);
     expect(payload.pain_notes).toBe("left knee");
     expect(payload.sleep_quality).toBe(4);
@@ -77,7 +76,9 @@ describe("mergeCheckin", () => {
       const p = draftToPayload(TODAY, d);
       row = { ...p, local_date: TODAY };
     }
-    expect(row).toMatchObject({ sleep_hours: 7.5, soreness: 2, energy: 4, sleep_quality: null, volleyball: false });
+    expect(row).toMatchObject({ sleep_hours: 7.5, soreness: 2, energy: 4, sleep_quality: null });
+    // the payload never carries volleyball, so a stored value stays as it is
+    expect(row && "volleyball" in row).toBe(false);
     expect(dawnCheckinDone(row)).toBe(true);
   });
 

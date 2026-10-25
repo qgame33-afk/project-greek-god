@@ -1,5 +1,5 @@
-// Pure scheduling logic for the training week: the colonnade's day states, missed-workout
-// detection, rescheduling moves, volleyball load advice and deload advice.
+// Pure scheduling logic for the training week: the week's day states, missed-workout
+// detection, rescheduling moves (and "rest today, shift the week"), and deload advice.
 // No React, no Supabase: every function takes plain rows and returns plain data.
 
 import { addDays, dayName, weekday, weekStart, type ISODate } from "@/lib/dates";
@@ -26,6 +26,7 @@ export interface SessionLike {
   name?: string | null;
 }
 
+/** @deprecated nothing reads volleyball any more; removed in P2. */
 export interface VolleyballLike {
   local_date: ISODate;
 }
@@ -44,6 +45,7 @@ export interface ColonnadeDay {
   label: string;
   done: boolean;
   today: boolean;
+  /** @deprecated always false (no volleyball); removed in P2. */
   volleyball: boolean;
   missed?: boolean;
 }
@@ -58,13 +60,13 @@ export function weekDays({
   dates,
   plans,
   sessions,
-  volleyball,
   today,
 }: {
   dates: ISODate[];
   plans: PlanLike[];
   sessions: SessionLike[];
-  volleyball: VolleyballLike[];
+  /** @deprecated ignored. */
+  volleyball?: VolleyballLike[];
   today: ISODate;
 }): ColonnadeDay[] {
   return dates.map((date) => {
@@ -78,7 +80,7 @@ export function weekDays({
       label: doneSession?.name ?? (planned ? (plan!.name ?? plan!.key) : "Rest"),
       done: !!doneSession,
       today: date === today,
-      volleyball: volleyball.some((v) => v.local_date === date),
+      volleyball: false,
       missed: planned && !doneSession && date < today,
     };
   });
@@ -269,8 +271,42 @@ export function describeMove(m: PlannedMove, names: Record<string, string>, toda
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+/* ------------------------------------------------- rest today (Q§10, §4.4) */
+
+/**
+ * "Rest today, shift the week": today becomes rest and every planned day up to the first rest
+ * day within `horizon` days takes the day before it, so the week keeps its order and only the
+ * rest day moves. `plans` are the resolved plans (override first) for today onwards. Returns []
+ * when no rest day falls within the horizon (then only "skip it" is offered).
+ */
+export function shiftWeek({ from, plans, horizon = 7 }: { from: ISODate; plans: Pick<PlanLike, "date" | "key">[]; horizon?: number }): DayPlanWrite[] {
+  const keyOn = (d: ISODate) => plans.find((p) => p.date === d)?.key ?? "rest";
+  if (keyOn(from) === "rest") return [];
+  let restAt: ISODate | null = null;
+  for (let i = 1; i <= horizon; i++) {
+    const d = addDays(from, i);
+    if (keyOn(d) === "rest") {
+      restAt = d;
+      break;
+    }
+  }
+  if (!restAt) return [];
+  const out: DayPlanWrite[] = [{ plan_date: from, template_key: "rest", reason: "rest", moved_from: null }];
+  for (let d = addDays(from, 1); d <= restAt; d = addDays(d, 1)) {
+    const prev = addDays(d, -1);
+    out.push({ plan_date: d, template_key: keyOn(prev), reason: "rescheduled", moved_from: prev });
+  }
+  return out;
+}
+
+/** "Rest today, skip it": one write, today → rest. */
+export function skipToday(from: ISODate): DayPlanWrite[] {
+  return [{ plan_date: from, template_key: "rest", reason: "rest", moved_from: null }];
+}
+
 /* ------------------------------------------------------------- volleyball */
 
+/** @deprecated removed in P2. */
 export interface VolleyballAdvice {
   /** True when leg volume / plyometrics should be trimmed (a suggestion, never automatic). */
   heavy: boolean;
@@ -278,6 +314,7 @@ export interface VolleyballAdvice {
 }
 
 /**
+ * @deprecated nothing calls this any more; removed in P2.
  * Recommend lighter leg work when on-court volume is high or recovery is down:
  * - ≥ 3 volleyball sessions in the last 7 days, or at least one more than the usual weekly
  *   count (and at least 2 — a single session never triggers it), or
@@ -314,7 +351,7 @@ export function volleyballAdvice({
   return { heavy: reasons.length > 0, reasons };
 }
 
-/** Volleyball sessions (not days) in the 7 days ending on `date`. */
+/** @deprecated removed in P2. Volleyball sessions (not days) in the 7 days ending on `date`. */
 export function volleyballSessions7d(rows: VolleyballLike[], date: ISODate): number {
   const from = addDays(date, -6);
   return rows.filter((r) => r.local_date >= from && r.local_date <= date).length;
@@ -431,7 +468,9 @@ export function linkedMoveDates(date: ISODate, rows: DayPlanRowLike[]): ISODate[
  * When the weekly schedule changes, keep the recent past as it was planned: one "custom"
  * day_plans row for each past date in [from, today) with no override whose old weekday plan
  * differs from the new one. Without this, a new schedule would invent missed workouts for
- * days that were rest days at the time.
+ * days that were rest days at the time. With `trainedToday` (a workout was started or
+ * finished today) today keeps its plan too, so a finished workout never sits on a day that
+ * now says something else (§1.1).
  */
 export function scheduleFreeze({
   from,
@@ -439,6 +478,7 @@ export function scheduleFreeze({
   oldSchedule,
   newSchedule,
   overridden,
+  trainedToday = false,
 }: {
   from: ISODate;
   today: ISODate;
@@ -446,9 +486,10 @@ export function scheduleFreeze({
   newSchedule: Record<string, PlanKey>;
   /** Dates that already have a day_plans row. */
   overridden: ISODate[];
+  trainedToday?: boolean;
 }): DayPlanWrite[] {
   const out: DayPlanWrite[] = [];
-  for (let d = from; d < today; d = addDays(d, 1)) {
+  for (let d = from; trainedToday ? d <= today : d < today; d = addDays(d, 1)) {
     if (overridden.includes(d)) continue;
     const wd = String(weekday(d));
     const before = oldSchedule[wd] ?? "rest";

@@ -6,8 +6,9 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { addDays, dayName, type ISODate } from "@/lib/dates";
 import { getExercise } from "@/lib/training/library";
-import { modeRir, plannedSetCount, suggest, type Mode, type PastSet, type Suggestion } from "@/lib/training/progression";
+import { plannedSetCount, suggest, type Mode, type PastSet, type Suggestion } from "@/lib/training/progression";
 import type { TemplateKey } from "@/lib/training/types";
+import { templateExerciseSets } from "@/lib/workout/session";
 import { must, newId, sb, useToday, useUser, type Insert } from "./core";
 import { useProfile } from "./profile";
 import { planFor, useActiveSession, useDayPlans, useTemplates, type Session, type SetRow, type StoredTemplate } from "./training";
@@ -18,13 +19,18 @@ import { planFor, useActiveSession, useDayPlans, useTemplates, type Session, typ
  */
 export const HISTORY_SESSIONS = 4;
 
-/** Stamp each past set with its session's mode (what that session prescribed). */
+/** Stamp each past set with its session's mode (what that session prescribed) and template. */
 export async function withSessionModes(byslug: Record<string, PastSet[]>): Promise<Record<string, PastSet[]>> {
   const ids = [...new Set(Object.values(byslug).flatMap((l) => l.map((s) => s.session_id)))];
   if (!ids.length) return byslug;
-  const rows = must(await sb().from("workout_sessions").select("id,mode").in("id", ids));
-  const mode = new Map(rows.map((r) => [r.id, (r.mode ?? "standard") as Mode]));
-  for (const list of Object.values(byslug)) for (const s of list) s.mode = mode.get(s.session_id) ?? "standard";
+  const rows = must(await sb().from("workout_sessions").select("id,mode,template_key").in("id", ids));
+  const by = new Map(rows.map((r) => [r.id, r]));
+  for (const list of Object.values(byslug))
+    for (const s of list) {
+      const r = by.get(s.session_id);
+      s.mode = (r?.mode ?? "standard") as Mode;
+      s.template_key = r?.template_key ?? null;
+    }
   return byslug;
 }
 
@@ -34,7 +40,7 @@ export async function fetchRecentHistory(slugs: string[]): Promise<Record<string
   const rows = must(
     await sb()
       .from("set_history")
-      .select("local_date,session_id,set_index,weight_lb,reps,duration_sec,rir,exercise_slug")
+      .select("local_date,session_id,set_index,weight_lb,reps,duration_sec,rir,exercise_slug,completed_at")
       .in("exercise_slug", slugs)
       .order("local_date", { ascending: false })
       .limit(1000),
@@ -54,6 +60,7 @@ export async function fetchRecentHistory(slugs: string[]): Promise<Record<string
       reps: r.reps,
       duration_sec: r.duration_sec,
       rir: r.rir == null ? null : Number(r.rir),
+      completed_at: r.completed_at ?? null,
     });
   }
   return withSessionModes(out);
@@ -73,40 +80,52 @@ export interface StartOptions {
   template: StoredTemplate;
   date: ISODate;
   mode: Mode;
-  /** Lighter legs: skip optional jumps and trim leg accessory volume (heavy volleyball week). */
+  /** Materialise optional exercises (Thursday's reverse curls). Every app start passes false: they are offered after the last planned set (§1.4). */
+  includeOptional?: boolean;
+  /** This session only (fatigue overlap, §4.6): sets to drop per slug, RIR per slug, exercise order by slug. */
+  adjust?: { dropSets?: Record<string, number>; rir?: Record<string, string>; order?: string[] };
+  /** @deprecated volleyball-era "lighter legs"; use `adjust`. Removed in P2. */
   lighterLegs?: boolean;
+}
+
+/** Whether a start materialises optional lifts by default: never (they are offered, §1.4). */
+export function includeOptionalByDefault(): false {
+  return false;
+}
+
+/** The exercises in the order `adjust.order` asks for (listed slugs first, in that order; the rest after, as written). */
+function ordered<T extends { slug: string }>(xs: T[], order?: string[]): T[] {
+  if (!order?.length) return xs;
+  const rank = (slug: string) => {
+    const i = order.indexOf(slug);
+    return i === -1 ? order.length : i;
+  };
+  return xs.map((x, i) => ({ x, i })).sort((a, b) => rank(a.x.slug) - rank(b.x.slug) || a.i - b.i).map((e) => e.x);
 }
 
 /** Build the planned set rows for a session from the template + history. */
 export function buildSessionSets(sessionId: string, opts: StartOptions, history: Record<string, PastSet[]>): Insert<"exercise_sets">[] {
   const rows: Insert<"exercise_sets">[] = [];
   let order = 0;
-  for (const t of opts.template.exercises) {
+  for (const t of ordered(opts.template.exercises, opts.adjust?.order)) {
     const lib = getExercise(t.slug);
-    if (opts.lighterLegs && t.optional) continue;
-    const n = plannedSetCount(t, lib, opts.mode, opts.lighterLegs);
-    const s: Suggestion = suggest(t, lib, history[t.slug] ?? [], opts.mode);
-    for (let i = 0; i < n; i++) {
-      rows.push({
-        id: newId(),
-        session_id: sessionId,
-        local_date: opts.date,
-        exercise_slug: t.slug,
-        exercise_name: t.name,
-        exercise_order: order,
-        set_index: i,
-        kind: "working",
-        target_rep_low: s.target.low,
-        target_rep_high: s.target.high,
-        target_unit: t.unit,
-        target_rir: modeRir(t, opts.mode),
-        rest_sec: t.rest,
-        suggested_weight_lb: s.weightLb,
-      });
-    }
+    if (t.optional && !opts.includeOptional) continue;
+    const s: Suggestion = suggest(t, lib, history[t.slug] ?? [], opts.mode, { templateKey: opts.template.key });
+    // the deprecated lighter-legs trim, expressed as dropped sets
+    const legacyDrop = opts.lighterLegs ? plannedSetCount(t, lib, opts.mode) - plannedSetCount(t, lib, opts.mode, true) : 0;
+    const drafts = templateExerciseSets(t, opts.mode, 0, s, { dropSets: (opts.adjust?.dropSets?.[t.slug] ?? 0) + legacyDrop, rir: opts.adjust?.rir?.[t.slug] });
+    for (const d of drafts) rows.push({ ...d, id: newId(), session_id: sessionId, local_date: opts.date, exercise_order: order });
     order++;
   }
   return rows;
+}
+
+/**
+ * The `?t=` deep link rule (§2.5): start that template only when it belongs to the active
+ * program; any other key (an old notification's `?t=push_a`) means "start today's plan".
+ */
+export function startTarget(t: string | null | undefined, activeKeys: readonly string[]): string | null {
+  return t && activeKeys.includes(t) ? t : null;
 }
 
 /**

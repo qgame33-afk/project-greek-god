@@ -69,7 +69,7 @@ export function VolumeZones({ week, className }: { week: Week; className?: strin
         </ErrorNote>
       ) : (
         <ul className="mt-3 divide-y divide-vein border-y border-vein">
-          {v.rows.map((r) => (v.loading ? <SkeletonRow key={r.zone} /> : <ZoneLine key={r.zone} r={r} quiet={empty} />))}
+          {v.legacyRows.map((r) => (v.loading ? <SkeletonRow key={r.zone} /> : <ZoneLine key={r.zone} r={r} quiet={empty} />))}
         </ul>
       )}
       {!v.loading && v.other > 0 && (

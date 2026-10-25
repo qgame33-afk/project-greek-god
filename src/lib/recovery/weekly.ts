@@ -5,8 +5,7 @@
 import { addDays, dateRange, daysBetween, type ISODate } from "@/lib/dates";
 import { formatHours } from "./checkin";
 import type { CheckinLite, SessionLite } from "./guidance";
-import { volleyballEntries } from "./volleyball";
-
+/** @deprecated nothing reads volleyball; removed in P2. */
 export interface VolleyballLite {
   local_date: ISODate;
   duration_min: number | null;
@@ -21,8 +20,8 @@ export interface WeeklyInput {
   checkins: CheckinLite[];
   /** Sessions covering this week and the previous one. */
   sessions: SessionLite[];
-  /** Logged volleyball sessions covering this week and the previous one. */
-  volleyball: VolleyballLite[];
+  /** @deprecated ignored (no volleyball); removed in P2. */
+  volleyball?: VolleyballLite[];
   /** Training days planned this week (rest days excluded). */
   plannedDates: ISODate[];
   /** The user's start date; earlier days aren't counted. */
@@ -45,7 +44,6 @@ export interface WeeklyRecommendation {
     | "lighter"
     | "sleep"
     | "consistency"
-    | "volleyball"
     | "schedule"
     | "rest"
     | "volume"
@@ -87,6 +85,7 @@ export interface WeeklyReview {
     /** What volumeChange compares against: the whole of last week, or the same days of it. */
     compareTo: "last week" | "same days last week";
   };
+  /** @deprecated always zero (no volleyball is read); removed in P2. */
   volleyball: { sessions: number; minutes: number; prevSessions: number };
   restDays: number;
   soreness: RatingSummary;
@@ -219,26 +218,15 @@ export function weeklyReview(input: WeeklyInput): WeeklyReview {
       : ("last week" as const),
   };
 
-  /* volleyball: logged sessions, plus check-ins that flagged it without one (the same
-     count Training and Progress show) */
-  const vbAll = volleyballEntries(input.volleyball, [...cur, ...prev]);
-  const vbDates = new Set(vbAll.filter((v) => inWeek(v.local_date)).map((v) => v.local_date));
-  const volleyball = {
-    sessions: vbAll.filter((v) => inWeek(v.local_date)).length,
-    minutes: input.volleyball
-      .filter((v) => inWeek(v.local_date))
-      .reduce((a, v) => a + (v.duration_min ?? 0), 0),
-    prevSessions: vbAll.filter((v) => inPrev(v.local_date)).length,
-  };
+  const volleyball = { sessions: 0, minutes: 0, prevSessions: 0 };
 
-  /* rest days: elapsed days with neither a finished session nor volleyball. Today only
-     counts once it can't still hold training: a planned rest day, not a session to come. */
+  /* rest days: elapsed days without a finished session. Today only counts once it can't
+     still hold training: a planned rest day, not a session to come. */
   const trainedDates = new Set(wk.map((s) => s.local_date));
   const plannedSet = new Set(planned);
   const restDays = elapsed.filter(
     (d) =>
       !trainedDates.has(d) &&
-      !vbDates.has(d) &&
       (d < today || !plannedSet.has(d)),
   ).length;
 
@@ -246,7 +234,7 @@ export function weeklyReview(input: WeeklyInput): WeeklyReview {
   const fatigue = rating(cur, prev, "fatigue");
   const energy = rating(cur, prev, "energy");
 
-  const empty = !cur.length && !wk.length && !vbDates.size;
+  const empty = !cur.length && !wk.length;
 
   const review: WeeklyReview = {
     weekStart,
@@ -326,14 +314,6 @@ export function recommend(r: WeeklyReview): WeeklyRecommendation[] {
     });
   }
 
-  if (r.volleyball.sessions >= 3) {
-    out.push({
-      key: "volleyball",
-      title: "Keep jumps optional after volleyball",
-      reason: `${r.volleyball.sessions} volleyball sessions this week on top of training.`,
-    });
-  }
-
   const missed =
     (r.inProgress ? training.plannedSoFar : training.planned) - training.done;
   if (missed >= 2) {
@@ -348,7 +328,7 @@ export function recommend(r: WeeklyReview): WeeklyRecommendation[] {
     out.push({
       key: "rest",
       title: "Keep one full rest day",
-      reason: "Every day had training or volleyball this week.",
+      reason: "Every day had training this week.",
     });
   }
 

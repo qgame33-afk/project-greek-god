@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   computeGuidance,
-  hasSignal,
   planLite,
   readinessLine,
   sleepPoints,
+  sorenessFocus,
   trainingStreak,
   volumeChange,
   type CheckinLite,
@@ -24,7 +24,6 @@ const ci = (over: Partial<CheckinLite> = {}, date = D): CheckinLite => ({
   fatigue: null,
   stress: null,
   pain_notes: null,
-  volleyball: false,
   ...over,
 });
 
@@ -32,19 +31,20 @@ const pullB = planLite("pull_b", "Pull B", [
   "neutral-grip-lat-pulldown",
   "preacher-curl",
 ]);
-const legsA = planLite("legs_a", "Legs A", [
-  "box-jump",
-  "approach-jump",
+const legsA = planLite("legs_abs_a", "Legs & Abs A", [
   "back-squat",
+  "romanian-deadlift",
+  "leg-press",
+  "seated-leg-curl",
+  "standing-calf-raise",
+  "hanging-leg-raise",
 ]);
-const legsNoJumps = planLite("legs_b", "Legs B", ["hack-squat", "leg-press"]);
 const rest = planLite("rest", null, []);
 
 const input = (over: Partial<ReadinessInput> = {}): ReadinessInput => ({
   date: D,
   sleepGoalH: 8,
   checkins: [],
-  volleyballDates: [],
   sessions: [],
   plan: pullB,
   ...over,
@@ -70,24 +70,13 @@ describe("computeGuidance", () => {
     expect(g.detail).toContain("Pull B");
   });
 
-  it("does not treat a volleyball-only check-in as a recovery signal", () => {
-    expect(hasSignal(ci({ volleyball: true }))).toBe(false);
-    expect(
-      computeGuidance(input({ checkins: [ci({ volleyball: true })] })).level,
-    ).toBe("unknown");
-  });
-
   it("asks to finish a saved check-in rather than start a new one", () => {
-    const g = computeGuidance(input({ checkins: [ci({ volleyball: true })] }));
+    const g = computeGuidance(input({ checkins: [ci({ notes: "x" } as Partial<CheckinLite>)] }));
     expect(g.partialCheckin).toBe(true);
     expect(g.hasCheckin).toBe(false);
     expect(g.title).toBe("Add sleep and soreness");
-    expect(g.detail).toMatch(/^Volleyball is logged\./);
+    expect(g.detail).toMatch(/^Sleep, energy and soreness decide/);
     expect(computeGuidance(input()).partialCheckin).toBe(false);
-    const rested = computeGuidance(
-      input({ plan: rest, checkins: [ci({ volleyball: true })] }),
-    );
-    expect(rested.detail).toMatch(/Add sleep/);
   });
 
   it("says train as planned when markers are fine", () => {
@@ -113,7 +102,6 @@ describe("computeGuidance", () => {
       dropSets: 0,
       rir: null,
       loadPct: null,
-      skipJumps: false,
       rest: false,
     });
   });
@@ -163,38 +151,42 @@ describe("computeGuidance", () => {
     expect(g.adjustments.rest).toBe(true);
   });
 
-  it("swaps jumps on a leg day after volleyball when legs are sore", () => {
-    const g = computeGuidance(
-      input({
-        plan: legsA,
-        checkins: [ci({ sleep_hours: 8, soreness: 3, energy: 4 })],
-        volleyballDates: [addDays(D, -1)],
-      }),
-    );
+  it("eases off the legs on a leg day while the legs are still sore", () => {
+    const g = computeGuidance(input({ plan: legsA, checkins: [ci({ sleep_hours: 8, soreness: 4, energy: 4 })] }));
     expect(g.level).toBe("legs");
-    expect(g.detail).toBe(
-      "Swap jumps for extra rest; legs are carrying volleyball fatigue.",
-    );
-    expect(g.adjustments.skipJumps).toBe(true);
-    // the reasons name what triggered the call, not the markers that were fine
-    expect(g.reasons).toEqual(["Volleyball yesterday", "Soreness 3/5"]);
+    expect(g.title).toBe("Ease off the legs");
+    expect(g.detail).toBe("Keep leg work at RIR 2–3 and drop one set per exercise. Your legs are still sore.");
+    expect(g.adjustments).toMatchObject({ rir: "2–3", dropSets: 1 });
+    expect(readinessLine(g, "Legs & Abs A")).toBe("Legs & Abs A today, leg work at RIR 2–3, one set fewer. Your legs are still sore.");
   });
 
-  it("lists the short night too when a legs call also drops a set", () => {
-    const g = computeGuidance(
-      input({
-        plan: legsA,
-        checkins: [ci({ sleep_hours: 6.5, soreness: 3, fatigue: 3, energy: 3 })],
-        volleyballDates: [addDays(D, -1)],
-      }),
-    );
-    expect(g.level).toBe("legs");
-    expect(g.adjustments.dropSets).toBe(1);
-    expect(g.reasons).toEqual([
-      "Volleyball yesterday",
-      "Soreness 3/5",
-      "Slept 6 h 30 min of 8 h",
-    ]);
+  it("does not ease the legs for mild soreness, or on an upper-body day", () => {
+    expect(computeGuidance(input({ plan: legsA, checkins: [ci({ sleep_hours: 8, soreness: 3, energy: 4 })] })).level).toBe("go");
+    expect(computeGuidance(input({ checkins: [ci({ sleep_hours: 8, soreness: 4, energy: 4 })] })).level).toBe("go");
+  });
+
+  it("judges a leg day by its content, not its key", () => {
+    expect(legsA.isLegs).toBe(true);
+    expect(legsA.family).toBe("legs_abs");
+    expect(planLite("legs_b", "Legs B", ["hack-squat", "leg-press"]).isLegs).toBe(true);
+    expect(planLite("chest_back_a", "Chest & Back A", ["incline-db-press", "chest-supported-row"]).isLegs).toBe(false);
+  });
+
+  it("asks about the arms before chest and back after an arm day, the legs before a leg day", () => {
+    const cb = planLite("chest_back_a", "Chest & Back A", ["incline-db-press"]);
+    const arm = { session: { template_key: "shoulders_arms_a", status: "done" }, sets: [] };
+    const push = { session: { template_key: "push_a", status: "done" }, sets: [] };
+    expect(sorenessFocus(cb, arm)).toBe("arms");
+    expect(sorenessFocus(cb, push)).toBe("general");
+    expect(sorenessFocus(cb, null)).toBe("general");
+    expect(sorenessFocus(legsA, arm)).toBe("legs");
+    expect(sorenessFocus(rest, arm)).toBe("general");
+  });
+
+  it("never weighs volleyball", () => {
+    const g = computeGuidance(input({ checkins: [ci({ sleep_hours: 8, energy: 4 })], volleyballDates: [D, addDays(D, -1), addDays(D, -2)] }));
+    expect(g.factors.map((f) => f.key as string)).not.toContain("volleyball");
+    expect(g.level).toBe("go");
   });
 
   it("never says markers look fine next to a pain note", () => {
@@ -208,45 +200,6 @@ describe("computeGuidance", () => {
     expect(g.level).toBe("go");
     expect(g.detail).not.toMatch(/Recovery markers look fine/);
     expect(g.detail).toMatch(/sore area/);
-  });
-
-  it("keeps leg work easier without jumps when the leg day has none", () => {
-    const g = computeGuidance(
-      input({
-        plan: legsNoJumps,
-        checkins: [ci({ sleep_hours: 8, fatigue: 3, volleyball: true })],
-      }),
-    );
-    expect(g.level).toBe("legs");
-    expect(g.adjustments.skipJumps).toBe(false);
-    expect(g.detail).toMatch(/RIR 2–3/);
-  });
-
-  it("does not touch an upper-body day for volleyball fatigue", () => {
-    const g = computeGuidance(
-      input({
-        checkins: [ci({ sleep_hours: 8, soreness: 3 })],
-        volleyballDates: [D],
-      }),
-    );
-    expect(g.level).toBe("go");
-  });
-
-  it("adds a point for three or more volleyball days in a week", () => {
-    const g = computeGuidance(
-      input({
-        checkins: [ci({ sleep_hours: 8, energy: 4 })],
-        volleyballDates: [
-          addDays(D, -1),
-          addDays(D, -3),
-          addDays(D, -5),
-          addDays(D, -9),
-        ],
-      }),
-    );
-    const vb = g.factors.find((f) => f.key === "volleyball");
-    expect(vb?.value).toBe("3 days");
-    expect(vb?.points).toBe(1);
   });
 
   it("flags pain without diagnosing it", () => {
@@ -374,7 +327,7 @@ describe("readinessLine", () => {
         ],
       }),
     );
-    expect(readinessLine(bad, "Pull B")).toMatch(/^Recovery day suggested\. Move Pull B/);
+    expect(readinessLine(bad, "Pull B")).toBe("Recovery day suggested. Walk, mobility, sleep. Six days aren't mandatory.");
   });
   it("stays quiet without a check-in", () => {
     expect(readinessLine(computeGuidance(input()), "Pull B")).toBeNull();
@@ -386,17 +339,9 @@ describe("readinessLine", () => {
     expect(readinessLine(pain, "Pull B")).toBe(
       "Pull B today as planned, around the sore area. Skip anything that hurts.",
     );
-    const legs = computeGuidance(
-      input({
-        plan: legsA,
-        checkins: [ci({ sleep_hours: 6.5, soreness: 3 })],
-        volleyballDates: [addDays(D, -1)],
-      }),
-    );
+    const legs = computeGuidance(input({ plan: legsA, checkins: [ci({ sleep_hours: 8, soreness: 4, pain_notes: "Left knee" })] }));
     expect(legs.level).toBe("legs");
-    expect(readinessLine(legs, "Legs A")).toBe(
-      "Legs A today without the jumps, one set fewer. Volleyball has tired your legs.",
-    );
+    expect(readinessLine(legs, "Legs & Abs A")).toBe("Legs & Abs A today, leg work at RIR 2–3, one set fewer. Your legs are still sore. Skip anything that hurts.");
   });
 });
 
@@ -407,7 +352,7 @@ describe("today's session in the call", () => {
   it("never tells you to move a session that is already done", () => {
     const before = computeGuidance(input({ checkins: wrecked }));
     expect(before.level).toBe("recover");
-    expect(before.detail).toMatch(/Move Pull B to tomorrow/);
+    expect(before.detail).toBe("Walk, mobility, sleep. Six days aren't mandatory.");
     const after = computeGuidance(input({ checkins: wrecked, sessions: [done] }));
     expect(after.session).toBe("done");
     expect(after.title).toBe("Pull B done");
@@ -426,11 +371,11 @@ describe("today's session in the call", () => {
     expect(readinessLine(g, "Pull B")).toBe("Pull B underway: keep the rest light, RIR 3–4, or stop early.");
   });
 
-  it("an easy day after the session just says refuel", () => {
+  it("an easy day after the session just says eat well", () => {
     const g = computeGuidance(input({ checkins: [ci({ sleep_hours: 8, energy: 4 })], sessions: [done] }));
     expect(g.title).toBe("Pull B done");
-    expect(g.detail).toMatch(/^Refuel tonight and aim for 8 h of sleep/);
-    expect(readinessLine(g, "Pull B")).toBe("Pull B done. Refuel and sleep well tonight.");
+    expect(g.detail).toMatch(/^Eat well tonight and aim for 8 h of sleep/);
+    expect(readinessLine(g, "Pull B")).toBe("Pull B done. Eat well and sleep well tonight.");
   });
 
   it("ignores another day's session", () => {

@@ -47,7 +47,6 @@ describe("draft ↔ row", () => {
     fatigue: 2,
     stress: 1,
     pain_notes: "Left shoulder",
-    volleyball: true,
   };
   it("prefills from a saved check-in without inventing values", () => {
     expect(draftFromRow(row)).toEqual({
@@ -58,7 +57,7 @@ describe("draft ↔ row", () => {
       fatigue: 2,
       stress: 1,
       pain: "Left shoulder",
-      volleyball: true,
+      volleyball: false,
     });
     expect(draftFromRow(null)).toEqual(EMPTY_DRAFT);
   });
@@ -86,12 +85,13 @@ describe("draft ↔ row", () => {
       fatigue: null,
       stress: null,
       pain_notes: null,
-      volleyball: false,
     });
   });
   it("detects empty and changed drafts", () => {
     expect(isDraftEmpty(EMPTY_DRAFT)).toBe(true);
-    expect(isDraftEmpty({ ...EMPTY_DRAFT, volleyball: true })).toBe(false);
+    // the deprecated volleyball flag is not a check-in answer
+    expect(isDraftEmpty({ ...EMPTY_DRAFT, volleyball: true })).toBe(true);
+    expect(filledCount({ ...EMPTY_DRAFT, volleyball: true, sleep: 7, pain: "x" })).toBe(2);
     expect(
       draftsEqual(draftFromRow(row), {
         ...draftFromRow(row),
@@ -101,7 +101,7 @@ describe("draft ↔ row", () => {
     expect(
       draftsEqual(draftFromRow(row), { ...draftFromRow(row), energy: 4 }),
     ).toBe(false);
-    expect(filledCount(draftFromRow(row))).toBe(7);
+    expect(filledCount(draftFromRow(row))).toBe(6);
   });
 });
 

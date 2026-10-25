@@ -5,6 +5,16 @@ import type { LibraryExercise, TemplateExercise } from "./types";
 import { shortDate, type ISODate } from "@/lib/dates";
 import { round } from "@/lib/units";
 
+/** "1–3" → [1, 3], "0–2" → [0, 2], "3" → [3, 3], "Fresh" → null (same as programs.ts rirRange, kept here to avoid an import cycle). */
+function rirBounds(text: string | null | undefined): [number, number] | null {
+  if (!text) return null;
+  const m = /^\s*(\d+(?:\.\d+)?)\s*(?:[–—-]\s*(\d+(?:\.\d+)?))?\s*$/.exec(text);
+  if (!m) return null;
+  const lo = Number(m[1]);
+  const hi = m[2] == null ? lo : Number(m[2]);
+  return lo <= hi ? [lo, hi] : [hi, lo];
+}
+
 export type Mode = "standard" | "intro" | "deload";
 
 export interface PastSet {
@@ -76,16 +86,19 @@ const ofSets = (n: number, of: number) => `${n} of ${of} ${of === 1 ? "set" : "s
 const allOf = (n: number) => (n <= 1 ? "the set" : n === 2 ? "both" : `all ${n}`);
 
 /**
- * Suggest the next session's load/reps for one exercise.
+ * Suggest the next session's load/reps for one exercise (double progression, PROGRAM-ARNOLD §4.1).
  * Each past session is judged against the sets IT prescribed (intro volume plans one set
  * fewer, a deload about half), and deload sessions are planned lighter work, never a
- * performance: progression reads the most recent non-deload sessions.
- * - all prescribed sets at the top of the range (and not ground out at 0 RIR) → small load increase
+ * performance: progression reads the most recent non-deload sessions. A session from a
+ * different template (last time was PPL Push B, now Arnold Monday) is judged on the sets it
+ * logged, capped at today's plan — never as "missed sets".
+ * - all prescribed sets at the top of the range at the target effort → one load step, never more
+ * - at the top but below the target effort (RIR under the low end, e.g. 0 on a 1–3 heavy lift) → hold
  * - every set inside the range but not all at the top → same load, add reps
  * - target reps missed → keep the load; reps missed twice in a row at the same load → ~10% reset
  *   (sets left unlogged are a hold, never a reset: they are not a miss of the rep range)
  */
-export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, history: PastSet[], mode: Mode = "standard"): Suggestion {
+export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, history: PastSet[], mode: Mode = "standard", ctx: { templateKey?: string | null } = {}): Suggestion {
   const unit = t.unit;
   const target = { low: t.repLow, high: t.repHigh, unit };
   const sessions = groupSessions(history);
@@ -150,16 +163,23 @@ export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, h
   const bodyweight = lib?.tracking === "bodyweight_reps" && top === 0;
 
   // What that session prescribed, and what this one does.
-  const prescribed = prescribedIn(ref);
+  const refKey = ref[0]?.template_key ?? null;
+  const sameTemplate = !refKey || !ctx.templateKey || refKey === ctx.templateKey;
+  const prescribed = sameTemplate ? prescribedIn(ref) : Math.min(ref.length, plannedSetCount(t, lib, "standard"));
   const planned = plannedSetCount(t, lib, mode);
   const allSetsDone = ref.length >= prescribed;
-  const hitTopAll = allSetsDone && atTop.length >= prescribed && atTop.slice(0, prescribed).every((s) => work(s, unit) >= t.repHigh);
-  const loggedRir = atTop.map((s) => s.rir).filter((r): r is number => r != null);
-  const grinding = loggedRir.length > 0 && loggedRir.filter((r) => r <= 0).length >= Math.ceil(loggedRir.length / 2);
+  const judged = atTop.slice(0, prescribed);
+  const hitTopAll = allSetsDone && atTop.length >= prescribed && judged.every((s) => work(s, unit) >= t.repHigh);
+  // effort: RIR logged on the judged sets against the template's target range
+  const bounds = rirBounds(t.rir);
+  const loggedRir = judged.map((s) => s.rir).filter((r): r is number => r != null);
+  const belowTarget = !!bounds && loggedRir.length > 0 && loggedRir.filter((r) => r < bounds[0]).length >= Math.ceil(loggedRir.length / 2);
+  const toSpare = !!bounds && loggedRir.length === judged.length && loggedRir.length > 0 && loggedRir.every((r) => r > bounds[1]);
   const inRangeAll = allSetsDone && ref.slice(0, prescribed).every((s) => work(s, unit) >= t.repLow);
-  const repsMissed = (s: PastSet[]) => s.slice(0, prescribedIn(s)).some((x) => work(x, unit) < t.repLow);
+  const repsMissed = (s: PastSet[]) => s.slice(0, s === ref ? prescribed : prescribedIn(s)).some((x) => work(x, unit) < t.repLow);
 
   const seen = atTop.map((s) => work(s, unit)).join(", ");
+  const hit = judged.map((s) => work(s, unit)).join(", ");
 
   if (bodyweight) {
     if (hitTopAll)
@@ -167,7 +187,8 @@ export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, h
     return { kind: "bodyweight", weightLb: null, target, reason: `Beat ${seen} — add a rep to any set you can.`, last };
   }
 
-  if (hitTopAll && !grinding) {
+  if (hitTopAll && !belowTarget) {
+    // exactly one load step, whatever the reps in reserve
     const next = roundTo(top + inc, inc);
     return {
       kind: "increase",
@@ -176,16 +197,17 @@ export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, h
       reason:
         unit === "sec"
           ? `You carried ${top} lb for the full ${t.repHigh} s on every set. Go up to ${next} lb.`
-          : `You hit ${seen} at ${top} lb — the top of the range on every set. Add ${round(next - top, 1)} lb.`,
+          : `You hit ${hit} at ${top} lb, the top of the range ${toSpare ? "with reps to spare" : "at your target effort"}. Add ${round(next - top, 1)} lb.`,
       last,
     };
   }
-  if (hitTopAll && grinding) {
+  if (hitTopAll && belowTarget) {
+    const low = Math.min(...loggedRir);
     return {
       kind: "hold",
       weightLb: top,
       target,
-      reason: `Top of the range at ${top} lb, but at 0 reps in reserve. Repeat the weight and own every rep before adding load.`,
+      reason: `Top of the range at ${top} lb, but at ${low} ${low === 1 ? "rep" : "reps"} in reserve${lib?.category === "compound" ? " on a heavy lift" : ""}. Repeat ${top} lb and own every rep.`,
       last,
     };
   }

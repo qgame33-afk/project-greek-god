@@ -27,7 +27,6 @@ export const PERSIST_ROOTS: ReadonlySet<string> = new Set([
   "recovery",
   "habit-defs",
   "habit-logs",
-  "volleyball",
   "pr-events",
   "goal-changes",
   "meal-plan",
@@ -38,7 +37,6 @@ export const PERSIST_ROOTS: ReadonlySet<string> = new Set([
   "exercise-bests",
   "custom-exercises",
   "measurements",
-  "athletic",
 ]);
 
 export interface PersistedCache {

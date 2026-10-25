@@ -100,6 +100,7 @@ export function touchHeight(reachIn: number | null | undefined, verticalIn: numb
 }
 
 /**
+ * @deprecated removed in P2 with the Hall's athletic section.
  * Volleyball sessions per week over the last `weeks` weeks (rolling 7-day windows that end
  * today), plus the per-week counts oldest first.
  */

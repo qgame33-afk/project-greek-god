@@ -168,16 +168,16 @@ describe("other days", () => {
   it("Dawn not done at 10:31 → fuel with a quiet chip (§4.2 test 4)", () => {
     const s = dayState(day({ now: t("10:31") }));
     expect(s.phase).toBe("fuel");
-    expect(s.skippedChip).toBe("Dawn · 2 left");
+    expect(s.skippedChip).toBe("Check-in · 2 left");
     expect(s.rail[0]).toEqual({ phase: "dawn", startsAt: t("05:00"), state: "skipped" });
-    expect(dayState(day({ now: t("10:31"), checkInDone: true })).skippedChip).toBe("Dawn · 1 left");
+    expect(dayState(day({ now: t("10:31"), checkInDone: true })).skippedChip).toBe("Check-in · 1 left");
     expect(dayState(day({ now: t("10:29") })).phase).toBe("dawn");
   });
 
   it("'Later' on Dawn moves on and leaves the chip", () => {
     const s = dayState(day({ now: t("07:05"), dawnDismissed: true, dawnDoneAt: t("07:04") }));
     expect(s.phase).toBe("fuel");
-    expect(s.skippedChip).toBe("Dawn · 2 left");
+    expect(s.skippedChip).toBe("Check-in · 2 left");
     expect(s.rail[1]).toMatchObject({ phase: "fuel", startsAt: t("07:04"), state: "now" });
   });
 

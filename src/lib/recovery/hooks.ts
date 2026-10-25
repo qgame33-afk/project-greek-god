@@ -25,7 +25,6 @@ import {
   useDayPlans,
   useSessions,
   useTemplates,
-  useVolleyball,
 } from "@/lib/data/training";
 import { computeGuidance, planLite, type CheckinLite } from "./guidance";
 import { weeklyReview } from "./weekly";
@@ -34,13 +33,12 @@ import { weeklyReview } from "./weekly";
 
 /**
  * Today's (or any date's) readiness guidance from the user's own logs: the check-in,
- * the last few nights, volleyball in the last 7 days, recent training and the plan.
+ * the last few nights, recent training and the plan.
  * Reusable by the Today and Training screens.
  */
 export function useReadiness(date: ISODate) {
   const { profile, loading: pLoading, error: pError } = useProfile();
   const rec = useRecovery(addDays(date, -13), date);
-  const vb = useVolleyball(addDays(date, -6), date);
   const sessions = useSessions(addDays(date, -27), date);
   const plans = useDayPlans(date, date);
   const { byKey, loading: tLoading } = useTemplates();
@@ -48,26 +46,19 @@ export function useReadiness(date: ISODate) {
   const loading =
     pLoading ||
     rec.isLoading ||
-    vb.isLoading ||
     sessions.isLoading ||
     plans.isLoading ||
     tLoading;
-  const error =
-    pError ?? rec.error ?? vb.error ?? sessions.error ?? plans.error ?? null;
+  const error = pError ?? rec.error ?? sessions.error ?? plans.error ?? null;
 
   const result = useMemo(() => {
     if (!profile) return null;
     const plan = planFor(date, profile, plans.data ?? [], byKey);
     const checkins = (rec.data ?? []) as CheckinLite[];
-    const volleyballDates = [
-      ...(vb.data ?? []).map((v) => v.local_date),
-      ...checkins.filter((c) => c.volleyball).map((c) => c.local_date),
-    ];
     const guidance = computeGuidance({
       date,
       sleepGoalH: Number(profile.sleep_goal_h),
       checkins,
-      volleyballDates,
       sessions: sessions.data ?? [],
       plan: planLite(
         plan.key,
@@ -76,11 +67,10 @@ export function useReadiness(date: ISODate) {
       ),
     });
     return { guidance, plan };
-  }, [profile, plans.data, byKey, rec.data, vb.data, sessions.data, date]);
+  }, [profile, plans.data, byKey, rec.data, sessions.data, date]);
 
   const refetch = () => {
     rec.refetch();
-    vb.refetch();
     sessions.refetch();
     plans.refetch();
   };
@@ -102,7 +92,6 @@ export function useWeeklyReview(weekStart: ISODate, today: ISODate) {
   const to = addDays(weekStart, 6);
   const rec = useRecovery(from, to);
   const sessions = useSessions(from, to);
-  const vb = useVolleyball(from, to);
   const plans = useDayPlans(weekStart, to);
   const { byKey, loading: tLoading } = useTemplates();
 
@@ -110,10 +99,9 @@ export function useWeeklyReview(weekStart: ISODate, today: ISODate) {
     pLoading ||
     rec.isLoading ||
     sessions.isLoading ||
-    vb.isLoading ||
     plans.isLoading ||
     tLoading;
-  const error = rec.error ?? sessions.error ?? vb.error ?? plans.error ?? null;
+  const error = rec.error ?? sessions.error ?? plans.error ?? null;
 
   const review = useMemo(() => {
     if (!profile) return null;
@@ -126,7 +114,6 @@ export function useWeeklyReview(weekStart: ISODate, today: ISODate) {
       sleepGoalH: Number(profile.sleep_goal_h),
       checkins: (rec.data ?? []) as CheckinLite[],
       sessions: sessions.data ?? [],
-      volleyball: vb.data ?? [],
       plannedDates,
       startDate: profile.start_date,
     });
@@ -139,13 +126,11 @@ export function useWeeklyReview(weekStart: ISODate, today: ISODate) {
     byKey,
     rec.data,
     sessions.data,
-    vb.data,
   ]);
 
   const refetch = () => {
     rec.refetch();
     sessions.refetch();
-    vb.refetch();
     plans.refetch();
   };
 
@@ -246,7 +231,6 @@ const EMPTY_ROW = {
   fatigue: null,
   stress: null,
   pain_notes: null,
-  volleyball: false,
 };
 
 /** Delete a day's check-in (optimistic). The caller offers Undo by re-saving the row. */

@@ -11,6 +11,7 @@ export interface CheckinDraft {
   fatigue: number | null;
   stress: number | null;
   pain: string;
+  /** @deprecated always false, never saved (the stored column stays as it is); removed in P2. */
   volleyball: boolean;
 }
 
@@ -24,7 +25,6 @@ export interface CheckinRowLite {
   fatigue: number | null;
   stress: number | null;
   pain_notes: string | null;
-  volleyball: boolean;
 }
 
 export const EMPTY_DRAFT: CheckinDraft = {
@@ -83,7 +83,7 @@ export function draftFromRow(
     fatigue: scale(row.fatigue),
     stress: scale(row.stress),
     pain: row.pain_notes ?? "",
-    volleyball: !!row.volleyball,
+    volleyball: false,
   };
 }
 
@@ -98,7 +98,6 @@ export function draftToPayload(date: ISODate, d: CheckinDraft) {
     fatigue: scale(d.fatigue),
     stress: scale(d.stress),
     pain_notes: pain ? pain : null,
-    volleyball: d.volleyball,
   };
 }
 
@@ -115,7 +114,6 @@ export function rowToUpsert<
     fatigue: row.fatigue,
     stress: row.stress,
     pain_notes: row.pain_notes,
-    volleyball: row.volleyball,
     notes: row.notes ?? null,
   };
 }
@@ -129,8 +127,7 @@ export function isDraftEmpty(d: CheckinDraft) {
     d.soreness == null &&
     d.fatigue == null &&
     d.stress == null &&
-    !d.pain.trim() &&
-    !d.volleyball
+    !d.pain.trim()
   );
 }
 
@@ -142,19 +139,16 @@ export function draftsEqual(a: CheckinDraft, b: CheckinDraft) {
     a.soreness === b.soreness &&
     a.fatigue === b.fatigue &&
     a.stress === b.stress &&
-    a.pain.trim() === b.pain.trim() &&
-    a.volleyball === b.volleyball
+    a.pain.trim() === b.pain.trim()
   );
 }
 
-/** Number of the eight check-in fields that hold a value (volleyball counts when on). */
+/** Number of the seven check-in fields that hold a value. */
 export function filledCount(d: CheckinDraft) {
   return (
     [d.sleep, d.quality, d.energy, d.soreness, d.fatigue, d.stress].filter(
       (v) => v != null,
-    ).length +
-    (d.pain.trim() ? 1 : 0) +
-    (d.volleyball ? 1 : 0)
+    ).length + (d.pain.trim() ? 1 : 0)
   );
 }
 
@@ -208,7 +202,7 @@ export function loadStoredDraft(date: ISODate): CheckinDraft | null {
       fatigue: scale(v.fatigue ?? null),
       stress: scale(v.stress ?? null),
       pain: typeof v.pain === "string" ? v.pain.slice(0, PAIN_MAX) : "",
-      volleyball: !!v.volleyball,
+      volleyball: false,
     };
   } catch {
     return null;
