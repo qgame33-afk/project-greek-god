@@ -45,7 +45,6 @@ const base = (over: Partial<WeeklyInput> = {}): WeeklyInput => ({
   sleepGoalH: 8,
   checkins: [],
   sessions: [],
-  volleyball: [],
   plannedDates: plannedSix,
   ...over,
 });
@@ -178,7 +177,6 @@ describe("weeklyReview", () => {
     const r = weeklyReview(
       base({
         checkins: week(WS).map((d, i) => ci(d, { sleep_hours: 8, volleyball: i === 6 } as Partial<CheckinLite>)),
-        volleyball: [{ local_date: addDays(WS, 6), duration_min: 90 }],
         sessions: plannedSix.map((d) => sess(d)),
       }),
     );

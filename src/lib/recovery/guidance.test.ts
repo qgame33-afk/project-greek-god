@@ -387,13 +387,12 @@ describe("today's session in the call", () => {
 
 describe("readinessLine length", () => {
   it("every variant fits the Today hero (three lines at 375 px) with the pain caveat", () => {
-    const adj = { dropSets: 1, rir: "2–3", loadPct: -10, skipJumps: true, rest: false };
+    const adj = { dropSets: 1, rir: "2–3", loadPct: -10, rest: false };
     const levels = ["go", "trim", "ease", "legs", "recover", "rest"] as const;
     for (const level of levels)
       for (const pain of [null, "Right shoulder, overhead pressing"])
-        for (const skipJumps of [true, false])
           for (const session of ["none", "active", "done"] as const) {
-            const line = readinessLine({ level, score: 5, adjustments: { ...adj, skipJumps }, pain, session }, "Legs A");
+            const line = readinessLine({ level, score: 5, adjustments: adj, pain, session }, level === "legs" ? "Legs & Abs A" : "Shoulders, Biceps & Triceps A");
             if (line) expect(line.length, line).toBeLessThanOrEqual(110);
           }
   });

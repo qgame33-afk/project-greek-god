@@ -156,7 +156,7 @@ describe("dailyLine", () => {
   });
 
   it("says what the Recovery screen says once a check-in exists", () => {
-    const adj = { dropSets: 0, rir: null, loadPct: null, skipJumps: false, rest: false };
+    const adj = { dropSets: 0, rir: null, loadPct: null, rest: false };
     const tired = { sleepHours: 5.75, energy: 3, soreness: 2, fatigue: 2, pain: false };
     const trim = { level: "trim" as const, score: 2, adjustments: { ...adj, dropSets: 1, rir: "2–3" }, hasCheckin: true, pain: null };
     expect(dailyLine({ ...base, checkin: tired, readiness: trim })).toBe("Push A today, trimmed: one set fewer per exercise, RIR 2–3.");

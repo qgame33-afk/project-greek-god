@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { toast } from "sonner";
-import { addDays, type ISODate } from "@/lib/dates";
+import type { ISODate } from "@/lib/dates";
 import {
   activeProgram,
   DEFAULT_PROGRAM,
@@ -313,10 +313,4 @@ export function useVolleyballMutations() {
     onError,
   });
   return { add, remove };
-}
-
-/** @deprecated removed in P2. Days in the last 7 (including `date`) with volleyball. */
-export function volleyballLoad(v: Volleyball[], date: ISODate) {
-  const from = addDays(date, -6);
-  return new Set(v.filter((x) => x.local_date >= from && x.local_date <= date).map((x) => x.local_date)).size;
 }

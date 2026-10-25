@@ -306,55 +306,11 @@ export function skipToday(from: ISODate): DayPlanWrite[] {
 
 /* ------------------------------------------------------------- volleyball */
 
-/** @deprecated removed in P2. */
+/** @deprecated only types the always-empty useTrainingWeek().vbAdvice; removed when the screens stop reading it. */
 export interface VolleyballAdvice {
   /** True when leg volume / plyometrics should be trimmed (a suggestion, never automatic). */
   heavy: boolean;
   reasons: string[];
-}
-
-/**
- * @deprecated nothing calls this any more; removed in P2.
- * Recommend lighter leg work when on-court volume is high or recovery is down:
- * - ≥ 3 volleyball sessions in the last 7 days, or at least one more than the usual weekly
- *   count (and at least 2 — a single session never triggers it), or
- * - the latest check-in from the last 3 days rates soreness or fatigue 4/5 or higher.
- */
-export function volleyballAdvice({
-  load7d,
-  perWeek,
-  recovery,
-  today,
-}: {
-  /** Volleyball sessions logged in the last 7 days (today included). */
-  load7d: number;
-  perWeek: number;
-  recovery: RecoveryLike | null;
-  today: ISODate;
-}): VolleyballAdvice {
-  const reasons: string[] = [];
-  if (load7d >= 3 || (load7d >= 2 && load7d >= perWeek + 1)) {
-    reasons.push(
-      load7d >= perWeek + 1
-        ? `${load7d} volleyball sessions in the last 7 days, above your usual ${perWeek} a week.`
-        : `${load7d} volleyball sessions in the last 7 days.`,
-    );
-  }
-  if (recovery && recovery.local_date >= addDays(today, -2) && recovery.local_date <= today) {
-    const when = recovery.local_date === today ? "today" : `on ${dayName(recovery.local_date)}`;
-    const s = recovery.soreness ?? 0;
-    const f = recovery.fatigue ?? 0;
-    if (s >= 4 && f >= 4) reasons.push(`Soreness ${s}/5 and fatigue ${f}/5 at your check-in ${when}.`);
-    else if (s >= 4) reasons.push(`Soreness ${s}/5 at your check-in ${when}.`);
-    else if (f >= 4) reasons.push(`Fatigue ${f}/5 at your check-in ${when}.`);
-  }
-  return { heavy: reasons.length > 0, reasons };
-}
-
-/** @deprecated removed in P2. Volleyball sessions (not days) in the 7 days ending on `date`. */
-export function volleyballSessions7d(rows: VolleyballLike[], date: ISODate): number {
-  const from = addDays(date, -6);
-  return rows.filter((r) => r.local_date >= from && r.local_date <= date).length;
 }
 
 /** Latest check-in (by date) that rated soreness or fatigue at all. */

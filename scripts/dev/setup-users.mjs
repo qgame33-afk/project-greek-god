@@ -3,14 +3,26 @@
 //   demo@greekgod.local  — onboarded, filled with ~5 weeks of sample logs (tests charts)
 // Refuses to run against anything but localhost so sample data can never reach production.
 //
-//   node scripts/dev/setup-users.mjs [--reset]
+//   node scripts/dev/setup-users.mjs [--reset] [--ppl]
 //
 // Throwaway accounts for parallel testers (always recreated, so each run starts clean):
-//   node scripts/dev/setup-users.mjs --qa <name> [--kind demo|onboarded|fresh]
+//   node scripts/dev/setup-users.mjs --qa <name> [--kind demo|onboarded|fresh] [--ppl]
 //   → qa-<name>@greekgod.local; demo = sample logs, onboarded = owner's goals but no logs
+//
+// Program (docs/PROGRAM-ARNOLD.md §3.9): demo history is seeded as production has it today —
+// the Push/Pull/Legs week and the six PPL template rows from a frozen fixture (jumps included,
+// Pull B customised) — and then switched to the Arnold split with the same database function
+// the publication uses (set_training_program). --ppl stops before the switch, so the account
+// looks like production before publication (to test the switch). Fresh users need nothing:
+// new accounts default to the Arnold week.
 
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
+
+const PPL = process.argv.includes("--ppl");
+const PPL_WEEK = { 1: "push_a", 2: "pull_a", 3: "legs_a", 4: "push_b", 5: "pull_b", 6: "legs_b", 0: "rest" };
+/** Today's PPL rows as production stores them (jumps included), frozen 2026-10. */
+const PPL_ROWS = JSON.parse(readFileSync(new URL("./fixtures/ppl-rows-2026-10.json", import.meta.url), "utf8"));
 
 const env = Object.fromEntries(
   readFileSync(new URL("../../.env.local", import.meta.url), "utf8")
@@ -45,6 +57,30 @@ const addDays = (s, n) => {
   return iso(d);
 };
 
+/** The PPL state production has before publication: PPL week, no program prefs, the fixture rows (Pull B customised). */
+async function seedPplProgram(uid) {
+  const { data: prof } = await admin.from("profiles").select("prefs").eq("id", uid).single();
+  const prefs = { ...(prof?.prefs ?? {}) };
+  for (const k of ["program", "schedules", "programSwitch", "switchNoticeSeenAt", "swapsOffered", "modeSetAt", "lighterSnoozedUntil"]) delete prefs[k];
+  await admin.from("profiles").update({ weekly_schedule: PPL_WEEK, prefs }).eq("id", uid);
+  // rows a previous switch wrote belong to that switch
+  await admin.from("day_plans").delete().eq("user_id", uid).eq("note", "program-switch");
+  await admin.from("program_templates").delete().eq("user_id", uid);
+  const rows = PPL_ROWS.map((r) =>
+    r.key === "pull_b" ? { ...r, exercises: r.exercises.map((e) => (e.slug === "wrist-curl" ? { ...e, sets: 3 } : e)) } : r,
+  );
+  const { error } = await admin.from("program_templates").insert(rows.map((r) => ({ ...r, user_id: uid })));
+  if (error) throw error;
+}
+
+/** Switch an account to the Arnold split exactly as the publication does (unless --ppl). */
+async function switchToArnold(uid) {
+  if (PPL) return { skipped: "--ppl" };
+  const { data, error } = await admin.rpc("set_training_program", { p_program: "arnold", p_user: uid });
+  if (error) throw new Error(`set_training_program: ${error.message} (apply supabase/migrations/20261021000000_arnold_program.sql to the local database first)`);
+  return data;
+}
+
 async function seedDemo(uid) {
   const today = new Date().toISOString().slice(0, 10);
   const start = addDays(today, -35);
@@ -55,6 +91,7 @@ async function seedDemo(uid) {
     .from("profiles")
     .update({ onboarded: true, display_name: "Quinton", start_date: start, start_weight_lb: 163, goal_weight_lb: 183, target_date: "2027-08-01", volleyball_per_week: 2 })
     .eq("id", uid);
+  await seedPplProgram(uid);
 
   // bodyweight: ~0.45 lb/week trend with water noise
   const weights = [];
@@ -155,7 +192,8 @@ async function seedDemo(uid) {
     { user_id: uid, local_date: addDays(start, 30), test_type: "approach_vertical", value: 32 },
     { user_id: uid, local_date: addDays(start, 30), test_type: "broad_jump", value: 104 },
   ]);
-  console.log(`demo seeded: ${weights.length} weigh-ins, ${entries.length} foods, ${sessions.length} sessions, ${sets.length} sets`);
+  const sw = await switchToArnold(uid);
+  console.log(`demo seeded: ${weights.length} weigh-ins, ${entries.length} foods, ${sessions.length} sessions, ${sets.length} sets; program: ${PPL ? "Push/Pull/Legs (--ppl)" : `Arnold split ${JSON.stringify(sw)}`}`);
 }
 
 const qaIdx = process.argv.indexOf("--qa");
@@ -183,7 +221,7 @@ if (qaIdx !== -1) {
     const today = new Date().toISOString().slice(0, 10);
     await admin
       .from("profiles")
-      .update({ onboarded: true, display_name: "Quinton", start_date: today, start_weight_lb: 163, goal_weight_lb: 183, target_date: "2027-08-01", volleyball_per_week: 2 })
+      .update({ onboarded: true, display_name: "Quinton", start_date: today, start_weight_lb: 163, goal_weight_lb: 183, target_date: "2027-08-01", ...(PPL ? { weekly_schedule: PPL_WEEK } : {}) })
       .eq("id", uid);
   }
   console.log(JSON.stringify({ email, password: PASSWORD, id: uid, kind }));

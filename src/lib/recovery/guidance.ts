@@ -39,8 +39,6 @@ export interface PlanLite {
   isLegs: boolean;
   /** The template's family ("chest_back" …), null on rest or unknown keys. */
   family?: DayFamily | null;
-  /** @deprecated always false; removed in P2. */
-  hasJumps?: boolean;
 }
 
 export interface ReadinessInput {
@@ -84,8 +82,6 @@ export interface Adjustments {
   rir: string | null;
   /** Percent change to working loads, e.g. −10. Null = as planned. */
   loadPct: number | null;
-  /** @deprecated always false; removed in P2. */
-  skipJumps?: boolean;
   /** Move the session and take the day off. */
   rest: boolean;
 }
@@ -225,7 +221,7 @@ export function computeGuidance(input: ReadinessInput): Guidance {
   if (state === "none") return g;
   const name = sessionName ?? input.plan.name ?? "Today's session";
   const goal = formatHours(input.sleepGoalH);
-  const calm: Adjustments = { dropSets: 0, rir: null, loadPct: null, skipJumps: false, rest: false };
+  const calm: Adjustments = { dropSets: 0, rir: null, loadPct: null, rest: false };
 
   if (state === "done") {
     const hard = g.level === "recover" || g.level === "ease" || g.score >= THRESHOLDS.ease;
@@ -249,7 +245,7 @@ export function computeGuidance(input: ReadinessInput): Guidance {
       session: "active",
       title: `Keep ${name} light`,
       detail: "Your markers called for a recovery day. Finish with light sets at RIR 3–4, or stop early.",
-      adjustments: { ...g.adjustments, rest: false, dropSets: Math.max(1, g.adjustments.dropSets), rir: "3–4", loadPct: -10, skipJumps: false },
+      adjustments: { ...g.adjustments, rest: false, dropSets: Math.max(1, g.adjustments.dropSets), rir: "3–4", loadPct: -10 },
     };
   if (g.level === "rest")
     return {
@@ -518,7 +514,7 @@ function planCall(input: ReadinessInput): Guidance {
 /** The plan as readiness needs it: a leg day by content (isLegDay), the family from the key. */
 export function planLite(key: string, name: string | null, exerciseSlugs: string[]): PlanLite {
   const exercises = exerciseSlugs.map((slug) => ({ slug }) as TemplateExercise);
-  return { key, name, isLegs: key !== "rest" && isLegDay({ exercises }), family: templateDef(key)?.family ?? null, hasJumps: false };
+  return { key, name, isLegs: key !== "rest" && isLegDay({ exercises }), family: templateDef(key)?.family ?? null };
 }
 
 /**

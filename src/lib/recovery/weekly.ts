@@ -5,12 +5,6 @@
 import { addDays, dateRange, daysBetween, type ISODate } from "@/lib/dates";
 import { formatHours } from "./checkin";
 import type { CheckinLite, SessionLite } from "./guidance";
-/** @deprecated nothing reads volleyball; removed in P2. */
-export interface VolleyballLite {
-  local_date: ISODate;
-  duration_min: number | null;
-}
-
 export interface WeeklyInput {
   /** Monday of the reviewed week. */
   weekStart: ISODate;
@@ -20,8 +14,6 @@ export interface WeeklyInput {
   checkins: CheckinLite[];
   /** Sessions covering this week and the previous one. */
   sessions: SessionLite[];
-  /** @deprecated ignored (no volleyball); removed in P2. */
-  volleyball?: VolleyballLite[];
   /** Training days planned this week (rest days excluded). */
   plannedDates: ISODate[];
   /** The user's start date; earlier days aren't counted. */

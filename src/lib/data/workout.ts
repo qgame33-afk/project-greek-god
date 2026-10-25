@@ -84,7 +84,7 @@ export interface StartOptions {
   includeOptional?: boolean;
   /** This session only (fatigue overlap, §4.6): sets to drop per slug, RIR per slug, exercise order by slug. */
   adjust?: { dropSets?: Record<string, number>; rir?: Record<string, string>; order?: string[] };
-  /** @deprecated volleyball-era "lighter legs"; use `adjust`. Removed in P2. */
+  /** @deprecated the old "lighter legs" trim; use `adjust`. Removed in P2. */
   lighterLegs?: boolean;
 }
 
