@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { BigValue } from "@/components/ui/big-value";
 import { Button } from "@/components/ui/button";
-import { Minus, Plus } from "lucide-react";
 import { Field, Input, Textarea } from "@/components/ui/field";
+import { Collapse } from "@/components/ui/misc";
 import { Sheet } from "@/components/ui/sheet";
-import { useToday } from "@/lib/data/core";
+import { cn } from "@/lib/cn";
+import { isOffline, useToday } from "@/lib/data/core";
 import { useWeightMutations, useWeights } from "@/lib/data/body";
 import { useProfile } from "@/lib/data/profile";
 import { relativeDay } from "@/lib/dates";
@@ -16,17 +19,20 @@ import { formatBodyweight, fromDisplayWeight, parseNumber, round, toDisplayWeigh
 interface Seed {
   lb: number;
   unit: WeightUnit;
-  text: string;
+  shown: number;
   notes: string;
 }
 
 /** A day-to-day change this large is almost always a typo or the wrong unit. */
 const IMPLAUSIBLE_CHANGE = 0.1;
+const STEP = 0.1;
 
 /**
- * The weigh-in sheet (docs/DESIGN-V2.md §3.9.1 → Weigh-in): the scale stepper with Inscribe. It
- * starts from that day's weigh-in, else the latest one; ∓0.2 lb (0.1 kg) on 56 px keys, or type
- * the number. One entry per day: saving again replaces that day's value, with Undo.
+ * The weigh-in sheet (docs/DESIGN-V3-SIMPLE.md §4.1.3): "Weigh in", one big number prefilled with
+ * that day's weigh-in, else the last one, −0.1 / +0.1, and the gold Save. Tapping the number types
+ * it. One entry per day: saving again replaces that day's value, with Undo. The date and a note
+ * stay one tap away under "Date and note". Opened from Today's Up next, Add › Weigh in and
+ * Progress (`?log=1`); the props are a contract with those streams.
  */
 export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open: boolean; onOpenChange: (o: boolean) => void; date?: string }) {
   const today = useToday();
@@ -34,25 +40,29 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
   const unit = (profile?.weight_unit ?? "lb") as WeightUnit;
   const { weights, loading: weightsLoading } = useWeights();
   const { save, remove } = useWeightMutations();
-  const last = weights.at(-1);
   const [date, setDate] = useState(initialDate ?? today);
   const [value, setValue] = useState<number>(0);
-  const [text, setText] = useState("");
+  const [typing, setTyping] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [seed, setSeed] = useState<Seed | null>(null);
+  const [more, setMore] = useState(false);
+  const [offline, setOffline] = useState(false);
+  const moreId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const existing = useMemo(() => weights.find((w) => w.local_date === date), [weights, date]);
+  const lastBefore = (d: string) => [...weights].reverse().find((w) => w.local_date !== d && w.local_date <= d) ?? null;
 
   // That day's weigh-in, else the latest one, else the start weight.
   const seedFor = (d: string): Seed | null => {
     if (!profile) return null;
     const ex = weights.find((w) => w.local_date === d);
-    const lb = round(ex ? Number(ex.weight_lb) : last ? Number(last.weight_lb) : Number(profile.start_weight_lb), 1);
-    return { lb, unit, text: round(toDisplayWeight(lb, unit), 1).toFixed(1), notes: ex?.notes ?? "" };
-  };
-  const apply = (s: Seed) => {
-    setValue(Number(s.text));
-    setText(s.text);
+    const last = weights.at(-1);
+    const startLb = profile.start_weight_lb == null ? null : Number(profile.start_weight_lb);
+    const lbRaw = ex ? Number(ex.weight_lb) : last ? Number(last.weight_lb) : startLb;
+    if (lbRaw == null || !(lbRaw > 0)) return { lb: 0, unit, shown: unit === "kg" ? 70 : 160, notes: "" };
+    const lb = round(lbRaw, 1);
+    return { lb, unit, shown: round(toDisplayWeight(lb, unit), 1), notes: ex?.notes ?? "" };
   };
 
   // Each time the sheet opens, start from that day's weigh-in (or the latest one) — once the
@@ -67,40 +77,47 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
       setDate(d);
       const s = seedFor(d);
       setSeed(s);
+      setTyping(null);
+      setMore(false);
+      setOffline(false);
       if (s) {
-        apply(s);
+        setValue(s.shown);
         setNotes(s.notes);
       }
     }
   }
 
-  // Moving to another day loads that day's entry, unless the field was already edited here —
+  // Moving to another day loads that day's entry, unless the number was already changed here —
   // a note written for one morning must never be copied onto another.
   const changeDate = (d: string) => {
     setDate(d);
     const s = seedFor(d);
     if (!s) return;
-    if (!seed || text === seed.text) apply(s);
+    if (!seed || value === seed.shown) setValue(s.shown);
     if (!seed || notes === seed.notes) setNotes(s.notes);
     setSeed(s);
   };
 
-  const step = unit === "kg" ? 0.1 : 0.2;
   const min = unit === "kg" ? 30 : 60;
   const max = unit === "kg" ? 270 : 600;
-  const parsed = parseNumber(text);
-  const invalid = parsed == null || parsed < min || parsed > max;
+  const typed = typing == null ? null : parseNumber(typing.replace(",", "."));
+  const current = typing == null ? value : typed;
+  const invalid = current == null || current < min || current > max;
   // The number still reads exactly as seeded: keep the stored pounds, so opening a weigh-in in
   // kg to add a note can't nudge 163.0 lb to 162.9 through the 0.1 kg display rounding.
-  const lb = parsed == null ? null : seed && seed.unit === unit && parsed.toFixed(1) === seed.text ? seed.lb : round(fromDisplayWeight(parsed, unit), 1);
+  const lb = current == null ? null : seed && seed.lb > 0 && seed.unit === unit && round(current, 1) === seed.shown ? seed.lb : round(fromDisplayWeight(current, unit), 1);
 
-  // Soft check against the nearest other weigh-in: a 10% swing is a typo or the wrong unit.
-  const ref = useMemo(() => [...weights].reverse().find((w) => w.local_date !== date && w.local_date <= date) ?? weights.find((w) => w.local_date !== date), [weights, date]);
-  // The very first weigh-in has no other one to compare with: the start weight from
-  // onboarding is the reference then (a new lb user typing their kg weight still hears about it).
+  // Soft check against the nearest other weigh-in (or the start weight): a 10% swing is a typo or the wrong unit.
+  const ref = lastBefore(date) ?? weights.find((w) => w.local_date !== date) ?? null;
   const startLb = profile?.start_weight_lb != null && Number(profile.start_weight_lb) > 0 ? Number(profile.start_weight_lb) : null;
   const refLb = ref ? Number(ref.weight_lb) : startLb;
   const odd = !invalid && lb != null && refLb != null && Math.abs(lb - refLb) / refLb >= IMPLAUSIBLE_CHANGE;
+
+  const finishTyping = () => {
+    if (typing == null) return;
+    if (typed != null && typed >= min && typed <= max) setValue(round(typed, 1));
+    setTyping(null);
+  };
 
   const submit = () => {
     if (invalid || lb == null) return;
@@ -108,12 +125,17 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
       toast.error("That date is in the future.");
       return;
     }
+    if (isOffline()) {
+      setOffline(true);
+      return;
+    }
+    setOffline(false);
     const previous = existing ? { local_date: existing.local_date, weight_lb: Number(existing.weight_lb), notes: existing.notes } : null;
     save.mutate(
       { local_date: date, weight_lb: lb, notes: notes.trim() || null },
       {
         onSuccess: (row) => {
-          toast(`Inscribed ${formatBodyweight(lb, unit)}`, {
+          toast(`Weight saved · ${formatBodyweight(lb, unit)}`, {
             duration: 6000,
             action: {
               label: "Undo",
@@ -127,79 +149,99 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
     );
   };
 
-  const prev = ref ? `${dayRef(ref.local_date, today)} was ${round(toDisplayWeight(Number(ref.weight_lb), unit), 1).toFixed(1)}` : null;
-  const btn =
-    "press grid size-14 shrink-0 place-items-center rounded-btn bg-m3 text-ivory shadow-[inset_0_0_0_1px_var(--vein-2)] hover:bg-m4 active:bg-m4 disabled:text-disabled";
-  const bump = (dir: 1 | -1) => {
-    const v = Math.min(max, Math.max(min, round((parsed ?? value) + dir * step, 1)));
-    setValue(v);
-    setText(v.toFixed(1));
-  };
+  const shownRef = ref ? `${round(toDisplayWeight(Number(ref.weight_lb), unit), 1).toFixed(1)} ${unit}` : null;
+  const caption = existing
+    ? `${cap(dayRef(date, today))} ${formatBodyweight(Number(existing.weight_lb), unit)} · saving replaces it`
+    : shownRef
+      ? `Last time ${shownRef} · tap the number to type it`
+      : "Tap the number to type it";
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Weigh-in"
-      description={existing ? `Replaces ${dayRef(date, today)}'s ${formatBodyweight(Number(existing.weight_lb), unit)}` : "Before food, after the bathroom."}
-      footer={
-        <Button variant="primary" size="lg" block onClick={submit} loading={save.isPending} disabled={invalid}>
-          {invalid ? "Inscribe" : `Inscribe ${parsed!.toFixed(1)}`}
-        </Button>
-      }
-    >
-      {/* at accessibility sizes the number takes the whole row and the keys sit under it */}
-      <div className="@container pb-2 pt-3">
-        <div className="flex items-center gap-3 @max-[19rem]:flex-wrap @max-[19rem]:justify-center" role="group" aria-label="Bodyweight">
-          <button type="button" className={btn} aria-label={`${step} ${unit} less`} onClick={() => bump(-1)} disabled={parsed == null || parsed <= min}>
-            <Minus className="size-6" strokeWidth={1.8} />
-          </button>
-          <label className="min-w-0 flex-1 text-center @max-[19rem]:order-first @max-[19rem]:basis-full">
-            <span className="sr-only">Bodyweight in {unit}</span>
-            <input
-              value={text}
-              inputMode="decimal"
-              enterKeyHint="done"
-              autoComplete="off"
-              onChange={(e) => {
-                setText(e.target.value.replace(/[^\d.,]/g, "").slice(0, 6));
-                const n = parseNumber(e.target.value.replace(",", "."));
-                if (n != null) setValue(n);
-              }}
-              onFocus={(e) => e.currentTarget.select()}
-              className="t-dial tnum w-full bg-transparent text-center text-ivory outline-none aria-invalid:text-cinnabar"
-              aria-invalid={invalid}
-            />
-            <span className="t-meta mt-1 block text-ash">
-              {unit}
-              {prev ? ` · ${prev}` : ""}
-            </span>
-          </label>
-          <button type="button" className={btn} aria-label={`${step} ${unit} more`} onClick={() => bump(1)} disabled={parsed == null || parsed >= max}>
-            <Plus className="size-6" strokeWidth={1.8} />
-          </button>
-        </div>
+    <Sheet open={open} onOpenChange={onOpenChange} title="Weigh in" description="Before breakfast, after the bathroom.">
+      <div className="pb-2 pt-6">
+        {typing == null ? (
+          <BigValue
+            name="Weight"
+            value={value}
+            onChange={setValue}
+            unit={unit}
+            spokenUnit={unit === "kg" ? "kilograms" : "pounds"}
+            step={STEP}
+            min={min}
+            max={max}
+            format={(v) => v.toFixed(1)}
+            minusLabel="−0.1"
+            plusLabel="+0.1"
+            onKeypad={() => {
+              setTyping(value.toFixed(1));
+              window.setTimeout(() => inputRef.current?.select(), 30);
+            }}
+          />
+        ) : (
+          <div className="flex flex-col items-center">
+            <label className="w-full text-center">
+              <span className="sr-only">Weight in {unit === "kg" ? "kilograms" : "pounds"}</span>
+              <input
+                ref={inputRef}
+                autoFocus
+                value={typing}
+                inputMode="decimal"
+                enterKeyHint="done"
+                autoComplete="off"
+                aria-invalid={invalid}
+                onChange={(e) => setTyping(e.target.value.replace(/[^\d.,]/g, "").slice(0, 6))}
+                onKeyDown={(e) => e.key === "Enter" && finishTyping()}
+                onBlur={finishTyping}
+                className="t-big w-full bg-transparent text-center text-fg outline-none"
+              />
+            </label>
+            <span className="t-label mt-1">{unit}</span>
+          </div>
+        )}
+        <p className="t-label mt-3 text-center">{caption}</p>
         {invalid && (
-          <p className="t-meta mt-3 text-center text-cinnabar" role="alert">
+          <p className="t-label mt-2 text-center text-danger" role="alert">
             Enter a weight between {min} and {max} {unit}.
           </p>
         )}
-        {odd && refLb != null && (
-          <p className="t-meta mt-3 rounded-field bg-m2 px-3.5 py-2.5 text-center text-stone shadow-[inset_0_0_0_1px_var(--ui-line)]" role="status">
-            {formatBodyweight(Math.abs(lb! - refLb), unit)} {lb! < refLb ? "under" : "over"}{" "}
+        {odd && refLb != null && lb != null && (
+          <p className="t-label mt-3 rounded-tile-lg bg-sheet-card px-4 py-3 text-center text-fg" role="status">
+            {formatBodyweight(Math.abs(lb - refLb), unit)} {lb < refLb ? "under" : "over"}{" "}
             {ref ? `${dayRef(ref.local_date, today)}'s ${formatBodyweight(refLb, unit)}` : `your start weight of ${formatBodyweight(refLb, unit)}`}. Check the number and the unit.
           </p>
         )}
-      </div>
-      <div className="grid gap-4 pb-2 pt-4">
-        <Field label="Date">{(id) => <Input id={id} type="date" value={date} max={today} onChange={(e) => changeDate(e.target.value || today)} />}</Field>
-        <Field label="Notes" hint="Optional">
-          {(id) => <Textarea id={id} rows={2} maxLength={500} placeholder="Late dinner, salty meal, poor sleep" value={notes} onChange={(e) => setNotes(e.target.value)} />}
-        </Field>
+        <Button variant="primary" size="lg" block className="mt-5" onClick={submit} loading={save.isPending} disabled={invalid}>
+          Save
+        </Button>
+        {offline && (
+          <p role="status" className="t-label mt-2 text-center">
+            You&apos;re offline. Try again when you&apos;re back.
+          </p>
+        )}
+        <button
+          type="button"
+          aria-expanded={more}
+          aria-controls={moreId}
+          onClick={() => setMore((m) => !m)}
+          className="press t-label mx-auto mt-2 flex min-h-11 items-center gap-1 font-semibold"
+        >
+          {date === today ? "Date and note" : `${cap(dayRef(date, today))} · note`}
+          <ChevronDown className={cn("size-4 transition-transform duration-(--dur-fast)", more && "rotate-180")} strokeWidth={2.2} aria-hidden />
+        </button>
+        <Collapse open={more} id={moreId}>
+          <div className="grid gap-4 pb-2 pt-2">
+            <Field label="Date">{(id) => <Input id={id} type="date" value={date} max={today} onChange={(e) => changeDate(e.target.value || today)} />}</Field>
+            <Field label="Note" hint="Optional">
+              {(id) => <Textarea id={id} rows={2} maxLength={500} placeholder="Late dinner, salty meal, poor sleep" value={notes} onChange={(e) => setNotes(e.target.value)} />}
+            </Field>
+          </div>
+        </Collapse>
       </div>
     </Sheet>
   );
 }
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** "today" / "yesterday" mid-sentence, dates as written ("Oct 12"). */
 function dayRef(d: string, today: string) {
