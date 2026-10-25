@@ -1,20 +1,22 @@
 "use client";
 
-import { BackLink } from "@/components/shell/BackLink";
-import { Check, ChevronLeft, Plus, X } from "lucide-react";
-import { useCallback, useState, type ReactNode } from "react";
+import { Plus, X } from "lucide-react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Chip, Segmented } from "@/components/ui/controls";
+import { BackHeader } from "@/components/shell/BackHeader";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/controls";
+import { ListGroup, RadioGroup, RadioRow, Row, SectionHead } from "@/components/ui/list";
 import { ErrorNote, Skeleton } from "@/components/ui/misc";
-import { Tag } from "@/components/ui/tag";
-import { cn } from "@/lib/cn";
+import { Confirm, Sheet } from "@/components/ui/sheet";
 import { useMealFeedback, useMealPrefs, useSaveMealPrefs } from "@/lib/data/meals";
+import { learnPrefs, summarizeLearning } from "@/lib/meals/engine";
 import type { Budget, Difficulty, MealPrefs } from "@/lib/meals/types";
-import { DifficultyPips } from "../shared/DifficultyPips";
 import { DIFFICULTY_HINT, DIFFICULTY_LABEL } from "../shared/format";
 import { useRecipePool } from "../shared/useRecipePool";
+import { useResetLearning } from "./hooks";
 import { IngredientPicker } from "./IngredientPicker";
-import { LearnedPanel } from "./LearnedPanel";
+import { LearnedDetail } from "./LearnedPanel";
 import {
   ALLERGEN_LABEL,
   ALLERGEN_ORDER,
@@ -32,41 +34,41 @@ import {
 } from "./model";
 
 type ListKey = "dislikedIngredients" | "likedIngredients" | "pantry";
+type Panel = "allergies" | "time" | "budget" | "snacks" | "tastes" | "kitchen" | "more" | "less";
 
 const LIST_COPY: Record<ListKey, { title: string; description: string; removed: string }> = {
-  dislikedIngredients: { title: "Never plan", description: "Meals with these are never suggested.", removed: "Removed from never plan" },
+  dislikedIngredients: { title: "Never use", description: "Meals with these are never planned.", removed: "Removed from never use" },
   likedIngredients: { title: "Like more of", description: "The planner leans toward meals with these.", removed: "Removed from likes" },
   pantry: { title: "Already have", description: "Used first, and marked as have on the grocery list.", removed: "Removed from what you have" },
 };
 
+const BUDGET_LABEL: Record<Budget, string> = { tight: "Tight", normal: "Normal", flexible: "Flexible" };
 const BUDGET_HINT: Record<Budget, string> = {
-  tight: "Mostly $ meals: eggs, beans, ground meat, pasta.",
+  tight: "Mostly cheap meals: eggs, beans, ground meat, pasta.",
   normal: "A mix of everyday prices.",
   flexible: "Price matters less than taste.",
 };
-
 const DIFFICULTIES: Difficulty[] = ["super_easy", "everyday", "i_like_cooking"];
 
 /**
- * /nutrition/meals/preferences — how the planner picks (docs/MEALS.md §6, restyled per
- * docs/DESIGN-V2.md §3.5.4). Every change saves as it's made (optimistic, in order). Allergies,
- * diets and "never plan" are hard rules the planner never breaks (Tag RULE); the rest only nudge.
- * Selections are ivory, never gold: a setting is not an achievement. Ends with what it has
- * learned, with Reset.
+ * Meal preferences (`/nutrition/meals/preferences`, docs/DESIGN-V3-SIMPLE.md §4.4.6): "Never use"
+ * chips with ✕ and Add, rows for Allergies, Cooking time and Budget (each opens its sheet), the
+ * rest of the planner's settings one row further, and what it learned from you with "Forget what
+ * was learned". Every change saves as it's made. Selections are white, never gold.
  */
 export function PreferencesScreen() {
-  const { prefs, hasData, error, saved } = useMealPrefs();
+  const { prefs, hasData, error } = useMealPrefs();
   const save = useSaveMealPrefs();
   const feedback = useMealFeedback();
   const { lookup } = useRecipePool();
   const nameOf = useCallback((k: string) => lookup(k)?.name, [lookup]);
+  const summary = useMemo(() => summarizeLearning(learnPrefs(feedback.data ?? []), { nameOf, limit: 5 }), [feedback.data, nameOf]);
+  const reset = useResetLearning();
   const [picker, setPicker] = useState<ListKey | null>(null);
-  const [touched, setTouched] = useState(false);
+  const [panel, setPanel] = useState<Panel | null>(null);
+  const [confirm, setConfirm] = useState(false);
 
-  const set = (patch: Partial<MealPrefs>) => {
-    setTouched(true);
-    save.mutate(patch);
-  };
+  const set = (patch: Partial<MealPrefs>) => save.mutate(patch);
 
   /** Remove one ingredient from a list, with Undo (it's a delete). */
   const removeFrom = (list: ListKey, key: string) => {
@@ -74,7 +76,6 @@ export function PreferencesScreen() {
     set({ [list]: before.filter((k) => k !== key) });
     toast(LIST_COPY[list].removed, { duration: 6000, action: { label: "Undo", onClick: () => save.mutate({ [list]: before }) } });
   };
-
   const toggleIn = (list: ListKey, key: string, on: boolean) => {
     const patch: Partial<MealPrefs> = { [list]: toggled(prefs[list], key, on) };
     // a hard dislike can't also be a like or something you're asked to use up
@@ -85,184 +86,163 @@ export function PreferencesScreen() {
     set(patch);
   };
 
-  if (error && !hasData) {
+  const header = <BackHeader href="/nutrition" parent="Food" title="Meal preferences" subtitle="The planner uses these every time it plans." />;
+  if (error && !hasData)
     return (
-      <Frame>
-        <ErrorNote>Couldn&apos;t load your preferences. Check your connection.</ErrorNote>
-      </Frame>
+      <div className="mx-auto max-w-col">
+        {header}
+        <ErrorNote className="mt-6" />
+      </div>
     );
-  }
-  if (!hasData) {
+  if (!hasData)
     return (
-      <Frame>
-        <div className="grid gap-6 lg:grid-cols-2" aria-busy="true">
-          {["h-64", "h-72", "h-56", "h-64"].map((h, i) => (
-            <Skeleton key={i} className={cn("rounded-card", h)} />
-          ))}
-        </div>
-      </Frame>
+      <div className="mx-auto max-w-col" aria-busy="true">
+        {header}
+        <Skeleton className="mt-8 h-6 w-32" />
+        <Skeleton className="mt-4 h-24 w-full rounded-tile-lg" />
+        <Skeleton className="mt-4 h-44 w-full rounded-tile-lg" />
+      </div>
     );
-  }
 
-  const status = save.isPending ? "Saving…" : touched || saved ? "Saved" : "Defaults until you change something";
+  const allergyNames = [...prefs.allergies.map((a) => ALLERGEN_LABEL[a]), ...prefs.diets.map(dietName)];
+  const timeValue = prefs.maxMinutes ? `Up to ${prefs.maxMinutes} min` : DIFFICULTY_LABEL[prefs.difficulty];
+  const featureList = (xs: { label: string }[]) => xs.map((x) => x.label.toLowerCase()).join(", ");
+  const nothingLearned = summary.events === 0;
 
   return (
-    <Frame status={status}>
-      <div className="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-x-10">
-        <div className="flex min-w-0 flex-col gap-8">
-          {/* cooking level */}
-          <Section id="pref-level" title="Cooking level" hint="Super Easy is the default: short, familiar, hard to get wrong.">
-            <div role="radiogroup" aria-labelledby="pref-level" className="flex flex-col gap-2">
-              {DIFFICULTIES.map((d) => {
-                const on = prefs.difficulty === d;
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    onClick={() => set({ difficulty: d })}
-                    className={cn(
-                      "press-soft flex min-h-16 items-center gap-3.5 rounded-field px-4 py-3 text-left transition-[background-color,box-shadow] duration-(--dur-fast)",
-                      on ? "bg-m4 shadow-[inset_0_0_0_1.5px_var(--ivory)]" : "bg-m2 shadow-[inset_0_0_0_1px_var(--vein-2)] hover:bg-m3",
-                    )}
-                  >
-                    <DifficultyPips difficulty={d} label={false} />
-                    <span className="min-w-0 flex-1">
-                      <span className="t-callout flex flex-wrap items-baseline gap-x-2 font-semibold text-ivory">
-                        {DIFFICULTY_LABEL[d]}
-                        {d === "super_easy" && <span className="t-tag text-ash">Default</span>}
-                      </span>
-                      <span className="t-meta block text-stone">{DIFFICULTY_HINT[d]}</span>
-                    </span>
-                    <Radio on={on} />
-                  </button>
-                );
-              })}
-            </div>
-            <SubLabel>Time limit</SubLabel>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Time limit">
-              {TIME_LIMITS.map((t) => (
-                <Chip key={t ?? "none"} selected={prefs.maxMinutes === t} onClick={() => set({ maxMinutes: t })}>
-                  {t == null ? "Level's own" : `${t} min`}
-                </Chip>
-              ))}
-            </div>
-          </Section>
+    <div className="mx-auto max-w-col">
+      {header}
 
-          {/* hard rules */}
-          <Section
-            id="pref-rules"
-            title="Never broken"
-            badge={<Tag kind="RULE" detail="hard" explain="The planner never suggests, swaps to or simplifies into a meal that breaks these." />}
-            hint="Every pick, swap and easier version respects these. Planned meals that break a new rule are flagged in your week."
-          >
-            <SubLabel first>Allergies</SubLabel>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Allergies">
-              {ALLERGEN_ORDER.map((a) => (
-                <Chip key={a} selected={prefs.allergies.includes(a)} onClick={() => set({ allergies: toggled(prefs.allergies, a) })}>
-                  {prefs.allergies.includes(a) && <Check className="size-3.5" strokeWidth={2} aria-hidden />}
-                  {ALLERGEN_LABEL[a]}
-                </Chip>
-              ))}
-            </div>
-            <SubLabel>Diet</SubLabel>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Diet">
-              {DIET_ORDER.map((d) => (
-                <Chip key={d} selected={prefs.diets.includes(d)} onClick={() => set({ diets: toggled(prefs.diets, d) })}>
-                  {prefs.diets.includes(d) && <Check className="size-3.5" strokeWidth={2} aria-hidden />}
-                  {dietName(d)}
-                </Chip>
-              ))}
-            </div>
-            <SubLabel>Never plan</SubLabel>
-            <Tokens keys={prefs.dislikedIngredients} empty="No ingredients ruled out." onRemove={(k) => removeFrom("dislikedIngredients", k)} onAdd={() => setPicker("dislikedIngredients")} addLabel="Add an ingredient" />
-          </Section>
+      <SectionHead id="never-use">Never use</SectionHead>
+      <Tokens keys={prefs.dislikedIngredients} onRemove={(k) => removeFrom("dislikedIngredients", k)} onAdd={() => setPicker("dislikedIngredients")} addLabel="Add an ingredient to never use" />
 
-          {/* budget + snacks */}
-          <Section id="pref-budget" title="Budget and snacks">
-            <Segmented<Budget>
-              value={prefs.budget}
-              onChange={(b) => set({ budget: b })}
-              options={[
-                { value: "tight", label: "Tight" },
-                { value: "normal", label: "Normal" },
-                { value: "flexible", label: "Flexible" },
-              ]}
-              ariaLabel="Budget"
-            />
-            <p className="t-meta mt-2 text-stone" aria-live="polite">
-              {BUDGET_HINT[prefs.budget]}
-            </p>
-            <BudgetField key={String(prefs.weeklyBudgetCad)} value={prefs.weeklyBudgetCad} onSave={(v) => set({ weeklyBudgetCad: v })} />
-            <SubLabel>Snacks a day</SubLabel>
-            <Segmented<"1" | "2" | "3">
-              value={String(prefs.snacksPerDay) as "1" | "2" | "3"}
-              onChange={(v) => set({ snacksPerDay: Number(v) })}
-              options={[
-                { value: "1", label: "1 snack" },
-                { value: "2", label: "2 snacks" },
-                { value: "3", label: "3 snacks" },
-              ]}
-              ariaLabel="Snacks a day"
-            />
-          </Section>
-        </div>
+      <ListGroup className="mt-5">
+        <Row title="Allergies" value={allergyNames.length ? allergyNames.join(", ") : "None"} onClick={() => setPanel("allergies")} className="[&_.text-right]:max-w-[55%] [&_.text-right]:truncate" />
+        <Row title="Cooking time" value={timeValue} onClick={() => setPanel("time")} />
+        <Row title="Budget" value={prefs.weeklyBudgetCad ? `${BUDGET_LABEL[prefs.budget]} · $${prefs.weeklyBudgetCad}` : BUDGET_LABEL[prefs.budget]} onClick={() => setPanel("budget")} />
+      </ListGroup>
+      <ListGroup className="mt-3">
+        <Row title="Snacks a day" value={String(prefs.snacksPerDay)} onClick={() => setPanel("snacks")} />
+        <Row title="Tastes" subtitle="Likes and cuisines" onClick={() => setPanel("tastes")} />
+        <Row title="Your kitchen" subtitle="Equipment and what you have" onClick={() => setPanel("kitchen")} />
+      </ListGroup>
 
-        <div className="flex min-w-0 flex-col gap-8">
-          {/* tastes */}
-          <Section id="pref-tastes" title="Tastes" hint="Nudges, never rules. The planner still mixes things up.">
-            <SubLabel first>Like more of</SubLabel>
-            <Tokens keys={prefs.likedIngredients} empty="Nothing picked yet." onRemove={(k) => removeFrom("likedIngredients", k)} onAdd={() => setPicker("likedIngredients")} addLabel="Add an ingredient" />
-            <SubLabel>Cuisines</SubLabel>
-            <ul className="@container divide-y divide-vein border-y border-vein">
-              {CUISINES.map((c) => {
-                const mood = cuisineMood(prefs, c.key);
-                return (
-                  <li key={c.key} className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 py-2">
-                    <span className="min-w-0 flex-1">
-                      <span className="t-callout block font-semibold text-ivory">{c.label}</span>
-                      <span className="t-meta block text-stone">{c.recipes} recipes</span>
-                    </span>
-                    <Segmented<"less" | "any" | "more">
-                      size="sm"
-                      value={mood ?? "any"}
-                      onChange={(v) => set(setCuisineMood(prefs, c.key, v === "any" ? null : (v as CuisineMood)))}
-                      options={[
-                        { value: "less", label: "Less" },
-                        { value: "any", label: "Any" },
-                        { value: "more", label: "More" },
-                      ]}
-                      ariaLabel={`${c.label}: less, any or more`}
-                      className="w-[10.5rem] shrink-0 @max-[19rem]:w-full"
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-          </Section>
+      <SectionHead id="learned">Learned from you</SectionHead>
+      {feedback.isLoading ? (
+        <Skeleton className="h-36 w-full rounded-tile-lg" />
+      ) : nothingLearned ? (
+        <p className="t-label px-1">Nothing yet. Likes, swaps and the meals you eat teach the planner what you enjoy.</p>
+      ) : (
+        <ListGroup>
+          <Row title="More often" subtitle={summary.liked.length ? featureList(summary.liked) : "Nothing strong yet"} wrap onClick={() => setPanel("more")} />
+          <Row title="Less often" subtitle={summary.disliked.length || summary.blocked.length ? featureList(summary.disliked) || `${summary.blocked.length} meals resting` : "Nothing strong yet"} wrap onClick={() => setPanel("less")} />
+        </ListGroup>
+      )}
+      {!nothingLearned && (
+        <Button variant="ghost" size="lg" block className="mt-4" onClick={() => setConfirm(true)} disabled={reset.isPending}>
+          Forget what was learned
+        </Button>
+      )}
 
-          {/* kitchen */}
-          <Section id="pref-kitchen" title="Your kitchen" hint="Recipes that need something you don't have are never planned.">
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Equipment">
-              {EQUIPMENT_ORDER.map((e) => {
-                const on = prefs.equipment.includes(e);
-                const last = on && prefs.equipment.length === 1;
-                return (
-                  <Chip key={e} selected={on} disabled={last} onClick={() => set({ equipment: toggled(prefs.equipment, e) })}>
-                    {on && <Check className="size-3.5" strokeWidth={2} aria-hidden />}
-                    {EQUIPMENT_LABEL[e]}
+      {/* ------------------------------------------------------------ sheets */}
+      <PanelSheet open={panel === "allergies"} onClose={() => setPanel(null)} title="Allergies" description="Hard rules: no pick, swap or easier version ever breaks them.">
+        <ChipGroup label="Allergies">
+          {ALLERGEN_ORDER.map((a) => (
+            <Chip key={a} selected={prefs.allergies.includes(a)} onClick={() => set({ allergies: toggled(prefs.allergies, a) })}>
+              {ALLERGEN_LABEL[a]}
+            </Chip>
+          ))}
+        </ChipGroup>
+        <p className="t-section mb-3 mt-7">Diet</p>
+        <ChipGroup label="Diet">
+          {DIET_ORDER.map((d) => (
+            <Chip key={d} selected={prefs.diets.includes(d)} onClick={() => set({ diets: toggled(prefs.diets, d) })}>
+              {dietName(d)}
+            </Chip>
+          ))}
+        </ChipGroup>
+        <p className="t-label mt-5">Planned meals that break a new rule show on Food with a way to replace them.</p>
+      </PanelSheet>
+
+      <PanelSheet open={panel === "time"} onClose={() => setPanel(null)} title="Cooking time" description="Super Easy is the default: short, familiar, hard to get wrong.">
+        <RadioGroup ariaLabel="Cooking level">
+          {DIFFICULTIES.map((d) => (
+            <RadioRow key={d} title={DIFFICULTY_LABEL[d]} subtitle={DIFFICULTY_HINT[d]} checked={prefs.difficulty === d} onSelect={() => set({ difficulty: d })} />
+          ))}
+        </RadioGroup>
+        <p className="t-section mb-3 mt-7">Time limit</p>
+        <ChipGroup label="Time limit">
+          {TIME_LIMITS.map((t) => (
+            <Chip key={t ?? "none"} selected={prefs.maxMinutes === t} onClick={() => set({ maxMinutes: t })}>
+              {t == null ? "No limit" : `Up to ${t} min`}
+            </Chip>
+          ))}
+        </ChipGroup>
+      </PanelSheet>
+
+      <PanelSheet open={panel === "budget"} onClose={() => setPanel(null)} title="Budget" description={BUDGET_HINT[prefs.budget]}>
+        <RadioGroup ariaLabel="Budget">
+          {(["tight", "normal", "flexible"] as Budget[]).map((b) => (
+            <RadioRow key={b} title={BUDGET_LABEL[b]} subtitle={BUDGET_HINT[b]} checked={prefs.budget === b} onSelect={() => set({ budget: b })} />
+          ))}
+        </RadioGroup>
+        <BudgetField key={String(prefs.weeklyBudgetCad)} value={prefs.weeklyBudgetCad} onSave={(v) => set({ weeklyBudgetCad: v })} />
+      </PanelSheet>
+
+      <PanelSheet open={panel === "snacks"} onClose={() => setPanel(null)} title="Snacks a day">
+        <RadioGroup ariaLabel="Snacks a day">
+          {[1, 2, 3].map((n) => (
+            <RadioRow key={n} title={`${n} ${n === 1 ? "snack" : "snacks"}`} checked={prefs.snacksPerDay === n} onSelect={() => set({ snacksPerDay: n })} />
+          ))}
+        </RadioGroup>
+      </PanelSheet>
+
+      <PanelSheet open={panel === "tastes"} onClose={() => setPanel(null)} title="Tastes" description="Nudges, never rules. The planner still mixes things up.">
+        <p className="t-section mb-3">Like more of</p>
+        <Tokens keys={prefs.likedIngredients} onRemove={(k) => removeFrom("likedIngredients", k)} onAdd={() => setPicker("likedIngredients")} addLabel="Add an ingredient you like" />
+        <p className="t-section mb-3 mt-7">Cuisines</p>
+        <ListGroup>
+          {CUISINES.map((c) => {
+            const mood = cuisineMood(prefs, c.key);
+            const pick = (m: CuisineMood) => set(setCuisineMood(prefs, c.key, m));
+            return (
+              <div key={c.key} className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
+                <span className="t-row min-w-0 flex-1">{c.label}</span>
+                <span className="flex gap-1.5" role="group" aria-label={`${c.label}: less, any or more`}>
+                  <Chip selected={mood === "less"} onClick={() => pick("less")}>
+                    Less
                   </Chip>
-                );
-              })}
-            </div>
-            <SubLabel>What you already have</SubLabel>
-            <Tokens keys={prefs.pantry} empty="Add what's in your fridge or cupboard." onRemove={(k) => removeFrom("pantry", k)} onAdd={() => setPicker("pantry")} addLabel="Add what you have" />
-          </Section>
+                  <Chip selected={mood == null} onClick={() => pick(null)}>
+                    Any
+                  </Chip>
+                  <Chip selected={mood === "more"} onClick={() => pick("more")}>
+                    More
+                  </Chip>
+                </span>
+              </div>
+            );
+          })}
+        </ListGroup>
+      </PanelSheet>
 
-          <LearnedPanel feedback={feedback.data ?? []} loading={feedback.isLoading} nameOf={nameOf} />
-        </div>
-      </div>
+      <PanelSheet open={panel === "kitchen"} onClose={() => setPanel(null)} title="Your kitchen" description="Recipes that need something you don't have are never planned.">
+        <ChipGroup label="Equipment">
+          {EQUIPMENT_ORDER.map((e) => {
+            const on = prefs.equipment.includes(e);
+            return (
+              <Chip key={e} selected={on} disabled={on && prefs.equipment.length === 1} onClick={() => set({ equipment: toggled(prefs.equipment, e) })}>
+                {EQUIPMENT_LABEL[e]}
+              </Chip>
+            );
+          })}
+        </ChipGroup>
+        <p className="t-section mb-3 mt-7">What you already have</p>
+        <Tokens keys={prefs.pantry} onRemove={(k) => removeFrom("pantry", k)} onAdd={() => setPicker("pantry")} addLabel="Add something you have" />
+      </PanelSheet>
+
+      <PanelSheet open={panel === "more" || panel === "less"} onClose={() => setPanel(null)} title={panel === "less" ? "Less often" : "More often"} description="Straight from your likes, swaps and the meals you eat.">
+        <LearnedDetail summary={summary} side={panel === "less" ? "less" : "more"} />
+      </PanelSheet>
 
       <IngredientPicker
         open={picker !== null}
@@ -271,84 +251,55 @@ export function PreferencesScreen() {
         description={picker ? LIST_COPY[picker].description : ""}
         selected={picker ? prefs[picker] : []}
         blocked={picker && picker !== "dislikedIngredients" ? prefs.dislikedIngredients : undefined}
-        blockedNote="On your never plan list"
+        blockedNote="On your never use list"
         onToggle={(k, on) => picker && toggleIn(picker, k, on)}
       />
-    </Frame>
+      <Confirm
+        open={confirm}
+        onOpenChange={setConfirm}
+        title="Forget what was learned?"
+        body="The planner forgets every like, swap and reason, and plans like it's new to you. Your preferences and saved meals stay. You can undo it."
+        confirmLabel="Forget"
+        onConfirm={() => reset.mutate()}
+      />
+    </div>
   );
 }
 
 /* ------------------------------------------------------------------ parts */
 
-function Frame({ status, children }: { status?: string; children: ReactNode }) {
+function PanelSheet({ open, onClose, title, description, children }: { open: boolean; onClose: () => void; title: string; description?: string; children: ReactNode }) {
   return (
-    <div className="mx-auto max-w-[65rem] pb-6">
-      <BackLink href="/nutrition?tab=week" className="press t-callout -ml-2 inline-flex h-11 items-center gap-1 rounded-field pr-3 font-semibold text-stone hover:text-ivory">
-        <ChevronLeft className="size-5" strokeWidth={1.6} aria-hidden />
-        Week
-      </BackLink>
-      <header className="mb-6 mt-1 lg:mb-8">
-        <p className="t-eyebrow mb-1.5">Fuel · the planner</p>
-        <h1 className="t-title-1 text-ivory">Meal preferences</h1>
-        <p className="t-meta mt-1.5 min-h-[1lh] text-stone" aria-live="polite">
-          {status ?? " "}
-          {status && status !== "Saving…" && status.startsWith("Saved") ? " · the next plan or swap uses these" : ""}
-        </p>
-      </header>
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()} title={title} description={description}>
+      <div className="pb-2 pt-1">{children}</div>
+    </Sheet>
+  );
+}
+
+function ChipGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
       {children}
     </div>
   );
 }
 
-/** A placard-style section: eyebrow + hint on night, a hairline over the controls. */
-function Section({ id, title, badge, hint, children }: { id: string; title: string; badge?: ReactNode; hint?: string; children: ReactNode }) {
-  return (
-    <section className="min-w-0" aria-labelledby={id}>
-      <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <h2 id={id} className="t-eyebrow">
-          {title}
-        </h2>
-        {badge}
-      </div>
-      {hint && <p className="t-meta text-stone">{hint}</p>}
-      <div className="mt-3 border-t border-vein pt-4">{children}</div>
-    </section>
-  );
-}
-
-function SubLabel({ children, first }: { children: ReactNode; first?: boolean }) {
-  return <p className={cn("t-callout mb-2.5 font-semibold text-ivory", !first && "mt-6")}>{children}</p>;
-}
-
-function Radio({ on }: { on: boolean }) {
-  return (
-    <span aria-hidden className={cn("grid size-6 shrink-0 place-items-center rounded-full border-2 transition-colors duration-(--dur-fast)", on ? "border-ivory" : "border-ui-line")}>
-      <span className={cn("size-2.5 rounded-full bg-ivory transition-transform duration-(--dur-base) ease-out", on ? "scale-100" : "scale-0")} />
-    </span>
-  );
-}
-
-/** Chosen ingredients as removable tokens, plus an Add button that opens the picker. */
-function Tokens({ keys, empty, onRemove, onAdd, addLabel }: { keys: readonly string[]; empty: string; onRemove: (k: string) => void; onAdd: () => void; addLabel: string }) {
+/** Chosen ingredients as chips with ✕, plus an Add chip that opens the picker. */
+function Tokens({ keys, onRemove, onAdd, addLabel }: { keys: readonly string[]; onRemove: (k: string) => void; onAdd: () => void; addLabel: string }) {
   const items = namesOf(keys);
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {items.length === 0 && <span className="t-meta mr-1 text-stone">{empty}</span>}
+    <div className="flex flex-wrap items-center gap-2" data-food="">
       {items.map((i) => (
-        <span key={i.key} className="t-callout inline-flex h-11 items-center gap-0.5 rounded-full bg-m3 pl-4 pr-0.5 font-semibold text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)]">
+        <span key={i.key} className="t-label inline-flex h-11 items-center gap-0.5 rounded-pill bg-control pl-4 pr-1 font-semibold text-fg">
           {i.name}
-          <button type="button" onClick={() => onRemove(i.key)} aria-label={`Remove ${i.name}`} className="press grid size-10 place-items-center rounded-full text-stone hover:text-ivory">
-            <X className="size-4" strokeWidth={1.6} />
+          <button type="button" onClick={() => onRemove(i.key)} aria-label={`Remove ${i.name}`} className="press grid size-9 place-items-center rounded-full text-fg-2 hover:text-fg">
+            <X className="size-4" strokeWidth={2.2} />
           </button>
         </span>
       ))}
-      <button
-        type="button"
-        onClick={onAdd}
-        className="press t-callout inline-flex h-11 items-center gap-1.5 rounded-full border border-dashed border-ui-line px-4 font-semibold text-stone hover:text-ivory"
-      >
-        <Plus className="size-4" strokeWidth={1.6} aria-hidden />
-        {addLabel}
+      <button type="button" onClick={onAdd} aria-label={addLabel} className="press t-label inline-flex h-11 items-center gap-1.5 rounded-pill bg-control px-4 font-semibold text-fg">
+        <Plus className="size-4" strokeWidth={2.2} aria-hidden />
+        Add
       </button>
     </div>
   );
@@ -372,13 +323,13 @@ function BudgetField({ value, onSave }: { value: number | null; onSave: (v: numb
     if (v !== value) onSave(v);
   };
   return (
-    <div className="mt-5">
-      <label htmlFor="weekly-budget" className="t-callout mb-1.5 flex items-baseline justify-between gap-2 font-semibold text-ivory">
+    <div className="mt-6">
+      <label htmlFor="weekly-budget" className="t-row mb-2 flex items-baseline justify-between gap-2">
         Weekly grocery budget
-        <span className="t-meta font-normal text-ash">Optional</span>
+        <span className="t-label font-normal">Optional</span>
       </label>
       <div className="relative">
-        <span className="t-num-s pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-ash">$</span>
+        <span className="t-body pointer-events-none absolute inset-y-0 left-4 flex items-center text-fg-2">$</span>
         <input
           id="weekly-budget"
           type="text"
@@ -392,12 +343,12 @@ function BudgetField({ value, onSave }: { value: number | null; onSave: (v: numb
           onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
           aria-invalid={err ? true : undefined}
           aria-describedby={err ? "weekly-budget-err" : undefined}
-          className="tnum h-[3.25rem] w-full rounded-field border border-ui-line bg-m1 pl-8 pr-24 text-[length:max(18px,1.125rem)] font-semibold text-ivory outline-none transition-[border-color,box-shadow] placeholder:text-[length:max(16px,1rem)] placeholder:font-medium placeholder:text-ash focus:border-leaf-300 focus:shadow-[0_0_0_3px_var(--leaf-tint)] aria-invalid:border-cinnabar"
+          className="t-body h-14 w-full rounded-field bg-sheet-card pl-8 pr-28 tabular-nums text-fg outline-none placeholder:text-fg-2 focus:ring-2 focus:ring-fg aria-invalid:ring-2 aria-invalid:ring-danger"
         />
-        <span className="t-meta pointer-events-none absolute inset-y-0 right-3.5 flex items-center font-semibold text-ash">CAD / week</span>
+        <span className="t-label pointer-events-none absolute inset-y-0 right-4 flex items-center">CAD a week</span>
       </div>
       {err && (
-        <p id="weekly-budget-err" className="t-meta mt-1.5 text-cinnabar">
+        <p id="weekly-budget-err" className="t-label mt-1.5 text-danger">
           {err}
         </p>
       )}
