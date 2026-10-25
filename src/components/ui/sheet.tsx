@@ -38,24 +38,27 @@ export interface SheetProps {
 }
 
 /**
- * Bottom sheet on phones (vaul, r30, m1, e3), centred dialog on desktop. Titles speak in the voice
- * (Cormorant). Sits above the floating chrome (--z-sheet); confirms sit above sheets (--z-confirm).
+ * Sheet (docs/DESIGN-V3-SIMPLE.md §1.4.17): a bottom sheet on phones (vaul), a centred dialog on
+ * desktop. --sheet body, top radius 28, a 36×5 grabber, the title in `t-sheet` and a 44 px close
+ * button, the --scrim backdrop. Cards inside use --sheet-card (the body sets `data-sheet-body`,
+ * so kit cards and controls step up a shade by themselves). A sheet is its own viewport for the
+ * one-gold-fill rule. Sits above the chrome (--z-sheet); confirms sit above sheets (--z-confirm).
  */
 export function Sheet({ open, onOpenChange, title, description, children, footer, className, wide }: SheetProps) {
   const desktop = useMediaQuery("(min-width: 1024px)");
 
   const header = (Title: typeof Dialog.Title, Desc: typeof Dialog.Description, Close: typeof Dialog.Close) => (
-    <div className="flex min-h-14 items-center justify-between gap-3 px-5 pt-1">
+    <div className="flex min-h-14 items-center justify-between gap-3 px-5 pb-1 pt-1">
       <div className="min-w-0">
-        <Title className="t-title-2 truncate text-ivory">{title}</Title>
+        <Title className="t-sheet text-fg">{title}</Title>
         {description ? (
-          <Desc className="t-meta mt-0.5 text-stone">{description}</Desc>
+          <Desc className="t-label mt-1">{description}</Desc>
         ) : (
           <Desc className="sr-only">{typeof title === "string" ? title : "Dialog"}</Desc>
         )}
       </div>
-      <Close className="press -mr-2 grid size-11 place-items-center rounded-full text-stone hover:bg-white/[.04] hover:text-ivory" aria-label="Close">
-        <X className="size-5" strokeWidth={1.6} />
+      <Close className="press grid size-11 shrink-0 place-items-center rounded-full bg-sheet-control text-fg hover:bg-card-3" aria-label="Close">
+        <X className="size-5" strokeWidth={1.9} />
       </Close>
     </div>
   );
@@ -66,10 +69,14 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
   const sheetPb = footer || desktop ? "16px" : "calc(16px + var(--safe-bottom))";
   const body = (
     <>
-      <div ref={clearStickyFooter} className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-(--sheet-pb)", className)} style={{ "--sheet-pb": sheetPb } as CSSProperties}>
+      <div ref={clearStickyFooter} data-sheet-body="" className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-(--sheet-pb)", className)} style={{ "--sheet-pb": sheetPb } as CSSProperties}>
         {children}
       </div>
-      {footer && <div className="border-t border-vein bg-m1 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5">{footer}</div>}
+      {footer && (
+        <div data-sheet-body="" className="bg-sheet px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5">
+          {footer}
+        </div>
+      )}
     </>
   );
 
@@ -87,7 +94,7 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
             }}
             tabIndex={-1}
             className={cn(
-              "anim-dialog fixed left-1/2 top-1/2 z-(--z-sheet) flex max-h-[86dvh] w-[calc(100vw-48px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-sheet border border-vein-2 bg-m1 shadow-(--e3) outline-none",
+              "anim-dialog fixed left-1/2 top-1/2 z-(--z-sheet) flex max-h-[86dvh] w-[calc(100vw-48px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-sheet bg-sheet pt-3 outline-none",
               wide ? "max-w-[720px]" : "max-w-[560px]",
             )}
           >
@@ -106,8 +113,8 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
         <Drawer.Content
           onPointerDownOutside={keepOpenForToasts}
           onInteractOutside={keepOpenForToasts}
-          className="fixed inset-x-0 bottom-0 z-(--z-sheet) flex max-h-[92dvh] flex-col rounded-t-sheet border-t border-vein-2 bg-m1 shadow-(--e3) outline-none">
-          <div className="mx-auto mt-2.5 h-[5px] w-9 shrink-0 rounded-full bg-ui-line/70" aria-hidden />
+          className="fixed inset-x-0 bottom-0 z-(--z-sheet) flex max-h-[92dvh] flex-col rounded-t-sheet bg-sheet outline-none">
+          <div className="mx-auto mb-1 mt-2 h-[5px] w-9 shrink-0 rounded-full bg-band" aria-hidden />
           {header(Drawer.Title as unknown as typeof Dialog.Title, Drawer.Description as unknown as typeof Dialog.Description, Drawer.Close as unknown as typeof Dialog.Close)}
           {body}
         </Drawer.Content>
@@ -126,7 +133,7 @@ export function SheetFooterBar({ children, className }: { children: ReactNode; c
     <div
       data-sheet-footer=""
       className={cn(
-        "sticky bottom-[calc(var(--sheet-pb)*-1)] z-10 -mx-5 mb-[calc(var(--sheet-pb)*-1)] border-t border-vein bg-m1 px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5",
+        "sticky bottom-[calc(var(--sheet-pb)*-1)] z-10 -mx-5 mb-[calc(var(--sheet-pb)*-1)] bg-sheet px-5 pt-3 pb-[calc(16px+var(--safe-bottom))] lg:pb-5",
         className,
       )}
     >
@@ -186,13 +193,13 @@ export function Confirm({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="anim-overlay fixed inset-0 z-(--z-confirm) bg-(--scrim)" />
-        <Dialog.Content className="anim-dialog fixed left-1/2 top-1/2 z-(--z-confirm) w-[calc(100vw-40px)] max-w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-card border border-vein-2 bg-m2 p-6 shadow-(--e3) outline-none">
-          <Dialog.Title className="t-title-2 text-ivory">{title}</Dialog.Title>
+        <Dialog.Content data-sheet-body="" className="anim-dialog fixed left-1/2 top-1/2 z-(--z-confirm) w-[calc(100vw-40px)] max-w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-card bg-sheet p-6 outline-none">
+          <Dialog.Title className="t-sheet text-fg">{title}</Dialog.Title>
           <Dialog.Description asChild>
-            <div className="t-callout mt-2 text-stone">{body}</div>
+            <div className="t-body mt-2 text-fg-2">{body}</div>
           </Dialog.Description>
           <div className="mt-6 grid grid-cols-2 gap-3">
-            <Dialog.Close className="press h-12 rounded-btn bg-m3 text-[length:max(15px,0.9375rem)] font-semibold text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)]">{cancelLabel}</Dialog.Close>
+            <Dialog.Close className="press t-button h-[52px] rounded-pill bg-sheet-control text-fg">{cancelLabel}</Dialog.Close>
             <button
               type="button"
               onClick={() => {
@@ -200,7 +207,7 @@ export function Confirm({
                 onOpenChange(false);
               }}
               data-gold={destructive ? undefined : "fill"}
-              className={cn("press h-12 rounded-btn text-[length:max(15px,0.9375rem)] font-bold", destructive ? "bg-cinnabar text-ink" : "leaf-btn t-key text-ink")}
+              className={cn("press t-button h-[52px] rounded-pill", destructive ? "bg-danger-soft text-danger" : "bg-gold text-gold-ink")}
             >
               {confirmLabel}
             </button>

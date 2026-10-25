@@ -5,43 +5,63 @@ import { cn } from "@/lib/cn";
 
 type Variant = "card" | "monument" | "instrument" | "inset" | "accent";
 
-// Surfaces (docs/DESIGN-V2.md §1.3–1.4): `card` is the m2 slab; `monument` is for the hero,
-// summary and moment surfaces only (marble veins under the spotlight). New screens prefer fewer,
-// larger slabs and hairline-ruled placards (<Placard>) on night.
+/**
+ * The card (docs/DESIGN-V3-SIMPLE.md §1.4.1): flat --card (--sheet-card in a sheet), radius 24,
+ * padding 20, no border, shadow, gradient or texture. One thing per card. The old variants all
+ * render the V3 card (`inset`, which sits inside another card, is a control surface).
+ *
+ * With `onClick` or `href` the whole card is one button or link with the card press (.98).
+ */
 const VARIANT: Record<Variant, string> = {
-  card: "card p-4 sm:p-5 lg:p-6",
-  monument: "card-monument p-5 sm:p-6 lg:p-7",
-  instrument: "card-instrument p-4 sm:p-5",
-  inset: "card-inset p-3",
-  accent: "card-accent p-4 sm:p-5 lg:p-6",
+  card: "bg-surface rounded-card p-5",
+  monument: "bg-surface rounded-card p-5",
+  instrument: "bg-surface rounded-tile-lg p-5",
+  inset: "bg-control rounded-tile p-3",
+  accent: "bg-surface rounded-card p-5",
 };
 
-export function Card({ variant = "card", className, ...props }: ComponentProps<"section"> & { variant?: Variant }) {
-  return <section className={cn(VARIANT[variant], className)} {...props} />;
+type CardProps = ComponentProps<"section"> & {
+  variant?: Variant;
+  /** Makes the whole card a link (press-soft). */
+  href?: string;
+  /** VoiceOver name for a card that is a button or link. */
+  ariaLabel?: string;
+};
+
+export function Card({ variant = "card", className, href, onClick, ariaLabel, children, ...props }: CardProps) {
+  const cls = cn(VARIANT[variant], className);
+  if (href)
+    return (
+      <Link href={href} aria-label={ariaLabel} className={cn("press-soft block text-left", cls)}>
+        {children}
+      </Link>
+    );
+  if (onClick)
+    return (
+      <button type="button" onClick={onClick as unknown as ComponentProps<"button">["onClick"]} aria-label={ariaLabel} className={cn("press-soft block w-full text-left", cls)}>
+        {children}
+      </button>
+    );
+  return (
+    <section className={cls} {...props}>
+      {children}
+    </section>
+  );
 }
 
-export function CardHeader({
-  title,
-  action,
-  className,
-  gold,
-}: {
-  title: ReactNode;
-  action?: ReactNode;
-  className?: string;
-  gold?: boolean;
-}) {
+/** A card's caption row: a `t-cap` title on the left, an optional action on the right. */
+export function CardHeader({ title, action, className }: { title: ReactNode; action?: ReactNode; className?: string; gold?: boolean }) {
   return (
     <div className={cn("mb-3 flex min-h-6 items-center justify-between gap-3", className)}>
-      <h2 className={cn("t-eyebrow", gold && "text-leaf-300")}>{title}</h2>
+      <h2 className="t-cap">{title}</h2>
       {action}
     </div>
   );
 }
 
-/** Text action for card headers: leaf text, 44px hit area. */
+/** A text action for card headers: 44 px hit area, --text, never gold. */
 export function CardAction({ href, onClick, children }: { href?: string; onClick?: () => void; children: ReactNode }) {
-  const cls = "press -my-3 -mr-2 inline-flex h-11 items-center rounded-field px-2 text-[length:max(13px,0.8125rem)] font-semibold text-leaf-300 hover:text-leaf-200";
+  const cls = "press t-label -my-3 -mr-2 inline-flex h-11 items-center rounded-pill px-2 font-semibold text-fg-2 hover:text-fg";
   if (href)
     return (
       <Link href={href} className={cls}>
@@ -55,14 +75,12 @@ export function CardAction({ href, onClick, children }: { href?: string; onClick
   );
 }
 
+/** A card that is a link, with the 16 px chevron. */
 export function LinkCard({ href, className, children }: { href: string; className?: string; children: ReactNode }) {
   return (
-    <Link
-      href={href}
-      className={cn("card press-soft group flex items-center gap-3 p-4 hover:border-vein-3", className)}
-    >
+    <Link href={href} className={cn("press-soft flex items-center gap-3 rounded-card bg-surface p-5", className)}>
       <div className="min-w-0 flex-1">{children}</div>
-      <ChevronRight className="size-4 shrink-0 text-ash transition-[translate] duration-(--dur-fast) group-hover:translate-x-0.5" strokeWidth={1.6} />
+      <ChevronRight className="size-5 shrink-0 text-fg-3" strokeWidth={1.9} aria-hidden />
     </Link>
   );
 }

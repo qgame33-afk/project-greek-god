@@ -3,30 +3,30 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 
-const TONE: Record<string, string> = {
-  gold: "var(--leaf-h)",
-  marble: "var(--ivory)",
-  terracotta: "var(--series-carbs)",
-  porphyry: "var(--series-fat)",
-  lapis: "var(--series-water)",
-  verdigris: "var(--series-water)",
-  success: "var(--leaf-300)",
-};
-
 /**
- * Linear progress (legacy). `fluted` = monument style with column fluting and a leading notch.
- * New screens use <Meter> (ui/meter.tsx), which adds the hatched planned extension.
+ * The bar (docs/DESIGN-V3-SIMPLE.md §1.4.5): 8 px (4 px `thin`) --text fill on --track, radius
+ * full. An optional `band={[lo, hi]}` (0–1 of the track) draws the target range as a --band
+ * segment under the fill (Sets by muscle). It fills with scaleX over 600 ms on first paint and on
+ * change. `tone` and `fluted` are kept for old callers and ignored.
+ *
+ *   <Bar value={0.1} label="10% of the way" />
+ *   <Bar value={7 / 20} band={[8 / 20, 20 / 20]} thin />
  */
 export function Bar({
   value,
-  tone = "gold",
-  fluted,
+  thin,
+  band,
   className,
   label,
   delay = 0,
 }: {
   value: number;
-  tone?: keyof typeof TONE;
+  thin?: boolean;
+  /** The target range as fractions of the track, drawn under the fill. */
+  band?: [number, number] | null;
+  /** @deprecated ignored */
+  tone?: string;
+  /** @deprecated ignored */
   fluted?: boolean;
   className?: string;
   label?: string;
@@ -34,50 +34,30 @@ export function Bar({
 }) {
   const v = Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
   const [shown, setShown] = useState(0);
-  const filled = useRef(false);
+  const first = useRef(true);
   useEffect(() => {
-    // the stagger delay is for the first fill only; later changes (a new log) move at once
-    const t = window.setTimeout(() => setShown(v), (filled.current ? 0 : delay) + 30);
-    filled.current = true;
+    const t = window.setTimeout(() => setShown(v), first.current ? delay + 30 : 0);
+    first.current = false;
     return () => window.clearTimeout(t);
   }, [v, delay]);
+  const lo = band ? Math.max(0, Math.min(1, band[0])) : 0;
+  const hi = band ? Math.max(lo, Math.min(1, band[1])) : 0;
   return (
     <div
-      className={cn("relative overflow-hidden rounded-full bg-vein-2", fluted ? "h-2.5" : "h-1.5", className)}
+      className={cn("relative w-full overflow-hidden rounded-full bg-track", thin ? "h-1" : "h-2", className)}
       role={label ? "progressbar" : undefined}
       aria-label={label}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(v * 100)}
+      aria-valuemin={label ? 0 : undefined}
+      aria-valuemax={label ? 100 : undefined}
+      aria-valuenow={label ? Math.round(v * 100) : undefined}
+      aria-hidden={label ? undefined : true}
     >
+      {band && <div aria-hidden className="absolute inset-y-0 bg-band" style={{ left: `${lo * 100}%`, width: `${(hi - lo) * 100}%` }} />}
       <div
-        className="absolute inset-0 rounded-full"
-        style={{
-          background: TONE[tone],
-          transform: `translateX(${(shown - 1) * 100}%)`,
-          transition: "transform var(--dur-gild) var(--ease-gold)",
-        }}
+        aria-hidden
+        className="absolute inset-0 origin-left rounded-full bg-fg"
+        style={{ transform: `scaleX(${shown})`, transition: "transform var(--dur-ring) var(--ease-out)" }}
       />
-      {fluted && (
-        <>
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{ background: "repeating-linear-gradient(90deg, transparent 0 7px, rgb(0 0 0 / .22) 7px 8px)" }}
-          />
-          {/* the gold-50 leading edge rides on the same translate as the fill (no `left` animation) */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              transform: `translateX(${(shown - 1) * 100}%)`,
-              transition: "transform var(--dur-gild) var(--ease-gold), opacity 200ms var(--ease-out)",
-              opacity: shown > 0.01 && shown < 0.995 ? 1 : 0,
-            }}
-          >
-            <div className="absolute inset-y-0 right-0 w-1 rounded-full bg-leaf-100" />
-          </div>
-        </>
-      )}
     </div>
   );
 }

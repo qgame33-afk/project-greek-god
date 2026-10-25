@@ -1,57 +1,34 @@
 "use client";
 
-import { animate, useInView } from "motion/react";
-import { useEffect, useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { DURATION, EASE, prefersReducedMotion } from "@/lib/motion";
 
 /**
- * Count (docs/DESIGN-V2.md §1.8.2): a hero number counting to its value over 700 ms ease-out.
- * Writes textContent directly — no per-frame renders. Reduced motion: the final value.
+ * CountUp, retired (docs/DESIGN-V3-SIMPLE.md §1.6: numbers change instantly, no count-up). Kept
+ * for old callers: it renders the formatted value at once.
  */
 export function CountUp({
   value,
   decimals = 0,
-  duration = DURATION.count / 1000,
   className,
   format,
 }: {
   value: number;
   decimals?: number;
+  /** @deprecated ignored */
   duration?: number;
   className?: string;
   format?: (n: number) => string;
 }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const from = useRef(0);
-  const inView = useInView(ref, { once: true });
-  const fmt = format ?? ((n: number) => n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }));
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || !inView) return;
-    if (prefersReducedMotion()) {
-      el.textContent = fmt(value);
-      from.current = value;
-      return;
-    }
-    const ctl = animate(from.current, value, {
-      duration,
-      ease: [...EASE.out],
-      onUpdate: (v) => {
-        el.textContent = fmt(v);
-      },
-    });
-    from.current = value;
-    return () => ctl.stop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, inView, duration, decimals]);
-  return (
-    <span ref={ref} className={className}>
-      {fmt(0)}
-    </span>
-  );
+  const text = format ? format(value) : value.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  return <span className={className}>{text}</span>;
 }
 
+/**
+ * An in-page title row for old screens (the shell's PageHeader/BackHeader are in shell/*): the
+ * `t-title` on the left and at most one accessory on the right. An `eyebrow` renders as a quiet
+ * `t-cap` line above the title (no uppercase).
+ */
 export function PageHeader({
   eyebrow,
   title,
@@ -66,10 +43,10 @@ export function PageHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className={cn("mb-6 flex items-end justify-between gap-4", className)}>
+    <header className={cn("mb-5 flex min-h-14 items-center justify-between gap-3", className)}>
       <div className="min-w-0">
-        {eyebrow && <p className="t-eyebrow mb-2">{eyebrow}</p>}
-        <h1 className="t-title-1 text-ivory">{title}</h1>
+        {eyebrow && <p className="t-cap mb-1">{eyebrow}</p>}
+        <h1 className="t-title text-fg">{title}</h1>
         {children}
       </div>
       {action && <div className="shrink-0">{action}</div>}
@@ -98,30 +75,33 @@ export function Stat({
 }) {
   return (
     <div className={cn("min-w-0", className)}>
-      <p className="t-eyebrow truncate">{label}</p>
-      <p className={cn("mt-1.5 truncate", size === "lg" ? "t-num-l" : size === "md" ? "t-num-m" : "t-num-s")}>
+      <p className="t-cap truncate">{label}</p>
+      <p className={cn("mt-1 truncate", size === "lg" ? "t-num" : "t-num-s")}>
         {value}
         {unit && <span className="unit">{unit}</span>}
       </p>
-      {delta != null && (
-        <p className={cn("t-meta mt-1 truncate font-semibold", deltaTone === "good" ? "text-leaf-300" : "text-stone")}>{delta}</p>
-      )}
-      {caption && <p className="t-meta mt-1 truncate text-ash">{caption}</p>}
+      {delta != null && <p className={cn("t-cap mt-1 truncate font-semibold", deltaTone === "good" ? "text-gold" : "text-fg-2")}>{delta}</p>}
+      {caption && <p className="t-cap mt-1 truncate">{caption}</p>}
     </div>
   );
 }
 
+/** Skeleton (§1.4.24): a --card block in the final layout's shape; a 1.2 s pulse. */
 export function Skeleton({ className }: { className?: string }) {
   return <div className={cn("skeleton", className)} aria-hidden />;
 }
 
+/**
+ * Empty (§1.4.24): a --card with one `t-row` line and one `t-label` next step, centred, no art
+ * ("Nothing yet today" / "Tap + to add food"). `art` is ignored.
+ */
 export function Empty({
-  art,
   title,
   children,
   action,
   className,
 }: {
+  /** @deprecated ignored: empty states have no art */
   art?: ReactNode;
   title: ReactNode;
   children?: ReactNode;
@@ -129,23 +109,26 @@ export function Empty({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col items-center rounded-card border border-dashed border-vein-3 px-5 py-7 text-center", className)}>
-      {art && <div className="mb-3 opacity-90">{art}</div>}
-      <p className="t-title-3 text-ivory">{title}</p>
-      {children && <div className="t-callout mt-1 max-w-[34ch] text-stone">{children}</div>}
+    <div className={cn("flex flex-col items-center rounded-card bg-surface px-5 py-[26px] text-center", className)}>
+      <p className="t-row text-fg">{title}</p>
+      {children && <div className="t-label mt-1.5 max-w-[34ch]">{children}</div>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }
 
-/** Small "error with retry" block inside the affected block only; never loses the user's input. */
-export function ErrorNote({ children, onRetry, className }: { children: ReactNode; onRetry?: () => void; className?: string }) {
+/**
+ * ErrorNote (§1.4.24): a --card with the message ("Couldn't load this." by default) and a
+ * secondary "Try again". Text in --text, never red unless something was lost. Shown inside the
+ * affected block only; the rest of the screen keeps working.
+ */
+export function ErrorNote({ children, onRetry, className }: { children?: ReactNode; onRetry?: () => void; className?: string }) {
   return (
-    <div className={cn("t-callout flex items-center justify-between gap-3 rounded-field border border-cinnabar-line bg-cinnabar-tint px-3.5 py-3 text-ivory", className)} role="alert">
-      <span>{children}</span>
+    <div className={cn("flex items-center justify-between gap-3 rounded-card bg-surface px-5 py-4", className)} role="alert">
+      <span className="t-body text-fg">{children ?? "Couldn't load this."}</span>
       {onRetry && (
-        <button type="button" onClick={onRetry} className="press -my-2 inline-flex h-11 shrink-0 items-center rounded-field px-3 font-semibold text-ivory underline decoration-ui-line underline-offset-4">
-          Retry
+        <button type="button" onClick={onRetry} className="press t-button h-11 shrink-0 rounded-pill bg-control px-[18px] text-fg">
+          Try again
         </button>
       )}
     </div>
@@ -167,5 +150,5 @@ export function Collapse({ open, id, className, children }: { open: boolean; id?
 }
 
 export function Divider({ className }: { className?: string }) {
-  return <hr className={cn("border-0 border-t border-vein", className)} />;
+  return <hr className={cn("border-0 border-t border-line", className)} />;
 }

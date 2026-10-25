@@ -54,6 +54,11 @@ html[data-night="on"] {
   --band: #3a3a40;
   /* the sheet's controls on --sheet-card (tiles, chips, secondary buttons) */
   --sheet-control: #2e2e33;
+  /* Kit surfaces that adapt inside a sheet: a card is --card on a page and --sheet-card in a
+     sheet; a control is --card-2 on a page and --sheet-control in a sheet (Tailwind `bg-surface`,
+     `bg-control`). The Sheet body sets them. */
+  --surface: var(--card);
+  --control: var(--card-2);
 
   --gutter: 20px;
   --z-content: 0;
@@ -277,6 +282,8 @@ html[data-night="on"] {
   --color-sheet: var(--sheet);
   --color-sheet-card: var(--sheet-card);
   --color-sheet-control: var(--sheet-control);
+  --color-surface: var(--surface);
+  --color-control: var(--control);
   --color-track: var(--track);
   --color-band: var(--band);
   --color-ui-line: var(--ui-line);
@@ -381,6 +388,8 @@ html[data-night="on"] {
   --radius-tile: 14px;
   --radius-pill: 9999px;
   --radius-sheet: 28px;
+  /* the 32 px icon tile of a list row */
+  --radius-icon: 9px;
   /* old names */
   --radius-tag: 5px;
   --radius-btn: 16px;
@@ -414,6 +423,12 @@ html[data-night="on"] {
   @media (max-height: 700px) {
     @slot;
   }
+}
+
+/* Inside a sheet, kit cards and controls step up one shade (§1.4.17). */
+[data-sheet-body] {
+  --surface: var(--sheet-card);
+  --control: var(--sheet-control);
 }
 
 /* ---------------------------------------------------------------- base */
@@ -640,6 +655,13 @@ body *::after {
 }
 @utility t-button {
   font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+/* the gym button's label (§1.2.3: t-button at 1.125rem) */
+@utility t-button-gym {
+  font-size: 1.125rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.2;

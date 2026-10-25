@@ -1,15 +1,17 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { Tag } from "./tag";
+import { AiChip } from "./ai-chip";
 
 /**
- * The AI estimate card (docs/DESIGN-V2.md §3.9.3): what the scanner, the Offering's natural-language
- * log and the Oracle's meal drafts return, BEFORE anything is saved. An aegean rim, the header
- * "AI · ESTIMATE · Not saved yet", the items, an optional CALC consequence line ("If you add it:
- * 3,435 kcal · 190 g"), and the actions (one gold `Confirm & add` at most).
+ * The AI card (docs/DESIGN-V3-SIMPLE.md §1.4.19, §4.7.2): what the scanner, the Add sheet's
+ * sentence and the coach's meal drafts return BEFORE anything is saved. A --card with a 1 px
+ * --ai-line border, so an unsaved estimate can never look like a logged row; the chip
+ * "AI estimate" + "Not saved yet"; the items; an optional consequence line ("After this: 152 kcal
+ * and 23 g protein to go today."); and the actions (one gold "Add as …" at most). It never saves
+ * without the gold confirm.
  *
- *   <EstimateCard title="Pepperoni pizza, 3 slices" status="unsaved" items={…}
- *     consequence={<>If you add it: 3,435 kcal · 190 g <Tag kind="CALC" /></>}
+ *   <AiCard title="Pepperoni pizza, 3 slices" status="unsaved" items={…}
+ *     consequence="After this: 152 kcal and 23 g protein to go today."
  *     actions={<Button variant="primary" block>Add as dinner</Button>} />
  */
 export type EstimateStatus = "unsaved" | "saving" | "saved" | "error";
@@ -32,7 +34,7 @@ export function EstimateCard({
   className,
 }: {
   title: ReactNode;
-  /** Replaces the default AI · ESTIMATE tag (e.g. with confidence pips). */
+  /** Replaces the default chip. */
   tag?: ReactNode;
   status: EstimateStatus;
   items: ReactNode;
@@ -42,20 +44,18 @@ export function EstimateCard({
   className?: string;
 }) {
   return (
-    <section
-      className={cn("rounded-card border border-aegean-line bg-m2 p-4 shadow-[inset_0_1px_0_var(--aegean-tint)]", className)}
-      aria-live="polite"
-      aria-busy={status === "saving" || undefined}
-    >
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        {tag ?? <Tag kind="AI" detail="Estimate" />}
-        <span className={cn("t-tag", status === "error" ? "text-cinnabar" : status === "saved" ? "text-ivory" : "text-aegean")}>· {STATUS[status]}</span>
-      </div>
-      <h3 className="t-title-2 mt-2 text-ivory">{title}</h3>
+    <section className={cn("rounded-card border border-ai-line bg-surface p-[18px]", className)} aria-live="polite" aria-busy={status === "saving" || undefined} data-ai-card="">
+      {tag ?? <AiChip label="AI estimate" status={STATUS[status]} />}
+      <h3 className="t-section mt-3 text-fg" data-food="">
+        {title}
+      </h3>
       <div className="mt-3">{items}</div>
-      {consequence && <div className="t-meta mt-3 flex flex-wrap items-center gap-2 border-t border-vein pt-3 text-stone">{consequence}</div>}
-      {note && <div className="t-meta mt-2 text-ash">{note}</div>}
+      {consequence && <div className="t-label mt-3 flex flex-wrap items-center gap-2">{consequence}</div>}
+      {note && <div className="t-cap mt-2">{note}</div>}
       <div className="mt-4 flex flex-col gap-2">{actions}</div>
     </section>
   );
 }
+
+/** The V3 name of the same card (§1.4.19). */
+export const AiCard = EstimateCard;

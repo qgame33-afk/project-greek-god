@@ -6,56 +6,56 @@ import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * Buttons (docs/DESIGN-V2.md §1.1.2, §5.2). `primary` is the gold-leaf key: the ONE gold-filled
- * control per viewport. It carries data-gold="fill" so scripts/dev/gold-audit.mjs can count it.
- * Sizes: sm 44 · md 48 · lg 56 · xl 64 (gym and seal keys) · icon 44.
+ * Buttons (docs/DESIGN-V3-SIMPLE.md §1.4.10). Pill-shaped, sentence case, `t-button` labels.
+ *   primary      gold fill, --gold-ink: the ONE main action of a viewport (data-gold="fill")
+ *   inverse      white fill, black text: the main action while a win card shows
+ *   secondary    --card-2 (--sheet-control in a sheet)
+ *   ghost        text only
+ *   destructive  --danger text
+ *   link         inline text action
+ * Sizes: sm 44 · md 52 · lg 56 · xl 64 (gym, 1.125rem label) · icon 44 (round).
+ * Old variants alias: outline and outline-gold → secondary, destructive-solid → destructive.
+ * `shine` is ignored.
  */
 export const buttonVariants = cva(
-  "press relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-btn font-sans transition-[background-color,border-color,color,opacity,box-shadow] duration-(--dur-fast) disabled:pointer-events-none [&_svg]:shrink-0",
+  "press relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-pill font-sans transition-[background-color,color,opacity] duration-(--dur-fast) disabled:pointer-events-none [&_svg]:size-5 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary:
-          "leaf-btn t-key text-ink disabled:bg-none disabled:bg-m3 disabled:text-disabled disabled:shadow-[inset_0_0_0_1px_var(--vein-2)] disabled:after:hidden",
-        secondary:
-          "bg-m3 text-ivory font-semibold text-[length:max(15px,0.9375rem)] shadow-[inset_0_0_0_1px_var(--vein-2),inset_0_1px_0_rgb(255_244_220/.05)] hover:bg-m4 active:bg-m4 disabled:text-disabled",
-        outline:
-          "text-ivory font-semibold text-[length:max(15px,0.9375rem)] shadow-[inset_0_0_0_1px_var(--vein-3)] hover:bg-white/[.03] active:bg-m3 disabled:text-disabled",
-        "outline-gold":
-          "text-leaf-200 font-semibold text-[length:max(15px,0.9375rem)] shadow-[inset_0_0_0_1px_var(--leaf-line)] hover:bg-leaf-tint active:bg-leaf-tint disabled:text-disabled disabled:shadow-[inset_0_0_0_1px_var(--vein-2)]",
-        ghost: "text-stone font-semibold text-[length:max(15px,0.9375rem)] hover:text-ivory active:bg-white/5 disabled:text-disabled",
-        destructive:
-          "bg-cinnabar-tint text-cinnabar font-semibold text-[length:max(15px,0.9375rem)] shadow-[inset_0_0_0_1px_var(--cinnabar-line)] hover:bg-cinnabar/15",
-        "destructive-solid": "bg-cinnabar text-ink font-bold text-[length:max(15px,0.9375rem)] disabled:bg-m3 disabled:text-disabled",
-        link: "text-leaf-300 font-semibold text-[length:max(13px,0.8125rem)] h-auto px-0 hover:text-leaf-200",
+        primary: "bg-gold text-gold-ink disabled:bg-control disabled:text-fg-2",
+        inverse: "bg-fg text-bg disabled:bg-control disabled:text-fg-2",
+        secondary: "bg-control text-fg hover:bg-card-3 active:bg-card-3 disabled:opacity-50",
+        outline: "bg-control text-fg hover:bg-card-3 active:bg-card-3 disabled:opacity-50",
+        "outline-gold": "bg-control text-fg hover:bg-card-3 active:bg-card-3 disabled:opacity-50",
+        ghost: "bg-transparent text-fg hover:bg-white/5 active:bg-white/5 disabled:opacity-50",
+        destructive: "bg-transparent text-danger hover:bg-danger-soft active:bg-danger-soft disabled:opacity-50",
+        "destructive-solid": "bg-transparent text-danger hover:bg-danger-soft active:bg-danger-soft disabled:opacity-50",
+        link: "h-auto bg-transparent px-0 text-fg underline-offset-4 hover:underline",
       },
       size: {
-        sm: "h-11 px-4 text-[length:max(14px,0.875rem)] rounded-field",
-        md: "h-12 px-5",
-        lg: "h-14 px-6",
-        xl: "h-16 px-6",
-        icon: "size-11 rounded-field p-0",
-        "icon-sm": "hit-44 size-9 rounded-field p-0",
+        sm: "t-button h-11 px-[18px]",
+        md: "t-button h-[52px] px-[22px]",
+        lg: "t-button h-14 px-6",
+        xl: "t-button-gym h-16 px-6",
+        icon: "t-button size-11 p-0",
+        "icon-sm": "t-button hit-44 size-9 p-0",
       },
       block: { true: "w-full" },
     },
-    compoundVariants: [
-      { variant: "link", className: "h-auto px-0" },
-      { variant: "primary", size: "sm", className: "text-[length:max(13px,0.8125rem)]" },
-    ],
+    compoundVariants: [{ variant: "link", className: "h-auto min-h-11 px-0" }],
     defaultVariants: { variant: "secondary", size: "md" },
   },
 );
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   asChild?: boolean;
-  /** One Sheen pass over the gold (key moments only). */
+  /** @deprecated Olympus' sheen pass; ignored. */
   shine?: boolean;
   loading?: boolean;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { className, variant, size, block, asChild, shine, loading, disabled, children, type, ...props },
+  { className, variant, size, block, asChild, shine: _shine, loading, disabled, children, type, ...props },
   ref,
 ) {
   const Comp = asChild ? Slot.Root : "button";
@@ -65,7 +65,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <Comp
       ref={ref}
       type={asChild ? undefined : (type ?? "button")}
-      className={cn(buttonVariants({ variant, size, block }), shine && variant === "primary" && "sheen", className)}
+      className={cn(buttonVariants({ variant, size, block }), className)}
       disabled={off}
       aria-busy={loading || undefined}
       data-gold={gold ? "fill" : undefined}

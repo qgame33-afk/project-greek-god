@@ -1,146 +1,102 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Check, type LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 export type RingSize = "xl" | "lg" | "md" | "sm" | "xs";
+/** @deprecated Rings have no colours any more (§1.4.4); the tone is ignored. */
 export type RingTone = "gold" | "marble" | "terracotta" | "porphyry" | "lapis" | "verdigris" | "success";
 
-const SIZES: Record<RingSize, { d: number; s: number; flute: boolean }> = {
-  xl: { d: 240, s: 14, flute: true },
-  lg: { d: 136, s: 11, flute: true },
-  md: { d: 72, s: 7, flute: false },
-  sm: { d: 52, s: 5, flute: false },
-  xs: { d: 28, s: 3.5, flute: false },
+const SIZES: Record<RingSize, { d: number; s: number }> = {
+  xl: { d: 240, s: 14 },
+  lg: { d: 112, s: 11 },
+  md: { d: 64, s: 7 },
+  sm: { d: 52, s: 5 },
+  xs: { d: 28, s: 3.5 },
 };
 
-const TONE: Record<Exclude<RingTone, "gold">, string> = {
-  marble: "var(--ivory)",
-  terracotta: "var(--series-carbs)",
-  porphyry: "var(--series-fat)",
-  lapis: "var(--series-water)",
-  verdigris: "var(--series-water)",
-  success: "var(--leaf-300)",
-};
-
-// Legacy (docs/DESIGN-V2.md §2.4: new screens use <Meter>, there are no rings). Kept, re-themed
-// through CSS variables, until the owning streams replace their rings.
-
+/**
+ * The ring (docs/DESIGN-V3-SIMPLE.md §1.4.4): round caps, starting at 12 o'clock, --text progress
+ * on --track, one centred Lucide glyph in --text (no macro colours). At its goal (`goal`) the
+ * stroke and glyph turn --gold and the glyph becomes `Check`. It fills with stroke-dashoffset over
+ * 600 ms on first paint and on change (drawn at its value under reduced motion).
+ *
+ *   <Ring value={0.57} size="lg" icon={Flame} label="1,887 of 3,300 calories" />
+ *   <Ring value={1} size="md" icon={Drumstick} goal label="Protein goal done" />
+ */
 export interface RingProps {
-  /** 0–1+, values above 1 draw an overflow arc. */
+  /** 0–1 (clamped; over 1 draws a full ring). */
   value: number;
   size?: RingSize;
-  /** Custom diameter in px (overrides the preset's diameter, keeps its stroke). */
+  /** Diameter in px (overrides the preset's, keeps its stroke unless `stroke` is set). */
   diameter?: number;
+  stroke?: number;
+  /** The centred glyph: a Lucide icon. */
+  icon?: LucideIcon;
+  /** At its goal: gold stroke and a gold Check. */
+  goal?: boolean;
+  /** @deprecated ignored */
   tone?: RingTone;
-  label: string; // accessible label, e.g. "Protein 142 of 185 grams"
-  delay?: number; // ms, for staggering on mount
+  /** VoiceOver label, e.g. "Protein 142 of 185 grams". Omit when the surrounding button names it. */
+  label?: string;
+  /** ms before the first fill. */
+  delay?: number;
+  /** Custom centre content (instead of `icon`). */
   children?: ReactNode;
   className?: string;
-  /** Hide the end-cap glow (used for tiny rings). */
+  /** @deprecated ignored */
   plain?: boolean;
 }
 
-export function Ring({ value, size = "md", diameter, tone = "gold", label, delay = 0, children, className, plain }: RingProps) {
-  const id = useId().replace(/:/g, "");
+export function Ring({ value, size = "md", diameter, stroke: strokeProp, icon: Icon, goal, label, delay = 0, children, className }: RingProps) {
   const preset = SIZES[size];
   const d = diameter ?? preset.d;
-  const stroke = preset.s;
-  const flute = preset.flute;
-  const pad = flute ? 7 : 0;
-  const r = (d - stroke) / 2 - pad;
+  const stroke = strokeProp ?? preset.s;
+  const r = (d - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const safe = Number.isFinite(value) ? Math.max(0, value) : 0;
-  const main = Math.min(safe, 1);
-  const over = Math.min(Math.max(safe - 1, 0), 1);
+  const v = Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 
-  // Animate from empty on first paint, then old → new on change (CSS transitions).
+  // Empty on the first frame, then fill to the value; later changes move from the old value.
   const [shown, setShown] = useState(0);
-  const filled = useRef(false);
-  const [shownOver, setShownOver] = useState(0);
+  const first = useRef(true);
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      setShown(main);
-      setShownOver(over);
-    }, (filled.current ? 0 : delay) + 30);
-    filled.current = true;
+    const t = window.setTimeout(() => setShown(v), first.current ? delay + 30 : 0);
+    first.current = false;
     return () => window.clearTimeout(t);
-  }, [main, over, delay]);
+  }, [v, delay]);
 
-  const color = tone === "gold" ? `url(#g-${id})` : TONE[tone];
-  const cx = d / 2;
-  const showCap = !plain && size !== "xs" && shown > 0.02 && shown < 0.995;
-
+  const color = goal ? "var(--gold)" : "var(--text)";
+  const glyph = Math.round(d >= 100 ? 28 : d >= 56 ? 20 : 16);
+  const Glyph = goal ? Check : Icon;
   return (
-    <div className={cn("relative inline-grid shrink-0 place-items-center", className)} style={{ width: d, height: d }} role="img" aria-label={label}>
+    <div
+      className={cn("relative inline-grid shrink-0 place-items-center", className)}
+      style={{ width: d, height: d }}
+      role={label ? "img" : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
       <svg width={d} height={d} viewBox={`0 0 ${d} ${d}`} className="absolute inset-0 -rotate-90" aria-hidden>
-        <defs>
-          <linearGradient id={`g-${id}`} x1="0" y1={d} x2={d} y2="0" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" style={{ stopColor: "var(--leaf-500)" }} />
-            <stop offset="55%" style={{ stopColor: "var(--leaf-300)" }} />
-            <stop offset="100%" style={{ stopColor: "var(--leaf-100)" }} />
-          </linearGradient>
-          <radialGradient id={`h-${id}`}>
-            <stop offset="0%" style={{ stopColor: tone === "gold" ? "var(--leaf-100)" : "var(--ivory)" }} stopOpacity=".55" />
-            <stop offset="100%" style={{ stopColor: tone === "gold" ? "var(--leaf-300)" : "var(--ivory)" }} stopOpacity="0" />
-          </radialGradient>
-        </defs>
-
-        {flute && (
-          <>
-            <path d={ticks(cx, r + stroke / 2 + 3, 3, (i) => i % 15 !== 0)} style={{ stroke: "var(--vein-2)" }} strokeWidth={1} />
-            <path d={ticks(cx, r + stroke / 2 + 3, 3, (i) => i % 15 === 0)} style={{ stroke: "var(--leaf-600)" }} strokeWidth={1} />
-          </>
-        )}
-
-        <circle cx={cx} cy={cx} r={r} fill="none" style={{ stroke: "var(--vein-2)" }} strokeWidth={stroke} />
+        <circle cx={d / 2} cy={d / 2} r={r} fill="none" style={{ stroke: "var(--track)" }} strokeWidth={stroke} />
         <circle
-          cx={cx}
-          cy={cx}
+          cx={d / 2}
+          cy={d / 2}
           r={r}
           fill="none"
-          style={{ stroke: color, transition: `stroke-dashoffset var(--dur-gild) var(--ease-gold)` }}
-          strokeOpacity={tone === "gold" ? 1 : 0.92}
+          style={{ stroke: color, transition: "stroke-dashoffset var(--dur-ring) var(--ease-out), stroke var(--dur-base) var(--ease-out)" }}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - shown)}
           opacity={shown > 0.001 ? 1 : 0}
         />
-        {over > 0 && (
-          <circle
-            cx={cx}
-            cy={cx}
-            r={r - stroke * 0.95}
-            fill="none"
-            style={{ stroke: "var(--leaf-200)", transition: `stroke-dashoffset 700ms var(--ease-gold) 400ms` }}
-            strokeOpacity={0.6}
-            strokeWidth={Math.max(1.5, stroke * 0.45)}
-            strokeLinecap="round"
-            strokeDasharray={2 * Math.PI * (r - stroke * 0.95)}
-            strokeDashoffset={2 * Math.PI * (r - stroke * 0.95) * (1 - shownOver)}
-          />
-        )}
-        {showCap && (
-          <g style={{ transform: `rotate(${shown * 360}deg)`, transformOrigin: `${cx}px ${cx}px`, transition: "transform 900ms var(--ease-gold)" }}>
-            <circle cx={cx + r} cy={cx} r={stroke * 1.5} fill={`url(#h-${id})`} />
-            <circle cx={cx + r} cy={cx} r={stroke * 0.42} style={{ fill: tone === "gold" ? "var(--leaf-50)" : "var(--ivory)" }} />
-          </g>
-        )}
       </svg>
-      {children && <div className="relative z-10 flex flex-col items-center justify-center text-center">{children}</div>}
+      {children ? (
+        <div className="relative flex flex-col items-center justify-center text-center">{children}</div>
+      ) : Glyph ? (
+        <Glyph className="relative" style={{ width: glyph, height: glyph, color }} strokeWidth={glyph <= 16 ? 2.2 : 1.9} aria-hidden />
+      ) : null}
     </div>
   );
-}
-
-function ticks(c: number, r1: number, len: number, include: (i: number) => boolean) {
-  let d = "";
-  for (let i = 0; i < 60; i++) {
-    if (!include(i)) continue;
-    const a = (i / 60) * Math.PI * 2;
-    const x1 = c + r1 * Math.cos(a), y1 = c + r1 * Math.sin(a);
-    const x2 = c + (r1 + len) * Math.cos(a), y2 = c + (r1 + len) * Math.sin(a);
-    d += `M${x1.toFixed(2)} ${y1.toFixed(2)}L${x2.toFixed(2)} ${y2.toFixed(2)}`;
-  }
-  return d;
 }

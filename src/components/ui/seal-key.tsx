@@ -6,10 +6,10 @@ import { cn } from "@/lib/cn";
 import { EASE_CSS, prefersReducedMotion } from "@/lib/motion";
 
 /**
- * The seal key (docs/DESIGN-V2.md §3.2.1): Gym Mode's full-width 64 px gold-leaf key in the thumb
- * deck — `SEAL SET 3 · 190 × 5 ✓`. One tap logs the shown values. It is the viewport's one gold
- * fill (data-gold="fill"). Bump `pulse` (a counter) to play the Final-10 pulse once
- * (scale 1 → 1.03 → 1, 300 ms; skipped under reduced motion).
+ * The old seal key, as the V3 gym button (docs/DESIGN-V3-SIMPLE.md §1.4.10, §4.2.3): a full-width
+ * 64 px gold pill whose label names what it logs ("Log set 3"). One tap logs the shown values. It
+ * is the viewport's one gold fill (data-gold="fill"). Deleted at integration (§6.7); the workout
+ * moves to <Button variant="primary" size="xl">.
  */
 export interface SealKeyProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   label: ReactNode;
@@ -46,8 +46,8 @@ export const SealKey = forwardRef<HTMLButtonElement, SealKeyProps>(function Seal
       disabled={disabled}
       data-gold={disabled ? undefined : "fill"}
       className={cn(
-        "leaf-btn press t-key flex h-16 w-full items-center justify-center gap-2.5 rounded-btn px-5 text-ink",
-        "disabled:bg-none disabled:bg-m3 disabled:text-disabled disabled:shadow-[inset_0_0_0_1px_var(--vein-2)] disabled:after:hidden",
+        "press t-button-gym flex h-16 w-full items-center justify-center gap-2 rounded-pill bg-gold px-5 text-gold-ink",
+        "disabled:bg-control disabled:text-fg-2",
         className,
       )}
       {...rest}
@@ -58,10 +58,10 @@ export const SealKey = forwardRef<HTMLButtonElement, SealKeyProps>(function Seal
           <span aria-hidden className="opacity-60">
             ·
           </span>
-          <span className="tnum truncate tracking-[0.04em]">{detail}</span>
+          <span className="truncate tabular-nums">{detail}</span>
         </>
       )}
-      {!noTick && <Check className="size-5 shrink-0" strokeWidth={2.2} aria-hidden />}
+      {!noTick && <Check className="size-5 shrink-0" strokeWidth={2.4} aria-hidden />}
     </button>
   );
 });

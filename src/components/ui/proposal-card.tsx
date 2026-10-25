@@ -3,13 +3,13 @@
 import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { AiChip } from "./ai-chip";
 import { Button } from "./button";
-import { Tag } from "./tag";
 
 /**
- * "Proposed · not saved" (docs/DESIGN-V2.md §3.9.2–3.9.3): every change the Oracle suggests
- * (a calorie target, protein, a session swap) arrives as this card with the exact before → after.
- * `Not now` writes nothing; `Apply…` opens the caller's confirm (which writes through the existing
+ * A suggested change (docs/DESIGN-V3-SIMPLE.md §4.8): every change the coach suggests (a calorie
+ * target, protein, a training mode) arrives as this AI card with the exact before → after. "Not
+ * now" writes nothing; "Review" opens the caller's confirm (which writes through the existing
  * goal-change path). Nothing is ever applied from the card itself.
  */
 export function ProposalCard({
@@ -30,31 +30,28 @@ export function ProposalCard({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-card border border-aegean-line bg-m2 p-4", className)}>
-      <div className="flex items-center gap-2">
-        <Tag kind="AI" />
-        <span className="t-tag text-aegean">Proposed · not saved</span>
-      </div>
-      <h3 className="t-title-2 mt-2 text-ivory">{title}</h3>
-      <dl className="mt-3 divide-y divide-vein border-y border-vein">
+    <section className={cn("rounded-card border border-ai-line bg-surface p-[18px]", className)}>
+      <AiChip label="AI" status="Suggested change · Not saved" />
+      <h3 className="t-section mt-3 text-fg">{title}</h3>
+      <dl className="mt-3 overflow-hidden rounded-tile-lg bg-control [&>*+*]:border-t [&>*+*]:border-line">
         {rows.map((r, i) => (
-          <div key={i} className="flex min-h-12 items-center justify-between gap-3 py-2">
-            <dt className="t-callout text-stone">{r.label}</dt>
+          <div key={i} className="flex min-h-12 items-center justify-between gap-3 px-4 py-2.5">
+            <dt className="t-label">{r.label}</dt>
             <dd className="flex items-center gap-2 text-right">
-              <span className="t-num-s text-stone line-through decoration-ui-line">{r.before}</span>
-              <ArrowRight className="size-4 text-ash" strokeWidth={1.6} aria-label="to" />
-              <span className="t-num-s text-ivory">{r.after}</span>
+              <span className="t-row text-fg-2 line-through decoration-ui-line">{r.before}</span>
+              <ArrowRight className="size-4 text-fg-3" strokeWidth={2.2} aria-label="to" />
+              <span className="t-row text-fg">{r.after}</span>
             </dd>
           </div>
         ))}
       </dl>
-      {note && <p className="t-meta mt-2 text-ash">{note}</p>}
+      {note && <p className="t-cap mt-2">{note}</p>}
       <div className="mt-4 grid grid-cols-2 gap-2">
         <Button variant="ghost" onClick={onDismiss} disabled={applying}>
           Not now
         </Button>
-        <Button variant="outline" onClick={onApply} loading={applying}>
-          Apply…
+        <Button variant="secondary" onClick={onApply} loading={applying}>
+          Review
         </Button>
       </div>
     </section>

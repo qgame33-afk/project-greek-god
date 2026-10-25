@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { Confirm } from "./sheet";
 
 /**
- * Hold to seal (docs/DESIGN-V2.md §3.2.7, §3.11): press and hold for 600 ms while a fill grows;
+ * The old hold-to-confirm (docs/DESIGN-V2.md §3.2.7; retired by DESIGN-V3 §4.2.10, deleted at integration): press and hold for 600 ms while a fill grows;
  * releasing early cancels. There is ALWAYS an accessible path: a tap, a VoiceOver double-tap,
  * Switch Control or Enter/Space opens a two-button confirm instead (`Seal session` / `Not yet`).
  * The bar is a real `button` described by its instructions. Gold-leaf, 64 px, data-gold="fill".
@@ -86,14 +86,14 @@ export function HoldButton({
           if (!off) setConfirmOpen(true);
         }}
         className={cn(
-          "leaf-btn t-key relative flex h-16 w-full select-none items-center justify-center gap-2 rounded-btn px-6 text-ink touch-none",
-          "disabled:bg-none disabled:bg-m3 disabled:text-disabled disabled:shadow-[inset_0_0_0_1px_var(--vein-2)] disabled:after:hidden",
+          "t-button-gym relative flex h-16 w-full select-none items-center justify-center gap-2 overflow-hidden rounded-pill bg-gold px-6 text-gold-ink touch-none",
+          "disabled:bg-control disabled:text-fg-2",
           className,
         )}
       >
         <span
           aria-hidden
-          className="motion-keep pointer-events-none absolute inset-0 origin-left bg-[rgb(255_250_230/.42)]"
+          className="motion-keep pointer-events-none absolute inset-0 origin-left bg-white/40"
           style={{
             transform: `scaleX(${holding ? 1 : 0})`,
             transition: holding ? `transform ${holdMs}ms linear` : "transform 160ms var(--ease-out)",
