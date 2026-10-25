@@ -220,9 +220,8 @@ export function useMealActions(offset: number, showingId: string | null = null) 
       return null;
     }
     update.mutate({ id: meal.id, patch: res.patch, weekStart: ws });
-    if (same) unrecord(same.feedbackId);
     const feedbackId = record(res.feedback);
-    setStrip({ mealId: meal.id, weekStart: ws, from: same?.from ?? placeOf(meal), to: res.recipe.key, feedbackId, shown: res.shown, phase: "ask", chosen: null, noted: null });
+    setStrip({ mealId: meal.id, weekStart: ws, from: placeOf(meal), to: res.recipe.key, feedbackId, shown: res.shown, phase: "ask", chosen: null, noted: null });
     return res.recipe.key;
   }
 

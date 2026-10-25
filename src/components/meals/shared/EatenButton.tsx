@@ -5,7 +5,7 @@ import { LogMealSheet, type LogMealTarget } from "@/components/meals/log/LogMeal
 import { estimateFor } from "@/components/meals/log/draft";
 import { CheckCircle } from "@/components/ui/check-circle";
 import { isOffline, newId, useToday } from "@/lib/data/core";
-import { slotToMeal, useLogPlannedMeal } from "@/lib/data/meals";
+import { slotToMeal, useLogPlannedMeal, type LogPlannedMealResult } from "@/lib/data/meals";
 import type { ISODate } from "@/lib/dates";
 import { recipeFeatures, recipeMacrosExact } from "@/lib/meals/recipe";
 import type { Recipe, Slot } from "@/lib/meals/types";
@@ -175,7 +175,7 @@ export function useQuickEaten(recipe: Recipe | null | undefined, plannedMeal: { 
   // one id per screen, known up front so a screen can tell its own entry from one logged elsewhere
   const [entryId] = useState(newId);
   const [note, setNote] = useState<string | null>(null);
-  const eat = (servings: number, onLogged?: () => void) => {
+  const eat = (servings: number, onLogged?: (res: LogPlannedMealResult) => void) => {
     if (!recipe || log.isPending) return;
     if (isOffline()) {
       setNote("Offline · try again when you're back");
@@ -193,7 +193,7 @@ export function useQuickEaten(recipe: Recipe | null | undefined, plannedMeal: { 
         macros: estimateFor(recipeMacrosExact(recipe, 1), servings),
         features: recipeFeatures(recipe),
       },
-      { onSuccess: () => onLogged?.() },
+      { onSuccess: (res) => onLogged?.(res) },
     );
   };
   return { eat, pending: log.isPending, note, entryId };

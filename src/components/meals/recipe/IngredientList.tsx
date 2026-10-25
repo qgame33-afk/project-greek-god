@@ -1,14 +1,13 @@
 "use client";
 
-import { Check } from "lucide-react";
-import { OptionalBadge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import type { ScaledIngredient } from "@/lib/meals/recipe";
 
 /**
- * The ingredient checklist: amounts already scaled to the servings, the amount in bold so it
- * reads at arm's length, then what it is. Staples (salt, oil, spices) sit under "From the
- * pantry". Ticks are kept on this device per meal.
+ * The ingredients (docs/DESIGN-V3-SIMPLE.md §4.4.3): one list group, what it is on the left and
+ * the amount (scaled to the servings) on the right. Tapping a row ticks it off while cooking or
+ * shopping (struck through, kept on this device per meal). Staples (salt, oil, spices) sit under
+ * "From the pantry".
  */
 export function IngredientList({
   items,
@@ -25,16 +24,16 @@ export function IngredientList({
   const main = items.filter((i) => !i.staple);
   const pantry = items.filter((i) => i.staple);
   return (
-    <div>
-      <ul className="divide-y divide-vein">
+    <div data-food="">
+      <ul className="overflow-hidden rounded-tile-lg bg-surface [&>*+*]:border-t [&>*+*]:border-line">
         {main.map((i) => (
           <Row key={i.key} item={i} on={checked.includes(i.key)} onToggle={onToggle} dense={dense} />
         ))}
       </ul>
       {pantry.length > 0 && (
         <>
-          <p className="t-eyebrow mt-5 mb-1">From the pantry</p>
-          <ul className="divide-y divide-vein">
+          <p className="t-label mb-2 mt-5 px-1">From the pantry</p>
+          <ul className="overflow-hidden rounded-tile-lg bg-surface [&>*+*]:border-t [&>*+*]:border-line">
             {pantry.map((i) => (
               <Row key={i.key} item={i} on={checked.includes(i.key)} onToggle={onToggle} dense={dense} />
             ))}
@@ -46,46 +45,27 @@ export function IngredientList({
 }
 
 function Row({ item, on, onToggle, dense }: { item: ScaledIngredient; on: boolean; onToggle: (key: string) => void; dense?: boolean }) {
-  // "190 g extra-lean ground beef" → bold "190 g" + the rest; self-named counts ("5 eggs") are all amount
-  const rest = item.text.startsWith(item.amount) ? item.text.slice(item.amount.length).trim() : item.text;
-  const amountFirst = item.text.startsWith(item.amount);
+  // "190 g extra-lean ground beef" → "extra-lean ground beef" · "190 g"; self-named counts ("5 eggs") keep their text
+  const rest = item.amount && item.text.startsWith(item.amount) ? item.text.slice(item.amount.length).trim() : "";
+  const name = rest || item.text;
+  const amount = rest ? item.amount : "";
+  const name1 = name.charAt(0).toUpperCase() + name.slice(1);
+  const note = [item.optional ? "Optional" : null, item.note].filter(Boolean).join(" · ");
   return (
     <li>
       <button
         type="button"
         role="checkbox"
         aria-checked={on}
+        aria-label={`${amount ? `${amount} ` : ""}${name}${note ? `, ${note}` : ""}${on ? ", ticked" : ""}`}
         onClick={() => onToggle(item.key)}
-        className={cn("press-soft group flex w-full items-start gap-3 text-left", dense ? "min-h-[3.25rem] py-2" : "min-h-14 py-2.5")}
+        className={cn("press-soft flex w-full items-center gap-3 px-4 text-left", dense ? "min-h-[3.25rem] py-2" : "min-h-14 py-3")}
       >
-        <span aria-hidden className="-my-1 grid size-11 shrink-0 place-items-center">
-          <span
-            className={cn(
-              "grid size-[1.625rem] place-items-center rounded-full transition-[background-color,box-shadow] duration-(--dur-fast)",
-              on ? "bg-ivory" : "shadow-[inset_0_0_0_1.5px_var(--ui-line)] group-hover:shadow-[inset_0_0_0_1.5px_var(--stone)]",
-            )}
-          >
-            <Check className={cn("size-4 text-ink transition-[scale,opacity] duration-(--dur-base) ease-pop", on ? "scale-100 opacity-100" : "scale-50 opacity-0")} strokeWidth={2.6} />
-          </span>
+        <span className="min-w-0 flex-1">
+          <span className={cn("t-body block", on && "text-fg-2 line-through")}>{name1}</span>
+          {note && <span className="t-cap mt-0.5 block">{note}</span>}
         </span>
-        <span className="min-w-0 flex-1 pt-1">
-          <span className={cn("t-body block transition-colors duration-(--dur-fast)", on ? "text-stone line-through decoration-ivory" : "text-ivory")}>
-            {amountFirst ? (
-              <>
-                <span className="tnum font-semibold">{item.amount}</span>
-                {rest && <span className={cn(!on && "text-stone")}> {rest}</span>}
-              </>
-            ) : (
-              <span className="font-semibold">{item.text}</span>
-            )}
-          </span>
-          {(item.note || item.optional) && (
-            <span className="t-meta mt-1 flex flex-wrap items-center gap-2 text-stone">
-              {item.optional && <OptionalBadge />}
-              {item.note && <span className={cn(on && "line-through")}>{item.note}</span>}
-            </span>
-          )}
-        </span>
+        {amount && <span className={cn("t-body shrink-0 whitespace-nowrap text-right tabular-nums text-fg-2", on && "line-through")}>{amount}</span>}
       </button>
     </li>
   );

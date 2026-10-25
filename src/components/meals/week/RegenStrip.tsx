@@ -1,16 +1,17 @@
 "use client";
 
-import { Undo2, X } from "lucide-react";
-import { SealTick } from "@/components/art/icons";
+import { Check, RefreshCw, Undo2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { FeedbackReason } from "@/lib/meals/types";
+import type { StripPhase } from "./actions";
 import { REGEN_REASONS } from "./model";
 
-export type StripPhase = "ask" | "noted";
+export type { StripPhase };
 
 /**
- * The non-blocking strip under a swapped meal: Undo, then an optional "why" in one tap.
- * Nothing here is required — ignoring it keeps the new meal (and teaches the planner that).
+ * After "Swap this meal": a calm card with Undo, another pick, and an optional "why" in one tap
+ * that teaches the planner. Nothing here is required: ignoring it keeps the new meal (and tells
+ * the planner it was fine). Never gold.
  */
 export function RegenStrip({
   fromName,
@@ -20,6 +21,8 @@ export function RegenStrip({
   onUndo,
   onReason,
   onClose,
+  onAgain,
+  className,
 }: {
   fromName: string;
   phase: StripPhase;
@@ -28,24 +31,35 @@ export function RegenStrip({
   onUndo: () => void;
   onReason: (r: FeedbackReason) => void;
   onClose: () => void;
+  /** Another pick for the same place (never one already shown). */
+  onAgain?: () => void;
+  className?: string;
 }) {
   return (
-    <div className="mb-3 ml-[3.25rem] rounded-field bg-m2 px-3.5 pb-3.5 pt-1 shadow-[inset_0_0_0_1px_var(--vein-2)]" role="group" aria-label="Meal swapped">
+    <section className={cn("rounded-card bg-surface px-5 pb-5 pt-2", className)} role="group" aria-label="Meal swapped">
       <div className="flex min-h-11 items-center gap-1">
-        <p className="t-meta min-w-0 flex-1 text-stone" aria-live="polite">
-          Swapped out <span className="text-ivory">{fromName}</span>
+        <p className="t-label min-w-0 flex-1" aria-live="polite">
+          Swapped out <span className="text-fg" data-food="">{fromName}</span>
         </p>
-        <button type="button" onClick={onUndo} className="press t-callout inline-flex h-11 shrink-0 items-center gap-1.5 rounded-field px-2 font-semibold text-ivory">
-          <Undo2 className="size-4" strokeWidth={1.6} aria-hidden />
+        <button type="button" onClick={onClose} aria-label="Keep it and close" className="press -mr-3 grid size-11 shrink-0 place-items-center rounded-full text-fg-2 hover:text-fg">
+          <X className="size-5" strokeWidth={1.9} />
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={onUndo} className="press t-label hit-44 inline-flex h-9 items-center gap-1.5 rounded-pill bg-control px-3.5 font-semibold text-fg">
+          <Undo2 className="size-4" strokeWidth={1.9} aria-hidden />
           Undo
         </button>
-        <button type="button" onClick={onClose} aria-label="Keep it and close" className="press -mr-2 grid size-11 shrink-0 place-items-center rounded-full text-stone hover:text-ivory">
-          <X className="size-[18px]" strokeWidth={1.6} />
-        </button>
+        {onAgain && phase === "ask" && (
+          <button type="button" onClick={onAgain} className="press t-label hit-44 inline-flex h-9 items-center gap-1.5 rounded-pill bg-control px-3.5 font-semibold text-fg">
+            <RefreshCw className="size-4" strokeWidth={1.9} aria-hidden />
+            Another one
+          </button>
+        )}
       </div>
       {phase === "ask" ? (
         <>
-          <p className="t-meta text-stone">What was wrong with it? Optional: it teaches the planner.</p>
+          <p className="t-label mt-4">What was wrong with it? Optional: it teaches the planner.</p>
           <div className="mt-2.5 flex flex-wrap gap-2">
             {REGEN_REASONS.map((o) => (
               <button
@@ -53,10 +67,7 @@ export function RegenStrip({
                 type="button"
                 onClick={() => onReason(o.reason)}
                 aria-pressed={chosen === o.reason}
-                className={cn(
-                  "press t-meta inline-flex h-11 items-center rounded-full px-3.5 font-semibold transition-colors",
-                  chosen === o.reason ? "bg-m4 text-ivory shadow-[inset_0_0_0_1px_var(--ivory)]" : "bg-m3 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory",
-                )}
+                className={cn("press t-label hit-44 inline-flex h-9 items-center rounded-pill px-3.5 font-semibold", chosen === o.reason ? "bg-fg text-bg" : "bg-control text-fg")}
               >
                 {o.label}
               </button>
@@ -64,11 +75,11 @@ export function RegenStrip({
           </div>
         </>
       ) : (
-        <p className="swap-in t-meta flex items-start gap-2 text-ivory">
-          <SealTick className="mt-px size-4 shrink-0 text-stone" />
+        <p className="swap-in t-body mt-3 flex items-start gap-2">
+          <Check className="mt-0.5 size-4 shrink-0 text-fg-2" strokeWidth={2.2} aria-hidden />
           <span>{noted}</span>
         </p>
       )}
-    </div>
+    </section>
   );
 }

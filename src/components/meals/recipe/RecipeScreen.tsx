@@ -1,20 +1,22 @@
 "use client";
 
-import Link from "next/link";
-import { BackLink } from "@/components/shell/BackLink";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChefHat, ChevronLeft, ChevronRight, Plus, WandSparkles } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { ChevronRight, CookingPot, Ellipsis } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { SealTick } from "@/components/art/icons";
-import { ConflictNote, DifficultyPips, MakeAheadBadge, OriginBadge, RecipeGlyph, SLOT_LABEL, COST_WORDS, costLabel, kcalText, recipeHref, servingsLabel, useRecipeConflicts, useRecipePool } from "@/components/meals/shared";
+import { ConflictNote, kcalText, recipeHref, servingsLabel, useRecipeConflicts, useRecipePool } from "@/components/meals/shared";
 import { useQuickEaten } from "@/components/meals/shared/EatenButton";
+import { useMealActions, useSwapStrip, weekOffset, type MealActions } from "@/components/meals/week/actions";
+import { DislikeSheet } from "@/components/meals/week/DislikeSheet";
+import { RegenStrip } from "@/components/meals/week/RegenStrip";
+import { BackHeader } from "@/components/shell/BackHeader";
+import { AiChip, AiMark } from "@/components/ui/ai-chip";
 import { Button } from "@/components/ui/button";
-import { Meter } from "@/components/ui/meter";
-import { ErrorNote, Skeleton } from "@/components/ui/misc";
-import { Tag } from "@/components/ui/tag";
-import { cn } from "@/lib/cn";
+import { DetailsSheet } from "@/components/ui/details-sheet";
+import { SectionAction, SectionHead } from "@/components/ui/list";
+import { Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
+import { StatCard, StatRow } from "@/components/ui/stat-card";
 import { useToday, useUser } from "@/lib/data/core";
 import {
   mealKeys,
@@ -30,9 +32,8 @@ import {
   type LogPlannedMealResult,
   type PlanMeal,
 } from "@/lib/data/meals";
-import { useDeleteFood } from "@/lib/data/nutrition";
-import { useProfile } from "@/lib/data/profile";
-import { dayName, relativeDay } from "@/lib/dates";
+import { useDeleteFood, useFoodEntries } from "@/lib/data/nutrition";
+import { addDays, weekStart } from "@/lib/dates";
 import { learnPrefs } from "@/lib/meals/engine";
 import { ingredientCount, recipeFeatures, recipeMacros, scaleIngredients } from "@/lib/meals/recipe";
 import type { Recipe } from "@/lib/meals/types";
@@ -43,10 +44,9 @@ import { easierSwapPatch, storedSimplified } from "./easier";
 import { usePlannedMealById, useServingsWriteBack, useThumbs, useViewedSignal } from "./hooks";
 import { IngredientList } from "./IngredientList";
 import { MakeEasierSheet, type EasierChoice } from "./MakeEasierSheet";
-import { LoggedStrip, loggedText, TasteCard, WhyThisMeal } from "./RecipeExtras";
-import { clampServings, servingsNumber } from "./servings";
+import { RecipeMenu } from "./RecipeMenu";
+import { clampServings } from "./servings";
 import { ServingsStepper } from "./ServingsStepper";
-import { StepList } from "./StepList";
 
 /** `?servings=1.5` from a link (cooking mode, the library), clamped; null when absent or junk. */
 function servingsParam(v: string | null): number | null {
@@ -64,11 +64,17 @@ export function cookHref(recipeKey: string, plannedMealId: string | null | undef
   return `/nutrition/meals/cook/${encodeURIComponent(recipeKey)}${s ? `?${s}` : ""}`;
 }
 
+/** Where "‹ Food" goes: the day the planned meal is on. */
+function foodHref(meal: PlanMeal | null, today: string) {
+  return meal && meal.local_date !== today ? `/nutrition?date=${meal.local_date}` : "/nutrition";
+}
+
 /**
- * The recipe screen (docs/MEALS.md §6): everything a beginner needs to cook one meal, readable
- * at arm's length in a kitchen. Opened from the plan (`?meal=<id>`) the servings are the
- * planned meal's and changes are saved back to it; "Make this easier" swaps the easier recipe
- * into that meal. Nothing here logs food: only the confirm sheet does.
+ * The recipe (docs/DESIGN-V3-SIMPLE.md §4.4.3): the name, time and ingredient count, the calories
+ * with ONE servings stepper, protein · carbs · fat, the ingredients scaled to the servings, and a
+ * dock with "Cook" and the gold "Log as eaten" (idempotent; linked to the planned meal when it is
+ * one; once eaten it reads "Eaten · Undo"). Opened from the plan (`?meal=<id>`) the servings are
+ * the planned meal's and save back to it, and the ⋯ holds that meal's actions.
  */
 export function RecipeScreen({ recipeKey }: { recipeKey: string }) {
   const params = useSearchParams();
@@ -85,18 +91,14 @@ export function RecipeScreen({ recipeKey }: { recipeKey: string }) {
   if (!recipe && waitingForUserRecipe) return <RecipeSkeleton />;
   if (!recipe) {
     return (
-      <div>
-        <MealPlanLink />
+      <div className="mx-auto max-w-col">
+        <BackHeader href="/nutrition" parent="Food" title="Recipe" />
         {pool.error ? (
-          <ErrorNote className="mt-4">Couldn&apos;t load your recipes. Check your connection.</ErrorNote>
+          <ErrorNote className="mt-4">Couldn&apos;t load your recipes.</ErrorNote>
         ) : (
-          <div className="mt-4 border-y border-vein py-9 text-center">
-            <p className="t-title-2 text-ivory">Recipe not found</p>
-            <p className="t-callout mt-1 text-stone">It may have been removed. Your plan can pick another.</p>
-            <Button asChild variant="outline" size="md" className="mt-5 rounded-full">
-              <Link href="/nutrition?tab=week">Back to your week</Link>
-            </Button>
-          </div>
+          <Empty className="mt-4" title="Recipe not found">
+            It may have been removed. Your plan can pick another.
+          </Empty>
         )}
       </div>
     );
@@ -104,53 +106,50 @@ export function RecipeScreen({ recipeKey }: { recipeKey: string }) {
   if (waitingForMeal) return <RecipeSkeleton />;
   // an old link: that planned meal has another recipe now
   const swappedTo = planned.meal && planned.meal.recipe_key !== recipeKey ? planned.meal : null;
-  return (
-    <RecipeView
-      key={`${recipe.key}:${meal?.id ?? ""}`}
-      recipe={recipe}
-      meal={meal}
-      weekStart={planned.weekStart}
-      mealMissing={!!mealId && planned.missing}
-      swappedTo={swappedTo ? { href: recipeHref(swappedTo.recipe_key, swappedTo.id), name: pool.lookup(swappedTo.recipe_key)?.name ?? "another recipe" } : null}
-      initialServings={servingsParam(params.get("servings"))}
-    />
-  );
+  const props = {
+    recipe,
+    meal,
+    weekStart: planned.weekStart,
+    mealMissing: !!mealId && planned.missing,
+    swappedTo: swappedTo ? { href: recipeHref(swappedTo.recipe_key, swappedTo.id), name: pool.lookup(swappedTo.recipe_key)?.name ?? "another recipe" } : null,
+    initialServings: servingsParam(params.get("servings")),
+  };
+  const key = `${recipe.key}:${meal?.id ?? ""}`;
+  return meal ? <PlannedRecipe key={key} {...props} meal={meal} /> : <RecipeView key={key} {...props} actions={null} />;
 }
 
-function RecipeView({
-  recipe,
-  meal,
-  weekStart,
-  mealMissing,
-  swappedTo,
-  initialServings,
-}: {
+type ViewProps = {
   recipe: Recipe;
   meal: PlanMeal | null;
   weekStart: string | null;
   mealMissing: boolean;
   swappedTo: { href: string; name: string } | null;
   initialServings: number | null;
-}) {
+};
+
+/** A recipe opened from a planned meal: the planner's actions for that meal (its week). */
+function PlannedRecipe(props: ViewProps & { meal: PlanMeal }) {
+  const today = useToday();
+  const actions = useMealActions(weekOffset(props.meal.local_date, today), props.meal.id);
+  return <RecipeView {...props} actions={actions} />;
+}
+
+function RecipeView({ recipe, meal, weekStart: ws, mealMissing, swappedTo, initialServings, actions }: ViewProps & { actions: MealActions | null }) {
   const router = useRouter();
   const qc = useQueryClient();
   const { userId } = useUser();
   const today = useToday();
   const { prefs } = useMealPrefs();
-  const { profile } = useProfile();
   const pool = useRecipePool();
+  const hintId = useId();
 
   /* servings: the planned meal's, saved back after a short pause */
   const [localServings, setLocalServings] = useState<number | null>(null);
   const servings = clampServings(localServings ?? meal?.servings ?? initialServings ?? 1);
-  const writeBack = useServingsWriteBack(meal, weekStart);
-  const [savedNote, setSavedNote] = useState(false);
+  const writeBack = useServingsWriteBack(meal, ws);
   const setServings = (v: number) => {
     setLocalServings(v);
-    if (meal) {
-      writeBack.schedule(v);
-      setSavedNote(true);
-    }
+    if (meal) writeBack.schedule(v);
   };
 
   const ingredients = useMemo(() => scaleIngredients(recipe, servings), [recipe, servings]);
@@ -167,29 +166,35 @@ function RecipeView({
 
   /* food log */
   const [logOpen, setLogOpen] = useState(false);
-  const [lastLog, setLastLog] = useState<{ res: LogPlannedMealResult; servings: number } | null>(null);
+  const [lastLog, setLastLog] = useState<LogPlannedMealResult | null>(null);
   const logged = useLoggedForPlannedMeal(meal?.id);
   const deleteFood = useDeleteFood();
   const deleteFeedback = useDeleteFeedback();
-  const undoLastLog = () => {
-    if (!lastLog) return;
-    const { entry, feedbackId } = lastLog.res;
-    deleteFood.mutate({ ids: [entry.id], date: entry.local_date, rows: [entry], label: "Removed from your food log" });
-    if (feedbackId) deleteFeedback.mutate(feedbackId);
+  const quick = useQuickEaten(recipe, meal ? { id: meal.id, slot: meal.slot } : null);
+  // the entry "Eaten · Undo" takes back: this screen's own, else the planned meal's latest
+  const linked = logged.entries[logged.entries.length - 1] ?? null;
+  const eatenDate = lastLog?.entry.local_date ?? linked?.local_date ?? today;
+  const dayFood = useFoodEntries(eatenDate);
+  const eatenEntry = lastLog?.entry ?? (linked ? (dayFood.entries.find((e) => e.id === linked.id) ?? null) : null);
+  const eaten = !!lastLog || logged.logged;
+  const undoEaten = () => {
+    const entry = eatenEntry;
+    if (!entry) return;
+    deleteFood.mutate({ ids: [entry.id], date: entry.local_date, rows: [entry], label: `${recipe.name} taken out of your food log` });
+    if (lastLog?.feedbackId) deleteFeedback.mutate(lastLog.feedbackId);
     setLastLog(null);
   };
 
-  /* make this easier */
+  /* make it easier */
   const [easierOpen, setEasierOpen] = useState(false);
   const [easierBusy, setEasierBusy] = useState(false);
   const saveRecipe = useSaveUserRecipe();
   const updateMeal = useUpdatePlannedMeal();
   const addFeedback = useAddFeedback();
   const constraintPrefs = useMemo(() => ({ allergies: prefs.allergies, diets: prefs.diets, dislikedIngredients: prefs.dislikedIngredients, equipment: prefs.equipment }), [prefs]);
-  // reached by a link, an older plan or a day planned before a preference changed
   const conflicts = useRecipeConflicts(recipe);
   const lookup = pool.lookup;
-  // a recipe the user turned down (thumbs down / "I don't like this") is never offered as the easier version
+  // a recipe he turned down is never offered as the easier version
   const feedback = useMealFeedback();
   const turnedDown = useMemo(() => {
     const blocked = learnPrefs(feedback.data ?? []).blocked;
@@ -203,7 +208,6 @@ function RecipeView({
       let next = c.recipe;
       if (c.kind === "simplified") next = storedSimplified(pool.pool, c.recipe) ?? (await saveRecipe.mutateAsync({ recipe: c.recipe }));
       if (c.kind === "ai") {
-        // the server stored it already: show it at once, then refresh the list
         qc.setQueryData<Recipe[]>(mealKeys.recipes(userId), (prev) => [next, ...(prev ?? []).filter((r) => r.key !== next.key)]);
         qc.invalidateQueries({ queryKey: ["meal-recipes"] });
       }
@@ -214,18 +218,18 @@ function RecipeView({
       const before = swapIn ? { recipe_key: swapIn.recipe_key, servings: swapIn.servings, reason: swapIn.reason, history: swapIn.history } : null;
       if (swapIn) {
         writeBack.flush();
-        await updateMeal.mutateAsync({ id: swapIn.id, patch: easierSwapPatch({ ...swapIn, servings }, next, recipe), weekStart: weekStart ?? undefined });
+        await updateMeal.mutateAsync({ id: swapIn.id, patch: easierSwapPatch({ ...swapIn, servings }, next, recipe), weekStart: ws ?? undefined });
       }
       setEasierOpen(false);
       router.replace(swapIn ? recipeHref(next.key, swapIn.id) : `${recipeHref(next.key)}${servings !== 1 ? `?servings=${servings}` : ""}`, { scroll: true });
       toast(swapIn ? `${next.name} is in your plan` : `Showing ${next.name}`, {
-        description: meal && !swapIn ? "This meal is already in your food log, so the plan keeps it." : c.kind === "easier_version" ? "The easier library version." : "Saved to your recipes.",
+        description: meal && !swapIn ? "This meal is already in your food log, so the plan keeps it." : c.kind === "easier_version" ? "The easier version." : "Saved to your recipes.",
         duration: 6000,
         action: {
           label: "Undo",
           onClick: () => {
             deleteFeedback.mutate(feedbackId);
-            if (swapIn && before) updateMeal.mutate({ id: swapIn.id, patch: before, weekStart: weekStart ?? undefined });
+            if (swapIn && before) updateMeal.mutate({ id: swapIn.id, patch: before, weekStart: ws ?? undefined });
             router.replace(meal ? recipeHref(recipe.key, meal.id) : recipeHref(recipe.key));
           },
         },
@@ -237,275 +241,204 @@ function RecipeView({
     }
   };
 
-  /* header facts */
+  /* the swap strip (after "Swap this meal") */
+  const strip = useSwapStrip();
+  const myStrip = strip && meal && strip.mealId === meal.id ? strip : null;
+  const [dislikeOpen, setDislikeOpen] = useState(false);
+  const go = (key: string | null) => {
+    if (key && meal && key !== recipe.key) router.replace(recipeHref(key, meal.id), { scroll: false });
+  };
+  const swap = () => {
+    if (!meal || !actions) return;
+    writeBack.flush();
+    go(actions.swap(meal));
+  };
+  useEffect(() => {
+    if (myStrip?.phase !== "noted" || !actions) return;
+    const t = window.setTimeout(() => actions.closeStrip("kept"), 3600);
+    return () => window.clearTimeout(t);
+  }, [myStrip?.phase, myStrip?.chosen, actions]);
+
+  /* the rest */
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [details, setDetails] = useState(false);
   const n = ingredientCount(recipe);
-  const eyebrow = meal ? `${SLOT_LABEL[meal.slot]} · ${meal.local_date === today ? "Today" : dayName(meal.local_date)}` : "Recipe";
-  const goals = profile?.onboarded ? { kcal: Number(profile.calorie_goal) || 0, protein: Number(profile.protein_goal) || 0, carbs: Number(profile.carb_goal) || 0, fat: Number(profile.fat_goal) || 0 } : null;
-  const savedWhere = meal ? `${meal.local_date === today ? "today's" : `${dayName(meal.local_date)}'s`} ${SLOT_LABEL[meal.slot].toLowerCase()}` : null;
-  const quick = useQuickEaten(recipe, meal ? { id: meal.id, slot: meal.slot } : null);
-
-  const loggedLine = lastLog
-    ? { text: loggedText(lastLog.res.entry.local_date, today, Number(lastLog.res.entry.calories)), undo: undoLastLog }
-    : logged.logged
-      ? {
-          text: logged.loggedToday
-            ? `Logged today · ${kcalText(logged.entries.filter((e) => e.local_date === today).reduce((a, e) => a + Number(e.calories ?? 0), 0))} kcal`
-            : `Logged ${logged.loggedOn.map((d) => relativeDay(d, today)).join(", ")}`,
-          href: `/nutrition?date=${logged.loggedToday ? today : logged.loggedOn[logged.loggedOn.length - 1]}`,
-        }
-      : null;
-
-  const startCooking = () => router.push(cookHref(recipe.key, meal?.id, servings));
-  const macroTag = recipe.origin === "ai" ? <Tag kind="AI" detail="estimate" /> : <Tag kind="CALC" explain="Each ingredient's USDA FoodData Central values × the amounts, for the servings shown." />;
+  const ai = recipe.origin === "ai";
+  const weekDays = meal ? Array.from({ length: 7 }, (_, i) => addDays(weekStart(meal.local_date), i)) : [];
 
   return (
-    <div className="@container pb-6">
+    <div className="mx-auto max-w-col pb-28">
       <TimerAlarm sound={readTimerSound()} />
-      <MealPlanLink />
-
-      <header className="mt-2">
-        <RecipeGlyph recipe={recipe} size="lg" />
-        <div className="mt-4 flex min-h-5 flex-wrap items-center gap-2">
-          <span className="t-eyebrow">{eyebrow}</span>
-          <OriginBadge origin={recipe.origin} />
-          <MakeAheadBadge recipe={recipe} />
-        </div>
-        <h1 className="t-title-1 mt-1.5 text-balance text-ivory [overflow-wrap:anywhere]">{recipe.name}</h1>
-        {recipe.blurb && <p className="t-callout mt-2 max-w-[56ch] text-stone">{recipe.blurb}</p>}
-        <p className="t-meta mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-stone">
-          <span className="tnum text-ivory">{recipe.minutes} min</span>
-          <span aria-hidden>·</span>
-          <DifficultyPips difficulty={recipe.difficulty} />
-          <span aria-hidden>·</span>
-          <span aria-label={`Cost: ${COST_WORDS[recipe.cost]}`}>
-            <span className="text-ivory">{costLabel(recipe.cost)}</span>
-            <span className="opacity-40" aria-hidden>
-              {"$".repeat(3 - recipe.cost)}
-            </span>
-            <span className="ml-1.5" aria-hidden>
-              {COST_WORDS[recipe.cost]}
-            </span>
+      <BackHeader
+        href={foodHref(meal, today)}
+        parent="Food"
+        right={
+          <button type="button" onClick={() => setMenuOpen(true)} aria-label="More for this recipe" aria-haspopup="dialog" className="press grid size-11 shrink-0 place-items-center rounded-full bg-control text-fg">
+            <Ellipsis className="size-5" strokeWidth={1.9} />
+          </button>
+        }
+        title={
+          <span data-food="" className="[overflow-wrap:anywhere]">
+            {recipe.name}
           </span>
-          <span aria-hidden>·</span>
-          <span>
-            {n} {n === 1 ? "ingredient" : "ingredients"} · {recipe.steps.length} {recipe.steps.length === 1 ? "step" : "steps"}
+        }
+        subtitle={
+          <span className="inline-flex flex-wrap items-center gap-x-2">
+            <span>
+              {recipe.minutes} min · {n} {n === 1 ? "ingredient" : "ingredients"}
+            </span>
+            {ai && <AiMark />}
           </span>
-        </p>
-      </header>
+        }
+      />
 
-      <ConflictNote conflicts={conflicts} className="mt-5" />
-
+      <ConflictNote conflicts={conflicts} className="mt-4" />
       {swappedTo && (
-        <p className="t-meta mt-4 rounded-field bg-m2 px-3.5 py-2.5 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)]">
+        <p className="t-label mt-4 rounded-tile-lg bg-surface px-4 py-3">
           Your plan has{" "}
-          <Link href={swappedTo.href} className="font-semibold text-ivory underline decoration-vein-3 underline-offset-4">
+          <a href={swappedTo.href} className="font-semibold text-fg underline underline-offset-4" data-food="">
             {swappedTo.name}
-          </Link>{" "}
-          for this meal now. Changes here stay on this screen.
+          </a>{" "}
+          for this meal now.
         </p>
       )}
-      {mealMissing && <p className="t-meta mt-4 rounded-field bg-m2 px-3.5 py-2.5 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)]">This meal is no longer in your plan, so changes here stay on this screen.</p>}
+      {mealMissing && <p className="t-label mt-4 rounded-tile-lg bg-surface px-4 py-3">This meal is no longer in your plan. Changes here stay on this screen.</p>}
+      {myStrip && actions && (
+        <RegenStrip
+          className="mt-4"
+          fromName={lookup(myStrip.from.recipe_key)?.name ?? "the last pick"}
+          phase={myStrip.phase}
+          noted={myStrip.noted}
+          chosen={myStrip.chosen}
+          onUndo={() => go(actions.closeStrip("undo"))}
+          onReason={(r) => (r === "dislike_ingredient" ? setDislikeOpen(true) : go(actions.applyReason(r)))}
+          onClose={() => actions.closeStrip("kept")}
+          onAgain={swap}
+        />
+      )}
 
-      {/* servings, macros and the food log */}
-      <section className="mt-6 border-y border-vein py-4" aria-labelledby="servings-title">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h2 id="servings-title" className="t-eyebrow">
-              Servings
-            </h2>
-            <p className="t-meta mt-1 text-stone">{savedNote && savedWhere ? `Saved to ${savedWhere}` : meal ? "Saved to your plan" : "Scales every amount"}</p>
-          </div>
-          <ServingsStepper value={servings} onChange={setServings} showUnit={false} />
-        </div>
-        <div className="mt-3 flex min-h-11 items-center gap-1.5" role="group" aria-label="Quick servings">
-          <span className="t-meta mr-1 text-stone">Cook for</span>
-          {[1, 2, 4].map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setServings(v)}
-              aria-pressed={servings === v}
-              aria-label={`${v} ${v === 1 ? "serving" : "servings"}`}
-              className={cn(
-                "press t-num-s grid size-11 place-items-center rounded-full transition-colors",
-                servings === v ? "bg-m4 text-ivory shadow-[inset_0_0_0_1px_var(--ivory)]" : "bg-m3 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory",
-              )}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-5 flex items-center justify-between gap-3">
-          <p className="t-eyebrow">{servings === 1 ? "Per serving" : `For ${servingsNumber(servings)} servings`}</p>
-          {macroTag}
-        </div>
-        <MacroMeters macros={macros} goals={goals} className="mt-3" />
-
-        <div className="mt-5">
-          {loggedLine ? (
-            <>
-              <LoggedStrip text={loggedLine.text} onUndo={"undo" in loggedLine ? loggedLine.undo : undefined} href={"href" in loggedLine ? loggedLine.href : undefined} />
-              <button type="button" onClick={() => setLogOpen(true)} className="press t-callout mt-2 inline-flex h-11 items-center gap-1.5 rounded-field px-1 font-semibold text-stone hover:text-ivory">
-                <Plus className="size-4" strokeWidth={1.6} aria-hidden />
-                Log another serving
-              </button>
-            </>
-          ) : (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <Button variant="outline" size="md" className="h-auto min-h-12 max-w-full whitespace-normal rounded-full py-2" onClick={() => quick.eat(servings)} loading={quick.pending} aria-label={`Eaten: log ${servingsLabel(servings)} of ${recipe.name}`}>
-                <SealTick className="size-5" />
-                Eaten · log {servingsLabel(servings)}
-              </Button>
-              <button type="button" onClick={() => setLogOpen(true)} className="press t-callout inline-flex h-11 items-center rounded-field px-1 font-semibold text-stone hover:text-ivory">
-                Log with changes
-              </button>
-              {quick.note && (
-                <p role="status" className="t-meta w-full text-stone">
-                  {quick.note}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+      <section className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-4 rounded-card bg-surface py-6 pl-6 pr-4" aria-label="Calories">
+        <button type="button" onClick={() => setDetails(true)} aria-describedby={hintId} className="press-soft min-w-0 flex-1 text-left" aria-label={`${kcalText(macros.kcal)} calories, ${servingsLabel(servings)}`}>
+          <span className="t-hero block" data-derived="">
+            {kcalText(macros.kcal)}
+          </span>
+          <span className="t-label mt-2 flex items-center gap-1">
+            <span className="min-w-0">Calories · {servingsLabel(servings)}</span>
+            <ChevronRight className="size-4 shrink-0 text-fg-3" strokeWidth={2.2} aria-hidden />
+          </span>
+          <span id={hintId} className="sr-only">
+            Shows how it is worked out.
+          </span>
+        </button>
+        <ServingsStepper value={servings} onChange={setServings} showUnit={false} />
       </section>
+      <StatRow className="mt-3">
+        <StatCard value={Math.round(macros.protein)} unit="g" label="Protein" />
+        <StatCard value={Math.round(macros.carbs)} unit="g" label="Carbs" />
+        <StatCard value={Math.round(macros.fat)} unit="g" label="Fat" />
+      </StatRow>
 
-      <section className="mt-8" aria-labelledby="ingredients-title">
-        <div className="mb-1 flex items-end justify-between gap-3">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <h2 id="ingredients-title" className="t-title-2 text-ivory">
-              Ingredients
-            </h2>
-            <span className="t-meta truncate text-stone">{servings === 1 ? "1 serving" : `${servingsNumber(servings)} servings`}</span>
-          </div>
-          {checks.ingredients.length > 0 ? (
-            <button type="button" onClick={checks.clearIngredients} className="press t-callout -my-2 -mr-2 inline-flex h-11 shrink-0 items-center rounded-field px-2 font-semibold text-ivory">
-              Untick all
-            </button>
-          ) : (
-            <span className="t-meta shrink-0 text-stone">Tap to tick off</span>
-          )}
-        </div>
+      <section aria-labelledby="ingredients-title">
+        <SectionHead id="ingredients-title" action={checks.ingredients.length > 0 ? <SectionAction onClick={checks.clearIngredients}>Untick all</SectionAction> : undefined}>
+          Ingredients
+        </SectionHead>
         <IngredientList items={ingredients} checked={checks.ingredients} onToggle={(k) => checks.toggleIngredient(k)} />
       </section>
 
-      <section className="mt-8" aria-labelledby="steps-title">
-        <div className="mb-1 flex items-end justify-between gap-3">
-          <h2 id="steps-title" className="t-title-2 text-ivory">
-            Steps
-          </h2>
-          <div className="flex items-center gap-1">
-            <span className="t-meta tnum text-stone">
-              {checks.steps.length}/{recipe.steps.length} done
-            </span>
-            {checks.steps.length > 0 && (
-              <button type="button" onClick={checks.clearSteps} className="press t-callout -my-2 -mr-2 inline-flex h-11 items-center rounded-field px-2 font-semibold text-ivory">
-                Reset
-              </button>
-            )}
-          </div>
-        </div>
-        <StepList recipeKey={recipe.key} steps={recipe.steps} done={checks.steps} onToggle={(i) => checks.toggleStep(i)} />
-      </section>
-
-      <div className="mt-8 space-y-6">
-        <button type="button" onClick={() => setEasierOpen(true)} className="press-soft flex w-full min-h-16 items-center gap-3.5 border-y border-vein py-3 text-left">
-          <WandSparkles className="size-5 shrink-0 text-stone" strokeWidth={1.6} aria-hidden />
-          <span className="min-w-0 flex-1">
-            <span className="t-title-3 block text-ivory">Make this easier</span>
-            <span className="t-meta block text-stone">{recipe.difficulty === "super_easy" ? "Already Super Easy. Check for a shortcut." : "Shortcuts like microwave rice and jarred sauce"}</span>
-          </span>
-          <ChevronRight className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
-        </button>
-        {meal?.reason && meal.reason.length > 0 && <WhyThisMeal reasons={meal.reason} />}
-        <TasteCard favourite={isFav} onFavourite={() => toggleFav.mutate({ recipeKey: recipe.key, on: !isFav, features })} thumbs={thumbs.state} onThumbs={thumbs.set} />
-      </div>
-
-      <FinePrint />
-      {/* room for the floating Start cooking key */}
-      <div className="h-20" aria-hidden />
-
-      {/* the one gold action, always in reach, over a fade just above the capsule */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-[var(--chrome-clear)] z-(--z-sticky) bg-[linear-gradient(to_top,var(--night)_0%,rgb(9_9_11/.92)_45%,transparent)] px-gutter pb-3 pt-7 md:bottom-0 md:left-[76px] md:px-6 md:pb-[calc(16px+var(--safe-bottom))] lg:left-[248px]">
-        <div className="pointer-events-auto mx-auto max-w-col">
-          <Button variant="primary" size="lg" block onClick={startCooking}>
-            <ChefHat className="size-5" strokeWidth={1.8} aria-hidden />
-            Start cooking
+      {/* the dock: Cook and the one gold action, just above the tab bar (and the workout bar) */}
+      <div className="fixed inset-x-0 bottom-[calc(var(--chrome-clear)-24px)] z-(--z-sticky) bg-bg px-gutter pb-6 pt-3 lg:bottom-0 lg:left-[248px] lg:pb-[calc(16px+var(--safe-bottom))]">
+        <div className="@container mx-auto max-w-col"><div className="flex gap-3 ax:flex-col">
+          <Button variant="secondary" size="lg" className="shrink-0 basis-[42%] ax:basis-auto" onClick={() => router.push(cookHref(recipe.key, meal?.id, servings))}>
+            <CookingPot className="size-5" strokeWidth={1.9} aria-hidden />
+            Cook
           </Button>
-        </div>
+          {eaten ? (
+            <Button variant="secondary" size="lg" block onClick={undoEaten} disabled={!eatenEntry} aria-label={`Eaten. Undo: take ${recipe.name} out of your food log`}>
+              Eaten · Undo
+            </Button>
+          ) : (
+            <Button variant="primary" size="lg" block loading={quick.pending} onClick={() => quick.eat(servings, (res) => setLastLog(res))} aria-label={`Log ${servingsLabel(servings)} of ${recipe.name} as eaten`}>
+              Log as eaten
+            </Button>
+          )}
+        </div></div>
+        {quick.note && (
+          <p role="status" className="t-cap mx-auto mt-2 max-w-col text-center">
+            {quick.note}
+          </p>
+        )}
       </div>
 
+      <DetailsSheet
+        open={details}
+        onOpenChange={setDetails}
+        title={`${recipe.name}`}
+        rows={[
+          { label: "Calories", value: `${kcalText(macros.kcal)} kcal`, detail: servingsLabel(servings) },
+          { label: "Protein", value: `${Math.round(macros.protein)} g` },
+          { label: "Carbs", value: `${Math.round(macros.carbs)} g` },
+          { label: "Fat", value: `${Math.round(macros.fat)} g` },
+        ]}
+        how={
+          ai
+            ? "An AI wrote this recipe, so its numbers are an AI estimate from its ingredients. Brands and portions will differ a little."
+            : "Each ingredient's USDA FoodData Central values times its amount, added up for the servings shown. Brands and portions will differ a little. Cooking temperatures follow Health Canada's safe internal temperatures."
+        }
+      >
+        {ai && <AiChip label="AI" />}
+      </DetailsSheet>
+      <RecipeMenu
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        recipe={recipe}
+        meal={meal}
+        actions={actions}
+        weekDays={weekDays}
+        logged={eaten}
+        thumb={thumbs.state}
+        onThumb={thumbs.set}
+        saved={isFav}
+        onSave={() => toggleFav.mutate({ recipeKey: recipe.key, on: !isFav, features })}
+        onSwap={swap}
+        onLogChanges={() => setLogOpen(true)}
+        onEasier={() => setEasierOpen(true)}
+      />
       <LogMealSheet
         open={logOpen}
         onOpenChange={setLogOpen}
         target={{ recipe, servings, plannedMeal: meal ? { id: meal.id, slot: meal.slot, local_date: meal.local_date } : null }}
-        onLogged={(res, s) => setLastLog({ res, servings: s })}
+        onLogged={(res) => setLastLog(res)}
       />
       <MakeEasierSheet open={easierOpen} onOpenChange={(o) => !easierBusy && setEasierOpen(o)} recipe={recipe} prefs={constraintPrefs} lookup={easierLookup} onConfirm={applyEasier} pending={easierBusy} />
+      {actions && myStrip && (
+        <DislikeSheet
+          recipe={lookup(myStrip.from.recipe_key)}
+          open={dislikeOpen}
+          onOpenChange={setDislikeOpen}
+          alreadyDisliked={prefs.dislikedIngredients}
+          onConfirm={(k) => {
+            setDislikeOpen(false);
+            go(actions.dislikeIngredient(k));
+          }}
+        />
+      )}
     </div>
-  );
-}
-
-/**
- * The macro meter row (docs/DESIGN-V2.md §3.5.4): kcal and the three macros for the servings
- * shown, each with a small meter of its share of the day's target.
- */
-function MacroMeters({ macros, goals, className }: { macros: { kcal: number; protein: number; carbs: number; fat: number }; goals: { kcal: number; protein: number; carbs: number; fat: number } | null; className?: string }) {
-  const cells = [
-    { k: "kcal", label: "kcal", v: macros.kcal, goal: goals?.kcal ?? 0, tone: "kcal" as const, unit: "" },
-    { k: "protein", label: "Protein", v: macros.protein, goal: goals?.protein ?? 0, tone: "ivory" as const, unit: "g" },
-    { k: "carbs", label: "Carbs", v: macros.carbs, goal: goals?.carbs ?? 0, tone: "carbs" as const, unit: "g" },
-    { k: "fat", label: "Fat", v: macros.fat, goal: goals?.fat ?? 0, tone: "fat" as const, unit: "g" },
-  ];
-  return (
-    <div className={cn("grid grid-cols-4 gap-3 @max-[19rem]:grid-cols-2", className)}>
-      {cells.map((c) => (
-        <div key={c.k} className="min-w-0">
-          <p className="whitespace-nowrap">
-            <span className="t-num-m text-ivory">{c.k === "kcal" ? kcalText(c.v) : Math.round(c.v)}</span>
-            {c.unit && <span className="t-meta text-stone"> {c.unit}</span>}
-          </p>
-          <p className="t-eyebrow mt-0.5">{c.label}</p>
-          {c.goal > 0 && (
-            <>
-              <Meter className="mt-2" size="sm" tone={c.tone} value={c.v} target={c.goal} label={`${c.label} ${Math.round(c.v)}, ${Math.round((c.v / c.goal) * 100)} percent of your day`} />
-              <p className="t-meta tnum mt-1 text-stone">{Math.round((c.v / c.goal) * 100)}% of day</p>
-            </>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function MealPlanLink() {
-  return (
-    <BackLink href="/nutrition?tab=week" className="press t-callout -ml-2 inline-flex h-11 items-center gap-1 rounded-field pr-3 font-semibold text-stone hover:text-ivory">
-      <ChevronLeft className="size-5" strokeWidth={1.6} aria-hidden />
-      Week
-    </BackLink>
-  );
-}
-
-function FinePrint() {
-  return (
-    <p className="t-meta mt-6 max-w-[60ch] text-stone">
-      Nutrition is worked out from USDA FoodData Central values for each ingredient (CALC), so brands and portions will differ a little. Cooking temperatures follow Health Canada&apos;s safe
-      internal temperatures.
-    </p>
   );
 }
 
 export function RecipeSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Loading recipe">
-      <Skeleton className="h-11 w-28" />
-      <Skeleton className="mt-3 size-14 rounded-full" />
-      <Skeleton className="mt-4 h-9 w-4/5" />
-      <Skeleton className="mt-2 h-9 w-1/2" />
-      <Skeleton className="mt-6 h-64 w-full rounded-card" />
-      <Skeleton className="mt-6 h-80 w-full rounded-card" />
+    <div className="mx-auto max-w-col" aria-busy="true" aria-label="Loading recipe">
+      <Skeleton className="h-11 w-24" />
+      <Skeleton className="mt-3 h-9 w-4/5" />
+      <Skeleton className="mt-2 h-5 w-1/3" />
+      <Skeleton className="mt-6 h-36 w-full rounded-card" />
+      <div className="mt-3 grid grid-cols-3 gap-2.5">
+        <Skeleton className="h-20 rounded-tile-lg" />
+        <Skeleton className="h-20 rounded-tile-lg" />
+        <Skeleton className="h-20 rounded-tile-lg" />
+      </div>
+      <Skeleton className="mt-7 h-80 w-full rounded-tile-lg" />
     </div>
   );
 }
-
