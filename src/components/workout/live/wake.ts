@@ -9,7 +9,7 @@ interface WakeLockSentinelLike {
 }
 
 /**
- * Keeps the screen awake while Gym Mode is open (Screen Wake Lock), re-requested whenever the
+ * Keeps the screen awake while the workout is open (Screen Wake Lock), re-requested whenever the
  * page comes back into view (the browser drops the lock when it is hidden). Returns whether the
  * lock is held, for the one-time "Screen stays on" toast. Silently false where unsupported.
  */

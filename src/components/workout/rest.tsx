@@ -53,7 +53,7 @@ export function RestWatcher({ sessionId, chimeOn, hapticsOn, onDone, keep }: { s
 
 /**
  * `keep`: the rest is not dismissed after GO (the live slot, off the workout screen, goes on to
- * "Rest ended 0:42 ago"; Gym Mode then shows the same until the next seal or Skip).
+ * "Rest ended 0:42 ago"; the workout shows "Rest over" until the next set or Skip).
  */
 function RestTicker({ sessionId, rest, chimeOn, hapticsOn, onDone, keep }: { sessionId: string; rest: RestState; chimeOn: boolean; hapticsOn: boolean; onDone?: (r: RestState) => void; keep?: boolean }) {
   const now = useClockSec();

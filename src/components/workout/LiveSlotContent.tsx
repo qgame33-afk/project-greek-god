@@ -121,7 +121,7 @@ function BarLine({ name, rest, setText, compact }: { name: string; rest: RestSta
 
 /** Set once per page load: the app-open redirect is considered only on the first mount. */
 let launchChecked = false;
-/** Away at least this long before coming back lands in Gym Mode (a glance at a text doesn't). */
+/** Away at least this long before coming back opens the workout (a glance at a text doesn't). */
 const AWAY_MS = 30_000;
 
 function standalone() {
@@ -135,8 +135,8 @@ function busyWithInput() {
 }
 
 /**
- * Gym Mode auto (Settings, default on; prefs.gymAuto): when the installed app opens on Now, or
- * comes back to the foreground after a while, with a session active, it goes to Gym Mode. Only
+ * "Open the workout when the app opens" (Settings, default on; prefs.gymAuto): when the installed app opens on Today, or
+ * comes back to the foreground after a while, with a workout live, it opens the workout. Only
  * in the home-screen app (a browser tab is left where it is), never into a stale session, and
  * never while a field or a sheet has his attention.
  */

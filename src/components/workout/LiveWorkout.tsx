@@ -1446,7 +1446,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
                 onClick={() => setSetSheet(true)}
                 aria-label={`${liftDone} of ${lift.sets.length} sets logged. Edit sets`}
                 data-budget-group=""
-                className="press flex min-h-11 shrink-0 items-center gap-1.5 rounded-pill px-1.5"
+                className="press flex min-h-11 min-w-11 shrink-0 items-center justify-end gap-1.5 rounded-pill px-1.5"
               >
                 {lift.sets.map((s) => (
                   <span
