@@ -143,7 +143,8 @@ describe("the Arnold split (§1.3)", () => {
         expect(e.rir, e.slug).toBe("1–3");
         expect(e.rest >= 120 && e.rest <= 180, e.slug).toBe(true);
       } else {
-        expect(e.rir, e.slug).toBe("0–2");
+        // Quinton's own change (25 Oct): incline dumbbell curls go to failure.
+        expect(e.rir, e.slug).toBe(e.slug === "incline-db-curl" ? "0" : "0–2");
         expect(e.rest >= 60 && e.rest <= 120, e.slug).toBe(true);
       }
       if (lib.perSide) expect(e.unit, e.slug).toBe("each");
