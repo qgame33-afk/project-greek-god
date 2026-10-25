@@ -1,30 +1,26 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
-import { TabHeader } from "@/components/shell/TabHeader";
-import { Segmented } from "@/components/ui/controls";
+import { useCallback, useState } from "react";
 import { addDays, parseISODate, toISODate, type ISODate } from "@/lib/dates";
-import type { Session } from "@/lib/data/training";
 import { useSwapIn } from "@/lib/motion";
 import { DaySheet } from "./DaySheet";
-import { PLAN_AHEAD, PLAN_BACK, useAllPREvents, useTrainingWeek, useUnits } from "./hooks";
-import { LiftsTab, type LiftsView } from "./lifts/LiftsTab";
+import { PLAN_AHEAD, PLAN_BACK, useTrainingWeek } from "./hooks";
+import { LiftsPage, type LiftsView } from "./lifts/LiftsTab";
 import { ProgramTab } from "./ProgramTab";
-import { SessionSheet } from "./SessionSheet";
 import { TrainingSkeleton } from "./Skeletons";
 import { useMounted } from "./useMounted";
 import { useRefreshRestored } from "./useRefreshRestored";
-import { VolleyballSheet } from "./VolleyballSheet";
-import { WeekTab } from "./week/WeekTab";
+import { VolumePage } from "./volume/VolumePage";
+import { WeekView } from "./week/WeekView";
 
-type Tab = "week" | "program" | "lifts";
-const TABS: Tab[] = ["week", "program", "lifts"];
-const TAB_LABEL: Record<Tab, string> = { week: "Week", program: "Program", lifts: "Lifts" };
+type Tab = "week" | "program" | "volume" | "lifts";
+const TABS: Tab[] = ["week", "program", "volume", "lifts"];
 
 /**
- * The tab a URL asks for (docs/DESIGN-V2.md §2.3): week by default; the old `history` and
- * `exercises` tabs open Lifts on that view.
+ * The page a URL asks for (docs/DESIGN-V3-SIMPLE.md §3.7): the week by default; `program`,
+ * `volume` and `lifts` (`&view=library|history`); the old `history` and `exercises` open Lifts.
+ * Anything else (an old sheet query such as `?vb=1`) lands on the week without an error.
  */
 export function tabFromParams(tab: string | null, view: string | null): { tab: Tab; view: LiftsView } {
   if (tab === "history") return { tab: "lifts", view: "history" };
@@ -33,10 +29,7 @@ export function tabFromParams(tab: string | null, view: string | null): { tab: T
   return { tab: t, view: view === "history" ? "history" : "library" };
 }
 
-/**
- * A real calendar date in YYYY-MM-DD (rejects 2026-02-31 and friends) inside the window the
- * hub has plans for (two weeks either side of today), else null.
- */
+/** A real calendar date in YYYY-MM-DD inside the window the hub has plans for, else null. */
 function validDay(d: string | null, today: ISODate): ISODate | null {
   if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
   if (toISODate(parseISODate(d)) !== d) return null;
@@ -44,9 +37,9 @@ function validDay(d: string | null, today: ISODate): ISODate | null {
 }
 
 /**
- * /training — Train (docs/DESIGN-V2.md §3.4): Week · Program · Lifts.
- * Deep links: ?tab=week|program|lifts (&view=library|history), the old ?tab=history|exercises,
- * and ?day=YYYY-MM-DD (opens that day's sheet on any tab).
+ * /training — Train (§4.3): the week, and its pushed pages Program (`?tab=program`), Sets by
+ * muscle (`?tab=volume`) and Lifts (`?tab=lifts`), plus `?day=YYYY-MM-DD` (that day's sheet).
+ * Moving between them uses the History API (no server round trip), so it works with no signal.
  */
 export function TrainingHub() {
   const mounted = useMounted();
@@ -56,17 +49,15 @@ export function TrainingHub() {
 function Hub() {
   const week = useTrainingWeek();
   useRefreshRestored();
-  const { unit } = useUnits();
   const pathname = usePathname();
   const params = useSearchParams();
   const { tab, view } = tabFromParams(params.get("tab"), params.get("view"));
   const dayParam = params.get("day");
-  // switching sections slides the panel in from the side of the tab that was picked
   const panelRef = useSwapIn<HTMLDivElement, number>(TABS.indexOf(tab));
 
   const [day, setDay] = useState<ISODate | null>(() => validDay(dayParam, week.today));
   const [dayOpen, setDayOpen] = useState(!!day);
-  // A new ?day= while the hub is already mounted (e.g. from Now) opens it too.
+  // a new ?day= while the hub is mounted (from Today) opens it too
   const [seenParam, setSeenParam] = useState(dayParam);
   if (dayParam !== seenParam) {
     setSeenParam(dayParam);
@@ -76,26 +67,26 @@ function Hub() {
       setDayOpen(true);
     }
   }
-  const [vb, setVb] = useState<{ open: boolean; date: ISODate }>({ open: false, date: week.today });
-  const [session, setSession] = useState<Session | null>(null);
-  const [sessionOpen, setSessionOpen] = useState(false);
-  const prs = useAllPREvents();
-  const prSetIds = useMemo(() => new Set((prs.data ?? []).map((p) => p.set_id).filter((x): x is string => !!x)), [prs.data]);
 
   const setParams = useCallback(
-    (patch: Record<string, string | null>) => {
+    (patch: Record<string, string | null>, push = false) => {
       const sp = new URLSearchParams(params.toString());
       for (const [k, v] of Object.entries(patch)) {
         if (v == null) sp.delete(k);
         else sp.set(k, v);
       }
       const qs = sp.toString();
-      // The native History API (synced with useSearchParams by the router): switching a section
-      // or closing a day never asks the server for the page, so it works with no signal at the gym.
-      window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
+      const url = qs ? `${pathname}?${qs}` : pathname;
+      if (push) window.history.pushState(null, "", url);
+      else window.history.replaceState(null, "", url);
     },
     [params, pathname],
   );
+  /** Open a Train page (a push, so Back returns here). */
+  const go = useCallback((href: string) => {
+    window.history.pushState(null, "", href);
+    window.scrollTo({ top: 0 });
+  }, []);
 
   const openDay = (d: ISODate) => {
     setDay(d);
@@ -108,44 +99,13 @@ function Hub() {
 
   return (
     <div className="pb-4">
-      <TabHeader eyebrow="Train" oracle={{ kind: "train", label: oracleLabel(week) }} />
-      <Segmented
-        ariaLabel="Train sections"
-        value={tab}
-        onChange={(v) => setParams({ tab: v === "week" ? null : v, view: null })}
-        options={TABS.map((t) => ({ value: t, label: TAB_LABEL[t] }))}
-        className="mb-6 lg:max-w-sm"
-      />
-
-      <div ref={panelRef} role="tabpanel" aria-label={TAB_LABEL[tab]}>
-        {tab === "week" && <WeekTab week={week} onDay={openDay} onLogVolleyball={() => setVb({ open: true, date: week.today })} />}
+      <div ref={panelRef}>
+        {tab === "week" && <WeekView week={week} onDay={openDay} go={go} />}
         {tab === "program" && <ProgramTab week={week} />}
-        {tab === "lifts" && <LiftsTab week={week} view={view} onView={(v) => setParams({ tab: "lifts", view: v === "library" ? null : v })} onStartToday={() => openDay(week.today)} />}
+        {tab === "volume" && <VolumePage week={week} />}
+        {tab === "lifts" && <LiftsPage week={week} view={view} onView={(v) => setParams({ tab: "lifts", view: v === "library" ? null : v })} />}
       </div>
-
-      <DaySheet
-        date={day}
-        open={dayOpen && !!day}
-        onOpenChange={onDayOpenChange}
-        week={week}
-        onLogVolleyball={(d) => {
-          setDayOpen(false);
-          setVb({ open: true, date: d });
-        }}
-        onOpenSession={(s) => {
-          setDayOpen(false);
-          setSession(s);
-          setSessionOpen(true);
-        }}
-      />
-      <VolleyballSheet open={vb.open} onOpenChange={(o) => setVb((v) => ({ ...v, open: o }))} date={vb.date} today={week.today} recent={week.volleyball} />
-      <SessionSheet session={session} open={sessionOpen} onOpenChange={setSessionOpen} prSetIds={prSetIds} unit={unit} />
+      <DaySheet date={day} open={dayOpen && !!day} onOpenChange={onDayOpenChange} week={week} />
     </div>
   );
-}
-
-function oracleLabel(week: ReturnType<typeof useTrainingWeek>) {
-  const t = week.resolve(week.today).template;
-  const n = week.weekNo ? `Week ${week.weekNo}` : "This week";
-  return t ? `${n} · ${t.name} today` : `${n} · rest day`;
 }

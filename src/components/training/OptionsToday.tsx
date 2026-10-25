@@ -15,6 +15,7 @@ import { templateLabels } from "@/lib/training/programs";
 import type { Mode } from "@/lib/training/progression";
 import type { DayPlanWrite } from "@/lib/training/schedule";
 import { modeTemplate } from "@/lib/training/volume";
+import { effortText, stopWith } from "./format";
 import { useDayPlanWrites, useOverlapAdvice, useTrainingWeek } from "./hooks";
 import { Caption, CheckedList, SheetActions, SheetReason, type CheckedLine } from "./parts";
 
@@ -90,7 +91,7 @@ export function useTodayOptionsFor(week: Week): TodayOptions {
               const left = Math.max(1, n - a.sets);
               return { title: nameOf(a.slug), subtitle: `${left} ${left === 1 ? "set" : "sets"} instead of ${n}`, dataName: true };
             }
-            if (a.kind === "rir") return { title: `Stop with ${a.rir} reps left`, subtitle: `On ${nameOf(a.slug)}` };
+            if (a.kind === "rir") return { title: stopWith(a.rir), subtitle: `On ${nameOf(a.slug)}` };
             return { title: `${nameOf(a.move)} first`, subtitle: `Before ${nameOf(a.before)}` };
           }),
           adjust: adjustFromAdvice(advice, template.exercises),
@@ -104,7 +105,7 @@ export function useTodayOptionsFor(week: Week): TodayOptions {
         const slugs = eff.exercises.filter((e) => !legsOnly || isLegLift(e.slug)).map((e) => e.slug);
         const lines: CheckedLine[] = [];
         if (g.adjustments.dropSets > 0) lines.push({ title: g.adjustments.dropSets === 1 ? `One set fewer on ${legsOnly ? "each leg lift" : "each lift"}` : `${g.adjustments.dropSets} sets fewer on ${legsOnly ? "each leg lift" : "each lift"}`, subtitle: "Never below 1 set" });
-        if (g.adjustments.rir) lines.push({ title: `Leave ${g.adjustments.rir} reps in the tank`, subtitle: legsOnly ? "On the leg lifts" : "On every lift" });
+        if (g.adjustments.rir) lines.push({ title: effortText(g.adjustments.rir), subtitle: legsOnly ? "On the leg lifts" : "On every lift" });
         const dropSets = g.adjustments.dropSets > 0 ? Object.fromEntries(slugs.map((s) => [s, g.adjustments.dropSets])) : undefined;
         const rir = g.adjustments.rir ? Object.fromEntries(slugs.map((s) => [s, g.adjustments.rir as string])) : undefined;
         options.push({

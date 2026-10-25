@@ -1,6 +1,3 @@
-import { estimateDurationMin } from "@/lib/training/programs";
-import type { DayTemplate } from "@/lib/training/types";
-import { templateSummary } from "@/lib/training/volume";
 import { formatInt, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
 
 /** "14,250 lb" in the user's unit. */
@@ -22,33 +19,57 @@ export function fmtSessionMinutes(sec: number | null | undefined) {
   return `${Math.max(1, Math.round(sec / 60))} min`;
 }
 
-/**
- * "6 lifts · 17 sets · ~68 min". The time is the user's typical length for this template when
- * there is one (useTypicalDurations, standard mode only), else the estimate — one "~N min"
- * everywhere (DESIGN-V2 §2.4).
- */
-export function templateMeta(t: DayTemplate, typicalMin?: number | null) {
-  const s = templateSummary(t);
-  return `${plural(s.exercises, "lift")} · ${plural(s.sets, "set")} · ~${typicalMin || estimateDurationMin(t)} min`;
-}
-
-const PLURAL = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
-const SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-/** "Mondays", "Mon & Thu", or "Not scheduled". */
-export function weekdaysLabel(days: number[]) {
-  if (!days.length) return "Not scheduled";
-  if (days.length === 1) return PLURAL[days[0]];
-  return days.map((d) => SHORT[d]).join(" & ");
-}
-
-/** Sets × reps target, e.g. "3 × 5–8", "2 × 30–45 s", "3 × 8 each". */
-export function targetLabel(e: { sets: number; repLow: number; repHigh: number; unit: string }) {
-  const range = e.repLow === e.repHigh ? `${e.repLow}` : `${e.repLow}–${e.repHigh}`;
-  const suffix = e.unit === "sec" ? " s" : e.unit === "each" ? " each" : "";
-  return `${e.sets} × ${range}${suffix}`;
-}
-
 export function plural(n: number, one: string, many = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`;
 }
+
+/** A rep range in words: "12–20 reps", "10–15 reps each side", "30–45 s". */
+export function repText(e: { repLow: number; repHigh: number; unit: string }) {
+  const range = e.repLow === e.repHigh ? `${e.repLow}` : `${e.repLow}–${e.repHigh}`;
+  if (e.unit === "sec") return `${range} s`;
+  return e.unit === "each" ? `${range} reps each side` : `${range} reps`;
+}
+
+/**
+ * A lift's plan line (docs/DESIGN-V3-SIMPLE.md §4.3.1 item 5): "4 sets · 12–20 reps · each hand",
+ * "3 sets · 10–15 reps each side", "2 sets · 10–15 reps · optional".
+ */
+export function liftLine(e: { sets: number; repLow: number; repHigh: number; unit: string; optional?: boolean }, perHand?: boolean) {
+  const parts = [plural(e.sets, "set"), repText(e)];
+  if (perHand && e.unit !== "each") parts.push("each hand");
+  if (e.optional) parts.push("optional");
+  return parts.join(" · ");
+}
+
+/** The same line for VoiceOver: "4 sets of 12 to 20 reps each side". */
+export function liftSpoken(e: { sets: number; repLow: number; repHigh: number; unit: string; optional?: boolean }) {
+  const range = e.repLow === e.repHigh ? `${e.repLow}` : `${e.repLow} to ${e.repHigh}`;
+  const what = e.unit === "sec" ? "seconds" : e.unit === "each" ? "reps each side" : "reps";
+  return `${plural(e.sets, "set")} of ${range} ${what}${e.optional ? ", optional" : ""}`;
+}
+
+/** "about 45 min" */
+export const aboutMin = (min: number) => `about ${min} min`;
+
+/** "Shoulders, Biceps and Triceps B" for VoiceOver. */
+export const spokenName = (s: string) => s.replace(/\s*&\s*/g, " and ");
+
+/** True when a reps-in-the-tank target means "no reps left": "0" (Quinton's incline curls). */
+const toFailure = (rir: string | null | undefined) => /^\s*0(\s*[–—-]\s*0)?\s*$/.test(rir ?? "");
+
+/**
+ * An effort target in words (DESIGN-V3 §2.2 "Leave 1–2 reps in the tank"): "To failure" for "0",
+ * "Stop fresh" for "Fresh", else "Leave 0–2 reps in the tank" ("1 rep" when it is exactly one).
+ */
+export function effortText(rir: string | null | undefined) {
+  if (!rir) return "—";
+  if (toFailure(rir)) return "To failure";
+  if (/^fresh$/i.test(rir.trim())) return "Stop fresh, well before failure";
+  return `Leave ${rir} ${rir.trim() === "1" ? "rep" : "reps"} in the tank`;
+}
+
+/** A short label for pickers: "To failure", "0–2", "Fresh". */
+export const effortShort = (rir: string) => (toFailure(rir) ? "To failure" : rir);
+
+/** "Stop with 2–3 reps left" / "Go to failure" (Options for today's RIR change). */
+export const stopWith = (rir: string) => (toFailure(rir) ? "Go to failure" : `Stop with ${rir} ${rir.trim() === "1" ? "rep" : "reps"} left`);

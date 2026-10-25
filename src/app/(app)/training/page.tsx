@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { TrainingHub } from "@/components/training/TrainingHub";
 import { TrainingSkeleton } from "@/components/training/Skeletons";
 
-export const metadata: Metadata = { title: "Training" };
+export const metadata: Metadata = { title: "Train" };
 
 export default function TrainingPage() {
   return (
