@@ -2,28 +2,27 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ViewTransition, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { AscentPeak, FuelAmphora, NowSunrise, OfferingPlus, TrainColumn } from "@/components/art/icons";
+import { ChartLine, Dumbbell, House, Plus, Utensils } from "lucide-react";
 import { OfferingHost } from "@/components/offering/OfferingHost";
 import { useQueryCacheReady } from "@/components/providers";
 import { OfflineBanner } from "@/components/shared/Offline";
 import { useMediaQuery } from "@/components/ui/sheet";
 import { useProfile } from "@/lib/data/profile";
 import { ROUTE_SKIP_WITHIN_MS, navDirection } from "@/lib/motion";
-import { Capsule } from "./Capsule";
 import { LiveSlot } from "./LiveSlot";
-import { OfferingButton } from "./OfferingButton";
 import { Rail } from "./Rail";
+import { TabBar } from "./TabBar";
 import { TopBar } from "./TopBar";
 import { hidesCapsule, hidesLiveSlot, isFocusRoute } from "./nav";
 import { useHistoryTrail } from "./trail";
 
 /**
- * The app shell (docs/DESIGN-V2.md §2.1). Phones: a sticky header row (eyebrow · ✦ · avatar) that
- * turns into an opaque top bar on scroll, the floating capsule (Now · Train · Fuel · Ascent) with the
- * Offering (+) beside it, and the live slot above the capsule while a session runs elsewhere. From
- * 768 px: the rail. Focus routes (the workout, onboarding, cooking mode) get no chrome at all.
- * Screens pad their bottom by --chrome-clear (the `pb-chrome` utility); a scroll-edge fade sits
- * under the floating chrome so no row with a control ever rests beneath it.
+ * The app shell (docs/DESIGN-V3-SIMPLE.md §3). Phones and tablets: the page draws its own header
+ * (PageHeader / BackHeader), a sticky top bar shows its title once it scrolls under, the tab bar
+ * (Today · Train · Food · Progress) with the white + sits at the bottom, and the workout bar sits
+ * above it while a workout is live elsewhere. From 1024 px: the rail, content centred at 560 px.
+ * Focus routes (the workout, onboarding, cooking mode) get no chrome at all; the scanner and the
+ * Food coach hide the tab bar. Screens pad their bottom by --chrome-clear (`pb-chrome`).
  */
 export function AppShell({ children }: { children: ReactNode }) {
   // Everything inside the app is per-user and per-timezone, so it renders on the client only.
@@ -41,9 +40,9 @@ function AppShellInner({ children }: { children: ReactNode }) {
   const { profile, loading } = useProfile();
   const focus = isFocusRoute(pathname);
   const keyboard = useKeyboardOpen();
-  const desktop = useMediaQuery("(min-width: 768px)");
-  // the capsule, Offering and slot are md:hidden in CSS too, so the first paint never flashes them
-  const floating = !desktop && !hidesCapsule(pathname) && !keyboard;
+  const desktop = useMediaQuery("(min-width: 1024px)");
+  // the tab bar and workout bar are lg:hidden in CSS too, so the first paint never flashes them
+  const tabBar = !desktop && !hidesCapsule(pathname) && !keyboard;
 
   // First-time users go through onboarding before anything else.
   useEffect(() => {
@@ -72,8 +71,8 @@ function AppShellInner({ children }: { children: ReactNode }) {
             {children}
           </div>
         ) : (
-          <main data-vt-page="" className="pb-chrome w-full pt-2 md:pb-16 md:pl-[76px] md:pt-8 lg:pl-[248px]">
-            <div className="mx-auto w-full max-w-col px-gutter md:px-6 lg:max-w-wide lg:px-8">
+          <main data-vt-page="" className="pb-chrome w-full pt-[calc(var(--safe-top)+4px)] lg:pb-16 lg:pl-[248px] lg:pt-8">
+            <div className="mx-auto w-full max-w-col px-gutter">
               <OfflineBanner />
               <div>{children}</div>
             </div>
@@ -81,13 +80,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
         )}
       </ViewTransition>
 
-      {floating && (
-        <>
-          <div aria-hidden className="scroll-edge pointer-events-none fixed inset-x-0 bottom-0 z-(--z-chrome) h-[calc(var(--chrome-clear)+8px)] md:hidden" />
-          <Capsule pathname={pathname} />
-          <OfferingButton />
-        </>
-      )}
+      {tabBar && <TabBar pathname={pathname} />}
       {!desktop && <LiveSlot hidden={hidesLiveSlot(pathname) || keyboard} />}
       <OfferingHost />
     </div>
@@ -123,30 +116,23 @@ function useMounted() {
 
 /** Static first paint: the chrome without any data, so there's no blank flash. */
 export function ShellFallback() {
-  const icons = [NowSunrise, TrainColumn, FuelAmphora, AscentPeak];
+  const icons = [House, Dumbbell, Utensils, ChartLine];
   return (
     <div className="min-h-dvh" aria-busy="true">
-      <aside className="fixed inset-y-0 left-0 hidden w-[76px] border-r border-vein bg-m1 md:block lg:w-[248px]" />
-      <header className="sticky top-0 md:hidden" style={{ paddingTop: "var(--safe-top)" }}>
-        <div className="h-(--topbar-h)" />
-      </header>
-      <div
-        aria-hidden
-        className="glass fixed left-[14px] right-[calc(14px+56px+10px)] grid h-(--capsule-h) grid-cols-4 items-center rounded-capsule px-[6px] text-stone md:hidden"
-        style={{ bottom: "calc(var(--safe-bottom) + var(--capsule-gap))" }}
-      >
-        {icons.map((Icon, i) => (
-          <span key={i} className="grid place-items-center">
-            <Icon className="size-[24px]" />
+      <aside className="fixed inset-y-0 left-0 hidden w-[248px] border-r border-line bg-bg lg:block" />
+      <div aria-hidden className="fixed inset-x-0 bottom-0 border-t border-line bg-bg lg:hidden" style={{ paddingBottom: "var(--safe-bottom)" }}>
+        <div className="mx-auto flex h-[48px] max-w-col items-start pl-2 pr-3">
+          <div className="flex flex-1 text-tab-off">
+            {icons.map((Icon, i) => (
+              <span key={i} className="grid flex-1 place-items-center pt-[7px]">
+                <Icon className="size-6" strokeWidth={1.9} />
+              </span>
+            ))}
+          </div>
+          <span className="-mt-[14px] ml-1.5 grid size-[58px] place-items-center rounded-full bg-fg text-bg">
+            <Plus className="size-7" strokeWidth={2.6} />
           </span>
-        ))}
-      </div>
-      <div
-        aria-hidden
-        className="glass fixed right-[14px] grid size-[56px] place-items-center rounded-full text-ivory md:hidden"
-        style={{ bottom: "calc(var(--safe-bottom) + var(--capsule-gap) + 4px)" }}
-      >
-        <OfferingPlus className="size-[26px]" />
+        </div>
       </div>
     </div>
   );

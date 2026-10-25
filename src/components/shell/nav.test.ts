@@ -30,23 +30,28 @@ describe("routes", () => {
   });
 });
 
-describe("the v2 shell", () => {
-  it("has four tabs in capsule order and the secondary sections in rail order", () => {
+describe("the v3 shell", () => {
+  it("has four tabs in order and Coach and Settings in the rail", () => {
     expect(PRIMARY_NAV.map((n) => [n.label, n.href])).toEqual([
-      ["Now", "/"],
+      ["Today", "/"],
       ["Train", "/training"],
-      ["Fuel", "/nutrition"],
-      ["Ascent", "/progress"],
+      ["Food", "/nutrition"],
+      ["Progress", "/progress"],
     ]);
-    expect(SECONDARY_NAV.map((n) => n.href)).toEqual(["/coach", "/reviews", "/recovery", "/settings"]);
+    expect(SECONDARY_NAV.map((n) => [n.label, n.href])).toEqual([
+      ["Coach", "/coach"],
+      ["Settings", "/settings"],
+    ]);
   });
-  it("hides the capsule on focus routes, the scanner and the Food coach, and the live slot on the workout", () => {
+  it("hides the tab bar on focus routes, the scanner, sign-in and the Food coach, and the workout bar on the workout", () => {
     expect(hidesCapsule("/workout/abc")).toBe(true);
     expect(hidesCapsule("/nutrition/scan")).toBe(true);
     expect(hidesCapsule("/nutrition/coach")).toBe(true); // its full-screen composer sits on the bottom edge
     expect(hidesCapsule("/onboarding")).toBe(true);
+    expect(hidesCapsule("/nutrition/meals/cook/lib:eggs")).toBe(true);
+    expect(hidesCapsule("/sign-in")).toBe(true);
     expect(hidesCapsule("/nutrition")).toBe(false);
-    expect(hidesCapsule("/coach")).toBe(false); // its composer sits above the capsule
+    expect(hidesCapsule("/coach")).toBe(false); // its composer sits above the tab bar
     expect(hidesLiveSlot("/workout/abc")).toBe(true);
     expect(hidesLiveSlot("/nutrition/coach")).toBe(true);
     expect(hidesLiveSlot("/training")).toBe(false);

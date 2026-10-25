@@ -2,15 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
-import { useHeader } from "./chrome";
-import { HeaderActions } from "./HeaderActions";
 import { headingUnderBar } from "./nav";
 
 /**
- * The phone header row and sticky top bar (docs/DESIGN-V2.md §2.1, §1.4). At rest it is transparent
- * (the page's light shows through): the page's eyebrow (from <TabHeader>) on the left, ✦ and the
- * avatar on the right. Once the page scrolls it turns opaque night with a 24 px gradient fade — never
- * blurred — and the page's <h1> takes the eyebrow's place when it scrolls under.
+ * The sticky top bar (docs/DESIGN-V3-SIMPLE.md §3.2). Pages draw their own header (PageHeader or
+ * BackHeader); this bar takes no room. Once the page scrolls it is an opaque --bg strip over the
+ * status bar (no blur, no gradient), and when the page's <h1> scrolls under it the bar grows a
+ * 44 px row with that title. No eyebrow, no ✦, no avatar.
  */
 export function TopBar({ pathname }: { pathname: string }) {
   const [scrolled, setScrolled] = useState(false);
@@ -18,7 +16,7 @@ export function TopBar({ pathname }: { pathname: string }) {
     let frame = 0;
     const on = () => {
       frame = 0;
-      setScrolled(window.scrollY > 8);
+      setScrolled(window.scrollY > 4);
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(on);
@@ -30,43 +28,16 @@ export function TopBar({ pathname }: { pathname: string }) {
       cancelAnimationFrame(frame);
     };
   }, []);
-  const header = useHeader(pathname);
   const { title, show } = useScrolledPageTitle(true, pathname);
   const showTitle = show && !!title;
   return (
-    <header className="vt-topbar sticky top-0 z-(--z-sticky) md:hidden" style={{ paddingTop: "var(--safe-top)" }}>
-      {/* the opaque bar and its fade appear once the page has scrolled */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-night transition-opacity duration-(--dur-base)"
-        style={{ opacity: scrolled ? 1 : 0 }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-full h-6 bg-[linear-gradient(to_bottom,var(--night),transparent)] transition-opacity duration-(--dur-base)"
-        style={{ opacity: scrolled ? 1 : 0 }}
-      />
-      <div className="relative flex h-(--topbar-h) items-center justify-between gap-3 px-gutter">
-        <div className="relative min-w-0 flex-1">
-          {header?.eyebrow && (
-            <p
-              className="t-eyebrow truncate transition-[opacity,transform] duration-(--dur-base) ease-out"
-              style={{ opacity: showTitle ? 0 : 1, transform: showTitle ? "translateY(-4px)" : "none" }}
-            >
-              {header.eyebrow}
-            </p>
-          )}
-          <p
-            aria-hidden
-            className={cn(
-              "absolute inset-x-0 top-1/2 -translate-y-1/2 truncate font-voice text-[length:max(20px,1.25rem)] font-semibold leading-tight text-ivory transition-[opacity,translate] duration-(--dur-base) ease-out",
-              showTitle ? "opacity-100" : "translate-y-[calc(-50%+4px)] opacity-0",
-            )}
-          >
-            {title}
-          </p>
-        </div>
-        <HeaderActions oracle={header?.oracle} />
+    <header
+      aria-hidden={!showTitle}
+      className="vt-topbar pointer-events-none fixed inset-x-0 top-0 z-(--z-sticky) bg-bg transition-opacity duration-(--dur-fast) lg:hidden"
+      style={{ paddingTop: "var(--safe-top)", opacity: scrolled ? 1 : 0 }}
+    >
+      <div className={cn("grid place-items-center overflow-hidden px-16", showTitle ? "h-11 border-b border-line" : "h-0")}>
+        <p className={cn("t-row truncate transition-opacity duration-(--dur-fast)", showTitle ? "opacity-100" : "opacity-0")}>{title}</p>
       </div>
     </header>
   );

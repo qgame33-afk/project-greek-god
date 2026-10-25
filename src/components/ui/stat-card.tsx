@@ -74,7 +74,7 @@ export function StatCard({ value, unit, label, ring, onDetails, ariaLabel, hint 
 export function StatRow({ cols = 3, children, className }: { cols?: 2 | 3; children: ReactNode; className?: string }) {
   return (
     <div className={cn("@container", className)}>
-      <div className={cn("grid gap-2.5 ax:grid-cols-1", cols === 3 ? "grid-cols-3" : "grid-cols-2")}>{children}</div>
+      <div data-stat-row="" className={cn("grid gap-2.5 ax:grid-cols-1", cols === 3 ? "grid-cols-3" : "grid-cols-2")}>{children}</div>
     </div>
   );
 }

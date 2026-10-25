@@ -4,20 +4,17 @@ import { WifiOff } from "lucide-react";
 import { useOnline } from "@/components/workout/stores";
 
 /**
- * The offline strip (docs/DESIGN-V2.md §2.1): a 36 px opaque strip under the header on every app
- * screen while the device has no connection — never a toast. Screens keep showing the data saved
- * on this device. Honest about writes: food and water need a connection (their sheets say so and
- * keep what was typed); the live workout queues its sets on the device and syncs when back.
+ * The offline banner (docs/DESIGN-V3-SIMPLE.md §4.12): a 36 px opaque --card-3 strip at the top of
+ * every app screen while the device has no connection, never a toast. Screens keep showing their
+ * saved data; logging queues as it does now. The workout shows its own strip (§4.2.13).
  */
 export function OfflineBanner() {
   const online = useOnline();
   if (online) return null;
   return (
-    <div role="status" className="t-meta mb-4 flex min-h-9 items-center gap-2.5 rounded-field bg-m2 px-3 py-1.5 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)]">
-      <WifiOff className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
-      <p>
-        <span className="font-semibold text-ivory">Offline</span> · showing saved data · food needs a connection; workouts sync when you&apos;re back
-      </p>
+    <div role="status" className="t-label mb-3 flex min-h-9 items-center gap-2 rounded-tile bg-card-3 px-3.5 py-1.5 text-fg">
+      <WifiOff className="size-4 shrink-0 text-fg-2" strokeWidth={2.2} aria-hidden />
+      <p>Offline · changes sync when you&apos;re back</p>
     </div>
   );
 }

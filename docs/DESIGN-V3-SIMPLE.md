@@ -121,7 +121,7 @@ const inter = Inter({ subsets: ["latin"], axes: ["opsz"], variable: "--font-inte
 
 #### 1.2.2 Root and Dynamic Type
 
-Unchanged mechanism: `html { font-size: 100% }` and, under `@supports (font: -apple-system-body)`, `html { font: -apple-system-body }` (17 px on the iPhone by default, following the text-size setting). Every size is in rem. Giant numbers are `min(rem, vw)` so they cap at large text sizes. Layout switches for large text use container queries in rem: `@container (width < 24rem)` is the **AX layout** (a 390 px phone at AX sizes measures narrower than 24rem). Short screens use `@media (max-height: 700px)` (the **short layout**).
+Unchanged mechanism: `html { font-size: 100% }` and, under `@supports (font: -apple-system-body)`, `html { font: -apple-system-body }` (17 px on the iPhone by default, following the text-size setting). Every size is in rem. Giant numbers are `min(rem, vw)` so they cap at large text sizes. Layout switches for large text use container queries in rem: a component's own `@container` narrower than `18rem` is the **AX layout** (Tailwind variant `ax:`; a 390 px phone's 350 px column measures about 20.6rem at the iPhone's default 17 px and 12.5rem at AX sizes; the earlier 24rem threshold would have put a default-size iPhone into the AX layout). Short screens use `@media (max-height: 700px)` (the **short layout**, variant `short:`).
 
 #### 1.2.3 Scale (utility classes in `globals.css`; streams use these, never `text-[Npx]`)
 

@@ -1221,18 +1221,6 @@ body *::after {
   }
 }
 
-/* ---------------------------------------------------------------- the shell (§3) */
-
-/* Old capsule (until the tab bar replaces it in F3). */
-.capsule {
-  container: capsule / inline-size;
-}
-.capsule-label {
-  font-size: max(11px, 0.65rem);
-  line-height: 1;
-  font-weight: 600;
-}
-
 /* ------------------------------------------------------ view transitions */
 
 /* Route changes. AppShell sets <html data-nav="push|pop|forward|back|fade|instant"> inside the

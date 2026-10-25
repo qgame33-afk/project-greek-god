@@ -17,23 +17,20 @@ const SHELL_CACHE = "pgg-shell-" + VERSION;
 const OFFLINE_HTML = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#09090B"><title>Offline · Project Greek God</title>
+<meta name="theme-color" content="#000000"><title>Offline · Project Greek God</title>
 <style>
-  html,body{margin:0;height:100%;background:#09090B;color:#F2EBDD;font:500 16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-  main{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));text-align:center;box-sizing:border-box}
-  .mark{width:56px;height:56px;margin-bottom:20px}
-  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#A39B8D;margin:0 0 10px}
-  h1{font:600 34px/1.05 "Cormorant Garamond",Georgia,serif;margin:0}
-  p{color:#B9B1A2;max-width:32ch;margin:12px auto 0}
-  button{margin-top:24px;height:48px;padding:0 24px;border-radius:16px;border:0;box-shadow:inset 0 0 0 1px rgba(224,184,102,.38);background:#1E1E23;color:#EED08B;font:inherit;font-weight:600;line-height:1;cursor:pointer}
+  html,body{margin:0;height:100%;background:#000;color:#f5f5f7;font:400 17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+  main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box}
+  .card{width:100%;max-width:400px;background:#141416;border-radius:24px;padding:28px 24px;text-align:center;box-sizing:border-box}
+  h1{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0}
+  p{color:#a1a1a6;font-size:15px;max-width:32ch;margin:8px auto 0}
+  button{margin-top:24px;width:100%;height:52px;border-radius:999px;border:0;background:#222226;color:#f5f5f7;font:inherit;font-weight:700;cursor:pointer}
 </style></head>
-<body><main>
-  <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="#E0B866" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 9 12 3l10 6M3 11h18M2 21h20M6 13v6M12 13v6M18 13v6"/></svg>
-  <p class="eyebrow">Project Greek God</p>
+<body><main><div class="card">
   <h1>You&#39;re offline</h1>
-  <p>Your logs are safe in your account. Reconnect and this page will load with your latest numbers.</p>
+  <p>Your logs are safe in your account. This page loads once you&#39;re back.</p>
   <button type="button" onclick="location.reload()">Try again</button>
-</main>
+</div></main>
 <script>addEventListener("online",function(){location.reload()})</script>
 </body></html>`;
 
