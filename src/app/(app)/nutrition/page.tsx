@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { NutritionScreen } from "@/components/nutrition/NutritionScreen";
 
-export const metadata: Metadata = { title: "Fuel" };
+export const metadata: Metadata = { title: "Food" };
 
 /** Client-rendered (reads ?date / ?add=1); data comes from TanStack Query under RLS. */
 export default function NutritionPage() {

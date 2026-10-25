@@ -1,9 +1,9 @@
 "use client";
 
-import { BookmarkPlus, CalendarDays, Ellipsis, Trash, type LucideIcon } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { BookmarkPlus, CalendarDays, Ellipsis, Trash } from "lucide-react";
+import { useRef, useState } from "react";
+import { ListGroup, Row } from "@/components/ui/list";
 import { Sheet } from "@/components/ui/sheet";
-import { cn } from "@/lib/cn";
 import { newId } from "@/lib/data/core";
 import { useDeleteFood, type FoodEntry } from "@/lib/data/nutrition";
 import { composeEatenAt, timeValue } from "@/lib/nutrition-ui/format";
@@ -13,7 +13,7 @@ import { formatInt } from "@/lib/units";
 import { useFuel } from "../context";
 
 /**
- * The day's ⋯ (Fuel → Today): what the old per-meal cards offered, per meal that has food —
+ * The day's ⋯ (Food): what the old per-meal cards offered, per meal that has food —
  * save it as a reusable meal, copy it to today (a past day), or remove all of it (Undo). Kept in
  * one sheet so the timeline stays a timeline.
  */
@@ -54,66 +54,58 @@ export function DayMenu({ sections, onSaveMeal }: { sections: MealSection<FoodEn
         type="button"
         onClick={() => setOpen(true)}
         disabled={!withFood.length}
-        aria-label="This day's meals: save, copy or remove"
-        className="press grid size-11 place-items-center rounded-full text-stone hover:text-ivory disabled:opacity-40"
+        aria-label="This day's food: save, copy or remove"
+        aria-haspopup="dialog"
+        className="press -mr-2 grid size-11 place-items-center rounded-full text-fg-2 hover:text-fg disabled:opacity-40"
       >
-        <Ellipsis className="size-5" strokeWidth={1.6} />
+        <Ellipsis className="size-5" strokeWidth={1.9} />
       </button>
-      <Sheet open={open} onOpenChange={setOpen} title="This day's meals" description="Save a meal to log it again in one tap, copy it, or clear it.">
-        <div className="flex flex-col gap-5 pb-3 pt-1">
+      <Sheet open={open} onOpenChange={setOpen} title="This day's food" description="Save a meal to add it again in one tap, copy it, or clear it.">
+        <div className="flex flex-col gap-5 pb-2 pt-1">
           {withFood.map((s) => {
             const n = s.entries.length;
             return (
               <section key={s.meal} aria-label={s.label}>
-                <p className="t-eyebrow mb-1">
-                  {s.label} · {n} {n === 1 ? "item" : "items"} · <span className="tnum">{formatInt(s.totals.calories)} kcal</span>
+                <p className="t-label mb-2 px-1">
+                  {s.label} · {n} {n === 1 ? "item" : "items"} · <span className="tabular-nums">{formatInt(s.totals.calories)} kcal</span>
                 </p>
-                <div className="divide-y divide-vein border-y border-vein">
-                  <Item
+                <ListGroup>
+                  <Row
                     icon={BookmarkPlus}
+                    title="Save as a meal"
+                    chevron={false}
                     onClick={() => {
                       setOpen(false);
                       onSaveMeal(s);
                     }}
-                  >
-                    Save as a meal
-                  </Item>
+                  />
                   {date < today && (
-                    <Item
+                    <Row
                       icon={CalendarDays}
+                      title="Copy to today"
+                      chevron={false}
                       onClick={() => {
                         setOpen(false);
                         copyToToday(s);
                       }}
-                    >
-                      Copy to today
-                    </Item>
+                    />
                   )}
-                  <Item
+                  <Row
                     icon={Trash}
+                    title="Remove all"
                     danger
+                    chevron={false}
                     onClick={() => {
                       setOpen(false);
                       remove(s.entries, `Removed ${s.label} · ${n} ${n === 1 ? "item" : "items"}`);
                     }}
-                  >
-                    Remove all
-                  </Item>
-                </div>
+                  />
+                </ListGroup>
               </section>
             );
           })}
         </div>
       </Sheet>
     </>
-  );
-}
-
-function Item({ icon: Icon, children, onClick, danger }: { icon: LucideIcon; children: ReactNode; onClick: () => void; danger?: boolean }) {
-  return (
-    <button type="button" onClick={onClick} className="press-soft flex min-h-14 w-full items-center gap-3.5 text-left">
-      <Icon className={cn("size-5 shrink-0", danger ? "text-cinnabar" : "text-stone")} strokeWidth={1.6} aria-hidden />
-      <span className={cn("t-title-3", danger ? "text-cinnabar" : "text-ivory")}>{children}</span>
-    </button>
   );
 }

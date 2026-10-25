@@ -3,8 +3,7 @@
 import { useRef, useState } from "react";
 import { LogMealSheet, type LogMealTarget } from "@/components/meals/log/LogMealSheet";
 import { estimateFor } from "@/components/meals/log/draft";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cn";
+import { CheckCircle } from "@/components/ui/check-circle";
 import { isOffline, newId, useToday } from "@/lib/data/core";
 import { slotToMeal, useLogPlannedMeal } from "@/lib/data/meals";
 import type { ISODate } from "@/lib/dates";
@@ -56,37 +55,18 @@ export function useEatenChanged(meal: EatenMeal) {
 }
 
 /**
- * Eaten for one planned meal (docs/DESIGN-V2.md §3.5.1): ONE tap logs it as planned through the
- * idempotent useLogPlannedMeal — one entry id per row instance, linked by planned_meal_id — so a
- * double tap or a retry never logs twice, with a 6 s Undo toast. Long-press opens the log sheet
- * with servings editable ("Eaten, but changed"); `onChanged` is the visible ⋯ path to the same.
+ * Eaten for one planned meal (docs/DESIGN-V3-SIMPLE.md §4.4.1): ONE tap logs it as planned through
+ * the idempotent useLogPlannedMeal — one entry id per row instance, linked by planned_meal_id — so
+ * a double tap or a retry never logs twice, with a 6 s Undo toast. Long-press opens the log sheet
+ * with servings editable ("Eaten, but changed"); the recipe's ⋯ is the visible path to the same.
  * A meal that breaks an allergy always goes through the sheet. Offline it says so inline (food
- * writes are not queued). `gold` makes it the viewport's one gold control.
+ * writes are not queued, so nothing can be counted twice when the signal comes back).
  */
-export function EatenButton({
-  meal,
-  gold,
-  className,
-  onChanged,
-  onNote,
-}: {
-  meal: EatenMeal;
-  gold?: boolean;
-  className?: string;
-  /** Opens "Eaten, but changed" (the caller owns the sheet so ⋯ can open it too). */
-  onChanged: () => void;
-  /**
-   * The inline note ("Offline · try again when you're back"). When given, the caller shows it in
-   * the row's own flow (the button often sits absolutely in a corner, where a note would cover the
-   * row's text); otherwise it shows under the button.
-   */
-  onNote?: (note: string | null) => void;
-}) {
+export function useEatPlanned(meal: EatenMeal, onChanged: () => void, onNote?: (note: string | null) => void) {
   const today = useToday();
   const log = useLogPlannedMeal();
   const entryId = useRef<string | null>(null);
   const [ownNote, setOwnNote] = useState<string | null>(null);
-  const note = onNote ? null : ownNote;
   const setNote = (n: string | null) => (onNote ? onNote(n) : setOwnNote(n));
   const conflicts = useRecipeConflicts(meal.recipe);
   const allergy = conflicts.some((c) => c.kind === "allergy");
@@ -120,48 +100,60 @@ export function EatenButton({
     });
   };
 
-  const startPress = () => {
-    longPressed.current = false;
-    timer.current = window.setTimeout(() => {
-      longPressed.current = true;
-      onChanged();
-    }, LONG_PRESS_MS);
-  };
   const endPress = () => {
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = null;
   };
+  const press = {
+    onPointerDown: () => {
+      longPressed.current = false;
+      timer.current = window.setTimeout(() => {
+        longPressed.current = true;
+        onChanged();
+      }, LONG_PRESS_MS);
+    },
+    onPointerUp: endPress,
+    onPointerLeave: endPress,
+    onPointerCancel: endPress,
+    onContextMenu: (e: { preventDefault: () => void }) => e.preventDefault(),
+    onClick: () => {
+      if (longPressed.current) {
+        longPressed.current = false;
+        return;
+      }
+      eat();
+    },
+  };
+  return { eat, press, pending: log.isPending, note: onNote ? null : ownNote, disabled: !meal.recipe };
+}
 
+/**
+ * The planned meal's check circle: gold when it is the next meal (the screen's one gold fill),
+ * outlined otherwise. One tap logs it (useEatPlanned); long-press logs it with changes.
+ */
+export function EatenCheck({
+  meal,
+  next,
+  onChanged,
+  onNote,
+  className,
+}: {
+  meal: EatenMeal;
+  next?: boolean;
+  onChanged: () => void;
+  onNote?: (note: string | null) => void;
+  className?: string;
+}) {
+  const e = useEatPlanned(meal, onChanged, onNote);
   return (
-    <div className={cn("flex shrink-0 flex-col items-end", className)}>
-      <Button
-        variant={gold ? "primary" : "outline"}
-        size="sm"
-        className={cn("min-w-[72px] rounded-full px-4", gold && "min-w-[88px] text-[length:max(13px,0.8125rem)]")}
-        disabled={!meal.recipe}
-        loading={log.isPending}
-        aria-label={`Mark ${eatenSpoken(meal)} as eaten`}
-        onPointerDown={startPress}
-        onPointerUp={endPress}
-        onPointerLeave={endPress}
-        onPointerCancel={endPress}
-        onContextMenu={(e) => e.preventDefault()}
-        onClick={() => {
-          if (longPressed.current) {
-            longPressed.current = false;
-            return;
-          }
-          eat();
-        }}
-      >
-        Eaten
-      </Button>
-      {note && (
-        <p role="status" className="t-meta mt-1 max-w-[12rem] text-right text-stone">
-          {note}
-        </p>
-      )}
-    </div>
+    <CheckCircle
+      state={next ? "next" : "todo"}
+      label={`Mark ${meal.name.replace(/&/g, "and")} eaten`}
+      disabled={e.disabled || e.pending}
+      aria-busy={e.pending || undefined}
+      className={className}
+      {...e.press}
+    />
   );
 }
 
