@@ -44,32 +44,24 @@ const ICON: Record<GlyphKind, LucideIcon> = {
 
 /**
  * The bare per-meal glyph (a burger, a drumstick, a fish), chosen from the recipe's tags — or,
- * for a logged food with no recipe, from its name. This is what a meal Coin carries (docs/DESIGN-V2.md
- * §1.6, §3.5.2). Decorative: the name next to it says what it is.
+ * for a logged food with no recipe, from its name. Decorative: the name next to it says what it
+ * is. Lucide outline, `currentColor` (docs/DESIGN-V3-SIMPLE.md §1.5).
  */
 export function MealIcon({ recipe, name, className }: { recipe?: Pick<Recipe, "tags"> | null; name?: string | null; className?: string }) {
   const kind = recipe ? glyphFor(recipe) : glyphForName(name);
   const Icon = ICON[kind];
-  return <Icon className={className} strokeWidth={1.6} aria-hidden />;
+  return <Icon className={className} strokeWidth={1.9} aria-hidden />;
 }
 
-const SIZE = { sm: "size-9 [&_svg]:size-[18px]", md: "size-11 [&_svg]:size-[21px]", lg: "size-14 [&_svg]:size-[26px]" };
+const SIZE = { sm: "size-9 rounded-sm [&_svg]:size-[18px]", md: "size-11 rounded-tile [&_svg]:size-[22px]", lg: "size-[52px] rounded-tile [&_svg]:size-6" };
 
 /**
- * The picture on a recipe card: the meal glyph in ivory, struck into an m3 medallion with a vein
- * rim. Olympus keeps it monochrome (series colours belong to macros; gold is earned).
+ * The meal's tile (docs/DESIGN-V3-SIMPLE.md §1.5): the glyph in --text on a --card-2 tile (the
+ * 52 px size is the ListItem tile). Used by Food, the recipe and Today's Up next.
  */
 export function RecipeGlyph({ recipe, size = "md", className }: { recipe: Pick<Recipe, "tags"> | null | undefined; size?: keyof typeof SIZE; className?: string }) {
   return (
-    <span
-      className={cn(
-        "grid shrink-0 place-items-center rounded-full bg-m3 text-ivory shadow-[inset_0_0_0_1px_var(--vein-3),inset_0_1px_0_rgb(255_244_220/.06)]",
-        SIZE[size],
-        !recipe && "opacity-50",
-        className,
-      )}
-      aria-hidden
-    >
+    <span className={cn("grid shrink-0 place-items-center bg-control text-fg", SIZE[size], !recipe && "text-fg-2", className)} aria-hidden>
       <MealIcon recipe={recipe ?? { tags: [] }} />
     </span>
   );
