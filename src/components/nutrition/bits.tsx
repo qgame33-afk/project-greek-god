@@ -5,7 +5,8 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { DatabaseBadge, SourceBadge } from "@/components/ui/badge";
 import { ErrorNote } from "@/components/ui/misc";
 import { SheetFooterBar } from "@/components/ui/sheet";
-import { Tag } from "@/components/ui/tag";
+import { AiChip } from "@/components/ui/ai-chip";
+import { InfoButton } from "@/components/ui/details-sheet";
 import { cn } from "@/lib/cn";
 import { useToday } from "@/lib/data/core";
 import { useFoodEntries } from "@/lib/data/nutrition";
@@ -26,13 +27,13 @@ const CALC_EXPLAIN = "Recipe macros: each ingredient's USDA FoodData Central val
 export function ProvenanceBadge({ item, full, still, className }: { item: ProvenanceInput; full?: boolean; still?: boolean; className?: string }) {
   const p = provenanceOf(item);
   if (!p) return null;
-  if (p.kind === "estimate") return <Tag kind="AI" detail="estimate" className={className} />;
-  if (p.kind === "calc") return <Tag kind="CALC" explain={still ? undefined : CALC_EXPLAIN} className={className} />;
+  if (p.kind === "estimate") return <AiChip label="AI" className={className} />;
+  if (p.kind === "calc") return still ? null : <InfoButton how={CALC_EXPLAIN} className={className} />;
   if (p.kind === "source") {
     if (!still) return <SourceBadge name={p.name} url={p.url} className={className} />;
     return (
-      <span className={cn(BADGE, "max-w-full border border-vein-3 text-ivory", className)}>
-        <BadgeCheck className="size-3 text-stone" aria-hidden />
+      <span className={cn(BADGE, "max-w-full border border-ui-line text-fg", className)}>
+        <BadgeCheck className="size-3 text-fg-2" aria-hidden />
         <span className="truncate">Source · {p.name}</span>
       </span>
     );
@@ -40,7 +41,7 @@ export function ProvenanceBadge({ item, full, still, className }: { item: Proven
   return <DatabaseBadge name={full ? p.name : p.short} url={still ? null : p.url} className={className} />;
 }
 
-const BADGE = "t-tag inline-flex h-5 shrink-0 items-center gap-1 rounded-tag px-1.5 normal-case tracking-[0.02em]";
+const BADGE = "t-cap inline-flex h-5 shrink-0 items-center gap-1 rounded-pill px-1.5 normal-case tracking-[0.02em]";
 
 /**
  * Row badge that fits the space: the full badge when the row is wide enough, a 20px mark with
@@ -53,11 +54,11 @@ export function RowProvenance({ item }: { item: ProvenanceInput }) {
   const label = p.kind === "estimate" ? "AI estimate" : p.kind === "calc" ? "Calculated from the recipe" : p.kind === "source" ? `Source: ${p.name}` : `Database: ${p.name}`;
   const mark =
     p.kind === "estimate" ? (
-      <span className="border border-aegean-line bg-aegean-tint text-aegean">≈</span>
+      <span className="border border-ai-line bg-ai-soft text-ai">≈</span>
     ) : p.kind === "calc" ? (
-      <span className="border border-dotted border-ui-line text-stone">=</span>
+      <span className="border border-dotted border-ui-line text-fg-2">=</span>
     ) : (
-      <span className="border border-vein-3 text-stone">
+      <span className="border border-ui-line text-fg-2">
         <BadgeCheck className="size-3" aria-hidden />
       </span>
     );
@@ -68,7 +69,7 @@ export function RowProvenance({ item }: { item: ProvenanceInput }) {
         role="img"
         aria-label={label}
         title={label}
-        className="t-meta inline-flex shrink-0 @[21rem]:hidden [&>span]:grid [&>span]:size-5 [&>span]:place-items-center [&>span]:rounded-tag [&>span]:font-semibold"
+        className="t-cap inline-flex shrink-0 @[21rem]:hidden [&>span]:grid [&>span]:size-5 [&>span]:place-items-center [&>span]:rounded-pill [&>span]:font-semibold"
       >
         {mark}
       </span>
@@ -90,8 +91,8 @@ export function MealChips({ value, onChange, className }: { value: Meal; onChang
             aria-checked={on}
             onClick={() => onChange(m.key)}
             className={cn(
-              "press t-meta h-11 min-w-0 truncate rounded-field border px-1 font-semibold transition-colors duration-(--dur-fast)",
-              on ? "border-ivory bg-m4 text-ivory" : "border-vein-2 bg-m3 text-stone hover:text-ivory",
+              "press t-cap h-11 min-w-0 truncate rounded-field border px-1 font-semibold transition-colors duration-(--dur-fast)",
+              on ? "border-fg bg-card-3 text-fg" : "border-line bg-control text-fg-2 hover:text-fg",
             )}
           >
             {m.label}
@@ -103,7 +104,7 @@ export function MealChips({ value, onChange, className }: { value: Meal; onChang
 }
 
 const SERIES = {
-  protein: "bg-ivory",
+  protein: "bg-fg",
   carbs: "bg-carbs",
   fat: "bg-fat",
 } as const;
@@ -112,19 +113,19 @@ const SERIES = {
 export function MacroGrid({ macros, className, dim }: { macros: Macros; className?: string; dim?: boolean }) {
   return (
     <div className={cn("grid grid-cols-4 gap-2", className)} aria-live="polite">
-      <div className="flex min-w-0 flex-col justify-between rounded-field bg-m2 px-3 py-2.5 shadow-[inset_0_0_0_1px_var(--vein-2)]">
-        <span className="t-eyebrow">Kcal</span>
-        <span className={cn("t-num-m mt-1 truncate", dim ? "text-ash" : "text-ivory")}>{formatInt(macros.calories)}</span>
+      <div className="flex min-w-0 flex-col justify-between rounded-field bg-surface px-3 py-2.5">
+        <span className="t-cap">Kcal</span>
+        <span className={cn("t-num-s mt-1 truncate", dim ? "text-fg-2" : "text-fg")}>{formatInt(macros.calories)}</span>
       </div>
       {(["protein", "carbs", "fat"] as const).map((k) => (
-        <div key={k} className="flex min-w-0 flex-col justify-between rounded-field bg-m2 px-3 py-2.5 shadow-[inset_0_0_0_1px_var(--vein-2)]">
-          <span className="t-eyebrow flex items-center gap-1.5">
+        <div key={k} className="flex min-w-0 flex-col justify-between rounded-field bg-surface px-3 py-2.5">
+          <span className="t-cap flex items-center gap-1.5">
             <span className={cn("size-1.5 rounded-full", SERIES[k])} aria-hidden />
             {k === "protein" ? "Prot" : k === "carbs" ? "Carb" : "Fat"}
           </span>
-          <span className={cn("t-num-m mt-1 truncate", dim ? "text-ash" : "text-ivory")}>
+          <span className={cn("t-num-s mt-1 truncate", dim ? "text-fg-2" : "text-fg")}>
             {g(macros[k])}
-            <span className="t-meta ml-0.5 text-stone">g</span>
+            <span className="t-cap ml-0.5 text-fg-2">g</span>
           </span>
         </div>
       ))}
@@ -165,7 +166,7 @@ export function StarButton({ on, onToggle, label, className }: { on: boolean; on
       onClick={onToggle}
       aria-pressed={on}
       aria-label={label}
-      className={cn("press grid size-11 shrink-0 place-items-center rounded-field transition-colors", on ? "text-ivory" : "text-ash hover:text-stone", className)}
+      className={cn("press grid size-11 shrink-0 place-items-center rounded-field transition-colors", on ? "text-fg" : "text-fg-2 hover:text-fg-2", className)}
     >
       <Star className="size-[1.1875rem]" fill={on ? "currentColor" : "none"} strokeWidth={1.75} />
     </button>
@@ -176,7 +177,7 @@ export function StarButton({ on, onToggle, label, className }: { on: boolean; on
 export function SubLabel({ children, action, className }: { children: ReactNode; action?: ReactNode; className?: string }) {
   return (
     <div className={cn("mb-2 flex min-h-6 items-center justify-between gap-3", className)}>
-      <p className="t-eyebrow">{children}</p>
+      <p className="t-cap">{children}</p>
       {action}
     </div>
   );
@@ -184,7 +185,7 @@ export function SubLabel({ children, action, className }: { children: ReactNode;
 
 /** Tiny inline note (soft warnings are text-2, never red). */
 export function SoftNote({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn("t-meta rounded-field bg-m2 px-3 py-2 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)]", className)}>{children}</p>;
+  return <p className={cn("t-cap rounded-field bg-surface px-3 py-2 text-fg-2", className)}>{children}</p>;
 }
 
 /**
@@ -209,13 +210,13 @@ export function ConsequenceLine({
   const c = ifYouAdd({ kcal: day.totals.calories, protein: day.totals.protein }, add, verb);
   const isToday = date === today;
   return (
-    <p className={cn("t-meta flex flex-wrap items-center gap-x-2 gap-y-1 text-stone", className)} data-testid="consequence">
+    <p className={cn("t-cap flex flex-wrap items-center gap-x-2 gap-y-1 text-fg-2", className)} data-testid="consequence">
       <span aria-hidden>
         {isToday ? "" : `${shortDate(date, today)} · `}
         {c.text}
       </span>
       <span className="sr-only">{isToday ? c.spoken : c.spoken.replace("today", `on ${shortDate(date, today)}`)}</span>
-      <Tag kind="CALC" explain={`${c.explain} (${isToday ? "today's" : "that day's"} log + this food)`} />
+      <InfoButton how={`${c.explain} (${isToday ? "today's" : "that day's"} log plus this food)`} />
     </p>
   );
 }

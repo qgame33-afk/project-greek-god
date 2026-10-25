@@ -93,7 +93,7 @@ export type GlyphKind =
   | "dairy"
   | "plant"
   | "nut"
-  | "grain"
+  | "wheat"
   | "bowl";
 
 const STYLE_GLYPH: Record<string, GlyphKind> = {
@@ -124,7 +124,7 @@ const PROTEIN_GLYPH: Record<string, GlyphKind> = {
   peanut: "nut",
 };
 
-const BASE_GLYPH: Record<string, GlyphKind> = { fruit: "fruit", nuts: "nut", yogurt: "dairy", oats: "grain", cereal: "grain", bread: "grain", crackers: "grain" };
+const BASE_GLYPH: Record<string, GlyphKind> = { fruit: "fruit", nuts: "nut", yogurt: "dairy", oats: "wheat", cereal: "wheat", bread: "wheat", crackers: "wheat" };
 
 /**
  * A distinctive dish style first (a burger reads as a burger), then the first protein, then the
@@ -157,7 +157,7 @@ const NAME_GLYPH: [RegExp, GlyphKind][] = [
   [/\b(peanut|almond|cashew|walnut|nuts?)\b/, "nut"],
   [/\b(beans?|tofu|lentils?|chickpeas?|edamame)\b/, "plant"],
   [/\b(apple|banana|berr(y|ies)|orange|grapes?|fruit|mango|pear)/, "fruit"],
-  [/\b(rice|bagel|bread|toast|oats?|oatmeal|pasta|cereal|granola|crackers?|noodles?|tortilla|muffin|pancakes?)\b/, "grain"],
+  [/\b(rice|bagel|bread|toast|oats?|oatmeal|pasta|cereal|granola|crackers?|noodles?|tortilla|muffin|pancakes?)\b/, "wheat"],
 ];
 
 /** A glyph for a logged food from its name ("Greek yogurt 0%" → dairy); a bowl when nothing matches. */
@@ -179,7 +179,7 @@ export const GLYPH_TONE: Record<GlyphKind, GlyphTone> = {
   sandwich: "marble",
   egg: "marble",
   dairy: "marble",
-  grain: "marble",
+  wheat: "marble",
   bowl: "marble",
   fish: "lapis",
   shrimp: "lapis",

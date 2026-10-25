@@ -38,7 +38,7 @@ const ICON: Record<GlyphKind, LucideIcon> = {
   dairy: Milk,
   plant: Bean,
   nut: Nut,
-  grain: Wheat,
+  wheat: Wheat,
   bowl: Soup,
 };
 

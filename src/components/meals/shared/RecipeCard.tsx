@@ -41,13 +41,13 @@ export function RecipeCardBody({
       <div className="min-w-0 flex-1">
         {(eyebrow || badges || (recipe && (recipe.origin !== "library" || makeAheadOf(recipe)))) && (
           <div className="mb-1 flex min-h-5 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            {eyebrow && <span className="t-eyebrow truncate">{eyebrow}</span>}
+            {eyebrow && <span className="t-cap truncate">{eyebrow}</span>}
             {recipe && <OriginBadge origin={recipe.origin} />}
             {recipe && <MakeAheadBadge recipe={recipe} />}
             {badges}
           </div>
         )}
-        <h3 className={cn("t-title-3 text-ivory [overflow-wrap:anywhere] line-clamp-2", !recipe && "text-stone")}>
+        <h3 className={cn("t-row text-fg [overflow-wrap:anywhere] line-clamp-2", !recipe && "text-fg-2")}>
           {recipe?.name ?? "Recipe unavailable"}
         </h3>
         {recipe ? (
@@ -56,7 +56,7 @@ export function RecipeCardBody({
             {m && <MacroLine macros={m} mode={macroMode} className="mt-2" />}
           </>
         ) : (
-          <p className="t-meta mt-1 text-stone">It was removed or can&apos;t be read. Regenerate to replace it.</p>
+          <p className="t-cap mt-1 text-fg-2">It was removed or can&apos;t be read. Regenerate to replace it.</p>
         )}
       </div>
       {trailing}
@@ -96,11 +96,11 @@ export function RecipeCard({
       servings={servings}
       macros={macros}
       badges={badges}
-      trailing={href ? <ChevronRight className="mt-0.5 size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden /> : undefined}
+      trailing={href ? <ChevronRight className="mt-0.5 size-4 shrink-0 text-fg-2" strokeWidth={1.6} aria-hidden /> : undefined}
     />
   );
   return (
-    <article className={cn("overflow-hidden rounded-card bg-m2 shadow-(--e1)", className)}>
+    <article className={cn("overflow-hidden rounded-card bg-surface shadow-(--e1)", className)}>
       {href && recipe ? (
         <Link href={href} onClick={onOpen} className="press-soft block p-4">
           {body}

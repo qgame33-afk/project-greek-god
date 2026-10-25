@@ -99,7 +99,7 @@ export function ManualPanel({ seed, when, setWhen, onDone }: { seed: { name: str
       <FoodFields form={form} set={(p) => setForm((f) => ({ ...f, ...p }))} errors={errors} />
       <WhenFields className="mt-6" when={when} setWhen={setWhen} today={today} />
       <SaveToFoods className="mt-5" save={saveFood} setSave={setSaveFood} fav={fav} setFav={setFav} />
-      {touched && !result.ok && <p className="mt-4 t-meta font-medium text-cinnabar">Check the highlighted fields.</p>}
+      {touched && !result.ok && <p className="mt-4 t-cap font-medium text-danger">Check the highlighted fields.</p>}
       {err && (
         <SheetError className="mt-4" onRetry={err.retry ? submit : undefined}>
           {err.text}
@@ -107,10 +107,10 @@ export function ManualPanel({ seed, when, setWhen, onDone }: { seed: { name: str
       )}
       <StickyFooter>
         {hasNumbers && (
-          <p className="mb-2.5 flex items-baseline justify-between gap-3 t-meta text-ash" aria-live="polite">
+          <p className="mb-2.5 flex items-baseline justify-between gap-3 t-cap text-fg-2" aria-live="polite">
             <span className="min-w-0 truncate font-medium">{amountNow != null && amountNow > 0 ? formatAmount(amountNow, form.unit) : "Amount"}</span>
-            <span className="tnum shrink-0">
-              <span className="t-title-3 font-semibold text-ivory">{formatInt(pv.macros.calories)}</span> kcal · {macroLine(pv.macros)}
+            <span className="tabular-nums shrink-0">
+              <span className="t-row font-semibold text-fg">{formatInt(pv.macros.calories)}</span> kcal · {macroLine(pv.macros)}
             </span>
           </p>
         )}

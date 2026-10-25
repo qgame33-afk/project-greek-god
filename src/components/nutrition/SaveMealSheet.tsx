@@ -77,27 +77,27 @@ function SaveMealBody({ section, close }: { section: MealSection<FoodEntry>; clo
       <Field label="Name" error={touched ? nameErr : null}>
         {(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="off" aria-invalid={touched && !!nameErr} />}
       </Field>
-      <p className="mb-2 mt-5 t-meta font-semibold text-stone">Include</p>
-      <ul className="rounded-field bg-m3" role="group" aria-label="Items to include">
+      <p className="mb-2 mt-5 t-cap font-semibold text-fg-2">Include</p>
+      <ul className="rounded-field bg-control" role="group" aria-label="Items to include">
         {section.entries.map((e) => {
           const on = picked.has(e.id);
           return (
-            <li key={e.id} className="border-b border-vein last:border-b-0">
+            <li key={e.id} className="border-b border-line last:border-b-0">
               <button type="button" role="checkbox" aria-checked={on} onClick={() => toggle(e.id)} className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2 text-left">
-                <span className={cn("grid size-6 shrink-0 place-items-center rounded-tag border transition-colors duration-(--dur-fast)", on ? "border-ivory bg-ivory text-ink" : "border-ui-line")}>
+                <span className={cn("grid size-6 shrink-0 place-items-center rounded-pill border transition-colors duration-(--dur-fast)", on ? "border-fg bg-fg text-bg" : "border-ui-line")}>
                   {on && <Check className="size-4" strokeWidth={3} />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate t-callout font-semibold text-ivory">{e.name}</span>
-                  <span className="block truncate t-meta text-ash">{formatAmount(Number(e.amount), e.unit)}</span>
+                  <span className="block truncate t-label font-semibold text-fg">{e.name}</span>
+                  <span className="block truncate t-cap text-fg-2">{formatAmount(Number(e.amount), e.unit)}</span>
                 </span>
-                <span className="tnum shrink-0 t-callout text-stone">{formatInt(Number(e.calories))}</span>
+                <span className="tabular-nums shrink-0 t-label text-fg-2">{formatInt(Number(e.calories))}</span>
               </button>
             </li>
           );
         })}
       </ul>
-      <p className="tnum mt-3 t-meta text-ash">
+      <p className="tabular-nums mt-3 t-cap text-fg-2">
         {chosen.length ? `${formatInt(totals.calories)} kcal · ${macroLine(totals)}` : "Pick at least one item."}
       </p>
       <StickyFooter>

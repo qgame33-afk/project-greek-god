@@ -9,7 +9,7 @@ import { Chip, Switch } from "@/components/ui/controls";
 import { Field, Input, NumberInput } from "@/components/ui/field";
 import { Collapse } from "@/components/ui/misc";
 import { Sheet, SheetFooterBar } from "@/components/ui/sheet";
-import { Tag } from "@/components/ui/tag";
+import { InfoButton } from "@/components/ui/details-sheet";
 import { cn } from "@/lib/cn";
 import { newId, useToday } from "@/lib/data/core";
 import { slotToMeal, useLogPlannedMeal, type LogPlannedMealResult } from "@/lib/data/meals";
@@ -60,7 +60,7 @@ export function LogMealSheet({
 
 const FIELDS: { k: MacroField; label: string; suffix: string; dot?: string }[] = [
   { k: "kcal", label: "Calories", suffix: "kcal" },
-  { k: "protein", label: "Protein", suffix: "g", dot: "bg-ivory" },
+  { k: "protein", label: "Protein", suffix: "g", dot: "bg-fg" },
   { k: "carbs", label: "Carbs", suffix: "g", dot: "bg-carbs" },
   { k: "fat", label: "Fat", suffix: "g", dot: "bg-fat" },
 ];
@@ -127,15 +127,15 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
       <ConflictNote conflicts={conflicts}>
         {allergy && (
           <div className="mt-2.5 flex min-h-11 items-center justify-between gap-3 border-t border-warning/20 pt-2.5">
-            <span className="t-callout font-semibold leading-snug text-ivory">I ate it anyway. Log it.</span>
+            <span className="t-label font-semibold leading-snug text-fg">I ate it anyway. Log it.</span>
             <Switch checked={allergyOk} onCheckedChange={setAllergyOk} label="Confirm logging a meal with an allergen" />
           </div>
         )}
       </ConflictNote>
-      <div className="flex items-center justify-between gap-4 rounded-btn bg-m3/60 px-4 py-3">
+      <div className="flex items-center justify-between gap-4 rounded-tile-lg bg-control/60 px-4 py-3">
         <div className="min-w-0">
-          <p className="t-eyebrow">Servings</p>
-          <p className="mt-1 t-meta font-medium text-stone">How much you ate</p>
+          <p className="t-cap">Servings</p>
+          <p className="mt-1 t-cap font-medium text-fg-2">How much you ate</p>
         </div>
         <ServingsStepper value={draft.servings} onChange={(s) => setDraft((d) => withServings(d, s, per))} showUnit={false} />
       </div>
@@ -178,11 +178,11 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
         <SubLabel
           action={
             draft.edited ? (
-              <button type="button" onClick={() => (setDraft((d) => resetDraft(d, per)), setErrors({}))} className="press t-meta -my-3 -mr-2 inline-flex h-11 items-center rounded-field px-2 font-semibold text-ivory underline decoration-vein-3 underline-offset-4">
+              <button type="button" onClick={() => (setDraft((d) => resetDraft(d, per)), setErrors({}))} className="press t-cap -my-3 -mr-2 inline-flex h-11 items-center rounded-field px-2 font-semibold text-fg underline decoration-vein-3 underline-offset-4">
                 Use the estimate
               </button>
             ) : (
-              <Tag kind="CALC" explain="Recipe macros: each ingredient's USDA FoodData Central values × the amounts, for the servings shown." />
+              <InfoButton how="Recipe numbers: each ingredient's USDA FoodData Central values times its amount, for the servings shown." />
             )
           }
         >
@@ -213,7 +213,7 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
             </Field>
           ))}
         </div>
-        <p className={cn("mt-2.5 t-meta font-medium leading-snug", mismatch ? "text-stone" : "text-ash")}>
+        <p className={cn("mt-2.5 t-cap font-medium leading-snug", mismatch ? "text-fg-2" : "text-fg-2")}>
           {mismatch ?? (draft.edited ? "Your numbers will be logged as you typed them." : "Worked out from the ingredients (USDA values). Adjust if your portion was different.")}
         </p>
       </div>
@@ -223,11 +223,11 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
           Add to {label}
         </Button>
         {blocked ? (
-          <p className="mt-2 text-center t-meta font-medium text-ash">Confirm the allergy note above to log it</p>
+          <p className="mt-2 text-center t-cap font-medium text-fg-2">Confirm the allergy note above to log it</p>
         ) : parsed.ok ? (
           <ConsequenceLine className="mt-2 justify-center" date={date} add={{ kcal: parsed.macros.kcal, protein: parsed.macros.protein }} />
         ) : (
-          <p className="mt-2 text-center t-meta font-medium text-ash">Check the numbers</p>
+          <p className="mt-2 text-center t-cap font-medium text-fg-2">Check the numbers</p>
         )}
       </SheetFooterBar>
     </div>

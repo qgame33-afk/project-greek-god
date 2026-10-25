@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { OriginBadge, RecipeGlyph } from "@/components/meals/shared";
 import { Button, Spinner } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
-import { Tag } from "@/components/ui/tag";
+import { InfoButton } from "@/components/ui/details-sheet";
 import { cn } from "@/lib/cn";
 import { useToday } from "@/lib/data/core";
 import { simplifyRecipe } from "@/lib/meals/engine";
@@ -120,30 +120,30 @@ export function MakeEasierSheet({
         <EasierPreview from={recipe} choice={choice} />
       ) : (
         <div className="space-y-5 pb-2">
-          <div className="rounded-field bg-m2 shadow-[inset_0_0_0_1px_var(--vein-2)] flex items-start gap-3 p-4">
-            <span className="grid size-10 shrink-0 place-items-center rounded-field bg-m3 text-stone">
+          <div className="rounded-field bg-surface flex items-start gap-3 p-4">
+            <span className="grid size-10 shrink-0 place-items-center rounded-field bg-control text-fg-2">
               <WandSparkles className="size-5" aria-hidden />
             </span>
             <div className="min-w-0">
-              <p className="t-callout font-bold text-ivory">{result.ok ? "" : result.reason.startsWith("This is already") ? "Already as simple as it gets" : "No honest shortcut"}</p>
-              <p className="mt-1 t-callout leading-relaxed text-stone">{!result.ok && honestReason(result.reason)}</p>
+              <p className="t-label font-bold text-fg">{result.ok ? "" : result.reason.startsWith("This is already") ? "Already as simple as it gets" : "No honest shortcut"}</p>
+              <p className="mt-1 t-label leading-relaxed text-fg-2">{!result.ok && honestReason(result.reason)}</p>
             </div>
           </div>
 
-          {aiState.s === "done" && !aiState.res.ok && <p className="rounded-field border border-vein-2 px-3.5 py-3 t-callout leading-relaxed text-stone">AI: {aiState.res.reason}</p>}
+          {aiState.s === "done" && !aiState.res.ok && <p className="rounded-field border border-line px-3.5 py-3 t-label leading-relaxed text-fg-2">AI: {aiState.res.reason}</p>}
           {aiState.s === "error" && (
-            <p className="rounded-field border border-vein-2 px-3.5 py-3 t-callout leading-relaxed text-stone" role="status">
+            <p className="rounded-field border border-line px-3.5 py-3 t-label leading-relaxed text-fg-2" role="status">
               {aiState.message}
             </p>
           )}
 
           {ai.data?.configured && aiState.s !== "done" && (
-            <div className="rounded-btn border border-aegean-line bg-aegean-tint p-4">
-              <p className="flex items-center gap-2 t-callout font-semibold text-aegean">
+            <div className="rounded-tile-lg border border-ai-line bg-ai-soft p-4">
+              <p className="flex items-center gap-2 t-label font-semibold text-ai">
                 <Sparkles className="size-4" aria-hidden />
                 Try an AI version
               </p>
-              <p className="mt-1.5 t-callout leading-relaxed text-stone">
+              <p className="mt-1.5 t-label leading-relaxed text-fg-2">
                 AI writes a shortcut version using only ingredients from the app&apos;s list. It&apos;s checked against your allergies and diet, and the nutrition is recalculated. Labelled AI.
               </p>
               <Button variant="secondary" block className="mt-3" onClick={askAI} disabled={aiState.s === "loading"}>
@@ -158,7 +158,7 @@ export function MakeEasierSheet({
                   "Ask AI for an easier version"
                 )}
               </Button>
-              {ai.data.mock && <p className="mt-2 t-meta font-medium text-ash">Dev mode: canned AI answers, not a live model.</p>}
+              {ai.data.mock && <p className="mt-2 t-cap font-medium text-fg-2">Dev mode: canned AI answers, not a live model.</p>}
             </div>
           )}
         </div>
@@ -176,41 +176,41 @@ function EasierPreview({ from, choice }: { from: Recipe; choice: EasierChoice })
         <RecipeGlyph recipe={choice.recipe} size="lg" />
         <div className="min-w-0 pt-0.5">
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            {choice.kind === "ai" ? <OriginBadge origin="ai" /> : choice.kind === "simplified" ? <OriginBadge origin="simplified" /> : <span className="t-eyebrow">Easier version</span>}
+            {choice.kind === "ai" ? <OriginBadge origin="ai" /> : choice.kind === "simplified" ? <OriginBadge origin="simplified" /> : <span className="t-cap">Easier version</span>}
           </div>
-          <p className="t-title-3 font-bold leading-tight text-ivory">{choice.recipe.name}</p>
-          {choice.recipe.blurb && <p className="mt-1 t-callout leading-snug text-stone">{choice.recipe.blurb}</p>}
+          <p className="t-row font-bold leading-tight text-fg">{choice.recipe.name}</p>
+          {choice.recipe.blurb && <p className="mt-1 t-label leading-snug text-fg-2">{choice.recipe.blurb}</p>}
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-btn border border-vein-2">
+      <div className="overflow-hidden rounded-tile-lg border border-line">
         {rows.map((r, i) => (
-          <div key={r.label} className={cn("grid grid-cols-[1fr_auto_16px_auto] items-center gap-2.5 px-4 py-2.5", i > 0 && "border-t border-vein")}>
-            <span className="t-callout font-semibold text-stone">{r.label}</span>
-            <span className="tnum text-right t-title-3 text-ash line-through decoration-ash/60">{r.before}</span>
-            <ArrowRight className="size-3.5 text-ash" aria-label="to" />
-            <span className={cn("tnum min-w-16 text-right t-title-3 text-ivory", r.better ? "font-bold" : "font-semibold")}>{r.after}</span>
+          <div key={r.label} className={cn("grid grid-cols-[1fr_auto_16px_auto] items-center gap-2.5 px-4 py-2.5", i > 0 && "border-t border-line")}>
+            <span className="t-label font-semibold text-fg-2">{r.label}</span>
+            <span className="tabular-nums text-right t-row text-fg-2 line-through decoration-ash/60">{r.before}</span>
+            <ArrowRight className="size-3.5 text-fg-2" aria-label="to" />
+            <span className={cn("tabular-nums min-w-16 text-right t-row text-fg", r.better ? "font-bold" : "font-semibold")}>{r.after}</span>
           </div>
         ))}
-        <p className="t-meta flex flex-wrap items-center gap-2 border-t border-vein px-4 py-2 text-ash">
-          Per serving, worked out from the ingredients. <Tag kind="CALC" explain="Each ingredient's USDA FoodData Central values × the amounts, per serving." />
+        <p className="t-cap flex flex-wrap items-center gap-2 border-t border-line px-4 py-2 text-fg-2">
+          Per serving, worked out from the ingredients. <InfoButton how="Each ingredient's USDA FoodData Central values times its amount, per serving." />
         </p>
       </div>
 
       {changes.length > 0 && (
         <div>
-          <p className="t-eyebrow mb-2">What changes</p>
+          <p className="t-cap mb-2">What changes</p>
           <ul className="space-y-2">
             {changes.map((c) => (
-              <li key={c} className="flex items-start gap-2.5 t-callout leading-snug text-ivory">
-                <Check className="mt-0.5 size-4 shrink-0 text-stone" strokeWidth={1.8} aria-hidden />
+              <li key={c} className="flex items-start gap-2.5 t-label leading-snug text-fg">
+                <Check className="mt-0.5 size-4 shrink-0 text-fg-2" strokeWidth={1.8} aria-hidden />
                 {c}
               </li>
             ))}
           </ul>
         </div>
       )}
-      <p className="t-meta leading-relaxed text-ash">
+      <p className="t-cap leading-relaxed text-fg-2">
         {choice.kind === "simplified" ? "Saved to your recipes when you use it." : choice.kind === "ai" ? "AI-written, then checked by the app. Saved to your recipes." : "A recipe from the app's library."}
       </p>
     </div>

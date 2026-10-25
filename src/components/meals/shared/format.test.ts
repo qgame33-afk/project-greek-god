@@ -45,7 +45,7 @@ describe("meal display helpers", () => {
     expect(glyphForName("Salmon fillet")).toBe("fish");
     expect(glyphForName("Lean ground beef bolognese")).toBe("beef");
     expect(glyphForName("Bagel with peanut butter")).toBe("nut");
-    expect(glyphForName("White rice, cooked")).toBe("grain");
+    expect(glyphForName("White rice, cooked")).toBe("wheat");
     expect(glyphForName("Eggs, scrambled")).toBe("egg");
     expect(glyphForName("")).toBe("bowl");
     expect(glyphForName(null)).toBe("bowl");

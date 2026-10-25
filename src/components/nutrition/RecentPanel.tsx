@@ -41,7 +41,7 @@ export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntr
     return (
       <ul aria-busy="true" aria-label="Loading recent foods">
         {[0, 1, 2, 3].map((i) => (
-          <li key={i} className="flex items-center gap-3 border-b border-vein py-3">
+          <li key={i} className="flex items-center gap-3 border-b border-line py-3">
             <div className="flex-1 space-y-2">
               <Skeleton className="h-4 w-2/3" />
               <Skeleton className="h-3 w-1/3" />
@@ -63,21 +63,21 @@ export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntr
     <div>
       {recent.data.length > 8 && (
         <div className="relative mb-1">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[1.125rem] -translate-y-1/2 text-ash" aria-hidden />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[1.125rem] -translate-y-1/2 text-fg-2" aria-hidden />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter recent foods" aria-label="Filter recent foods" autoComplete="off" className="pl-11" enterKeyHint="search" />
         </div>
       )}
       {!list.length ? (
-        <p className="py-6 text-center t-callout text-ash">No recent foods match “{q.trim()}”.</p>
+        <p className="py-6 text-center t-label text-fg-2">No recent foods match “{q.trim()}”.</p>
       ) : (
         <ul className="@container">
           {list.map((e) => (
-            <li key={e.id} className="flex items-center gap-2 border-b border-vein last:border-b-0">
+            <li key={e.id} className="flex items-center gap-2 border-b border-line last:border-b-0">
               <button type="button" onClick={() => onPick(e)} className="press-soft min-w-0 flex-1 py-2.5 text-left">
-                <p className="truncate t-callout font-semibold text-ivory">{e.name}</p>
+                <p className="truncate t-label font-semibold text-fg">{e.name}</p>
                 <div className="mt-0.5 flex min-w-0 items-center gap-2">
-                  <span className="truncate t-meta font-medium text-ash">
-                    {formatAmount(Number(e.amount), e.unit)} · <span className="tnum">{formatInt(Number(e.calories))}</span> kcal · {relativeDay(e.local_date, today)}
+                  <span className="truncate t-cap font-medium text-fg-2">
+                    {formatAmount(Number(e.amount), e.unit)} · <span className="tabular-nums">{formatInt(Number(e.calories))}</span> kcal · {relativeDay(e.local_date, today)}
                   </span>
                   <RowProvenance item={e} />
                 </div>
@@ -87,7 +87,7 @@ export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntr
                 onClick={() => quickAdd(e)}
                 disabled={pending != null}
                 aria-label={`Add ${e.name}, ${formatAmount(Number(e.amount), e.unit)}, to ${mealLabel(when.meal)}`}
-                className="press grid size-11 shrink-0 place-items-center rounded-field bg-m3 text-ivory shadow-[inset_0_0_0_1px_var(--vein-3)] hover:bg-m4 disabled:opacity-50"
+                className="press grid size-11 shrink-0 place-items-center rounded-field bg-control text-fg hover:bg-card-3 disabled:opacity-50"
               >
                 <Plus className="size-5" strokeWidth={2.2} />
               </button>

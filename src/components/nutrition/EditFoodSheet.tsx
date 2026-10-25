@@ -232,9 +232,9 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
       <Field label="Food" error={nameError}>
         {(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="off" enterKeyHint="done" aria-invalid={!!nameError} />}
       </Field>
-      <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 t-meta font-medium text-ash">
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 t-cap font-medium text-fg-2">
         <ProvenanceBadge item={entry} full />
-        {entry.brand && <span className="text-stone">{entry.brand}</span>}
+        {entry.brand && <span className="text-fg-2">{entry.brand}</span>}
         <span>
           Logged {formatAmount(Number(entry.amount), entry.unit)} · {formatClock(entry.eaten_at)}
         </span>
@@ -278,19 +278,19 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
                   const n = parseFoodNumber(e.target.value);
                   if (n != null) setAmount(n);
                 }}
-                className="t-num-l w-full bg-transparent text-center text-ivory outline-none"
+                className="t-num w-full bg-transparent text-center text-fg outline-none"
               />
-              <span className="mt-1 block t-meta font-semibold tracking-[0.04em] text-ash">{unitLabel(entry.unit, amount)}</span>
+              <span className="mt-1 block t-cap font-semibold tracking-[0.04em] text-fg-2">{unitLabel(entry.unit, amount)}</span>
             </label>
           </Stepper>
           {amountOutOfRange ? (
-            <p className="mt-2 text-center t-meta font-medium text-cinnabar">Enter an amount above 0 and up to {formatInt(max)}.</p>
+            <p className="mt-2 text-center t-cap font-medium text-danger">Enter an amount above 0 and up to {formatInt(max)}.</p>
           ) : overLimit ? (
-            <p className="mt-2 text-center t-meta font-medium text-cinnabar" role="alert">
+            <p className="mt-2 text-center t-cap font-medium text-danger" role="alert">
               {overLimit}
             </p>
           ) : (
-            <p className="mt-2 text-center t-meta font-medium text-ash">
+            <p className="mt-2 text-center t-cap font-medium text-fg-2">
               Rescaled from {formatInt(base.calories)} kcal per {formatAmount(baseAmount, entry.unit)}
             </p>
           )}
@@ -301,13 +301,13 @@ function EditBody({ entry, close }: { entry: FoodEntry; close: () => void }) {
         <div className="mt-5">
           {/* errors show as soon as a number goes bad, so a disabled Save always has a visible reason */}
           <FoodFields form={form} set={(p) => setForm((f) => ({ ...f, ...p }))} errors={formResult.ok ? {} : formResult.errors} showName={false} />
-          <p className="mt-3 t-meta leading-snug text-ash">These numbers become the new base, so later amount changes scale from them.</p>
+          <p className="mt-3 t-cap leading-snug text-fg-2">These numbers become the new base, so later amount changes scale from them.</p>
         </div>
       )}
 
       <WhenFields className="mt-6" when={when} setWhen={setWhen} today={today} />
 
-      <div className="mt-6 grid gap-2 border-t border-vein pt-5">
+      <div className="mt-6 grid gap-2 border-t border-line pt-5">
         <Button variant="secondary" block onClick={saveToFoods} disabled={savedM.create.isPending}>
           <BookmarkPlus className="size-[1.125rem]" /> Save to my foods
         </Button>

@@ -66,10 +66,10 @@ export function SaveToFoods({
 }) {
   const id = useId();
   return (
-    <div className={`flex items-center gap-2 rounded-field bg-m3 py-2 pl-4 pr-3 ${className ?? ""}`}>
+    <div className={`flex items-center gap-2 rounded-field bg-control py-2 pl-4 pr-3 ${className ?? ""}`}>
       <label htmlFor={id} className="min-w-0 flex-1 cursor-pointer py-1">
-        <span className="block t-callout font-semibold text-ivory">Save to my foods</span>
-        <span className="block t-meta font-medium text-ash">{save ? "Star it to keep it at the top." : "Reuse it from Saved next time."}</span>
+        <span className="block t-label font-semibold text-fg">Save to my foods</span>
+        <span className="block t-cap font-medium text-fg-2">{save ? "Star it to keep it at the top." : "Reuse it from Saved next time."}</span>
       </label>
       {save && <StarButton on={fav} onToggle={() => setFav(!fav)} label={fav ? "Remove from favourites" : "Mark as favourite"} />}
       <Switch id={id} checked={save} onCheckedChange={setSave} label="Save to my foods" />
@@ -79,7 +79,7 @@ export function SaveToFoods({
 
 export function BackButton({ onClick, children = "Back" }: { onClick: () => void; children?: string }) {
   return (
-    <button type="button" onClick={onClick} className="press -ml-2 inline-flex h-11 items-center gap-0.5 rounded-field px-2 t-callout font-bold text-stone hover:text-ivory">
+    <button type="button" onClick={onClick} className="press -ml-2 inline-flex h-11 items-center gap-0.5 rounded-field px-2 t-label font-bold text-fg-2 hover:text-fg">
       <ChevronLeft className="size-5" />
       {children}
     </button>

@@ -54,19 +54,19 @@ export function IngredientPicker({
           onClick={() => onToggle(c.key, !on)}
           className={cn(
             "press-soft flex min-h-12 w-full items-center gap-3 rounded-field px-3 py-2 text-left transition-colors duration-(--dur-fast)",
-            on ? "bg-m3" : "hover:bg-m2",
+            on ? "bg-control" : "hover:bg-surface",
             no && "opacity-45",
           )}
         >
           <span className="min-w-0 flex-1">
-            <span className="t-callout block font-semibold text-ivory">{c.name}</span>
-            {no && blockedNote && <span className="t-meta block text-stone">{blockedNote}</span>}
+            <span className="t-label block font-semibold text-fg">{c.name}</span>
+            {no && blockedNote && <span className="t-cap block text-fg-2">{blockedNote}</span>}
           </span>
           <span
             aria-hidden
             className={cn(
               "grid size-6 shrink-0 place-items-center rounded-full border transition-[background-color,border-color,transform] duration-(--dur-fast)",
-              on ? "scale-100 border-ivory bg-ivory text-ink" : "border-ui-line text-transparent",
+              on ? "scale-100 border-fg bg-fg text-bg" : "border-ui-line text-transparent",
             )}
           >
             <Check className="size-3.5" strokeWidth={3} />
@@ -78,9 +78,9 @@ export function IngredientPicker({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title={title} description={description} className="min-h-[62dvh] lg:min-h-[60vh]">
-      <div className="sticky top-0 z-10 -mx-5 bg-m1 px-5 pb-3 pt-1">
+      <div className="sticky top-0 z-10 -mx-5 bg-sheet px-5 pb-3 pt-1">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[1.125rem] -translate-y-1/2 text-ash" strokeWidth={1.6} aria-hidden />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[1.125rem] -translate-y-1/2 text-fg-2" strokeWidth={1.6} aria-hidden />
           <input
             type="search"
             value={query}
@@ -89,22 +89,22 @@ export function IngredientPicker({
             aria-label="Search ingredients"
             autoComplete="off"
             enterKeyHint="search"
-            className="h-12 w-full rounded-field border border-ui-line bg-m2 pl-10 pr-11 text-[length:max(16px,1rem)] font-medium text-ivory outline-none transition-[border-color,box-shadow] placeholder:text-ash focus:border-leaf-300 focus:shadow-[0_0_0_3px_var(--leaf-tint)] [&::-webkit-search-cancel-button]:hidden"
+            className="h-12 w-full rounded-field border border-ui-line bg-surface pl-10 pr-11 text-[length:max(16px,1rem)] font-medium text-fg outline-none transition-[border-color,box-shadow] placeholder:text-fg-2 focus:border-leaf-300 focus:shadow-[0_0_0_3px_var(--leaf-tint)] [&::-webkit-search-cancel-button]:hidden"
           />
           {query && (
-            <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="press absolute right-0 top-0 grid size-12 place-items-center text-stone hover:text-ivory">
+            <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="press absolute right-0 top-0 grid size-12 place-items-center text-fg-2 hover:text-fg">
               <X className="size-4" strokeWidth={1.6} />
             </button>
           )}
         </div>
-        {selected.length > 0 && <p className="t-meta mt-2 text-stone">{selected.length} chosen · saved as you tap</p>}
+        {selected.length > 0 && <p className="t-cap mt-2 text-fg-2">{selected.length} chosen · saved as you tap</p>}
       </div>
       {results.length === 0 ? (
-        <p className="t-callout py-8 text-center text-stone">Nothing matches &ldquo;{query.trim()}&rdquo;.</p>
+        <p className="t-label py-8 text-center text-fg-2">Nothing matches &ldquo;{query.trim()}&rdquo;.</p>
       ) : groups ? (
         groups.map((g) => (
           <section key={g.category} className="mb-3" aria-label={g.label}>
-            <h3 className="t-eyebrow px-3 pb-1.5 pt-2">{g.label}</h3>
+            <h3 className="t-cap px-3 pb-1.5 pt-2">{g.label}</h3>
             <ul className="flex flex-col">{g.items.map(row)}</ul>
           </section>
         ))

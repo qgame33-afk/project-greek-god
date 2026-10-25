@@ -57,19 +57,19 @@ export function SavedMealPanel({ meal, when, setWhen, onBack, onDone }: { meal: 
   return (
     <div className="pt-1">
       <BackButton onClick={onBack} />
-      <h3 className="mt-1 t-title-2 font-bold leading-snug text-ivory">{meal.name}</h3>
-      <p className="mt-1 t-meta font-medium text-ash">
+      <h3 className="mt-1 t-section font-bold leading-snug text-fg">{meal.name}</h3>
+      <p className="mt-1 t-cap font-medium text-fg-2">
         Saved meal · {items.length} {items.length === 1 ? "item" : "items"}
       </p>
       {items.length ? (
-        <ul className="mt-4 rounded-field bg-m3 px-3.5">
+        <ul className="mt-4 rounded-field bg-control px-3.5">
           {items.map((it, i) => (
-            <li key={i} className="flex items-center justify-between gap-3 border-b border-vein py-2.5 last:border-b-0">
+            <li key={i} className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-b-0">
               <span className="min-w-0">
-                <span className="block truncate t-callout font-semibold text-ivory">{it.name}</span>
-                <span className="block truncate t-meta text-ash">{formatAmount(it.amount, it.unit)}</span>
+                <span className="block truncate t-label font-semibold text-fg">{it.name}</span>
+                <span className="block truncate t-cap text-fg-2">{formatAmount(it.amount, it.unit)}</span>
               </span>
-              <span className="tnum shrink-0 t-callout text-stone">{formatInt(it.calories)} kcal</span>
+              <span className="tabular-nums shrink-0 t-label text-fg-2">{formatInt(it.calories)} kcal</span>
             </li>
           ))}
         </ul>
@@ -155,7 +155,7 @@ export function SavedFoodEditor({ food, onBack }: { food: SavedFood; onBack: () 
         <BackButton onClick={onBack} />
         <StarButton on={fav} onToggle={() => setFav(!fav)} label={fav ? "Remove from favourites" : "Mark as favourite"} className="-mr-2" />
       </div>
-      <h3 className="mb-4 mt-1 t-title-2 font-bold text-ivory">Edit saved food</h3>
+      <h3 className="mb-4 mt-1 t-section font-bold text-fg">Edit saved food</h3>
       <FoodFields form={form} set={(p) => setForm((f) => ({ ...f, ...p }))} errors={errors} amountLabel="Serving" />
       <StickyFooter>
         <Button variant="primary" size="lg" block onClick={save} loading={m.update.isPending}>

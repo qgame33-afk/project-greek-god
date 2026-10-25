@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Camera, CircleAlert, ImageUp, Info, MessagesSquare, PenLine, Plus, RotateCcw } from "lucide-react";
-import { FuelAmphora, SealTick } from "@/components/art/icons";
+import { Check, ImageIcon, Info, Keyboard, Plus, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/controls";
+import { AiChip, AiMark } from "@/components/ui/ai-chip";
+import { Segmented, Switch } from "@/components/ui/controls";
+import { InfoButton } from "@/components/ui/details-sheet";
 import { EstimateCard } from "@/components/ui/estimate-card";
-import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
 import { relativeDay } from "@/lib/dates";
 import { defaultEatenAt } from "@/lib/data/meals-model";
@@ -30,9 +30,11 @@ import { FoodAIRequestError, analysePhoto, getCapability, type PhotoRequest } fr
 import { ImagePrepError, dataUrlToBlob, prepareImage, type PreparedImage } from "../image";
 import { removeOrphanMealPhotos } from "@/lib/data/nutrition";
 import { deleteLogged, groupRows, invalidateFood, uploadMealPhoto, useInsertEntries } from "../hooks";
-import { AIEstimateTag, DevMockBadge, FocusScreen, MacroTrio, MealDatePicker, fmtKcal } from "../parts";
+import { ConfidencePips, DevMockBadge, FocusScreen, MacroTrio, MealDatePicker, fmtKcal } from "../parts";
 import { AddItemSheet } from "../AddItemSheet";
+import { detectBarcode, lookupBarcode, ProductSheet, TypeBarcodeSheet } from "./Barcode";
 import { PhotoFrame } from "./PhotoFrame";
+import type { SearchResult } from "@/lib/nutrition-ui/search";
 import { ScanItemCard } from "./ScanItemCard";
 
 type Phase = "capture" | "preparing" | "analysing" | "review" | "error" | "saving" | "success";
@@ -111,6 +113,12 @@ export function FoodScanner() {
   const [prepDirty, setPrepDirty] = useState(false);
   const [mock, setMock] = useState(false);
   const [rerunning, setRerunning] = useState(false);
+  const [mode, setMode] = useState<"photo" | "barcode">("photo");
+  const [typeOpen, setTypeOpen] = useState(false);
+  const [typeNote, setTypeNote] = useState<string | null>(null);
+  const [product, setProduct] = useState<SearchResult | null>(null);
+  const [productOpen, setProductOpen] = useState(false);
+  const [looking, setLooking] = useState(false);
 
   const orig = useRef(new Map<string, { name: string; prep: string }>());
   const removed = useRef<string[]>([]);
@@ -283,7 +291,46 @@ export function FoodScanner() {
   const onInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     e.target.value = "";
-    void onFile(f);
+    if (mode === "barcode") void onBarcodeFile(f);
+    else void onFile(f);
+  };
+
+  /* ---------------------------------------------------------- barcode */
+
+  const findProduct = async (code: string) => {
+    if (isOffline()) {
+      setCaptureError("You're offline. Looking up a barcode needs a connection.");
+      return;
+    }
+    setTypeOpen(false);
+    setLooking(true);
+    setCaptureError(null);
+    try {
+      const hit = await lookupBarcode(code);
+      if (!hit) {
+        setCaptureError(`No product with barcode ${code} in the food database. Search for it by name instead.`);
+        return;
+      }
+      setProduct(hit);
+      setProductOpen(true);
+    } catch (e) {
+      setCaptureError((e as Error).message);
+    } finally {
+      setLooking(false);
+    }
+  };
+
+  const onBarcodeFile = async (file: File | undefined) => {
+    if (!file) return;
+    setCaptureError(null);
+    setLooking(true);
+    const code = await detectBarcode(file);
+    setLooking(false);
+    if (code === "unsupported") {
+      setTypeNote("This phone can't read barcodes from a photo. Type the numbers under the bars.");
+      setTypeOpen(true);
+    } else if (!code) setCaptureError("No barcode found in that photo. Get closer, or type the number.");
+    else await findProduct(code);
   };
 
   const cancel = () => {
@@ -516,7 +563,7 @@ export function FoodScanner() {
     <>
       <span aria-hidden>{consequence.text}</span>
       <span className="sr-only">{consequence.spoken.replace("today", dayWord)}</span>
-      <Tag kind="CALC" explain={`${consequence.explain} (${dayWord}'s log + this estimate)`} />
+      <InfoButton how={`${consequence.explain} (${dayWord}'s log plus this estimate)`} />
     </>
   );
   const confirmButton = (
@@ -527,18 +574,18 @@ export function FoodScanner() {
       onClick={() => void confirm()}
       loading={saving}
       disabled={!items.length}
-      aria-label={saving ? "Saving" : `Confirm and add ${items.length} ${items.length === 1 ? "item" : "items"} to ${mealLabel(meal)}`}
+      aria-label={saving ? "Saving" : `Add ${items.length} ${items.length === 1 ? "item" : "items"} as ${mealLabel(meal).toLowerCase()}`}
     >
       {/* a short label while saving, so the spinner never squeezes the button's padding */}
-      {saving ? "Saving" : "Confirm & add"}
+      {saving ? "Saving" : `Add as ${mealLabel(meal).toLowerCase()}`}
     </Button>
   );
 
   // phones: the confirm key stays on the bottom edge under the sheet, with the consequence line over it
   const footer =
     showReview && result && !result.not_food ? (
-      <div className="chrome z-10 shrink-0 border-t border-vein px-4 pt-2.5 md:hidden" style={{ paddingBottom: "calc(12px + var(--safe-bottom))" }}>
-        {consequenceLine && <p className="t-meta mb-2 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 text-stone">{consequenceLine}</p>}
+      <div className="z-10 shrink-0 bg-bg px-gutter pt-2.5 md:hidden" style={{ paddingBottom: "calc(12px + var(--safe-bottom))" }}>
+        {consequenceLine && <p className="t-label mb-2 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1">{consequenceLine}</p>}
         {confirmButton}
       </div>
     ) : null;
@@ -547,14 +594,15 @@ export function FoodScanner() {
 
   return (
     <FocusScreen
-      title="Scan a meal"
-      eyebrow="Fuel"
+      title="Scan food"
+      close
+      backLabel="Close the scanner"
       right={
         <>
           {isMock && <DevMockBadge />}
           {showReview && (
-            <button type="button" onClick={retake} className="press t-callout inline-flex h-11 items-center gap-1.5 rounded-field px-3 font-semibold text-stone hover:text-ivory">
-              <RotateCcw className="size-4" strokeWidth={1.6} aria-hidden />
+            <button type="button" onClick={retake} className="press t-label inline-flex h-11 items-center gap-1.5 rounded-pill px-3 font-semibold text-fg">
+              <RotateCcw className="size-4" strokeWidth={1.9} aria-hidden />
               Retake
             </button>
           )}
@@ -580,28 +628,35 @@ export function FoodScanner() {
         <Success logged={logged} onUndo={undo} onView={() => leave(logged)} />
       ) : capturing ? (
         /* ------------------------------------------- viewfinder + controls */
-        <div className="flex min-h-0 flex-1 flex-col md:mx-auto md:max-w-[35rem]">
-          <div className="relative min-h-[13rem] flex-1 md:flex-none">
-            <PhotoFrame fill src={photo?.dataUrl} scanning={phase === "analysing" || phase === "preparing"} dim={phase === "error"}>
-              {phase === "capture" && !photo && (
-                <p className="t-callout absolute inset-x-6 bottom-9 text-center text-stone">Centre the plate. Include sauces and drinks.</p>
-              )}
-            </PhotoFrame>
+        <div className="flex min-h-[calc(100dvh-8rem)] flex-1 flex-col md:mx-auto md:min-h-0 md:max-w-[35rem]">
+          <div className="flex min-h-[15rem] flex-1 flex-col items-center justify-center gap-5 px-12">
+            <PhotoFrame src={photo?.dataUrl} scanning={phase === "analysing" || phase === "preparing"} dim={phase === "error"} />
+            {phase === "capture" && !photo && <p className="t-body text-center text-fg-2">{mode === "barcode" ? "Fit the barcode in the frame" : "Fit the whole plate in the frame"}</p>}
           </div>
-          <div className="shrink-0 px-4 pt-4 md:px-0" style={{ paddingBottom: "calc(16px + var(--safe-bottom))" }}>
+          <div className="shrink-0 px-gutter pt-4 md:px-0" style={{ paddingBottom: "calc(16px + var(--safe-bottom))" }}>
             {phase === "capture" && !photo && (
               <CaptureActions
+                mode={mode}
+                onMode={(m) => {
+                  setMode(m);
+                  setCaptureError(null);
+                }}
                 configured={configured}
                 checking={!cap.data && !cap.isError}
+                busy={looking}
                 error={captureError}
                 onCamera={() => cameraRef.current?.click()}
                 onLibrary={() => libraryRef.current?.click()}
-                notConfiguredMessage={cap.data && !cap.data.configured ? "Photo analysis isn't connected yet. It needs a Gemini API key on the server." : null}
+                onType={() => {
+                  setTypeNote(null);
+                  setTypeOpen(true);
+                }}
+                notConfiguredMessage={cap.data && !cap.data.configured ? "Photo estimates aren't set up yet. It needs an AI key on the server." : null}
               />
             )}
 
             {phase === "capture" && photo && (
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Button variant="primary" size="lg" block onClick={() => run(photo, answers)}>
                   Read this photo
                 </Button>
@@ -613,10 +668,8 @@ export function FoodScanner() {
 
             {(phase === "analysing" || phase === "preparing") && (
               <div className="text-center" role="status" aria-live="polite">
-                <p className="t-title-3 text-ivory">{phase === "preparing" ? "Preparing your photo…" : rerunning ? "Updating with your answers…" : "Reading your plate…"}</p>
-                <p className="t-meta mt-1 text-stone">
-                  <span className="tnum text-ivory">{elapsed}</span> s · usually 5–15 s
-                </p>
+                <p className="t-row">{phase === "preparing" ? "Getting your photo ready" : rerunning ? "Updating with your answers" : "Reading your plate"}</p>
+                <p className="t-label mt-1 tabular-nums">{elapsed} s · usually 5–15 s</p>
                 <Button variant="secondary" size="lg" className="mt-4 min-w-44" onClick={cancel}>
                   Cancel
                 </Button>
@@ -634,33 +687,36 @@ export function FoodScanner() {
           </div>
 
           {result && (
-            <div className="rise relative z-10 min-w-0 max-md:-mt-7 max-md:rounded-t-sheet max-md:border-t max-md:border-vein-2 max-md:bg-m1 max-md:px-3 max-md:pb-6 max-md:pt-3 max-md:shadow-(--e3)">
+            <div className="relative z-10 min-w-0 max-md:-mt-7 max-md:rounded-t-sheet max-md:bg-bg max-md:px-3 max-md:pb-6 max-md:pt-3">
               {result.not_food ? (
                 <section className="flex flex-col items-center px-5 py-8 text-center" aria-labelledby="scan-nothing">
-                  <FuelAmphora className="size-12 text-ui-line" />
-                  <h2 id="scan-nothing" className="t-title-2 mt-3 text-ivory">
+                  <h2 id="scan-nothing" className="t-section">
                     No food found in this photo
                   </h2>
-                  <p className="t-callout mt-1 max-w-[32ch] text-stone">Retake it with the whole plate in the frame, or add the items yourself.</p>
+                  <p className="t-label mt-1 max-w-[32ch]">Retake it with the whole plate in the frame, or add the items yourself.</p>
                   <div className="mt-5 grid w-full max-w-[20rem] grid-cols-2 gap-2">
                     <Button variant="secondary" size="lg" onClick={retake}>
                       Retake
                     </Button>
-                    <Button variant="outline" size="lg" onClick={() => setAddOpen(true)}>
+                    <Button variant="secondary" size="lg" onClick={() => setAddOpen(true)}>
                       Add an item
                     </Button>
                   </div>
                 </section>
               ) : (
                 <EstimateCard
-                  className="max-md:border-aegean-line"
-                  tag={<AIEstimateTag confidence={result.overall_confidence} />}
+                  tag={
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      <AiChip status={saving ? "Saving" : "Not saved yet"} />
+                      {result.overall_confidence != null && <ConfidencePips confidence={result.overall_confidence} />}
+                    </span>
+                  }
                   status={saving ? "saving" : "unsaved"}
                   title={estimateTitle(items)}
                   items={
                     <>
                       {questions.length > 0 && (
-                        <section className="mb-1 space-y-4 border-b border-vein pb-4" aria-label="Quick questions">
+                        <section className="mb-1 space-y-4 border-b border-line pb-4" aria-label="Quick questions">
                           {questions.map((q) => (
                             <QuestionChips key={q.id} q={q} value={picked[q.id]} onPick={(o) => pick(q, o)} />
                           ))}
@@ -673,19 +729,19 @@ export function FoodScanner() {
                       )}
 
                       {prepDirty && (
-                        <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 rounded-field bg-m3 px-3.5 py-1 shadow-[inset_0_0_0_1px_var(--vein-3)]">
-                          <p className="t-meta py-2 text-stone">You changed how something was cooked.</p>
+                        <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 rounded-tile bg-control px-3.5 py-1">
+                          <p className="t-label py-2">You changed how something was cooked.</p>
                           <button
                             type="button"
                             onClick={() => photo && run(photo, answers, corrections(), true)}
-                            className="press t-callout h-11 shrink-0 font-semibold text-ivory underline decoration-vein-3 underline-offset-4"
+                            className="press t-label h-11 shrink-0 font-semibold text-fg underline underline-offset-4"
                           >
                             Update estimate
                           </button>
                         </div>
                       )}
 
-                      <div className="divide-y divide-vein" aria-label="Identified items" role="group">
+                      <div className="divide-y divide-line" aria-label="Identified items" role="group">
                         {items.map((it) => (
                           <ScanItemCard
                             key={it.key}
@@ -699,13 +755,13 @@ export function FoodScanner() {
                           />
                         ))}
                       </div>
-                      {!items.length && <p className="t-callout py-6 text-center text-stone">Every item was removed. Add one, or retake the photo.</p>}
+                      {!items.length && <p className="t-label py-6 text-center">Every item was removed. Add one, or retake the photo.</p>}
                       <button
                         type="button"
                         onClick={() => setAddOpen(true)}
-                        className="press-soft t-callout mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-field border border-dashed border-ui-line font-semibold text-stone hover:text-ivory"
+                        className="press-soft t-label mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-pill bg-control font-semibold text-fg"
                       >
-                        <Plus className="size-[1.125rem]" strokeWidth={1.6} aria-hidden />
+                        <Plus className="size-[1.125rem]" strokeWidth={1.9} aria-hidden />
                         Add an item
                       </button>
                     </>
@@ -713,28 +769,26 @@ export function FoodScanner() {
                   consequence={
                     <div className="w-full">
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <p className="t-eyebrow">Meal total</p>
-                        <p>
-                          <span className="t-num-s text-ivory" data-testid="scan-total-kcal">
-                            {fmtKcal(totals.calories)}
-                          </span>
-                          <span className="t-meta ml-1 text-stone">kcal</span>
+                        <p className="t-label">Meal total</p>
+                        <p className="t-hero tabular-nums" data-testid="scan-total-kcal">
+                          {fmtKcal(totals.calories)}
+                          <span className="unit">kcal</span>
                         </p>
                       </div>
                       <MacroTrio m={totals} className="mt-1" />
-                      {consequenceLine && <p className="mt-2.5 hidden flex-wrap items-center gap-x-2 gap-y-1 md:flex">{consequenceLine}</p>}
+                      {consequenceLine && <p className="t-label mt-2.5 hidden flex-wrap items-center gap-x-2 gap-y-1 md:flex">{consequenceLine}</p>}
                     </div>
                   }
                   note={
                     <>
                       <p className="flex gap-2">
-                        <Info className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} aria-hidden />
+                        <Info className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} aria-hidden />
                         <span>Photos can&apos;t show oils, sauces or exact weights. Adjust anything that looks off.</span>
                       </p>
                       {result.caveats.length > 0 && (
                         <ul className="mt-1.5 space-y-1 pl-6">
                           {result.caveats.map((c) => (
-                            <li key={c} className="list-disc marker:text-ash">
+                            <li key={c} className="list-disc">
                               {c}
                             </li>
                           ))}
@@ -745,13 +799,13 @@ export function FoodScanner() {
                   }
                   actions={
                     <>
-                      <section className="space-y-2.5 border-t border-vein pt-3" aria-label="Where to log it">
-                        <p className="t-eyebrow">Log to</p>
+                      <section className="space-y-2.5 border-t border-line pt-3" aria-label="Where to log it">
+                        <p className="t-label">Add to</p>
                         <MealDatePicker meal={meal} onMeal={setMeal} date={date} onDate={setDate} onInset />
                         <div className="flex min-h-11 items-center justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="t-callout font-semibold text-ivory">Save photo privately</p>
-                            <p className="t-meta text-stone">Only you can see it. Off means it&apos;s discarded.</p>
+                            <p className="t-row">Save photo privately</p>
+                            <p className="t-label">Only you can see it. Off means it&apos;s thrown away.</p>
                           </div>
                           <Switch checked={savePhoto} onCheckedChange={setSavePhoto} label="Save photo privately" />
                         </div>
@@ -767,6 +821,8 @@ export function FoodScanner() {
       )}
 
       <AddItemSheet open={addOpen} onOpenChange={setAddOpen} onAdd={addItem} />
+      <TypeBarcodeSheet open={typeOpen} onOpenChange={setTypeOpen} note={typeNote} onCode={(c) => void findProduct(c)} />
+      <ProductSheet product={product} open={productOpen} onOpenChange={setProductOpen} />
     </FocusScreen>
   );
 }
@@ -781,93 +837,96 @@ function estimateTitle(items: readonly EditableItem[]): string {
 }
 
 function CaptureActions({
+  mode,
+  onMode,
   configured,
   checking,
+  busy,
   error,
   onCamera,
   onLibrary,
+  onType,
   notConfiguredMessage,
 }: {
+  mode: "photo" | "barcode";
+  onMode: (m: "photo" | "barcode") => void;
   configured: boolean;
   checking: boolean;
+  busy: boolean;
   error: string | null;
   onCamera: () => void;
   onLibrary: () => void;
+  onType: () => void;
   notConfiguredMessage: string | null;
 }) {
-  const off = !configured || checking;
+  const barcode = mode === "barcode";
+  // a barcode is read by the phone and looked up in the food database: no AI key needed
+  const off = busy || (!barcode && (!configured || checking));
   return (
-    <div>
+    <div className="flex flex-col items-center">
+      <Segmented<"photo" | "barcode">
+        value={mode}
+        onChange={onMode}
+        ariaLabel="What to scan"
+        className="w-full max-w-[16rem]"
+        options={[
+          { value: "photo", label: "Photo" },
+          { value: "barcode", label: "Barcode" },
+        ]}
+      />
       {error && (
-        <p className="t-callout mb-3 flex items-start gap-2 rounded-field border border-cinnabar-line bg-cinnabar-tint px-3.5 py-3 text-ivory" role="alert">
-          <CircleAlert className="mt-0.5 size-4 shrink-0 text-cinnabar" strokeWidth={1.6} aria-hidden />
+        <p className="t-label mt-4 w-full rounded-tile-lg bg-card px-4 py-3 text-fg" role="alert">
           {error}
         </p>
       )}
-      {notConfiguredMessage ? (
-        <div className="rounded-card bg-m2 p-4 shadow-[inset_0_0_0_1px_var(--vein-2)]">
-          <p className="t-title-3 text-ivory">AI photo analysis is off</p>
-          <p className="t-callout mt-1 text-stone">{notConfiguredMessage} Manual logging works without it.</p>
+      {!barcode && notConfiguredMessage ? (
+        <div className="mt-4 w-full rounded-card bg-card p-5">
+          <p className="t-row">{notConfiguredMessage}</p>
+          <p className="t-label mt-1">Search, barcodes and typing your food work without it.</p>
           <Button asChild variant="secondary" size="lg" block className="mt-4">
-            <Link href="/nutrition?add=1">
-              <PenLine className="size-[1.125rem]" strokeWidth={1.6} aria-hidden />
-              Log manually
-            </Link>
+            <Link href="/nutrition?add=1&tab=search">Search food instead</Link>
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          <button
-            type="button"
-            onClick={onLibrary}
-            disabled={off}
-            className="press t-meta flex min-h-14 flex-col items-center justify-center gap-1 justify-self-start rounded-field px-2 font-semibold text-stone hover:text-ivory disabled:opacity-40"
-          >
-            <ImageUp className="size-5" strokeWidth={1.6} aria-hidden />
-            Use a photo
+        <div className="mt-6 grid w-full grid-cols-[1fr_auto_1fr] items-center">
+          <button type="button" onClick={onLibrary} disabled={off} aria-label={barcode ? "Choose a photo of a barcode" : "Choose a photo"} className="press grid size-14 place-items-center justify-self-start rounded-full bg-card text-fg disabled:opacity-40">
+            <ImageIcon className="size-6" strokeWidth={1.9} aria-hidden />
           </button>
-          {/* the shutter: a 64 px ivory ring (a camera control, not the gold key) */}
+          {/* the shutter: a 76 px white ring (a camera control, not the gold action) */}
           <button
             type="button"
             onClick={onCamera}
             disabled={off}
-            aria-label="Take a photo"
-            className="press grid size-16 place-items-center rounded-full shadow-[inset_0_0_0_3px_var(--ivory)] disabled:opacity-40"
+            aria-label={barcode ? "Take a photo of the barcode" : "Take a photo"}
+            aria-busy={busy || undefined}
+            className="press grid size-[76px] place-items-center rounded-full border-4 border-fg disabled:opacity-40"
           >
-            <span className="grid size-[3.25rem] place-items-center rounded-full bg-ivory text-ink">
-              <Camera className="size-6" strokeWidth={1.6} aria-hidden />
-            </span>
+            <span className="block size-[60px] rounded-full bg-fg" />
           </button>
-          <Link
-            href="/nutrition?add=1"
-            className="press t-meta flex min-h-14 flex-col items-center justify-center gap-1 justify-self-end rounded-field px-2 font-semibold text-stone hover:text-ivory"
-          >
-            <PenLine className="size-5" strokeWidth={1.6} aria-hidden />
-            Type it
-          </Link>
+          {barcode ? (
+            <button type="button" onClick={onType} aria-label="Type the barcode instead" className="press grid size-14 place-items-center justify-self-end rounded-full bg-card text-fg">
+              <Keyboard className="size-6" strokeWidth={1.9} aria-hidden />
+            </button>
+          ) : (
+            <Link href="/nutrition?add=1&tab=search" aria-label="Type it instead" className="press grid size-14 place-items-center justify-self-end rounded-full bg-card text-fg">
+              <Search className="size-6" strokeWidth={1.9} aria-hidden />
+            </Link>
+          )}
         </div>
       )}
-      <p className="t-meta mx-auto mt-3 max-w-[40ch] text-center text-ash">
-        You review every item before anything is saved. Photos are read, then discarded unless you keep them privately.
+      <p className="t-label mt-4 text-center" aria-live="polite">
+        {busy ? "Looking it up" : barcode ? "Looked up in the food database. Nothing saves until you tap Add." : "AI estimates it. Nothing saves until you tap Add."}
       </p>
-      {!notConfiguredMessage && (
-        <p className="mt-1 text-center">
-          <Link href="/nutrition/coach" className="press t-callout inline-flex h-11 items-center gap-1.5 rounded-field px-3 font-semibold text-stone hover:text-ivory">
-            <MessagesSquare className="size-4" strokeWidth={1.6} aria-hidden />
-            Describe it instead
-          </Link>
-        </p>
-      )}
     </div>
   );
 }
 
-/** One of the AI's quick questions (0–2 per scan): the question and its answers as chips. Selection is ivory. */
+/** One of the AI's quick questions (0–2 per scan): the question and its answers as chips. Selection is white. */
 function QuestionChips({ q, value, onPick }: { q: AIQuestion; value?: string; onPick: (o: string) => void }) {
   const id = `q-${q.id}`;
   return (
     <div>
-      <p id={id} className="t-callout font-semibold text-ivory">
+      <p id={id} className="t-row">
         {q.question}
       </p>
       <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-labelledby={id}>
@@ -880,10 +939,7 @@ function QuestionChips({ q, value, onPick }: { q: AIQuestion; value?: string; on
               role="radio"
               aria-checked={on}
               onClick={() => onPick(o)}
-              className={cn(
-                "press inline-flex h-11 items-center rounded-full px-4 text-[length:max(14px,0.875rem)] font-semibold transition-colors duration-(--dur-fast)",
-                on ? "bg-m4 text-ivory shadow-[inset_0_0_0_1.5px_var(--ivory)]" : "bg-m3 text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory",
-              )}
+              className={cn("press t-label inline-flex h-11 items-center rounded-pill px-4 font-semibold", on ? "bg-fg text-bg" : "bg-control text-fg")}
             >
               {o}
             </button>
@@ -900,21 +956,18 @@ function ErrorPanel({ error, onRetry, onRetake }: { error: ScanError; onRetry: (
   const canRetry = !["not_configured", "quota", "too_large", "unauthorized"].includes(error.code);
   return (
     <div role="alert">
-      <div className="rounded-field border border-cinnabar-line bg-cinnabar-tint px-4 py-3">
-        <p className="t-title-3 text-ivory">{notConfigured ? "AI photo analysis is off" : "Analysis failed. Your photo is still here."}</p>
-        <p className="t-callout mt-1 text-stone">{error.message}</p>
+      <div className="rounded-card bg-card p-5">
+        <p className="t-row">{notConfigured ? "Photo estimates aren't set up yet." : "Couldn't read it. Your photo is still here."}</p>
+        <p className="t-label mt-1">{error.message}</p>
       </div>
       <div className="mt-3 grid gap-2">
         {canRetry && (
           <Button variant="primary" size="lg" block onClick={onRetry}>
-            Retry
+            Try again
           </Button>
         )}
         <Button asChild variant="secondary" size="lg" block>
-          <Link href="/nutrition?add=1">
-            <PenLine className="size-[1.125rem]" strokeWidth={1.6} aria-hidden />
-            Log manually
-          </Link>
+          <Link href="/nutrition?add=1&tab=search">Search food instead</Link>
         </Button>
         <Button variant="ghost" size="md" block onClick={onRetake}>
           Use another photo
@@ -927,20 +980,25 @@ function ErrorPanel({ error, onRetry, onRetake }: { error: ScanError; onRetry: (
 function Success({ logged, onUndo, onView }: { logged: Logged; onUndo: () => void; onView: () => void }) {
   return (
     <div className="flex min-h-[70dvh] flex-col items-center justify-center px-6 text-center md:min-h-[60dvh]" role="status" aria-live="polite">
-      <SealTick className="seal-in size-20 text-leaf-300" strokeWidth={1.2} />
-      <h2 className="t-title-1 mt-5 text-ivory">Added to {mealLabel(logged.meal)}</h2>
-      <p className="t-callout mt-1.5 text-stone">
-        <span className="tnum font-semibold text-ivory">{fmtKcal(logged.kcal)}</span> kcal · {logged.count} {logged.count === 1 ? "item" : "items"}
+      <span className="grid size-16 place-items-center rounded-full bg-fg text-bg" aria-hidden>
+        <Check className="size-8" strokeWidth={2.4} />
+      </span>
+      <h2 className="t-title mt-5">Added as {mealLabel(logged.meal).toLowerCase()}</h2>
+      <p className="t-label mt-1.5 flex flex-wrap items-center justify-center gap-2">
+        <span className="tabular-nums">
+          {fmtKcal(logged.kcal)} kcal · {logged.count} {logged.count === 1 ? "item" : "items"}
+        </span>
+        <AiMark />
       </p>
       <div className="mt-7 grid w-full max-w-[20rem] grid-cols-2 gap-3">
-        <Button variant="outline" size="lg" onClick={onUndo}>
+        <Button variant="secondary" size="lg" onClick={onUndo}>
           Undo
         </Button>
         <Button variant="secondary" size="lg" onClick={onView}>
-          View today
+          See today
         </Button>
       </div>
-      <p className="t-meta mt-4 text-ash">Returning to Fuel…</p>
+      <p className="t-label mt-4">Back to Food in a moment</p>
     </div>
   );
 }

@@ -108,10 +108,10 @@ export function PortionPanel({
       <BackButton onClick={onBack} />
       <div className="mt-1 flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <h3 className="t-title-2 font-bold leading-snug tracking-[-0.01em] text-ivory">{c.name}</h3>
+          <h3 className="t-section font-bold leading-snug tracking-[-0.01em] text-fg">{c.name}</h3>
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
             <ProvenanceBadge item={{ source: c.source, confidence: c.confidence, source_name: c.sourceName, source_url: c.sourceUrl }} full />
-            {c.brand && <span className="t-meta font-medium text-stone">{c.brand}</span>}
+            {c.brand && <span className="t-cap font-medium text-fg-2">{c.brand}</span>}
           </div>
         </div>
         {savedFood && <StarButton on={starred} onToggle={toggleStar} label={starred ? "Remove from favourites" : "Mark as favourite"} className="-mr-2 -mt-1" />}
@@ -150,20 +150,20 @@ export function PortionPanel({
                 const n = parseFoodNumber(e.target.value);
                 if (n != null) setAmount(n);
               }}
-              className="t-num-l w-full bg-transparent text-center text-ivory outline-none"
+              className="t-num w-full bg-transparent text-center text-fg outline-none"
             />
-            <span className="mt-1 block t-meta font-semibold tracking-[0.04em] text-ash">{unitLabel(u.unit, amount)}</span>
+            <span className="mt-1 block t-cap font-semibold tracking-[0.04em] text-fg-2">{unitLabel(u.unit, amount)}</span>
           </label>
         </Stepper>
         {amountInvalid ? (
-          <p className="mt-2 text-center t-meta font-medium text-cinnabar">Enter an amount above 0{max ? ` and up to ${formatInt(max)}` : ""}.</p>
+          <p className="mt-2 text-center t-cap font-medium text-danger">Enter an amount above 0{max ? ` and up to ${formatInt(max)}` : ""}.</p>
         ) : overLimit ? (
-          <p className="mt-2 text-center t-meta font-medium text-cinnabar" role="alert">
+          <p className="mt-2 text-center t-cap font-medium text-danger" role="alert">
             {overLimit}
           </p>
         ) : (
           (u.hint || (p.grams != null && u.unit !== "g")) && (
-            <p className="mt-2 text-center t-meta font-medium text-ash">
+            <p className="mt-2 text-center t-cap font-medium text-fg-2">
               {[u.hint, p.grams != null && u.unit !== "g" && (!u.hint || amount !== u.baseAmount) ? `≈ ${formatInt(p.grams)} g` : null].filter(Boolean).join(" · ")}
             </p>
           )

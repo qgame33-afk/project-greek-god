@@ -82,7 +82,7 @@ export function FoodFields({
       </div>
 
       <div>
-        <SubLabel action={<span className="t-meta font-medium text-ash">{per ? `For ${per}` : "For the amount above"}</span>}>Nutrition</SubLabel>
+        <SubLabel action={<span className="t-cap font-medium text-fg-2">{per ? `For ${per}` : "For the amount above"}</span>}>Nutrition</SubLabel>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Calories" error={errors.calories}>
             {(id) => (
@@ -116,7 +116,7 @@ export function FoodFields({
           {note && (
             <SoftNote className="flex items-center justify-between gap-3">
               <span>{note}</span>
-              <button type="button" onClick={() => set({ calories: String(preview.derived) })} className="press t-meta -my-2 -mr-1 inline-flex h-11 shrink-0 items-center px-2 font-semibold text-ivory underline decoration-vein-3 underline-offset-4">
+              <button type="button" onClick={() => set({ calories: String(preview.derived) })} className="press t-cap -my-2 -mr-1 inline-flex h-11 shrink-0 items-center px-2 font-semibold text-fg underline decoration-vein-3 underline-offset-4">
                 Use {formatInt(preview.derived)}
               </button>
             </SoftNote>

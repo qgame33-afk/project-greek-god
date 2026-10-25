@@ -31,7 +31,7 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
   return (
     <div>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[1.125rem] -translate-y-1/2 text-ash" aria-hidden />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[1.125rem] -translate-y-1/2 text-fg-2" aria-hidden />
         <Input
           type="search"
           value={q}
@@ -47,7 +47,7 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
           className="pl-11 pr-12 [&::-webkit-search-cancel-button]:hidden"
         />
         {q && (
-          <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="absolute right-1 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-field text-ash hover:text-ivory">
+          <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="absolute right-1 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-field text-fg-2 hover:text-fg">
             <X className="size-[1.125rem]" />
           </button>
         )}
@@ -55,10 +55,10 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
 
       {q.trim().length < 2 ? (
         <div className="pt-5">
-          <p className="t-callout leading-relaxed text-stone">Search USDA FoodData Central and Open Food Facts, then set the amount you ate.</p>
+          <p className="t-label leading-relaxed text-fg-2">Search USDA FoodData Central and Open Food Facts, then set the amount you ate.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             {EXAMPLES.map((x) => (
-              <button key={x} type="button" onClick={() => setQ(x)} className="press h-11 rounded-full border border-vein-2 bg-m3 px-4 t-callout font-semibold text-stone hover:text-ivory">
+              <button key={x} type="button" onClick={() => setQ(x)} className="press h-11 rounded-full border border-line bg-control px-4 t-label font-semibold text-fg-2 hover:text-fg">
                 {x}
               </button>
             ))}
@@ -73,7 +73,7 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
       ) : showSkeleton || down ? (
         <ul className="mt-3" aria-busy="true" aria-label="Searching">
           {[0, 1, 2, 3, 4].map((i) => (
-            <li key={i} className="flex items-center gap-3 border-b border-vein py-3">
+            <li key={i} className="flex items-center gap-3 border-b border-line py-3">
               <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-3 w-1/2" />
@@ -85,16 +85,16 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
       ) : data ? (
         <div className={cn("transition-opacity", waiting && "opacity-60")}>
           {notes.length > 0 && (
-            <p className="mt-3 flex items-start gap-2 t-meta leading-snug text-ash">
+            <p className="mt-3 flex items-start gap-2 t-cap leading-snug text-fg-2">
               <Info className="mt-px size-3.5 shrink-0" aria-hidden />
               <span>{notes.join(" ")}</span>
             </p>
           )}
           {data.results.length === 0 ? (
-            <div className="rounded-field bg-m2 shadow-[inset_0_0_0_1px_var(--vein-2)] mt-4 flex flex-col items-center px-5 py-7 text-center">
-              <SearchX className="size-7 text-ash" strokeWidth={1.5} aria-hidden />
-              <p className="mt-3 t-callout font-bold text-ivory">No matches for “{term}”</p>
-              <p className="mt-1 max-w-[32ch] t-meta text-stone">Try fewer words or a simpler name. You can always enter it by hand.</p>
+            <div className="rounded-field bg-surface mt-4 flex flex-col items-center px-5 py-7 text-center">
+              <SearchX className="size-7 text-fg-2" strokeWidth={1.5} aria-hidden />
+              <p className="mt-3 t-label font-bold text-fg">No matches for “{term}”</p>
+              <p className="mt-1 max-w-[32ch] t-cap text-fg-2">Try fewer words or a simpler name. You can always enter it by hand.</p>
               <Button variant="secondary" className="mt-4" onClick={() => onManual(q.trim())}>
                 Add manually
               </Button>
@@ -103,14 +103,14 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
             <>
               <ul className="mt-2" aria-label={`${data.results.length} results`}>
                 {data.results.map((r) => (
-                  <li key={`${r.source}:${r.id}`} className="border-b border-vein last:border-b-0">
+                  <li key={`${r.source}:${r.id}`} className="border-b border-line last:border-b-0">
                     <ResultRow r={r} onPick={() => onPick(r)} />
                   </li>
                 ))}
               </ul>
               <div className="mt-4 flex items-center justify-between gap-3">
-                <p className="t-meta text-ash">Not here?</p>
-                <button type="button" onClick={() => onManual(q.trim())} className="press t-meta inline-flex h-11 items-center font-semibold text-ivory underline decoration-vein-3 underline-offset-4">
+                <p className="t-cap text-fg-2">Not here?</p>
+                <button type="button" onClick={() => onManual(q.trim())} className="press t-cap inline-flex h-11 items-center font-semibold text-fg underline decoration-vein-3 underline-offset-4">
                   Add manually
                 </button>
               </div>
@@ -133,16 +133,16 @@ function ResultRow({ r, onPick }: { r: SearchResult; onPick: () => void }) {
   return (
     <button type="button" onClick={onPick} className="press-soft flex min-h-16 w-full items-center gap-3 py-2.5 text-left">
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 t-callout font-semibold leading-snug text-ivory">{r.name}</p>
-        <p className="mt-0.5 truncate t-meta font-medium text-ash">
+        <p className="line-clamp-2 t-label font-semibold leading-snug text-fg">{r.name}</p>
+        <p className="mt-0.5 truncate t-cap font-medium text-fg-2">
           {r.brand ? `${r.brand} · ` : ""}
           {servingText(r)}
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <span className="tnum t-title-3 font-semibold leading-none text-ivory">
+        <span className="tabular-nums t-row font-semibold leading-none text-fg">
           {formatInt(r.perServing.calories)}
-          <span className="t-meta ml-0.5 text-stone">kcal</span>
+          <span className="t-cap ml-0.5 text-fg-2">kcal</span>
         </span>
         <DatabaseBadge name={r.source === "usda" ? "USDA" : "Open Food Facts"} />
       </div>
@@ -173,10 +173,10 @@ function SearchError({ err, notes, onRetry, onManual }: { err: Error; notes?: st
             ? `${notes?.length ? notes.join(" ") : "Neither USDA nor Open Food Facts answered."} Retry in a minute, or enter it by hand.`
             : "Try again in a moment, or enter it by hand.";
   return (
-    <div className="rounded-field bg-m2 shadow-[inset_0_0_0_1px_var(--vein-2)] mt-4 flex flex-col items-center px-5 py-7 text-center" role="status">
-      {kind === "offline" ? <WifiOff className="size-7 text-ash" strokeWidth={1.5} aria-hidden /> : <SearchX className="size-7 text-ash" strokeWidth={1.5} aria-hidden />}
-      <p className="mt-3 t-callout font-bold text-ivory">{title}</p>
-      <p className="mt-1 max-w-[34ch] t-meta leading-relaxed text-stone">{body}</p>
+    <div className="rounded-field bg-surface mt-4 flex flex-col items-center px-5 py-7 text-center" role="status">
+      {kind === "offline" ? <WifiOff className="size-7 text-fg-2" strokeWidth={1.5} aria-hidden /> : <SearchX className="size-7 text-fg-2" strokeWidth={1.5} aria-hidden />}
+      <p className="mt-3 t-label font-bold text-fg">{title}</p>
+      <p className="mt-1 max-w-[34ch] t-cap leading-relaxed text-fg-2">{body}</p>
       <div className="mt-4 flex gap-2">
         {kind !== "unavailable" && kind !== "auth" && (
           <Button variant="ghost" onClick={onRetry}>

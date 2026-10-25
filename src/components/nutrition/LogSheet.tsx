@@ -76,7 +76,7 @@ function LogBody({ meal, tab: initialTab, close }: { meal?: Meal; tab?: LogTab; 
 
       {/* Lists stay mounted while a step is open, so Back returns to the same results. */}
       <div hidden={step.kind !== "list"}>
-        <div className="sticky top-0 z-10 -mx-5 bg-m1 px-5 pb-3 pt-1">
+        <div className="sticky top-0 z-10 -mx-5 bg-sheet px-5 pb-3 pt-1">
           <Segmented
             ariaLabel="Log food by"
             value={tab}
