@@ -407,6 +407,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     const loadText_ = setLoadText(logged, inf.tracking, fmt, unit);
     const undo = () => {
       ops.updateSet(set.id, before);
+      // the set comes back on screen (logging a lift's last set moved on to the next lift)
+      if (live) setOpenRef(set.id);
       if (getRest(id)?.fromSetId === set.id) setRest(id, null);
       setWin((w) => (w?.setId === set.id ? null : w));
     };
@@ -1036,6 +1038,34 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     return [left, right].filter(Boolean).join(" × ");
   };
 
+  /** The Next card's value: the number big, its unit at half size (§1.2.3 `unit`), then × reps. */
+  const shownValue = (s: WSet, g: ExerciseGroup) => {
+    const gi = info.get(g.key)!;
+    const gh = ghosts.get(s.id) ?? NO_GHOST;
+    const w = s.weight_lb != null ? Number(s.weight_lb) : gh.weight;
+    const work = (isTimed(gi.tracking) ? s.duration_sec : s.reps) ?? gh.work;
+    const hasW = hasWeight(gi.tracking) && w != null && (w > 0 || gi.tracking !== "bodyweight_reps");
+    const ru = isTimed(gi.tracking) ? "sec" : workUnit(gi.tracking, !!gi.lib?.perSide || s.target_unit === "each");
+    if (!hasW && work == null) return "—";
+    return (
+      <>
+        {hasW && (
+          <>
+            {trimNum(toDisplay(w!))}
+            <span className="unit">{weightUnit(gi.lib, gi.tracking, unit)}</span>
+          </>
+        )}
+        {hasW && work != null && " × "}
+        {work != null && (
+          <>
+            {work}
+            {(!hasW || isTimed(gi.tracking)) && <span className="unit">{ru}</span>}
+          </>
+        )}
+      </>
+    );
+  };
+
   const labelOf = (s: WSet, g: ExerciseGroup) => (s.kind === "warmup" ? "warm-up set" : `set ${setLabel(g, s)}`);
   const logLabel = (() => {
     if (!target || !targetGroup) return "";
@@ -1159,11 +1189,13 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
         {target && targetGroup && (
           <div className="flex items-center gap-3 rounded-card bg-surface py-3.5 pl-5 pr-3.5">
             <div className="min-w-0 flex-1">
-              <p className="t-label">
+              <p className="t-label truncate">
                 Next · {labelOf(target, targetGroup)}
                 {targetGroup.key !== fromGroup?.key ? <span data-budget-name=""> · {targetGroup.name}</span> : null}
               </p>
-              <p className="t-num truncate tabular-nums">{shownText(target, targetGroup) || "—"}</p>
+              <p className="t-num truncate tabular-nums" aria-label={shownText(target, targetGroup) || undefined}>
+                {shownValue(target, targetGroup)}
+              </p>
             </div>
             <button type="button" onClick={() => setEditNext(target.id)} className="press t-button h-14 shrink-0 rounded-pill bg-control px-5 text-fg">
               Edit
@@ -1307,8 +1339,9 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   return (
     <div
       className="min-h-dvh bg-bg"
-      onPointerDownCapture={(e) => {
-        // the win card collapses at the next tap outside it
+      onClick={(e) => {
+        // the win card collapses at the next tap outside it. Bubble phase, so the tapped control
+        // acts first (a capture-phase collapse would unmount it before its own click runs).
         if (win && !(e.target as Element).closest("[data-win]")) setWin(null);
       }}
     >

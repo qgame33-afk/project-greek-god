@@ -15,7 +15,7 @@ import { useToday } from "@/lib/data/core";
 import { useProfile } from "@/lib/data/profile";
 import { useTemplates } from "@/lib/data/training";
 import { getExercise } from "@/lib/training/library";
-import { suggest, type Mode } from "@/lib/training/progression";
+import { e1rm, suggest, type Mode } from "@/lib/training/progression";
 import type { TemplateExercise } from "@/lib/training/types";
 import { formatInt, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
 import { asPastSets, gymDate, liftResults } from "@/lib/workout/gym";
@@ -28,6 +28,21 @@ import { usePreviousSession, usePriorBests, usePriorHistory, useSessionOps, type
 import { plannedFor } from "./inscription/flags";
 import { NoteSheet } from "./live/sheets";
 import { lastTimeText, verdict, winSentence } from "./live/words";
+
+/** The session's best working set of a lift (highest estimate, then weight, then reps), from its own logged sets. */
+function bestSet<T extends { weight_lb: number | string | null; reps: number | null; duration_sec: number | null }>(sets: T[]): T | null {
+  let best: T | null = null;
+  let key = [-Infinity, -Infinity, -Infinity];
+  for (const s of sets) {
+    const w = Number(s.weight_lb ?? 0);
+    const k = [e1rm(w, s.reps) ?? -1, w, Number(s.reps ?? s.duration_sec ?? 0)];
+    if (k[0] > key[0] || (k[0] === key[0] && (k[1] > key[1] || (k[1] === key[1] && k[2] > key[2])))) {
+      best = s;
+      key = k;
+    }
+  }
+  return best;
+}
 
 const trim = (n: number) => (Number.isInteger(n) ? String(n) : String(Number(n.toFixed(1))));
 
@@ -165,7 +180,8 @@ export function Summary({ data, onEdit }: { data: LiveData; onEdit: () => void }
             {groups.map((g) => {
               const r = results?.find((x) => x.key === g.key) ?? null;
               const t = trackingFor(getExercise(g.slug), g.working[0]?.target_unit);
-              const best = r ? lastTimeText([r.best], t, toDisplay) : g.working[0] ? lastTimeText([g.working[0]], t, toDisplay) : null;
+              const top = bestSet(g.working);
+              const best = top ? lastTimeText([top], t, toDisplay) : null;
               const nt = nextTime.get(g.key);
               const v = verdict(r);
               return (
