@@ -3,7 +3,7 @@ import type { PastSet } from "@/lib/training/progression";
 import { mkSet } from "./fixtures";
 import { classifyLog, prSetIds, type PriorBest } from "./pr";
 import { groupSets } from "./session";
-import { modeFamily, priorSameIndex, recordReps, setTiming, timingsForGroup } from "./timing";
+import { modeFamily, priorSameIndex, recordReps, setTiming, timeBetweenSets, timingsForGroup } from "./timing";
 
 const prior = (e1rm: number | null, sets = 9): PriorBest => ({ e1rm, sets, weightLb: null, reps: null });
 const done = (p: Parameters<typeof mkSet>[0] = {}) => mkSet({ completed: true, ...p });
@@ -148,5 +148,24 @@ describe("recordReps (the record carrot)", () => {
     expect(recordReps(null, prior(222))).toBeNull();
     expect(recordReps(100, prior(222))).toBeNull(); // 100 × 12 = 140
     expect(recordReps(190, undefined)).toBeNull();
+  });
+});
+
+describe("timeBetweenSets (§3.8)", () => {
+  it("is the gap to the previous logged set of the same session; null for the first, a break or an open set", () => {
+    const t = (m: number) => new Date(Date.UTC(2026, 9, 20, 18, m)).toISOString();
+    const sets = [
+      { id: "a", session_id: "x", completed: true, completed_at: t(0) },
+      { id: "b", session_id: "x", completed: true, completed_at: t(2) },
+      { id: "c", session_id: "x", completed: true, completed_at: t(30) },
+      { id: "d", session_id: "x", completed: false, completed_at: null },
+      { id: "e", session_id: "y", completed: true, completed_at: t(3) },
+    ];
+    const m = timeBetweenSets(sets);
+    expect(m.get("a")).toBeNull();
+    expect(m.get("b")).toBe(120);
+    expect(m.get("c")).toBeNull(); // 28 min: a break, not a rest
+    expect(m.get("d")).toBeNull();
+    expect(m.get("e")).toBeNull();
   });
 });

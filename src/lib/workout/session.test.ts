@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { buildSessionSets, startTarget } from "@/lib/data/workout";
+import { PROGRAMS, TEMPLATE_DEFS } from "@/lib/training/programs";
 import type { PastSet } from "@/lib/training/progression";
 import { getExercise, LIBRARY } from "@/lib/training/library";
 import { mkSet } from "./fixtures";
@@ -29,6 +31,7 @@ import {
   zeroLoadOk,
   rowErrorFields,
   withCellError,
+  templateExerciseSets,
 } from "./session";
 
 const past = (i: number, w: number | null, reps: number | null, dur: number | null = null): PastSet => ({
@@ -332,5 +335,66 @@ describe("targets for swaps and additions", () => {
     expect(defaultTargets(lib({ category: "compound", rest: 210 }))).toMatchObject({ low: 6, high: 10, rir: "1–3", rest: 180 });
     expect(defaultTargets(lib({ category: "core", rest: 60 }))).toMatchObject({ rir: "0–2", rest: 60 });
     expect(defaultTargets(lib({ category: "explosive", tracking: "reps" }))).toMatchObject({ low: 3, high: 3, rir: "Fresh" });
+  });
+});
+
+/* ------------------------------------------------ session start (§1.4, §4.6) */
+
+const thu = TEMPLATE_DEFS.shoulders_arms_b;
+const tue = TEMPLATE_DEFS.chest_back_a;
+const strip = (r: Record<string, unknown>) => {
+  const { id: _i, session_id: _s, local_date: _d, exercise_order: _o, ...rest } = r;
+  return rest;
+};
+
+describe("starting a session (§1.4, §4.6, PROGRAM-ARNOLD 4.1 case 10)", () => {
+  it("never starts Thursday's optional reverse curls unless asked", () => {
+    const rows = buildSessionSets("s", { template: thu, date: "2026-10-29", mode: "standard" }, {});
+    expect(rows.some((r) => r.exercise_slug === "reverse-curl")).toBe(false);
+    expect(rows).toHaveLength(19);
+    const all = buildSessionSets("s", { template: thu, date: "2026-10-29", mode: "standard", includeOptional: true }, {});
+    expect(all.filter((r) => r.exercise_slug === "reverse-curl")).toHaveLength(2);
+    expect(all).toHaveLength(21);
+  });
+
+  it("templateExerciseSets builds exactly the rows buildSessionSets would ('Add them')", () => {
+    const rc = thu.exercises.find((e) => e.slug === "reverse-curl")!;
+    const all = buildSessionSets("s", { template: thu, date: "2026-10-29", mode: "standard", includeOptional: true }, {});
+    const fromStart = all.filter((r) => r.exercise_slug === "reverse-curl").map((r) => strip(r as Record<string, unknown>));
+    expect(templateExerciseSets(rc, "standard", 0, { target: { low: 10, high: 15, unit: "reps" }, weightLb: null })).toEqual(fromStart);
+    const added = templateExerciseSets(rc, "standard", 4);
+    expect(added.map((r) => [r.set_index, r.target_rep_low, r.target_rep_high, r.target_rir, r.rest_sec])).toEqual([
+      [4, 10, 15, "0–2", 60],
+      [5, 10, 15, "0–2", 60],
+    ]);
+  });
+
+  it("intro mode: two sets of each Tuesday lift with the template's ranges, RIR and rest", () => {
+    const rows = buildSessionSets("s", { template: tue, date: "2026-10-27", mode: "intro" }, {});
+    const by = (slug: string) => rows.filter((r) => r.exercise_slug === slug);
+    expect(tue.exercises.map((e) => by(e.slug).length)).toEqual([2, 2, 2, 2, 2, 2]);
+    expect(tue.exercises.map((e) => by(e.slug)[0].rest_sec)).toEqual([150, 150, 120, 120, 75, 120]);
+    expect(tue.exercises.map((e) => by(e.slug)[0].target_rir)).toEqual(["1–3", "1–3", "1–3", "1–3", "0–2", "1–3"]);
+    expect(by("incline-db-press")[0]).toMatchObject({ target_rep_low: 6, target_rep_high: 10, target_unit: "reps" });
+    expect(by("single-arm-lat-pulldown")[0]).toMatchObject({ target_unit: "each" });
+  });
+
+  it("applies this session's adjustments: dropped sets (never below 1), RIR and order", () => {
+    const rows = buildSessionSets(
+      "s",
+      { template: tue, date: "2026-10-27", mode: "standard", adjust: { dropSets: { "machine-chest-press": 1, "single-arm-lat-pulldown": 5 }, rir: { "incline-db-press": "2–3" }, order: ["incline-db-press", "neutral-grip-lat-pulldown", "chest-supported-row", "cable-chest-fly"] } },
+      {},
+    );
+    expect(rows.filter((r) => r.exercise_slug === "machine-chest-press")).toHaveLength(1);
+    expect(rows.filter((r) => r.exercise_slug === "single-arm-lat-pulldown")).toHaveLength(1);
+    expect(rows.find((r) => r.exercise_slug === "incline-db-press")!.target_rir).toBe("2–3");
+    const order = [...new Map(rows.map((r) => [r.exercise_slug, r.exercise_order])).entries()].sort((a, b) => (a[1] ?? 0) - (b[1] ?? 0)).map(([s]) => s);
+    expect(order.indexOf("cable-chest-fly")).toBeLessThan(order.indexOf("machine-chest-press"));
+  });
+
+  it("deep links start a template only when it is in the active program", () => {
+    expect(startTarget("chest_back_a", PROGRAMS.arnold.keys)).toBe("chest_back_a");
+    expect(startTarget("push_a", PROGRAMS.arnold.keys)).toBeNull();
+    expect(startTarget(null, PROGRAMS.arnold.keys)).toBeNull();
   });
 });

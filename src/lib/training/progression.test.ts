@@ -127,3 +127,72 @@ describe("suggest: unchanged basics", () => {
     expect(suggest(bench, lib, h, "standard").kind).toBe("hold");
   });
 });
+
+/* ------------------------------------------------- Arnold Split 2.0 (§4.1) */
+
+describe("double progression on the Arnold split (PROGRAM-ARNOLD §4.1)", () => {
+  const T = (key: keyof typeof PROGRAM_BY_KEY, slug: string) => PROGRAM_BY_KEY[key].exercises.find((e) => e.slug === slug)!;
+  const withKey = (h: PastSet[], template_key: string) => h.map((s) => ({ ...s, template_key }));
+  const incline = T("chest_back_a", "incline-db-press"); // 3 × 6–10 @1–3
+  const L = (s: string) => getExercise(s);
+
+  it("1. all three sets at 10 within 1–3 RIR → one step up (60 → 65)", () => {
+    const h = withKey(session("2026-10-20", "standard", ["60x10@2", "60x10@1", "60x10@1"]), "push_a");
+    const s = suggest(incline, L("incline-db-press"), h, "standard", { templateKey: "chest_back_a" });
+    expect(s).toMatchObject({ kind: "increase", weightLb: 65 });
+    expect(s.reason).toBe("You hit 10, 10, 10 at 60 lb, the top of the range at your target effort. Add 5 lb.");
+  });
+
+  it("2. the same reps at 0, 0, 1 RIR on a heavy compound → hold at 60", () => {
+    const h = session("2026-10-20", "standard", ["60x10@0", "60x10@0", "60x10@1"]);
+    const s = suggest(incline, L("incline-db-press"), h, "standard", { templateKey: "chest_back_a" });
+    expect(s).toMatchObject({ kind: "hold", weightLb: 60 });
+    expect(s.reason).toMatch(/reps in reserve on a heavy lift/);
+  });
+
+  it("3. lateral raises at 20 reps and 0 RIR progress: 0 is on target for isolation", () => {
+    const lat = T("shoulders_arms_a", "cable-lateral-raise");
+    const h = session("2026-10-20", "standard", ["15x20@0", "15x20@0", "15x20@0", "15x20@0"]);
+    expect(suggest(lat, L("cable-lateral-raise"), h, "standard", { templateKey: "shoulders_arms_a" })).toMatchObject({ kind: "increase", weightLb: 20 });
+  });
+
+  it("4. last time PPL Push B with 3 sets → judged on today's 2, never as missed sets", () => {
+    const press = T("shoulders_arms_a", "seated-db-shoulder-press"); // 2 × 6–10
+    const h = withKey(session("2026-10-15", "standard", ["50x12", "50x12", "50x12"]), "push_b");
+    const s = suggest(press, L("seated-db-shoulder-press"), h, "standard", { templateKey: "shoulders_arms_a" });
+    expect(s).toMatchObject({ kind: "increase", weightLb: 55 });
+    expect(s.reason).not.toMatch(/sets were completed|set was completed/);
+  });
+
+  it("5. fewer sets logged last time than now planned (other template) → judged on what was logged", () => {
+    const lat = T("shoulders_arms_a", "cable-lateral-raise"); // 4 sets now
+    const h = withKey(session("2026-10-12", "standard", ["15x20@1", "15x20@1", "15x20@1"]), "push_a");
+    expect(suggest(lat, L("cable-lateral-raise"), h, "standard", { templateKey: "shoulders_arms_a" }).kind).toBe("increase");
+  });
+
+  it("6. the same template with a set left unlogged → hold, as before", () => {
+    const h = withKey(session("2026-10-20", "standard", ["60x10@2", "60x10@2"]), "chest_back_a");
+    const s = suggest(incline, L("incline-db-press"), h, "standard", { templateKey: "chest_back_a" });
+    expect(s).toMatchObject({ kind: "hold", weightLb: 60 });
+    expect(s.reason).toContain("Last time 2 of 3 sets were completed");
+  });
+
+  it("7. back squat now 3 × 5–8 after PPL's 225 × 6, 6, 6, 5 → the first three judged: add reps", () => {
+    const squat = T("legs_abs_a", "back-squat");
+    const h = withKey(session("2026-10-14", "standard", ["225x6", "225x6", "225x6", "225x5"]), "legs_a");
+    expect(suggest(squat, L("back-squat"), h, "standard", { templateKey: "legs_abs_a" })).toMatchObject({ kind: "add_reps", weightLb: 225 });
+  });
+
+  it("8. never more than one load step, whatever the reps in reserve", () => {
+    const h = session("2026-10-20", "standard", ["60x10@5", "60x10@5", "60x10@5"]);
+    const s = suggest(incline, L("incline-db-press"), h, "standard", { templateKey: "chest_back_a" });
+    expect(s).toMatchObject({ kind: "increase", weightLb: 65 });
+    expect(s.reason).toContain("with reps to spare");
+  });
+
+  it("machine chest press at 150 × 12 @0 three times holds (compound at 0 RIR)", () => {
+    const mcp = T("chest_back_a", "machine-chest-press");
+    const h = withKey(session("2026-10-15", "standard", ["150x12@0", "150x12@0", "150x12@0"]), "push_b");
+    expect(suggest(mcp, L("machine-chest-press"), h, "intro", { templateKey: "chest_back_a" })).toMatchObject({ kind: "hold", weightLb: 150 });
+  });
+});

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ALL_ACCESS, accessChipLabel, normalizeAccess } from "./access";
 import { buildMockReply } from "./mock";
-import { buildSystemPrompt } from "./prompt";
+import { buildSystemPrompt, COACH_SYSTEM_RULES } from "./prompt";
 import { sanitizeAnswer, sanitizeFollowUps, titleFrom } from "./schema";
 import { buildSnapshot, chipsFor, dateInZone, type RawCoachData } from "./snapshot";
 import { validateSuggestions } from "./suggestions";
@@ -229,5 +229,21 @@ describe("dev mock topics", () => {
     const d = buildMockReply("Do I need a deload week?", snap, raw().profile);
     expect(d.cited_fact_ids).toContain("tr.mode");
     expect(d.suggestions.map((s) => s.kind)).toEqual(["deload_week"]);
+  });
+});
+
+describe("coach prompt and mock (PROGRAM-ARNOLD §6.3)", () => {
+  it("coaches the Arnold split and never mentions volleyball or jumps", () => {
+    expect(COACH_SYSTEM_RULES).toContain("Arnold");
+    expect(COACH_SYSTEM_RULES).toContain("1–3 reps in reserve");
+    expect(COACH_SYSTEM_RULES).not.toMatch(/volley|jump/i);
+  });
+  it("the dev mock never mentions volleyball, and answers the overlap question", () => {
+    const snap = buildSnapshot(raw());
+    for (const q of ["Is my arm day hurting my chest day?", "Do I need a lighter week?", "Should I drink more water?", "What should I train today?", "Should I go easy on legs?"]) {
+      const m = buildMockReply(q, snap, raw().profile);
+      expect(JSON.stringify(m), q).not.toMatch(/volley|jump/i);
+    }
+    expect(buildMockReply("Is my arm day hurting my chest day?", snap, raw().profile).cited_fact_ids).toContain("plan.today");
   });
 });

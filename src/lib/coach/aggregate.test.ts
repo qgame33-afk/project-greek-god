@@ -5,7 +5,6 @@ import {
   measurementChanges,
   mergeSchedule,
   monthlyWeights,
-  muscleSets,
   nutritionWindow,
   recoverySummary,
   resolvePlan,
@@ -79,32 +78,6 @@ describe("liftTrends", () => {
   });
 });
 
-describe("muscleSets", () => {
-  it("counts primary-muscle working sets in the window and skips jumps", () => {
-    const rows = [
-      set("2026-10-10", "a", "ez-bar-curl", 60, 10),
-      set("2026-10-10", "a", "ez-bar-curl", 60, 9, 1),
-      set("2026-10-12", "b", "preacher-curl", 55, 10),
-      set("2026-10-12", "b", "hammer-curl", 30, 12),
-      set("2026-10-12", "b", "box-jump", null, 3),
-      set("2026-10-01", "z", "ez-bar-curl", 60, 10), // outside window
-    ];
-    const v = muscleSets(rows, "2026-10-10", "2026-10-16");
-    const biceps = v.find((x) => x.muscle === "biceps")!;
-    expect(biceps.sets).toBe(3);
-    expect(biceps.exercises.sort()).toEqual(["ez-bar-curl", "preacher-curl"]);
-    expect(v.find((x) => x.muscle === "brachialis")?.sets).toBe(1);
-    // reported even when nothing was trained
-    expect(v.find((x) => x.muscle === "hamstrings")?.sets).toBe(0);
-    expect(v.find((x) => x.muscle === "quads")?.sets ?? 0).toBe(0);
-  });
-
-  it("uses custom exercise muscles when the slug isn't in the library", () => {
-    const v = muscleSets([set("2026-10-10", "a", "my-curl", 20, 12)], "2026-10-10", "2026-10-10", { "my-curl": ["biceps"] });
-    expect(v.find((x) => x.muscle === "biceps")?.sets).toBe(1);
-  });
-});
-
 describe("schedule", () => {
   it("merges the weekly schedule and applies per-date overrides", () => {
     const s = mergeSchedule({ "1": "pull_a", bogus: "x" });
@@ -162,7 +135,6 @@ describe("recoverySummary", () => {
     fatigue: 2,
     stress: 2,
     pain_notes: null,
-    volleyball: false,
     ...extra,
   });
   it("keeps the latest n check-ins, averages filled fields and surfaces pain notes", () => {

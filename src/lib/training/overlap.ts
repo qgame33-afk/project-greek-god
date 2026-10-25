@@ -59,7 +59,10 @@ const PRESS: MuscleGroup[] = ["chest", "upper_chest"];
 const PULL: MuscleGroup[] = ["lats", "upper_back"];
 
 const familyOf = (t: { key: string | null; family?: DayFamily | null }) => t.family ?? templateDef(t.key)?.family ?? null;
+/** A completed working set (warm-ups never count). */
 const isWork = (s: OverlapSet) => s.completed !== false && s.kind !== "warmup";
+/** A working set, logged or not. */
+const isWorkingRow = (s: OverlapSet) => s.kind !== "warmup";
 const num = (v: number | string | null | undefined) => (v == null || v === "" ? 0 : Number(v));
 
 const has = (slug: string, muscles: MuscleGroup[], category?: "compound" | "isolation") => {
@@ -140,14 +143,15 @@ function restBefore(sets: OverlapSet[]): Map<OverlapSet, number | null> {
   return out;
 }
 
-/** Whether a set dipped against the same set last time (§4.6 rule 2). */
+/** Whether a set dipped against the same set last time (§4.6 rule 2; 1–12 rep sets for the e1RM comparison). */
 export function setDipped(set: { weight_lb: number | string | null; reps: number | null }, ref: { weight_lb: number | string | null; reps: number | null }): boolean {
   const w = num(set.weight_lb);
   const r = num(set.reps);
   const rw = num(ref.weight_lb);
   const rr = num(ref.reps);
   if (!(rw > 0) || !(rr > 0) || !(r > 0)) return false;
-  if (w >= rw - 0.1) return r <= rr - OVERLAP.repDrop;
+  // the same load: 2+ fewer reps; a different load (lighter, or heavier with fewer reps): e1RM down 3%+
+  if (Math.abs(w - rw) <= 0.1) return r <= rr - OVERLAP.repDrop;
   const a = e1rm(w, r);
   const b = e1rm(rw, rr);
   return a != null && b != null && a <= b * (1 - OVERLAP.e1rmDropPct);
@@ -194,10 +198,10 @@ export function overlapInSession({
   if (!template || !overlapApplies(template, yesterday)) return null;
   const l = overlapLifts(template);
   const when = yesterday ? dayName(yesterday.session.local_date) : "yesterday";
-  const open = (slug: string) => sets.filter((s) => s.exercise_slug === slug && isWork(s) && !s.completed).length;
-  const total = (slug: string) => sets.filter((s) => s.exercise_slug === slug && isWork(s)).length;
+  const open = (slug: string) => sets.filter((s) => s.exercise_slug === slug && isWorkingRow(s) && !s.completed).length;
+  const total = (slug: string) => sets.filter((s) => s.exercise_slug === slug && isWorkingRow(s)).length;
   const canDrop = (slug: string) => open(slug) > 0 && total(slug) > 1;
-  const started = (slug: string) => sets.some((s) => s.exercise_slug === slug && isWork(s) && s.completed);
+  const started = (slug: string) => sets.some((s) => s.exercise_slug === slug && isWorkingRow(s) && s.completed);
 
   const checks: { muscle: "triceps" | "biceps"; lift: TemplateExercise | null; acc: TemplateExercise | null }[] = [
     { muscle: "triceps", lift: l.press, acc: l.pressAccessory },

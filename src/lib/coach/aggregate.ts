@@ -4,7 +4,7 @@
 import { addDays, daysBetween, type ISODate } from "@/lib/dates";
 import { getExercise } from "@/lib/training/library";
 import { resolvePlanKey, scheduleFor } from "@/lib/training/programs";
-import type { MuscleGroup, ProgramId } from "@/lib/training/types";
+import type { ProgramId } from "@/lib/training/types";
 import { round } from "@/lib/units";
 
 /* ------------------------------------------------------------------ lifts */
@@ -136,87 +136,6 @@ export function describeSets(sets: HistorySet[], fmtLoad: (lb: number) => string
       return w && w > 0 ? `${fmtLoad(w)}×${work}` : `BW×${work}`;
     })
     .join(", ");
-}
-
-/* --------------------------------------------------------- muscle volume */
-
-/** Muscles the program trains — reported even at 0 sets so gaps are visible. */
-export const TRACKED_MUSCLES: MuscleGroup[] = [
-  "chest",
-  "upper_chest",
-  "front_delts",
-  "side_delts",
-  "rear_delts",
-  "lats",
-  "upper_back",
-  "traps",
-  "biceps",
-  "brachialis",
-  "forearms",
-  "triceps",
-  "quads",
-  "hamstrings",
-  "glutes",
-  "calves",
-  "abs",
-];
-
-export const MUSCLE_LABEL: Record<MuscleGroup, string> = {
-  chest: "Chest",
-  upper_chest: "Upper chest",
-  front_delts: "Front delts",
-  side_delts: "Side delts",
-  rear_delts: "Rear delts",
-  lats: "Lats",
-  upper_back: "Upper back",
-  traps: "Traps",
-  lower_back: "Lower back",
-  biceps: "Biceps",
-  brachialis: "Brachialis",
-  forearms: "Forearms",
-  triceps: "Triceps",
-  quads: "Quads",
-  hamstrings: "Hamstrings",
-  glutes: "Glutes",
-  adductors: "Adductors",
-  calves: "Calves",
-  abs: "Abs",
-  obliques: "Obliques",
-  grip: "Grip",
-  full_body: "Full body",
-};
-
-export interface MuscleVolume {
-  muscle: MuscleGroup;
-  sets: number;
-  exercises: string[];
-}
-
-/**
- * Completed working sets per PRIMARY muscle (library primary muscles) between from..to inclusive.
- * Explosive work (jumps) is not hypertrophy volume and is left out.
- */
-export function muscleSets(
-  sets: Pick<HistorySet, "exercise_slug" | "exercise_name" | "local_date">[],
-  from: ISODate,
-  to: ISODate,
-  custom: Record<string, MuscleGroup[]> = {},
-): MuscleVolume[] {
-  const m = new Map<MuscleGroup, { sets: number; ex: Set<string> }>();
-  for (const k of TRACKED_MUSCLES) m.set(k, { sets: 0, ex: new Set() });
-  for (const s of sets) {
-    if (s.local_date < from || s.local_date > to) continue;
-    const lib = getExercise(s.exercise_slug);
-    if (lib?.category === "explosive") continue;
-    const primary = lib?.primary ?? custom[s.exercise_slug] ?? [];
-    for (const g of primary) {
-      if (!m.has(g)) m.set(g, { sets: 0, ex: new Set() });
-      const e = m.get(g)!;
-      e.sets += 1;
-      e.ex.add(s.exercise_name || lib?.name || s.exercise_slug);
-    }
-  }
-  return [...m.entries()].map(([muscle, v]) => ({ muscle, sets: v.sets, exercises: [...v.ex] })).sort((a, b) => b.sets - a.sets);
 }
 
 /* -------------------------------------------------------------- schedule */
