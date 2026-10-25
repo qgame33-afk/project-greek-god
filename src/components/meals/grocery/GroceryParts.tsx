@@ -57,7 +57,11 @@ export const GroceryLineRow = memo(function GroceryLineRow({
           <span className={cn("t-body block [overflow-wrap:anywhere]", on && "text-fg-2 line-through")} data-budget-name="">
             {row.name}
           </span>
-          {buy && <span className="t-cap mt-0.5 block">{buy}</span>}
+          {buy && (
+            <span className="t-cap mt-0.5 block" data-budget-name="">
+              {buy}
+            </span>
+          )}
         </span>
         {amount && <span className={cn("t-body shrink-0 whitespace-nowrap text-right tabular-nums text-fg-2", on && "opacity-70")}>{amount}</span>}
       </button>

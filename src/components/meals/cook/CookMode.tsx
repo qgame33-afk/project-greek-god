@@ -341,6 +341,7 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
                   key={i}
                   title={`${i + 1}. ${kitchenText(st.text)}`}
                   wrap
+                  dataName
                   value={checks.steps.includes(i) ? "Done" : i === index && !finished ? "Now" : undefined}
                   chevron={false}
                   onClick={() => {
