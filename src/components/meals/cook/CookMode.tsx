@@ -280,26 +280,26 @@ function CookView({ recipe, meal, servings }: { recipe: Recipe; meal: PlanMeal |
 
           {/* ---------------------------------------------------------------- bottom */}
           <footer className="@container shrink-0 bg-bg px-gutter pb-[calc(12px+var(--safe-bottom))] pt-3 lg:pb-6">
-            <div className="mx-auto flex max-w-col gap-3">
+            <div className="mx-auto flex max-w-col gap-3 ax:flex-col">
               {atEnd ? (
-                <Button variant="secondary" size="xl" className="shrink-0 basis-[38%]" onClick={next} aria-label={alreadyLogged ? "Done" : "Done without logging"}>
+                <Button variant="secondary" size="xl" className="shrink-0 basis-[38%] ax:order-2 ax:basis-auto" onClick={next} aria-label={alreadyLogged ? "Done" : "Done without logging"}>
                   Done
                 </Button>
               ) : (
-                <Button variant="secondary" size="xl" className="shrink-0 basis-[38%]" onClick={prev} disabled={atStart}>
+                <Button variant="secondary" size="xl" className="shrink-0 basis-[38%] ax:order-2 ax:basis-auto" onClick={prev} disabled={atStart}>
                   Back
                 </Button>
               )}
               {atEnd && alreadyLogged ? (
-                <Button variant="secondary" size="xl" className="flex-1" disabled aria-label="Already in your food log">
+                <Button variant="secondary" size="xl" className="flex-1 ax:flex-none" disabled aria-label="Already in your food log">
                   Eaten
                 </Button>
               ) : atEnd ? (
-                <Button variant="primary" size="xl" className="flex-1" onClick={eatAndFinish} loading={quick.pending} aria-label={`Log ${servingsLabel(servings)} as eaten and finish`}>
+                <Button variant="primary" size="xl" className="flex-1 ax:flex-none" onClick={eatAndFinish} loading={quick.pending} aria-label={`Log ${servingsLabel(servings)} as eaten and finish`}>
                   Log as eaten
                 </Button>
               ) : (
-                <Button variant="primary" size="xl" className="flex-1" onClick={next}>
+                <Button variant="primary" size="xl" className="flex-1 ax:flex-none" onClick={next}>
                   Next step
                 </Button>
               )}

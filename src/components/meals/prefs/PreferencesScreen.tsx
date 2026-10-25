@@ -117,12 +117,12 @@ export function PreferencesScreen() {
       <Tokens keys={prefs.dislikedIngredients} onRemove={(k) => removeFrom("dislikedIngredients", k)} onAdd={() => setPicker("dislikedIngredients")} addLabel="Add an ingredient to never use" />
 
       <ListGroup className="mt-5">
-        <Row title="Allergies" value={allergyNames.length ? allergyNames.join(", ") : "None"} onClick={() => setPanel("allergies")} className="[&_.text-right]:max-w-[55%] [&_.text-right]:truncate" />
-        <Row title="Cooking time" value={timeValue} onClick={() => setPanel("time")} />
-        <Row title="Budget" value={prefs.weeklyBudgetCad ? `${BUDGET_LABEL[prefs.budget]} · $${prefs.weeklyBudgetCad}` : BUDGET_LABEL[prefs.budget]} onClick={() => setPanel("budget")} />
+        <Row title="Allergies" value={allergyNames.length ? allergyNames.join(", ") : "None"} wrap onClick={() => setPanel("allergies")} className="[&_.text-right]:max-w-[55%] [&_.text-right]:truncate" />
+        <Row title="Cooking time" value={timeValue} wrap onClick={() => setPanel("time")} />
+        <Row title="Budget" value={prefs.weeklyBudgetCad ? `${BUDGET_LABEL[prefs.budget]} · $${prefs.weeklyBudgetCad}` : BUDGET_LABEL[prefs.budget]} wrap onClick={() => setPanel("budget")} />
       </ListGroup>
       <ListGroup className="mt-3">
-        <Row title="Snacks a day" value={String(prefs.snacksPerDay)} onClick={() => setPanel("snacks")} />
+        <Row title="Snacks a day" value={String(prefs.snacksPerDay)} wrap onClick={() => setPanel("snacks")} />
         <Row title="Tastes" subtitle="Likes and cuisines" onClick={() => setPanel("tastes")} />
         <Row title="Your kitchen" subtitle="Equipment and what you have" onClick={() => setPanel("kitchen")} />
       </ListGroup>

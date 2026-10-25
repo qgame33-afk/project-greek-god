@@ -62,7 +62,9 @@ function Row({ item, on, onToggle, dense }: { item: ScaledIngredient; on: boolea
         className={cn("press-soft flex w-full items-center gap-3 px-4 text-left", dense ? "min-h-[3.25rem] py-2" : "min-h-14 py-3")}
       >
         <span className="min-w-0 flex-1">
-          <span className={cn("t-body block", on && "text-fg-2 line-through")}>{name1}</span>
+          <span className={cn("t-body block", on && "text-fg-2 line-through")} data-budget-name="">
+            {name1}
+          </span>
           {note && <span className="t-cap mt-0.5 block">{note}</span>}
         </span>
         {amount && <span className={cn("t-body shrink-0 whitespace-nowrap text-right tabular-nums text-fg-2", on && "line-through")}>{amount}</span>}

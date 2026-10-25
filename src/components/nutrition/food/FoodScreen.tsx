@@ -288,7 +288,7 @@ export function FoodScreen() {
           ) : (
             <ListGroup ariaLabel={`${weekSpan(ws)}, day by day`}>
               {week.days.map((d) => (
-                <WeekRow key={d.date} day={d} today={today} selected={d.date === date} onSelect={() => setDate(d.date)} />
+                <WeekRow key={d.date} day={d} today={today} selected={d.date === date} weekPlanned={week.hasPlan} onSelect={() => setDate(d.date)} />
               ))}
             </ListGroup>
           )}
@@ -329,7 +329,7 @@ export function FoodScreen() {
 }
 
 /** One day of "This week": "Mon 19 · Arms · 5 of 5 eaten" (past), "Fri 23 · Chest · 5 meals · 3,399 kcal" (future). */
-function WeekRow({ day, today, selected, onSelect }: { day: FoodWeekDay; today: ISODate; selected: boolean; onSelect: () => void }) {
+function WeekRow({ day, today, selected, weekPlanned, onSelect }: { day: FoodWeekDay; today: ISODate; selected: boolean; weekPlanned: boolean; onSelect: () => void }) {
   const past = day.date < today;
   const isToday = day.date === today;
   const value = day.planned
@@ -338,14 +338,16 @@ function WeekRow({ day, today, selected, onSelect }: { day: FoodWeekDay; today: 
       : `${day.eaten} of ${day.planned} ${isToday ? "so far" : "eaten"}`
     : day.loggedEntries > 0 && (past || isToday)
       ? `${formatInt(day.loggedKcal ?? 0)} kcal eaten`
-      : "Not planned";
+      : weekPlanned
+        ? "Not planned"
+        : "";
   const d = parseISODate(day.date);
   return (
     <button
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      aria-label={`${dayName(day.date)} ${d.getDate()}${isToday ? ", today" : ""}${day.label ? `, ${day.label === "Rest" ? "rest day" : `${day.label} day`}` : ""}, ${value}`}
+      aria-label={`${dayName(day.date)} ${d.getDate()}${isToday ? ", today" : ""}${day.label ? `, ${day.label === "Rest" ? "rest day" : `${day.label} day`}` : ""}${value ? `, ${value}` : ", not planned"}`}
       className={cn("press-soft flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left", selected && "bg-card-3")}
     >
       <span className="t-row w-[4.5rem] shrink-0 tabular-nums">
@@ -353,7 +355,7 @@ function WeekRow({ day, today, selected, onSelect }: { day: FoodWeekDay; today: 
       </span>
       <span className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
         <span className="t-label">{day.label ?? ""}</span>
-        <span className="t-label text-right tabular-nums">{value}</span>
+        {value && <span className="t-label text-right tabular-nums">{value}</span>}
       </span>
       <ChevronRight className="size-5 shrink-0 text-fg-3" strokeWidth={1.9} aria-hidden />
     </button>
@@ -365,7 +367,6 @@ function UnplannedCard({ offset, onPlan, className }: { offset: 0 | 1; onPlan: (
   return (
     <div className={cn("rounded-card bg-surface p-5", className)}>
       <p className="t-row">{offset === 0 ? "This week isn't planned yet" : "Next week isn't planned yet"}</p>
-      <p className="t-label mt-1">Meals sized to your goals, at your times. One tap marks each one eaten.</p>
       <Button variant="primary" size="lg" block className="mt-4" onClick={onPlan}>
         {offset === 0 ? "Plan my week" : "Plan next week"}
       </Button>

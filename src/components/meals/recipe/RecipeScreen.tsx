@@ -317,8 +317,9 @@ function RecipeView({ recipe, meal, weekStart: ws, mealMissing, swappedTo, initi
         />
       )}
 
-      <section className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-4 rounded-card bg-surface py-6 pl-6 pr-4" aria-label="Calories">
-        <button type="button" onClick={() => setDetails(true)} aria-describedby={hintId} className="press-soft min-w-0 flex-1 text-left" aria-label={`${kcalText(macros.kcal)} calories, ${servingsLabel(servings)}`}>
+      <section className="@container mt-5 rounded-card bg-surface py-6 pl-6 pr-4" aria-label="Calories">
+        <div className="flex items-center gap-4 ax:flex-col ax:items-start">
+        <button type="button" onClick={() => setDetails(true)} aria-describedby={hintId} className="press-soft min-w-0 flex-1 text-left ax:w-full" aria-label={`${kcalText(macros.kcal)} calories, ${servingsLabel(servings)}`}>
           <span className="t-hero block" data-derived="">
             {kcalText(macros.kcal)}
           </span>
@@ -331,6 +332,7 @@ function RecipeView({ recipe, meal, weekStart: ws, mealMissing, swappedTo, initi
           </span>
         </button>
         <ServingsStepper value={servings} onChange={setServings} showUnit={false} />
+        </div>
       </section>
       <StatRow className="mt-3">
         <StatCard value={Math.round(macros.protein)} unit="g" label="Protein" />

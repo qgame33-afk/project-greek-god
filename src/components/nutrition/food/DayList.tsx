@@ -23,7 +23,13 @@ export function isAiEntry(e: Pick<FoodEntry, "source" | "confidence">) {
   return e.source === "photo_ai" || e.source === "chat_ai" || (e.confidence === "estimate" && e.source !== "meal_plan" && e.source !== "manual");
 }
 
-/** A folded group's name (a photo scan, a coach meal, a saved meal). */
+/** "Grilled chicken breast, White rice + 2 more": a folded group is named by what is in it. */
+export function groupNames(entries: readonly Pick<FoodEntry, "name">[]): string {
+  const names = entries.map((e) => e.name.trim() || "Food");
+  return names.length <= 2 ? names.join(", ") : `${names.slice(0, 2).join(", ")} + ${names.length - 2} more`;
+}
+
+/** A folded group's kind (a photo scan, a coach meal, a saved meal). */
 export function groupTitle(source: string) {
   if (source === "photo_ai") return "Photo meal";
   if (source === "chat_ai" || source === "assistant_handoff") return "Coach meal";
@@ -176,10 +182,11 @@ export function DayList({
                 <ListItem
                   tile={<MealIcon name={r.entries[0].name} />}
                   caption={<Caption at={r.at} ai={ai} />}
-                  title={`${groupTitle(src)} · ${n} items`}
+                  title={groupNames(r.entries)}
                   subtitle={macroLine(r.totals.kcal, r.totals.protein)}
                   onClick={() => onGroup(r.entries)}
-                  ariaLabel={`${groupTitle(src)}, ${n} items, ${formatClock(r.at)}${ai ? ", AI estimate" : ""}, ${formatInt(r.totals.kcal)} calories. Shows the items`}
+                  dataName
+                  ariaLabel={`${groupTitle(src)}: ${groupNames(r.entries)}, ${n} items, ${formatClock(r.at)}${ai ? ", AI estimate" : ""}, ${formatInt(r.totals.kcal)} calories. Shows the items`}
                 />
               </li>
             );
