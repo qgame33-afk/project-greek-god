@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { CalendarPlus, Check, House, Pencil, Plus, RefreshCw, Share } from "lucide-react";
+import { ChevronLeft, ChevronRight, Ellipsis, PencilLine, Plus, RefreshCw, Share, Wallet } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { weekSpan } from "@/components/meals/week/actions";
 import { useOnline, useRecipePool } from "@/components/meals/shared";
+import { BackHeader } from "@/components/shell/BackHeader";
 import { Button } from "@/components/ui/button";
-import { Segmented } from "@/components/ui/controls";
-import { Meter } from "@/components/ui/meter";
-import { ErrorNote, Skeleton } from "@/components/ui/misc";
-import { Tag } from "@/components/ui/tag";
+import { Pill } from "@/components/ui/controls";
+import { ListGroup, Row } from "@/components/ui/list";
+import { Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
+import { Sheet } from "@/components/ui/sheet";
 import { useToday } from "@/lib/data/core";
 import {
   useAddCustomGroceryItem,
@@ -23,28 +25,20 @@ import {
   useUpdatePlan,
   type GroceryItem,
 } from "@/lib/data/meals";
-import { addDays, shortDate, weekStart } from "@/lib/dates";
+import { addDays, weekStart } from "@/lib/dates";
 import { buildGroceryList, mergeGroceryState, planFrom, toGroceryInput, type GroceryUse } from "@/lib/meals/engine";
 import { useSwapIn } from "@/lib/motion";
-import { AddItemSheet, BudgetSheet, GroceryLineRow, LineSheet, RestoreIcon, SetAsideGroup } from "./GroceryParts";
+import { AddItemSheet, BudgetSheet, GroceryLineRow, LineSheet, SetAsideGroup } from "./GroceryParts";
 import { budgetLines, cad, groceryFrom, groceryText, groceryView, rowTotals, type GroceryRow } from "./model";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
-/** "Oct 13 – 19" (or "Oct 27 – Nov 2"). */
-function weekRange(ws: string, today: string) {
-  const end = addDays(ws, 6);
-  const a = shortDate(ws, today);
-  const b = shortDate(end, today);
-  return a.slice(0, 3) === b.slice(0, 3) ? `${a} – ${b.slice(4)}` : `${a} – ${b}`;
-}
-
 /**
- * The week's grocery list (docs/MEALS.md §5–6): generated from the plan by the engine, stored
- * per plan so ticks survive, grouped by aisle. Check off while shopping, "I have this", remove,
- * add your own items, copy it as clean text, and an optional budget against the estimate.
- * When the plan changes after the list was made, a banner offers to update it (ticks and your
- * own items are kept). `?week=YYYY-MM-DD` picks the week (default: this one).
+ * The grocery list (docs/DESIGN-V3-SIMPLE.md §4.4.5): made from the week's meal plan by the
+ * engine and stored per plan so ticks survive; aisles with a round check per line; a ticked line
+ * dims, strikes through and sinks to the bottom of its aisle. "Copy list" copies the text. The ⋯
+ * holds update from the plan, this week's budget, add an item, edit the list and share. ‹ › (and
+ * `?week=`) change the week. Works offline (the stored list and its ticks).
  */
 export function GroceryScreen() {
   const params = useSearchParams();
@@ -53,7 +47,8 @@ export function GroceryScreen() {
   const thisWeek = weekStart(today);
   const nextWeek = addDays(thisWeek, 7);
   const asked = params.get("week");
-  const ws = asked && ISO.test(asked) ? weekStart(asked) : thisWeek;
+  const askedWs = asked && ISO.test(asked) ? weekStart(asked) : thisWeek;
+  const ws = askedWs > nextWeek ? nextWeek : askedWs;
   const setWeek = (w: string) => {
     const sp = new URLSearchParams(window.location.search);
     if (w === thisWeek) sp.delete("week");
@@ -63,36 +58,14 @@ export function GroceryScreen() {
     window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
   };
   const swapRef = useSwapIn<HTMLDivElement, string>(ws);
-
   return (
-    <div className="@container pb-4">
-      <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
-        <div className="min-w-0">
-          <h1 className="t-title-1 text-ivory">The market</h1>
-          <p className="t-meta mt-1 text-stone">{weekRange(ws, today)}</p>
-        </div>
-        {(ws === thisWeek || ws === nextWeek) && (
-          <Segmented
-            ariaLabel="Week"
-            size="sm"
-            className="w-[13.5rem]"
-            value={ws === thisWeek ? "this" : "next"}
-            onChange={(v) => setWeek(v === "this" ? thisWeek : nextWeek)}
-            options={[
-              { value: "this", label: "This week" },
-              { value: "next", label: "Next week" },
-            ]}
-          />
-        )}
-      </header>
-      <div ref={swapRef} className="mt-5">
-        <WeekList key={ws} ws={ws} today={today} />
-      </div>
+    <div ref={swapRef} className="mx-auto max-w-col">
+      <WeekList key={ws} ws={ws} today={today} onPrev={() => setWeek(addDays(ws, -7))} onNext={ws < nextWeek ? () => setWeek(addDays(ws, 7)) : undefined} />
     </div>
   );
 }
 
-function WeekList({ ws, today }: { ws: string; today: string }) {
+function WeekList({ ws, today, onPrev, onNext }: { ws: string; today: string; onPrev: () => void; onNext?: () => void }) {
   const { plan, meals, loading, error, hasData } = usePlan(ws);
   const grocery = useGroceryItems(plan?.id);
   const pool = useRecipePool();
@@ -106,7 +79,7 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
 
   const ready = hasData && pool.hasData && prefsQ.hasData;
   // The stored list covers the plan days from the day it was made (steady while you shop);
-  // "Update list" makes it again from today, leaving the days already past off.
+  // "Update from the plan" makes it again from today, leaving the days already past off.
   const listFrom = groceryFrom(ws, today, plan?.grocery_generated_at);
   const shopFrom = planFrom(ws, today);
   const build = useCallback(
@@ -166,57 +139,21 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
   const line = lineKey ? (rows.find((r) => r.key === lineKey) ?? null) : null;
   const [addOpen, setAddOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
 
-  if (error || grocery.error) return <ErrorNote>Couldn&apos;t load the list. Check your connection and try again.</ErrorNote>;
-  if (loading || !hasData || (plan && (!grocery.hasData || !pool.hasData))) {
-    // a week never opened on this phone has nothing saved to show offline: say so, never spin
-    if (!online)
-      return (
-        <p role="status" className="t-callout border-y border-vein py-8 text-center text-stone">
-          Offline · this list loads when you&apos;re back online.
-        </p>
-      );
-    return <GrocerySkeleton />;
-  }
-  if (!plan || meals.length === 0) {
-    return (
-      <div className="border-y border-vein px-2 py-9 text-center">
-        <p className="t-title-2 text-ivory">Plan a week to build your list</p>
-        <p className="t-callout mx-auto mt-1.5 max-w-[30ch] text-stone">The market list is made from the week&apos;s meal plan, grouped by aisle.</p>
-        <Button asChild variant="outline" size="md" className="mt-5 rounded-full">
-          <Link href={ws === weekStart(today) ? "/nutrition?tab=week" : "/nutrition?tab=week&week=next"}>
-            <CalendarPlus className="size-[18px]" strokeWidth={1.6} />
-            Plan the week
-          </Link>
-        </Button>
-      </div>
-    );
-  }
-  if (rows.length === 0 && (sync.isPending || (!plan.grocery_generated_at && !!input?.length))) return <GrocerySkeleton label="Making your list" />;
-
-  const set = (r: GroceryItem | { key: string }, values: Parameters<typeof update.mutate>[0]["values"], undo?: boolean) => update.mutate({ planId: plan.id, key: r.key, values, undo });
-  const item = (key: string) => rows.find((r) => r.key === key);
-
-  const share = async () => {
-    const text = groceryText(rows, { title: `Groceries · ${weekRange(plan.week_start, today)}`, totals });
-    // the share sheet on the phone (Messages, Notes); the clipboard where there is none
-    if (typeof navigator.share === "function") {
-      try {
-        await navigator.share({ title: "Groceries", text });
-        return;
-      } catch (e) {
-        if ((e as Error)?.name === "AbortError") return;
-      }
-    }
+  const listReady = !!plan && meals.length > 0 && rows.length > 0;
+  const text = () => groceryText(rows, { title: `Groceries · ${weekSpan(ws)}`, totals });
+  const copy = async () => {
+    if (!listReady) return;
     let ok = false;
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(text());
       ok = true;
     } catch {
       // older iOS / no permission: the classic textarea route
       const ta = document.createElement("textarea");
-      ta.value = text;
+      ta.value = text();
       ta.setAttribute("readonly", "");
       ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
       document.body.appendChild(ta);
@@ -228,170 +165,214 @@ function WeekList({ ws, today }: { ws: string; today: string }) {
       }
       ta.remove();
     }
-    if (ok) {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2200);
-      toast("List copied", { description: "Paste it into Notes or Messages." });
-    } else toast.error("Couldn't copy", { description: "Your browser blocked the clipboard." });
+    if (ok) toast("List copied", { description: "Paste it into Notes or Messages." });
+    else toast.error("Couldn't copy", { description: "Your browser blocked the clipboard." });
   };
-
+  const share = async () => {
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: "Groceries", text: text() });
+        return;
+      } catch (e) {
+        if ((e as Error)?.name === "AbortError") return;
+      }
+    }
+    await copy();
+  };
   const regenerate = () => {
-    if (!freshInput) return;
+    if (!plan || !freshInput) return;
     sync.mutate({ planId: plan.id, items: freshInput });
     toast("List updated", { description: "Your ticks and your own items were kept." });
   };
 
-  const allIn = view.toBuy > 0 && view.inCart === view.toBuy;
   const money = budgetLines(totals);
-  const daysCovered = new Set(meals.filter((m) => m.local_date >= listFrom).map((m) => m.local_date)).size;
+  const summary = listReady ? `${weekSpan(ws)} · ${view.toBuy} ${view.toBuy === 1 ? "item" : "items"} · ${view.inCart} in the cart` : weekSpan(ws);
 
-  const summary = (
-    <section aria-label="Shopping progress">
-      <p className="t-meta text-stone">
-        {view.toBuy} {view.toBuy === 1 ? "item" : "items"} · {daysCovered} {daysCovered === 1 ? "day" : "days"} covered
-      </p>
-      <div className="mt-3 flex items-end justify-between gap-4 @max-[19rem]:flex-wrap">
-        <div>
-          <p className="t-eyebrow">In the cart</p>
-          <p className="mt-1.5 whitespace-nowrap">
-            <span className="t-dial text-ivory">{view.inCart}</span>
-            <span className="t-callout text-stone"> / {view.toBuy}</span>
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="t-eyebrow">At the checkout</p>
-          <p className="mt-1.5 flex items-center justify-end gap-2">
-            <Tag kind="CALC" explain="Built-in rough Canadian shelf prices for each pack you buy (not AI). What's left to buy, before tax." />
-            <span className="t-num-m tnum text-ivory">~{cad(totals.checkoutCad)}</span>
-          </p>
-        </div>
-      </div>
-      <Meter className="mt-4" size="md" tone="ivory" value={view.inCart} target={view.toBuy || 1} label={`${view.inCart} of ${view.toBuy} in the cart`} />
-      <p className="t-meta mt-2 text-stone">{allIn ? "Everything's in the cart." : `${view.toBuy - view.inCart} left to buy`}</p>
-
-      <div className="mt-4 flex items-start justify-between gap-3 border-t border-vein pt-3 @max-[19rem]:flex-col @max-[19rem]:gap-1">
-        <div className="min-w-0">
-          <p className="t-title-3 text-ivory">{money.headline}</p>
-          <p className="t-meta mt-0.5 text-stone">{money.detail}</p>
-          {money.note && <p className="t-meta mt-1 text-stone">{money.note}</p>}
-        </div>
-        <button type="button" onClick={() => setBudgetOpen(true)} className="press t-callout -mr-2 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-field px-2.5 font-semibold text-ivory">
-          <Pencil className="size-3.5" strokeWidth={1.6} aria-hidden />
-          {budget != null && budget > 0 ? "Edit" : "Set budget"}
-        </button>
-      </div>
-    </section>
+  const header = (
+    <BackHeader
+      href="/nutrition"
+      parent="Food"
+      right={
+        <span className="flex items-center gap-2">
+          <Pill onClick={() => void copy()} disabled={!listReady}>
+            Copy list
+          </Pill>
+          {plan && (
+            <button type="button" onClick={() => setMenuOpen(true)} aria-label="More for the grocery list" aria-haspopup="dialog" className="press grid size-11 shrink-0 place-items-center rounded-full bg-control text-fg">
+              <Ellipsis className="size-5" strokeWidth={1.9} />
+            </button>
+          )}
+        </span>
+      }
+      title="Grocery list"
+    />
   );
-
-  const actions = (
-    <div className="grid grid-cols-2 gap-2.5">
-      <Button variant="outline" size="md" className="rounded-full" onClick={share} aria-live="polite">
-        {copied ? <Check className="size-[18px]" strokeWidth={1.6} aria-hidden /> : <Share className="size-[18px]" strokeWidth={1.6} aria-hidden />}
-        {copied ? "Copied" : "Share list"}
-      </Button>
-      <Button variant="outline" size="md" className="rounded-full" onClick={() => setAddOpen(true)}>
-        <Plus className="size-[18px]" strokeWidth={1.6} aria-hidden />
-        Add item
-      </Button>
+  const weekLine = (
+    <div className="mt-1 flex items-center gap-1">
+      <p className="t-label min-w-0 flex-1 tabular-nums" aria-live="polite">
+        {summary}
+      </p>
+      <button type="button" onClick={onPrev} aria-label="Previous week" className="press grid size-11 shrink-0 place-items-center rounded-full text-fg-2 hover:text-fg">
+        <ChevronLeft className="size-5" strokeWidth={1.9} />
+      </button>
+      <button type="button" onClick={onNext} disabled={!onNext} aria-label="Next week" className="press -mr-2 grid size-11 shrink-0 place-items-center rounded-full text-fg-2 hover:text-fg disabled:opacity-30">
+        <ChevronRight className="size-5" strokeWidth={1.9} />
+      </button>
     </div>
   );
 
-  return (
-    <div>
-      <div className="space-y-6">
+  let body: React.ReactNode;
+  if (error || grocery.error) body = <ErrorNote>Couldn&apos;t load the list.</ErrorNote>;
+  else if (loading || !hasData || (plan && (!grocery.hasData || !pool.hasData))) {
+    // a week never opened on this phone has nothing saved to show offline: say so, never spin
+    body = !online ? <Empty title="Offline">This list loads when you&apos;re back online.</Empty> : <GrocerySkeleton />;
+  } else if (!plan || meals.length === 0) {
+    const thisWeek = ws === weekStart(today);
+    body = (
+      <Empty title="Plan a week to make your list">
+        The list is made from the week&apos;s meals, by aisle.
+        <Link href={thisWeek ? "/nutrition?generate=1" : `/nutrition?date=${ws}&generate=1`} className="hit-44 mt-3 block font-semibold text-fg underline underline-offset-4">
+          {thisWeek ? "Plan this week" : "Plan that week"}
+        </Link>
+      </Empty>
+    );
+  } else if (rows.length === 0 && (sync.isPending || (!plan.grocery_generated_at && !!input?.length))) body = <GrocerySkeleton label="Making your list" />;
+  else {
+    const set = (r: GroceryItem | { key: string }, values: Parameters<typeof update.mutate>[0]["values"]) => update.mutate({ planId: plan.id, key: r.key, values });
+    body = (
+      <div className="flex flex-col">
         {changed && diff && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-3 rounded-card bg-m2 px-4 py-3 shadow-[inset_0_0_0_1px_var(--vein-3)]" role="status">
-            <div className="min-w-[min(100%,15rem)] flex-1">
-              <p className="t-title-3 text-ivory">Your plan changed</p>
-              <p className="t-meta text-stone">
-                {[diff.added.length && `${diff.added.length} new`, diff.changed.length && `${diff.changed.length} amounts changed`, diff.dropped.length && `${diff.dropped.length} no longer needed`].filter(Boolean).join(" · ")}
-                . Your ticks and own items stay.
-              </p>
-            </div>
-            <Button variant="secondary" size="sm" className="w-full shrink-0 @min-[22rem]:w-auto" onClick={regenerate} loading={sync.isPending}>
-              <RefreshCw className="size-4" strokeWidth={1.6} />
-              Update list
+          <div className="mt-4 rounded-card bg-surface p-5" role="status">
+            <p className="t-row">Your meal plan changed</p>
+            <p className="t-label mt-1">
+              {[diff.added.length && `${diff.added.length} new`, diff.changed.length && `${diff.changed.length} amounts changed`, diff.dropped.length && `${diff.dropped.length} no longer needed`].filter(Boolean).join(" · ")}. Your ticks and own items stay.
+            </p>
+            <Button variant="secondary" size="md" className="mt-4" onClick={regenerate} loading={sync.isPending}>
+              Update the list
             </Button>
           </div>
         )}
-
-        {summary}
-        {actions}
-
-        {view.groups.length === 0 && view.staples.length === 0 && (
-          <div className="border-y border-vein py-8 text-center">
-            <p className="t-title-2 text-ivory">Nothing left on the list</p>
-            <p className="t-callout mt-1 text-stone">Restore removed items below, or add your own.</p>
+        {editing && (
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-tile-lg bg-surface px-4 py-2">
+            <p className="t-label">Tap ⋯ on a line to remove it or say you have it.</p>
+            <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+              Done
+            </Button>
           </div>
         )}
-
-        {view.groups.map((g) => {
-          const done = g.items.filter((r) => r.checked).length;
-          return (
-            <section key={g.category} aria-labelledby={`aisle-${g.category}`}>
-              <div className="flex min-h-11 items-center justify-between gap-3">
-                <h2 id={`aisle-${g.category}`} className="t-eyebrow">
-                  {g.label}
-                </h2>
-                <span className="t-meta tnum text-stone">
-                  {done}/{g.items.length}
-                </span>
-              </div>
-              <ul className="divide-y divide-vein border-y border-vein">
-                {cartLast(g.items, settling).map((r) => (
-                  <GroceryLineRow key={r.key} row={r} onToggle={toggle} onMore={setLineKey} />
-                ))}
-              </ul>
-            </section>
-          );
-        })}
-
+        {view.groups.length === 0 && view.staples.length === 0 && (
+          <Empty className="mt-4" title="Nothing left on the list">
+            Bring back removed items below, or add your own.
+          </Empty>
+        )}
+        {view.groups.map((g) => (
+          <section key={g.category} aria-labelledby={`aisle-${g.category}`}>
+            <h2 id={`aisle-${g.category}`} className="t-cap mb-2 mt-6 px-1">
+              {g.label}
+            </h2>
+            <ul className="overflow-hidden rounded-tile-lg bg-surface [&>*+*]:border-t [&>*+*]:border-line" data-food="">
+              {cartLast(g.items, settling).map((r) => (
+                <GroceryLineRow key={r.key} row={r} onToggle={toggle} onMore={editing ? setLineKey : undefined} />
+              ))}
+            </ul>
+          </section>
+        ))}
         {view.staples.length > 0 && (
           <section aria-labelledby="aisle-staples">
-            <div className="min-h-11 py-1">
-              <h2 id="aisle-staples" className="t-eyebrow">
-                Check you have
-              </h2>
-              <p className="t-meta mt-1 text-stone">Salt, oil and spices: not counted in the total.</p>
-            </div>
-            <ul className="divide-y divide-vein border-y border-vein">
+            <h2 id="aisle-staples" className="t-cap mb-2 mt-6 px-1">
+              Check you have · not counted in the total
+            </h2>
+            <ul className="overflow-hidden rounded-tile-lg bg-surface [&>*+*]:border-t [&>*+*]:border-line" data-food="">
               {cartLast(view.staples, settling).map((r) => (
-                <GroceryLineRow key={r.key} row={r} staple onToggle={toggle} onMore={setLineKey} />
+                <GroceryLineRow key={r.key} row={r} staple onToggle={toggle} onMore={editing ? setLineKey : undefined} />
               ))}
             </ul>
           </section>
         )}
-
-        <SetAsideGroup title="Already have" rows={view.have} actionLabel="Need it" icon={<House className="size-4" strokeWidth={1.6} aria-hidden />} action={(r) => set(r, { have: false })} />
-        <SetAsideGroup title="Removed" rows={view.removed} actionLabel="Restore" icon={RestoreIcon} action={(r) => set(r, { removed: false })} />
-
+        <ListGroup className="mt-6">
+          <Row icon={Plus} title="Add an item" chevron={false} onClick={() => setAddOpen(true)} />
+        </ListGroup>
+        {(view.have.length > 0 || view.removed.length > 0) && (
+          <ListGroup className="mt-3">
+            <SetAsideGroup title="Already have" rows={view.have} actionLabel="Need it" action={(r) => set(r, { have: false })} />
+            <SetAsideGroup title="Removed" rows={view.removed} actionLabel="Bring back" action={(r) => set(r, { removed: false })} />
+          </ListGroup>
+        )}
         {generated && generated.missing.length > 0 && (
-          <p className="t-meta text-stone">
+          <p className="t-label mt-4 px-1">
             {generated.missing.length === 1 ? "One planned recipe" : `${generated.missing.length} planned recipes`} couldn&apos;t be read, so {generated.missing.length === 1 ? "its" : "their"} ingredients aren&apos;t listed.
           </p>
         )}
       </div>
+    );
+  }
 
-      <LineSheet
-        row={line}
-        uses={line ? (uses.get(line.key) ?? []) : []}
-        onOpenChange={(o) => !o && setLineKey(null)}
-        onCheck={(r) => (set(r, { checked: !r.checked }), setLineKey(null))}
-        onHave={(r) => {
-          set(r, { have: true });
-          setLineKey(null);
-          toast(`${r.name}: you have it`, { duration: 6000, action: { label: "Undo", onClick: () => set(r, { have: false }) } });
-        }}
-        onRemove={(r) => (set(r, { removed: true }), setLineKey(null))}
-        onDelete={(r) => {
-          const full = item(r.key);
-          if (full) del.mutate({ item: full });
-          setLineKey(null);
-        }}
-      />
-      <AddItemSheet open={addOpen} onOpenChange={setAddOpen} onAdd={(v) => addCustom.mutate({ planId: plan.id, id: v.id, name: v.name, label: v.label, category: v.category })} />
-      <BudgetSheet open={budgetOpen} onOpenChange={setBudgetOpen} value={budget} onSave={(v) => updatePlan.mutate({ planId: plan.id, weekStart: plan.week_start, values: { grocery_budget_cad: v } })} />
-    </div>
+  return (
+    <>
+      {header}
+      {weekLine}
+      {body}
+
+      {plan && (
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen} title="Grocery list" description={weekSpan(ws)}>
+          <div className="pb-2">
+            <ListGroup>
+              <Row
+                icon={RefreshCw}
+                title="Update from the plan"
+                subtitle={changed ? "Your meal plan changed since the list was made" : "Keeps your ticks and your own items"}
+                chevron={false}
+                onClick={() => {
+                  setMenuOpen(false);
+                  regenerate();
+                }}
+              />
+              <Row
+                icon={Wallet}
+                title="Budget"
+                subtitle={`${money.headline} · about ${cad(totals.checkoutCad)} at the checkout`}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setBudgetOpen(true);
+                }}
+              />
+              <Row icon={Plus} title="Add an item" chevron={false} onClick={() => (setMenuOpen(false), setAddOpen(true))} />
+              <Row icon={PencilLine} title={editing ? "Done editing" : "Edit the list"} subtitle="Remove lines or mark what you have" chevron={false} onClick={() => (setMenuOpen(false), setEditing((e) => !e))} />
+              <Row icon={Share} title="Share list" chevron={false} onClick={() => (setMenuOpen(false), void share())} />
+            </ListGroup>
+          </div>
+        </Sheet>
+      )}
+      {plan && (
+        <>
+          <LineSheet
+            row={line}
+            uses={line ? (uses.get(line.key) ?? []) : []}
+            onOpenChange={(o) => !o && setLineKey(null)}
+            onCheck={(r) => (update.mutate({ planId: plan.id, key: r.key, values: { checked: !r.checked } }), setLineKey(null))}
+            onHave={(r) => {
+              update.mutate({ planId: plan.id, key: r.key, values: { have: true } });
+              setLineKey(null);
+              toast(`${r.name}: you have it`, { duration: 6000, action: { label: "Undo", onClick: () => update.mutate({ planId: plan.id, key: r.key, values: { have: false } }) } });
+            }}
+            onRemove={(r) => (update.mutate({ planId: plan.id, key: r.key, values: { removed: true } }), setLineKey(null))}
+            onDelete={(r) => {
+              const full = rows.find((x) => x.key === r.key);
+              if (full) del.mutate({ item: full });
+              setLineKey(null);
+            }}
+          />
+          <AddItemSheet open={addOpen} onOpenChange={setAddOpen} onAdd={(v) => addCustom.mutate({ planId: plan.id, id: v.id, name: v.name, label: v.label, category: v.category })} />
+          <BudgetSheet
+            open={budgetOpen}
+            onOpenChange={setBudgetOpen}
+            value={budget}
+            totals={totals}
+            onSave={(v) => updatePlan.mutate({ planId: plan.id, weekStart: plan.week_start, values: { grocery_budget_cad: v } })}
+          />
+        </>
+      )}
+    </>
   );
 }
 
@@ -405,10 +386,11 @@ function cartLast(items: GroceryRow[], settling: ReadonlySet<string>): GroceryRo
 
 export function GrocerySkeleton({ label = "Loading the list" }: { label?: string }) {
   return (
-    <div aria-busy="true" aria-label={label} className="space-y-5">
-      <Skeleton className="h-36 w-full rounded-card" />
-      <Skeleton className="h-11 w-full rounded-full" />
-      <Skeleton className="h-60 w-full rounded-card" />
+    <div aria-busy="true" aria-label={label} className="mt-6 flex flex-col gap-3">
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="h-64 w-full rounded-tile-lg" />
+      <Skeleton className="h-4 w-28" />
+      <Skeleton className="h-40 w-full rounded-tile-lg" />
     </div>
   );
 }

@@ -1,28 +1,29 @@
 "use client";
 
-import { Check, ChevronDown, Ellipsis, House, RotateCcw, Trash, Undo2, X } from "lucide-react";
-import { memo, useRef, useState, type ReactNode } from "react";
+import { Check, ChevronDown, Ellipsis, House, RotateCcw, Trash, X } from "lucide-react";
+import { memo, useRef, useState } from "react";
 import { SubLabel } from "@/components/nutrition/bits";
 import { useFocusIntoSheet } from "@/components/nutrition/hooks";
-import { Tag } from "@/components/ui/tag";
 import { Button } from "@/components/ui/button";
+import { ListGroup, Row } from "@/components/ui/list";
 import { Chip } from "@/components/ui/controls";
 import { Field, Input, NumberInput } from "@/components/ui/field";
 import { Collapse } from "@/components/ui/misc";
 import { Sheet, SheetFooterBar } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { newId } from "@/lib/data/core";
-import type { GroceryUse } from "@/lib/meals/engine";
+import type { GroceryTotals, GroceryUse } from "@/lib/meals/engine";
 import { GROCERY_CATEGORY_LABEL, type GroceryCategory } from "@/lib/meals/types";
 import { parseNumber } from "../log/draft";
-import { cad, rowAmount, rowBuy, type GroceryRow } from "./model";
+import { budgetLines, cad, rowAmount, rowBuy, type GroceryRow } from "./model";
 
 /* ------------------------------------------------------------------ rows */
 
 /**
- * One line of the list (56 px). The whole row ticks it into the cart with a 44 px check, at arm's
- * length in a store aisle; ticked lines strike through in ivory (shopping is not an achievement,
- * so no gold). The ⋯ button holds "I have this", Remove and what it's for.
+ * One line of the list (docs/DESIGN-V3-SIMPLE.md §4.4.5): a 28 px circle, the name and the
+ * quantity on the right. The whole row ticks it into the cart, at arm's length in a store aisle;
+ * a ticked line dims and strikes through (shopping is not a win, so no gold). While editing, a
+ * ⋯ on the line holds "I have this", Remove and what it's for.
  */
 export const GroceryLineRow = memo(function GroceryLineRow({
   row,
@@ -33,67 +34,61 @@ export const GroceryLineRow = memo(function GroceryLineRow({
   row: GroceryRow;
   /** Stable across renders (memoised rows): ticking one line re-renders only that line. */
   onToggle: (row: GroceryRow) => void;
-  onMore: (key: string) => void;
+  onMore?: (key: string) => void;
   staple?: boolean;
 }) {
-  const amount = rowAmount(row);
-  const buy = rowBuy(row);
+  const amount = staple ? "" : rowAmount(row);
+  const buy = staple ? null : rowBuy(row);
   const on = row.checked;
-  const detail = staple ? null : [amount, buy].filter(Boolean).join(" · ");
   return (
     <li className="flex items-stretch">
       <button
         type="button"
         role="checkbox"
         aria-checked={on}
+        aria-label={`${row.name}${amount ? `, ${amount}` : ""}${buy ? `, ${buy}` : ""}`}
         onClick={() => onToggle(row)}
-        className="press-soft group flex min-h-14 min-w-0 flex-1 items-center gap-3 py-1.5 text-left"
+        className="press-soft flex min-h-14 min-w-0 flex-1 items-center gap-3.5 py-2 pl-4 pr-4 text-left"
       >
-        <span aria-hidden className="grid size-11 shrink-0 place-items-center">
-          <span
-            className={cn(
-              "grid size-[1.625rem] place-items-center rounded-full transition-[background-color,box-shadow] duration-(--dur-fast)",
-              on ? "bg-ivory" : "shadow-[inset_0_0_0_1.5px_var(--ui-line)] group-hover:shadow-[inset_0_0_0_1.5px_var(--stone)]",
-            )}
-          >
-            <Check className={cn("size-4 text-ink transition-[scale,opacity] duration-(--dur-base) ease-pop", on ? "scale-100 opacity-100" : "scale-50 opacity-0")} strokeWidth={2.6} />
-          </span>
+        <span aria-hidden className={cn("grid size-7 shrink-0 place-items-center rounded-full", on ? "bg-fg text-bg" : "border-2 border-ui-line")}>
+          {on && <Check className="size-4" strokeWidth={2.6} />}
         </span>
         <span className="min-w-0 flex-1">
-          <span className={cn("t-title-3 block transition-colors duration-(--dur-fast) [overflow-wrap:anywhere]", on ? "text-stone line-through decoration-ivory" : "text-ivory")}>{row.name}</span>
-          {detail && <span className="t-meta mt-0.5 block text-stone">{detail}</span>}
+          <span className={cn("t-body block [overflow-wrap:anywhere]", on && "text-fg-2 line-through")}>{row.name}</span>
+          {buy && <span className="t-cap mt-0.5 block">{buy}</span>}
         </span>
+        {amount && <span className={cn("t-body shrink-0 whitespace-nowrap text-right tabular-nums text-fg-2", on && "opacity-70")}>{amount}</span>}
       </button>
-      <button type="button" onClick={() => onMore(row.key)} aria-label={`More for ${row.name}`} className="press -mr-2 grid w-11 shrink-0 place-items-center text-stone hover:text-ivory">
-        <Ellipsis className="size-5" strokeWidth={1.6} aria-hidden />
-      </button>
+      {onMore && (
+        <button type="button" onClick={() => onMore(row.key)} aria-label={`More for ${row.name}`} className="press grid w-12 shrink-0 place-items-center text-fg-2 hover:text-fg">
+          <Ellipsis className="size-5" strokeWidth={1.9} aria-hidden />
+        </button>
+      )}
     </li>
   );
 });
 
-/** A quiet group (Already have, Removed): collapsed by default, each line one tap from coming back. */
-export function SetAsideGroup({ title, rows, action, actionLabel, icon }: { title: string; rows: GroceryRow[]; action: (r: GroceryRow) => void; actionLabel: string; icon: ReactNode }) {
+/** A quiet group (Already have, Removed) inside a list group: collapsed, each line one tap from coming back. */
+export function SetAsideGroup({ title, rows, action, actionLabel }: { title: string; rows: GroceryRow[]; action: (r: GroceryRow) => void; actionLabel: string }) {
   const [open, setOpen] = useState(false);
   if (!rows.length) return null;
   const id = `aside-${title.replace(/\W+/g, "-").toLowerCase()}`;
   return (
-    <section className="border-y border-vein">
-      <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)} className="press-soft flex min-h-14 w-full items-center gap-3 text-left">
-        <span className="t-title-3 min-w-0 flex-1 text-stone">
-          {title} <span className="tnum">· {rows.length}</span>
-        </span>
-        <ChevronDown className={cn("size-4 text-ash transition-[rotate] duration-(--dur-base) ease-out", open && "rotate-180")} strokeWidth={1.6} aria-hidden />
+    <section>
+      <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)} className="press-soft flex min-h-14 w-full items-center gap-3 px-4 text-left">
+        <span className="t-row min-w-0 flex-1">{title}</span>
+        <span className="t-body tabular-nums text-fg-2">{rows.length}</span>
+        <ChevronDown className={cn("size-5 text-fg-3 transition-[rotate] duration-(--dur-base) ease-out", open && "rotate-180")} strokeWidth={1.9} aria-hidden />
       </button>
       <Collapse open={open} id={id}>
-        <ul className="divide-y divide-vein border-t border-vein">
+        <ul className="border-t border-line [&>*+*]:border-t [&>*+*]:border-line" data-food="">
           {rows.map((r) => (
-            <li key={r.key} className="flex min-h-14 items-center gap-3 py-2">
+            <li key={r.key} className="flex min-h-14 items-center gap-3 py-2 pl-4 pr-2">
               <span className="min-w-0 flex-1">
-                <span className="t-callout block truncate text-stone">{r.name}</span>
-                {rowAmount(r) && <span className="t-meta block truncate text-stone">{rowAmount(r)}</span>}
+                <span className="t-body block truncate text-fg-2">{r.name}</span>
+                {rowAmount(r) && <span className="t-cap block truncate">{rowAmount(r)}</span>}
               </span>
-              <button type="button" onClick={() => action(r)} className="press t-callout -mr-2 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-field px-3 font-semibold text-ivory">
-                {icon}
+              <button type="button" onClick={() => action(r)} className="press t-label hit-44 inline-flex h-9 shrink-0 items-center rounded-pill bg-control px-3.5 font-semibold text-fg">
                 {actionLabel}
               </button>
             </li>
@@ -129,52 +124,34 @@ export function LineSheet({
   return (
     <Sheet open={!!row} onOpenChange={onOpenChange} title={row?.name ?? "Item"} description={[amount, buy].filter(Boolean).join(" · ") || undefined}>
       {row && (
-        <div className="space-y-5 pb-2">
+        <div className="flex flex-col gap-4 pb-2">
           {cost && (
-            <p className="t-callout flex flex-wrap items-center gap-2 text-stone">
-              <span>
-                About <span className="tnum font-semibold text-ivory">{cost}</span> at the store
-              </span>
-              <Tag kind="CALC" explain="Built-in rough Canadian shelf price for the pack (not AI)." />
+            <p className="t-body text-fg-2">
+              About <span className="font-semibold text-fg tabular-nums">{cost}</span> at the store. A rough Canadian shelf price for the pack, built in (not AI).
             </p>
           )}
           {uses.length > 0 && (
-            <div>
-              <SubLabel>For this week&apos;s meals</SubLabel>
-              <ul className="space-y-1.5">
+            <section aria-label="For this week's meals">
+              <p className="t-label mb-2 px-1">For this week&apos;s meals</p>
+              <ListGroup>
                 {uses.map((u) => (
-                  <li key={u.recipe_key} className="t-callout flex items-baseline justify-between gap-3">
-                    <span className="min-w-0 truncate text-ivory">{u.name}</span>
-                    <span className="tnum shrink-0 text-stone">{Math.round(u.grams)} g</span>
-                  </li>
+                  <Row key={u.recipe_key} title={u.name} value={`${Math.round(u.grams)} g`} dataName />
                 ))}
-              </ul>
-            </div>
+              </ListGroup>
+            </section>
           )}
-          <div className="grid gap-2">
-            <ActionRow icon={<Check className="size-5" aria-hidden />} label={row.checked ? "Take out of the cart" : "Put in the cart"} onClick={() => onCheck(row)} />
-            <ActionRow icon={<House className="size-5" aria-hidden />} label="I have this" hint="Moves it out of what to buy" onClick={() => onHave(row)} />
+          <ListGroup>
+            <Row icon={Check} title={row.checked ? "Take out of the cart" : "Put in the cart"} chevron={false} onClick={() => onCheck(row)} />
+            <Row icon={House} title="I have this" subtitle="Moves it out of what to buy" chevron={false} onClick={() => onHave(row)} />
             {row.custom ? (
-              <ActionRow icon={<Trash className="size-5" aria-hidden />} label="Delete" hint="Your own item" onClick={() => onDelete(row)} tone="danger" />
+              <Row icon={Trash} title="Delete" subtitle="Your own item" danger chevron={false} onClick={() => onDelete(row)} />
             ) : (
-              <ActionRow icon={<X className="size-5" aria-hidden />} label="Remove from list" hint="Comes back if you restore it" onClick={() => onRemove(row)} />
+              <Row icon={X} title="Remove from the list" subtitle="You can bring it back" chevron={false} onClick={() => onRemove(row)} />
             )}
-          </div>
+          </ListGroup>
         </div>
       )}
     </Sheet>
-  );
-}
-
-function ActionRow({ icon, label, hint, onClick, tone }: { icon: ReactNode; label: string; hint?: string; onClick: () => void; tone?: "danger" }) {
-  return (
-    <button type="button" onClick={onClick} className="press-soft flex min-h-14 w-full items-center gap-3.5 rounded-btn bg-m3 px-4 py-2.5 text-left shadow-[inset_0_0_0_1px_var(--vein-2)] hover:bg-m4">
-      <span className={cn("shrink-0", tone === "danger" ? "text-cinnabar" : "text-stone")}>{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className={cn("t-title-3 block", tone === "danger" ? "text-cinnabar" : "text-ivory")}>{label}</span>
-        {hint && <span className="t-meta block text-stone">{hint}</span>}
-      </span>
-    </button>
   );
 }
 
@@ -254,7 +231,7 @@ function AddItemForm({ onAdd }: { onAdd: (v: NewGroceryItem) => void }) {
 
 /* ------------------------------------------------------------------ budget */
 
-export function BudgetSheet({ open, onOpenChange, value, onSave }: { open: boolean; onOpenChange: (o: boolean) => void; value: number | null; onSave: (v: number | null) => void }) {
+export function BudgetSheet({ open, onOpenChange, value, totals, onSave }: { open: boolean; onOpenChange: (o: boolean) => void; value: number | null; totals?: GroceryTotals; onSave: (v: number | null) => void }) {
   const [nonce, setNonce] = useState(0);
   const [was, setWas] = useState(open);
   if (open !== was) {
@@ -262,9 +239,25 @@ export function BudgetSheet({ open, onOpenChange, value, onSave }: { open: boole
     if (open) setNonce((n) => n + 1);
   }
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title="Weekly budget" description="Compared with what you pay at the checkout">
+    <Sheet open={open} onOpenChange={onOpenChange} title="This week's budget" description="Compared with what you pay at the checkout">
+      {totals && <BudgetSummary totals={totals} />}
       <BudgetForm key={nonce} value={value} onSave={(v) => (onSave(v), onOpenChange(false))} />
     </Sheet>
+  );
+}
+
+function BudgetSummary({ totals }: { totals: GroceryTotals }) {
+  const money = budgetLines(totals);
+  return (
+    <div className="mb-5 flex flex-col gap-3">
+      <ListGroup>
+        <Row title="At the checkout" subtitle="What's left to buy, before tax" value={<span data-derived="">about {cad(totals.checkoutCad)}</span>} />
+        <Row title={money.headline} subtitle={money.detail} />
+      </ListGroup>
+      <p className="t-label px-1" data-how="" data-budget-group="">
+        Rough Canadian shelf prices for each pack you buy, built in (not AI).{money.note ? ` ${money.note}` : ""}
+      </p>
+    </div>
   );
 }
 
@@ -301,4 +294,3 @@ function BudgetForm({ value, onSave }: { value: number | null; onSave: (v: numbe
   );
 }
 
-export const RestoreIcon = <Undo2 className="size-4" aria-hidden />;
