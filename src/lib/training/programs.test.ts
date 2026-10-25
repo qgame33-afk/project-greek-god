@@ -36,7 +36,7 @@ const SPEC = [
       { slug: "reverse-pec-deck", name: "Reverse Pec Deck", sets: 3, repLow: 12, repHigh: 20, unit: "reps", rir: "0–2", rest: 60, optional: false },
       { slug: "preacher-curl", name: "EZ-Bar Preacher Curls", sets: 3, repLow: 8, repHigh: 12, unit: "reps", rir: "0–2", rest: 90, optional: false },
       { slug: "overhead-cable-triceps-extension", name: "Overhead Cable Triceps Extensions", sets: 3, repLow: 10, repHigh: 15, unit: "reps", rir: "0–2", rest: 90, optional: false },
-      { slug: "incline-db-curl", name: "Incline Dumbbell Curls", sets: 2, repLow: 10, repHigh: 15, unit: "reps", rir: "0–2", rest: 75, optional: false },
+      { slug: "incline-db-curl", name: "Incline Dumbbell Curls", sets: 2, repLow: 10, repHigh: 15, unit: "reps", rir: "0", rest: 75, optional: false },
       { slug: "rope-triceps-pushdown", name: "Rope Triceps Pushdowns", sets: 2, repLow: 10, repHigh: 15, unit: "reps", rir: "0–2", rest: 60, optional: false },
     ],
   },

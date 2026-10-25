@@ -135,7 +135,7 @@ Warm-up (`warmup`, in order):
 | 3 | Reverse Pec Deck | `reverse-pec-deck` | 3 | 12–20 (`reps`) | 0–2 | 60 s | 2 | Arms long, sweep out and back. No shrugging. |
 | 4 | EZ-Bar Preacher Curls | `preacher-curl` | 3 | 8–12 (`reps`) | 0–2 | 90 s | 2 | Control the bottom; stop just short of a hard lockout. |
 | 5 | Overhead Cable Triceps Extensions | `overhead-cable-triceps-extension` | 3 | 10–15 (`reps`) | 0–2 | 90 s | 2 | Deep stretch behind the head, elbows narrow. |
-| 6 | Incline Dumbbell Curls | `incline-db-curl` | 2 | 10–15 (`reps`) | 0–2 | 75 s | 2 | Arms hang straight down; let the long head stretch. |
+| 6 | Incline Dumbbell Curls | `incline-db-curl` | 2 | 10–15 (`reps`) | 0 (to failure, Quinton 25 Oct) | 75 s | 2 | Both sets to failure. Arms hang straight down; let the long head stretch. |
 | 7 | Rope Triceps Pushdowns | `rope-triceps-pushdown` | 2 | 10–15 (`reps`) | 0–2 | 60 s | 2 | Split the rope at the bottom, elbows pinned. |
 
 #### Tuesday — Chest & Back A (`chest_back_a`)

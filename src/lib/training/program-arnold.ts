@@ -43,7 +43,7 @@ export const ARNOLD_TEMPLATES: DayTemplate[] = [
       ex("reverse-pec-deck", "Reverse Pec Deck", 3, 12, 20, "reps", ISO, 60, "Arms long, sweep out and back. No shrugging."),
       ex("preacher-curl", "EZ-Bar Preacher Curls", 3, 8, 12, "reps", ISO, 90, "Control the bottom; stop just short of a hard lockout."),
       ex("overhead-cable-triceps-extension", "Overhead Cable Triceps Extensions", 3, 10, 15, "reps", ISO, 90, "Deep stretch behind the head, elbows narrow."),
-      ex("incline-db-curl", "Incline Dumbbell Curls", 2, 10, 15, "reps", ISO, 75, "Arms hang straight down; let the long head stretch."),
+      ex("incline-db-curl", "Incline Dumbbell Curls", 2, 10, 15, "reps", "0", 75, "Both sets to failure. Arms hang straight down; let the long head stretch."),
       ex("rope-triceps-pushdown", "Rope Triceps Pushdowns", 2, 10, 15, "reps", ISO, 60, "Split the rope at the bottom, elbows pinned."),
     ],
   },
