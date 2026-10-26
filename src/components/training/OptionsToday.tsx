@@ -160,12 +160,10 @@ function overlapReason(a: OverlapAdvice, tomorrow: string | null) {
   return tomorrow ? `${cut} ${tomorrow}` : cut;
 }
 
-/** "Friday is chest and back." when tomorrow is the day the prevention protects. */
+/** "Friday is Chest & Back." — the day the prevention protects. */
 function nextFamilyLine(week: Week, today: ISODate) {
   const t = week.resolve(addDays(today, 1)).template;
-  if (!t) return null;
-  const fam = templateLabels(t).family;
-  return fam === "chest_back" ? `${dayName(addDays(today, 1))} is chest and back.` : null;
+  return t ? `${dayName(addDays(today, 1))} is ${templateLabels(t).short}.` : null;
 }
 
 /** "Your check-in: 4 h of sleep, very sore, very tired. Six days a week isn't a must." */

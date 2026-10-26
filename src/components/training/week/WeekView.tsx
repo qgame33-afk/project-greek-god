@@ -141,7 +141,7 @@ function Hero({ week, options, onOptions }: { week: Week; options: string | null
     return (
       <section aria-labelledby="hero-h" className="rounded-card bg-surface px-[22px] pb-[22px] pt-6">
         <p className="t-label">{active.local_date === today ? caption : `In progress · ${dayName(active.local_date)}`}</p>
-        <h2 id="hero-h" className="t-head mt-1.5 text-balance" data-budget-name="">
+        <h2 id="hero-h" className="t-head mt-1.5" data-budget-name="">
           {active.name}
         </h2>
         <p className="t-label mt-2">In progress · your sets are saved as you go</p>
@@ -161,7 +161,7 @@ function Hero({ week, options, onOptions }: { week: Week; options: string | null
     return (
       <section aria-labelledby="hero-h" className="rounded-card bg-surface px-[22px] pb-[22px] pt-6">
         <p className="t-label">{caption}</p>
-        <h2 id="hero-h" className="t-head mt-1.5 text-balance" data-budget-name="">
+        <h2 id="hero-h" className="t-head mt-1.5" data-budget-name="">
           {done.name}
         </h2>
         <p className="t-label mt-2">{["Done", min ? `${min} min` : null, bests ? plural(bests, "new best") : null].filter(Boolean).join(" · ")}</p>
@@ -176,7 +176,7 @@ function Hero({ week, options, onOptions }: { week: Week; options: string | null
   return (
     <section aria-labelledby="hero-h" className="rounded-card bg-surface px-[22px] pb-[22px] pt-6">
       <p className="t-label">{caption}</p>
-      <h2 id="hero-h" className="t-head mt-1.5 text-balance" data-budget-name="">
+      <h2 id="hero-h" className="t-head mt-1.5" data-budget-name="">
         {t.name}
       </h2>
       <p className="t-label mt-2">{stats}</p>

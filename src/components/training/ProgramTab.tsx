@@ -15,11 +15,12 @@ import { useSavePrefs } from "@/lib/data/profile";
 import { useActiveProgram, useSetProgram } from "@/lib/data/program";
 import { scheduleOf, useActiveSession } from "@/lib/data/training";
 import { effectiveTrainAt, formatClock, isTime, parseAppPrefs, toMinutes } from "@/lib/prefs";
-import { PROGRAM_IDS, PROGRAMS } from "@/lib/training/programs";
+import { PROGRAM_IDS, PROGRAMS, templateDef, templateLabels } from "@/lib/training/programs";
 import type { Mode } from "@/lib/training/progression";
 import { scheduleIssues } from "@/lib/training/schedule";
 import type { ProgramId } from "@/lib/training/types";
 import { MODE_LABEL, offlineNoChange, useSaveSchedule, useSetTrainingMode, type useTrainingWeek } from "./hooks";
+import { programInSentence } from "./format";
 import { Caption, CheckedList, SheetActions, SheetReason } from "./parts";
 import { useDragReorder } from "./useDragReorder";
 
@@ -36,9 +37,6 @@ const DAYS = [
   { wd: 0, short: "Sun", long: "Sunday" },
 ];
 
-/** "the Arnold split" / "Push/Pull/Legs": a program's name as it reads inside a sentence. */
-export const programInSentence = (id: ProgramId) => (/split$/i.test(PROGRAMS[id].name) ? `the ${PROGRAMS[id].name}` : PROGRAMS[id].name);
-
 const MODES: { value: Mode; sub: string }[] = [
   { value: "standard", sub: "The full plan" },
   { value: "intro", sub: "One set fewer on most lifts, same weights" },
@@ -46,8 +44,8 @@ const MODES: { value: Mode; sub: string }[] = [
 ];
 
 /**
- * Train › Program (docs/DESIGN-V3-SIMPLE.md §4.3.5, `train-program`): the plan (Arnold split or
- * Push/Pull/Legs, from `PROGRAMS`), his week with "Change order", how hard (Normal · Fewer sets ·
+ * Train › Program (docs/DESIGN-V3-SIMPLE.md §4.3.5, `train-program`): the plan (every program in
+ * `PROGRAMS`; the active one selected, the others saved with his changes), his week with "Change order", how hard (Normal · Fewer sets ·
  * Light week), the usual training time and "How the plan works". Every name comes from data.
  */
 export function ProgramTab({ week }: { week: Week }) {
@@ -66,6 +64,8 @@ export function ProgramTab({ week }: { week: Week }) {
   const prefs = parseAppPrefs(week.profile?.prefs);
   const trainAt = effectiveTrainAt(prefs, week.profile?.reminders);
   const trainDays = (id: ProgramId) => Object.values(PROGRAMS[id].schedule).filter((k) => k !== "rest").length;
+  /** "Arms · Chest · Legs": the program's days in weekday order, by their short labels. */
+  const shape = (id: ProgramId) => [...new Set(DAYS.map(({ wd }) => String(PROGRAMS[id].schedule[String(wd)] ?? "rest")).filter((k) => k !== "rest").map((k) => templateLabels(byKey[k] ?? templateDef(k) ?? { key: k, name: k }).abbr))].join(" · ");
 
   const issueLine = [
     ...issues.missing.map((k) => `${name(k)} isn't in your week.`),
@@ -82,7 +82,7 @@ export function ProgramTab({ week }: { week: Week }) {
           <RadioRow
             key={id}
             title={PROGRAMS[id].name}
-            subtitle={`${trainDays(id)} days · ${id === program ? (id === "arnold" ? "shoulders and arms first" : "push, pull and legs") : "saved with your changes"}`}
+            subtitle={`${trainDays(id)} days · ${id === program ? shape(id) : "saved with your changes"}`}
             checked={id === program}
             onSelect={() => id !== program && setSwitchTo(id)}
           />

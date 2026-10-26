@@ -8,13 +8,16 @@ import { Sheet } from "@/components/ui/sheet";
 import { SuggestionRow } from "@/components/ui/suggestion-row";
 import { addDays, dayName, parseISODate, type ISODate } from "@/lib/dates";
 import { useSavePrefs } from "@/lib/data/profile";
+import { useActiveProgram } from "@/lib/data/program";
 import { useSaveTemplate, useTemplates, type StoredTemplate } from "@/lib/data/training";
 import { parseAppPrefs } from "@/lib/prefs";
 import { getExercise } from "@/lib/training/library";
 import { carriedSwaps, PROGRAMS, templateLabels } from "@/lib/training/programs";
 import type { Mode } from "@/lib/training/progression";
+import type { ProgramId } from "@/lib/training/types";
 import { substituteExercise } from "@/lib/training/volume";
 import { GROUP_LABEL, type VolumeSuggestion } from "@/lib/training/volume-zones";
+import { programInSentence } from "../format";
 import { MODE_LABEL, offlineNoChange, useLighterSnooze, useSetTrainingMode, type useTrainingWeek } from "../hooks";
 import { useNewPlanNotice } from "../NewPlanNotice";
 import { Caption, CheckedList, SheetActions, SheetReason } from "../parts";
@@ -29,7 +32,7 @@ type Week = ReturnType<typeof useTrainingWeek>;
  */
 export type TrainSuggestion =
   | { kind: "notice"; icon: LucideIcon; title: string; reason: string }
-  | { kind: "swap"; icon: LucideIcon; title: string; reason: string; swaps: Swap[] }
+  | { kind: "swap"; icon: LucideIcon; title: string; reason: string; swaps: Swap[]; from: ProgramId }
   | { kind: "missed"; icon: LucideIcon; title: string; reason: string; date: ISODate }
   | { kind: "deload" | "lighter" | "standard" | "ease"; icon: LucideIcon; title: string; reason: string; reasons: string[] }
   | { kind: "volume"; icon: LucideIcon; title: string; reason: string; suggestion: VolumeSuggestion };
@@ -56,27 +59,29 @@ export function useTrainSuggestion(week: Week, volume: VolumeSuggestion[]): Trai
   const { all } = useTemplates();
   const prefs = parseAppPrefs(week.profile?.prefs);
   return useMemo(() => {
-    if (notice.show) return { kind: "notice", icon: Info, title: `Your plan is now the ${PROGRAMS.arnold.name}`, reason: "See what changed" };
+    if (notice.show) return { kind: "notice", icon: Info, title: `Your plan is now ${programInSentence(week.program)}`, reason: "See what changed" };
 
-    if (!prefs.swapsOffered && week.program === "arnold") {
-      const raw = carriedSwaps(all.ppl, all.arnold);
+    // a swap he made in the program he came from, offered once in the active one (§3.7)
+    const from = prefs.programSwitch?.from as ProgramId | undefined;
+    if (!prefs.swapsOffered && from && from !== week.program && all[from] && all[week.program]) {
+      const raw = carriedSwaps(all[from], all[week.program]);
       const swaps: Swap[] = raw
         .map((s) => ({
           from: s.from,
           to: s.to,
           fromName: getExercise(s.from)?.name ?? s.from,
           toName: getExercise(s.to)?.name ?? s.to,
-          templates: s.keys.map((k) => all.arnold.find((t) => t.key === k)).filter((t): t is StoredTemplate => !!t),
+          templates: (s.keys as string[]).map((k) => all[week.program].find((t) => t.key === k)).filter((t): t is StoredTemplate => !!t),
         }))
         .filter((s) => s.templates.length && getExercise(s.to));
-      if (swaps.length) return { kind: "swap", icon: Repeat, title: "Use the same swap?", reason: `${swaps[0].toName} instead of ${swaps[0].fromName}`, swaps };
+      if (swaps.length) return { kind: "swap", icon: Repeat, title: "Use the same swap?", reason: `${swaps[0].toName} instead of ${swaps[0].fromName}`, swaps, from };
     }
 
     const missed = week.missed[0];
     if (missed) {
       const t = week.byKey[missed.key];
       const name = t ? templateLabels(t).short : missed.name;
-      const when = missed.date === addDays(week.today, -1) ? "Yesterday's" : `${dayName(missed.date)}'s`;
+      const when = missed.date === addDays(week.today, -1) ? "yesterday's" : `${dayName(missed.date)}'s`;
       return { kind: "missed", icon: CalendarDays, title: `Missed ${when} ${name}`, reason: "Move it or let it go", date: missed.date };
     }
 
@@ -93,7 +98,7 @@ export function useTrainSuggestion(week: Week, volume: VolumeSuggestion[]): Trai
     const v = volume[0];
     if (v) return { kind: "volume", icon: Activity, title: volumeTitle(v), reason: v.reason, suggestion: v };
     return null;
-  }, [notice.show, prefs.swapsOffered, prefs.modeSetAt, week, all, volume]);
+  }, [notice.show, prefs.swapsOffered, prefs.modeSetAt, prefs.programSwitch, week, all, volume]);
 }
 
 const firstReason = (r: string[]) => (r[0] ?? "").replace(/\.$/, "");
@@ -178,14 +183,15 @@ export function SwapCarrySheet({ s, open, onOpenChange }: { s: Extract<TrainSugg
   const save = useSaveTemplate();
   const savePrefs = useSavePrefs({ quiet: true });
   const [busy, setBusy] = useState(false);
-  const arnold = PROGRAMS.arnold.name;
-  const ppl = PROGRAMS.ppl.name;
+  const { program } = useActiveProgram();
+  const target = programInSentence(program);
+  const source = s ? PROGRAMS[s.from].name : "";
   const answered = () => savePrefs.mutate({ swapsOffered: true });
 
   const useIt = async () => {
     if (!s || busy || offlineNoChange("Your workouts")) return;
     setBusy(true);
-    // every Arnold template the swaps touch, changed once with all of its swaps
+    // every active template the swaps touch, changed once with all of its swaps
     const before = new Map<string, StoredTemplate>();
     for (const sw of s.swaps) for (const t of sw.templates) before.set(t.key, t);
     const after = [...before.values()].map((t) => ({
@@ -205,7 +211,7 @@ export function SwapCarrySheet({ s, open, onOpenChange }: { s: Extract<TrainSugg
     answered();
     setBusy(false);
     onOpenChange(false);
-    toast.success(`${s.swaps[0].toName} is in the ${arnold}`, {
+    toast.success(`${s.swaps[0].toName} is in ${target}`, {
       duration: 6000,
       action: {
         label: "Undo",
@@ -224,16 +230,16 @@ export function SwapCarrySheet({ s, open, onOpenChange }: { s: Extract<TrainSugg
       {s && first && (
         <div className="flex flex-col gap-5 pb-2">
           <SheetReason>
-            In {ppl} you do {first.toName} instead of {first.fromName}.
+            In {source} you do {first.toName} instead of {first.fromName}.
             {s.swaps.length > 1 ? ` And ${s.swaps.slice(1).map((x) => `${x.toName} instead of ${x.fromName}`).join(", ")}.` : ""}
           </SheetReason>
           <CheckedList
             lines={s.swaps.flatMap((sw) => sw.templates.map((t) => ({ title: t.name, subtitle: `${sw.fromName} → ${sw.toName}`, dataName: true })))}
-            label={`What changes in the ${arnold}`}
+            label={`What changes in ${target}`}
           />
           <SheetActions>
             <Button variant="primary" size="lg" block loading={busy} onClick={useIt}>
-              Use it in the {arnold}
+              Use it in {target}
             </Button>
             <Button
               variant="secondary"
@@ -245,7 +251,7 @@ export function SwapCarrySheet({ s, open, onOpenChange }: { s: Extract<TrainSugg
                 onOpenChange(false);
               }}
             >
-              Keep Arnold&apos;s
+              Keep as it is
             </Button>
           </SheetActions>
         </div>
