@@ -206,14 +206,14 @@ export function WorkoutDoneCard({ m }: { m: NowModel }) {
     <Link
       href={`/workout/${s.id}`}
       aria-label={`Workout done, ${s.name}: ${parts}${best ? `, ${best}` : ""}. Opens the summary`}
-      className="press-soft flex min-h-[76px] items-center gap-3.5 rounded-card bg-surface p-4"
+      className="press-soft @container flex min-h-[76px] items-center gap-3.5 rounded-card bg-surface p-4"
     >
       <span aria-hidden className="grid size-[52px] shrink-0 place-items-center rounded-tile bg-control text-fg">
         <Check className="size-6" strokeWidth={1.9} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="t-row block">Workout done</span>
-        <span className="t-label mt-[3px] block truncate">
+        <span className="t-label mt-[3px] block truncate ax:whitespace-normal">
           {parts}
           {best && (
             <>

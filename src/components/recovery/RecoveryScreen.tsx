@@ -199,7 +199,7 @@ function CheckIns() {
             <div className="min-w-0">
               <p className="t-cap">{caption}</p>
               {checked && word ? (
-                <button type="button" onClick={() => setWhy(true)} aria-describedby="why-hint" className="press-soft mt-0.5 flex items-center gap-1 text-left">
+                <button type="button" onClick={() => setWhy(true)} aria-describedby="why-hint" className="press-soft mt-0.5 flex min-h-11 items-center gap-1 text-left">
                   <span className="t-head" data-derived="">
                     {word}
                   </span>
@@ -254,10 +254,6 @@ function CheckIns() {
             today={today}
             selected={date}
             sleepGoal={Number(profile.sleep_goal_h)}
-            onOpenDay={(d) => {
-              setPanel(null);
-              selectDay(d);
-            }}
           />
           <ListGroup className="mt-5">
             <Row

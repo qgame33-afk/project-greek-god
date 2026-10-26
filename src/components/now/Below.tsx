@@ -112,7 +112,7 @@ export function TodayRows({ m, guidance, onCheckin }: { m: NowModel; guidance: G
           icon={GlassWater}
           title={
             <>
-              Water <span className="font-normal text-fg-2 tabular-nums">{litres(m.waterMl)}{goalMl ? ` of ${litres(goalMl)}` : ""} L</span>
+              Water <span className="whitespace-nowrap font-normal text-fg-2 tabular-nums">{litres(m.waterMl)}{goalMl ? ` of ${litres(goalMl)}` : ""} L</span>
             </>
           }
           ariaLabel={`Water, ${litres(m.waterMl)}${goalMl ? ` of ${litres(goalMl)}` : ""} litres`}
@@ -145,13 +145,13 @@ export function TodayRows({ m, guidance, onCheckin }: { m: NowModel; guidance: G
             </span>
           }
         />
-        <Row icon={ListChecks} title={<>Habits {day && day.total > 0 && <span className="font-normal text-fg-2 tabular-nums">{day.done} of {day.total}</span>}</>} onClick={() => setHabits(true)} ariaLabel={day ? `Habits, ${day.done} of ${day.total} done` : "Habits"} />
+        <Row icon={ListChecks} title={<>Habits {day && day.total > 0 && <span className="whitespace-nowrap font-normal text-fg-2 tabular-nums">{day.done} of {day.total}</span>}</>} onClick={() => setHabits(true)} ariaLabel={day ? `Habits, ${day.done} of ${day.total} done` : "Habits"} wrap />
         {m.recoveryFailed ? (
           <Row icon={Bed} title="Check-in" value="Couldn't load" href="/recovery" />
         ) : word ? (
-          <Row icon={Bed} title={<>Checked in <span className="font-normal text-fg-2">· {word}</span></>} href="/recovery" ariaLabel={`Checked in, ${word}. Opens check-ins`} />
+          <Row icon={Bed} title={<>Checked in <span className="font-normal text-fg-2">· {word}</span></>} href="/recovery" ariaLabel={`Checked in, ${word}. Opens check-ins`} wrap />
         ) : (
-          <Row icon={Bed} title="Not checked in" onClick={onCheckin} ariaLabel="Not checked in. Start the check-in" />
+          <Row icon={Bed} title="Not checked in" onClick={onCheckin} ariaLabel="Not checked in. Start the check-in" wrap />
         )}
         {recap && !opened && (
           <Link
@@ -226,8 +226,8 @@ export function WeightCard({ m, onRetry }: { m: NowModel; onRetry: () => void })
     ? `Weight, 7-day average ${avg} ${unit}${chip ? `, ${chip.toLowerCase()}` : ""}. Opens Progress.`
     : `Weight, 7-day average not yet. ${left} more ${left === 1 ? "weigh-in" : "weigh-ins"} to see your average. Opens Progress.`;
   return (
-    <Link href="/progress" aria-label={spoken} className="press-soft flex items-center gap-3 rounded-card bg-surface px-5 py-4">
-      <span className="min-w-0 flex-1">
+    <Link href="/progress" aria-label={spoken} className="press-soft @container flex flex-wrap items-center gap-3 rounded-card bg-surface px-5 py-4">
+      <span className="min-w-0 flex-1 ax:basis-full">
         <span className="t-cap block">Weight · 7-day average</span>
         {avg ? (
           <span className="t-num mt-1 block" data-derived="">

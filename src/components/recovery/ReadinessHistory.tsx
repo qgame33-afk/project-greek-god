@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { ErrorNote, Skeleton } from "@/components/ui/misc";
 import { useRecovery } from "@/lib/data/recovery";
-import { addDays, dateRange, dayName, parseISODate, type ISODate } from "@/lib/dates";
+import { addDays, dateRange, dayName, type ISODate } from "@/lib/dates";
 import { storedSleep } from "@/lib/recovery/checkin";
 import { ENERGY, SORENESS, sleepWords, wordFor } from "@/components/now/CheckIn";
 
@@ -16,10 +16,10 @@ const SLEEP_MAX = 11;
 
 /**
  * The last 14 nights (Check-ins › Sleep, docs/DESIGN-V3-SIMPLE.md §4.6): sleep as grey bars against
- * the goal, energy as a solid white line and soreness as a dashed one (both 1–5). Each night is a
- * button that opens that day's check-in. Lines break where nothing was logged; nothing is filled in.
+ * the goal, energy as a solid white line and soreness as a dashed one (both 1–5). The chart is one
+ * image with every value in a hidden table; the page's week strip opens a day. Lines break where nothing was logged; nothing is filled in.
  */
-export function ReadinessHistory({ today, selected, sleepGoal, onOpenDay, className }: { today: ISODate; selected: ISODate; sleepGoal: number; onOpenDay: (d: ISODate) => void; className?: string }) {
+export function ReadinessHistory({ today, selected, sleepGoal, className }: { today: ISODate; selected: ISODate; sleepGoal: number; className?: string }) {
   const from = addDays(today, -(NIGHTS - 1));
   const q = useRecovery(addDays(today, -13), today);
   const days = useMemo(() => {
@@ -53,7 +53,7 @@ export function ReadinessHistory({ today, selected, sleepGoal, onOpenDay, classN
 
   return (
     <section aria-label="Last 14 nights" className={className}>
-      <p className="t-label mb-3">{logged} of 14 nights logged · tap a night to open it</p>
+      <p className="t-label mb-3">{logged} of 14 nights logged</p>
       {q.isLoading ? (
         <Skeleton className="h-[132px] w-full rounded-tile-lg" />
       ) : q.error && !q.data ? (
@@ -91,19 +91,6 @@ export function ReadinessHistory({ today, selected, sleepGoal, onOpenDay, classN
               </g>
             ))}
           </svg>
-          {/* each night opens its check-in */}
-          <div className="absolute inset-0 grid grid-cols-14" role="group" aria-label="Open a night's check-in">
-            {days.map((n) => (
-              <button
-                key={n.date}
-                type="button"
-                onClick={() => onOpenDay(n.date)}
-                aria-label={`${dayName(n.date)} ${parseISODate(n.date).getDate()}: sleep ${sleepWords(n.sleep)}, energy ${wordFor(ENERGY, n.energy) ?? "not logged"}, soreness ${wordFor(SORENESS, n.soreness) ?? "not logged"}. Open`}
-                aria-pressed={n.date === selected}
-                className="min-h-11 rounded-tile"
-              />
-            ))}
-          </div>
           </div>
           <div className="t-cap mt-3 flex flex-wrap items-center gap-x-4 gap-y-1" aria-hidden data-budget-group="">
             <span className="flex items-center gap-1.5">
