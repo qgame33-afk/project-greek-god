@@ -22,7 +22,10 @@ const CSS = `
     --line-hair: #ece6d9; --line: #ddd5c5; --line-strong: #c9bfa9; --line-gold: #b89a62;
     --gold-50: #8a6a35; --gold-200: #7d5c2e; --gold-300: #7d5c2e; --gold-400: #7d5c2e; --gold-800: #c9b48a;
     --lapis-text: #1f4f99; --lapis-line: #9db8e0; --success: #23744a; --s-marble: #8b857a;
-    /* the Olympus tokens, ink on paper (leaf prints as bronze, the AI tag as ink blue) */
+    /* the V3 tokens, ink on paper (gold prints as bronze, the AI label as ink blue) */
+    --card: #fff; --card-2: #f5f2eb; --card-3: #ece7dc; --surface: #fff; --control: #f5f2eb; --track: #ece7dc;
+    --text: #17120a; --text-3: #5d636c; --gold: #7d5c2e; --gold-soft: #f4ecdc; --gold-line: #b89a62; --ai: #1f4f99; --ai-soft: #eef3fb; --ai-line: #9db8e0; --danger: #a3361f;
+    /* the old tokens, ink on paper (leaf prints as bronze, the AI tag as ink blue) */
     --night: #fff; --obsidian: #fff; --m1: #fff; --m2: #fff; --m3: #f5f2eb; --m4: #ece7dc; --m5: #e4ddcf;
     --vein: #ece6d9; --vein-2: #ddd5c5; --vein-3: #c9bfa9; --ui-line: #9a917f;
     --ivory: #17120a; --stone: #3f434a; --ash: #5d636c; --disabled: #9a917f;
@@ -41,14 +44,12 @@ const CSS = `
   /* section cards in reading order (Physical, Training, Nutrition, Recovery), one column */
   #pgg-review .review-sections { display: flex !important; flex-direction: column; gap: 10px; margin-top: 10px !important; }
   #pgg-review .review-sections > div { display: contents !important; }
-  #pgg-review .review-card, #pgg-review .card-monument, #pgg-review article { box-shadow: none !important; }
+  #pgg-review .review-card, #pgg-review article { box-shadow: none !important; }
   #pgg-review .review-grid > * { margin-bottom: 10px; }
   /* tall cards may continue on the next page, but only between whole blocks */
   #pgg-review .review-card { break-inside: auto; }
-  #pgg-review .card-monument, #pgg-review article, #pgg-review .review-sub, #pgg-review .review-metrics, #pgg-review figure { break-inside: avoid; page-break-inside: avoid; }
+  #pgg-review article, #pgg-review .review-sub, #pgg-review .review-metrics, #pgg-review figure { break-inside: avoid; page-break-inside: avoid; }
   #pgg-review .review-card > div:first-child, #pgg-review .review-subhead { break-after: avoid; page-break-after: avoid; }
-  #pgg-review .card-monument { background: #fff !important; border: 1px solid #b89a62 !important; }
-  #pgg-review .hatch { background-image: repeating-linear-gradient(135deg, #9a917f 0 1.5px, transparent 1.5px 5px) !important; }
   #pgg-review .review-priorities { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
   #pgg-review .review-priorities article { padding: 12px !important; }
   #pgg-review section[aria-labelledby="priorities-title"] { margin-top: 16px !important; break-inside: avoid; }

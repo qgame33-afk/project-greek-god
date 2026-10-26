@@ -7,23 +7,21 @@ import { monthName, parseISODate, type ISODate } from "@/lib/dates";
 export interface HistoryPoint {
   date: ISODate;
   value: number | null;
-  /** A record set on this day: a leaf diamond. */
+  /** A new best on this day: a white diamond. */
   pr?: boolean;
   /** Optional quiet bar under the line (session volume). */
   bar?: number;
 }
 
 /**
- * One logged series over time (a lift's e1RM, a jump, a measurement), drawn as plain SVG on
- * the instrument: straight segments between real entries (nothing implied between them), ash
- * dots, leaf diamonds on records, optional volume bars in the bottom third, a right-hand value
- * axis and dated ticks. Touch or hover scrubs to the nearest entry. Colours are CSS variables;
+ * One logged series over time (a tape measurement), drawn as plain SVG: straight white segments
+ * between real entries (nothing implied between them), grey dots, a diamond on a new best,
+ * optional volume bars in the bottom third, a right-hand value axis and dated ticks. Touch or hover scrubs to the nearest entry. Colours are CSS variables;
  * the caller renders the SrTable.
  */
 export function HistoryChart({
   points,
   format,
-  invert = false,
   height = 184,
   decimals = 0,
   readout = "always",
@@ -31,8 +29,6 @@ export function HistoryChart({
 }: {
   points: HistoryPoint[];
   format: (v: number) => string;
-  /** Lower values plot higher (sprint times). */
-  invert?: boolean;
   height?: number;
   decimals?: number;
   /** "always": the latest entry is read out above the plot until scrubbed; "scrub": only while scrubbing. */
@@ -56,7 +52,7 @@ export function HistoryChart({
     return () => ro.disconnect();
   }, []);
 
-  const g = useMemo(() => geometry(points, w, height, invert, decimals), [points, w, height, invert, decimals]);
+  const g = useMemo(() => geometry(points, w, height, decimals), [points, w, height, decimals]);
   // At large text sizes the axis labels would stack on each other: keep only those a line apart.
   const labelled = useMemo(() => {
     const keep = new Set<number>();
@@ -94,9 +90,9 @@ export function HistoryChart({
         >
           {g.yTicks.map((t) => (
             <g key={t.v}>
-              <line x1={g.plot.x} x2={g.plot.x + g.plot.w} y1={t.y} y2={t.y} style={{ stroke: "var(--vein)" }} />
+              <line x1={g.plot.x} x2={g.plot.x + g.plot.w} y1={t.y} y2={t.y} style={{ stroke: "var(--track)" }} />
               {labelled.has(t.v) && (
-                <text x={g.plot.x + g.plot.w + 6} y={t.y} dy="0.35em" className="t-meta tnum" style={{ fill: "var(--stone)" }}>
+                <text x={g.plot.x + g.plot.w + 6} y={t.y} dy="0.35em" className="t-cap tabular-nums" style={{ fill: "var(--text-2)" }}>
                   {t.label}
                 </text>
               )}
@@ -109,16 +105,16 @@ export function HistoryChart({
               x={t.x}
               y={g.base + 17}
               textAnchor={i === 0 && g.xTicks.length > 1 ? "start" : i === g.xTicks.length - 1 && g.xTicks.length > 1 ? "end" : "middle"}
-              className="t-meta"
-              style={{ fill: "var(--stone)" }}
+              className="t-cap"
+              style={{ fill: "var(--text-2)" }}
             >
               {t.label}
             </text>
           ))}
           {g.bars.map((b) => (
-            <rect key={b.date} x={b.x - b.w / 2} y={g.base - b.h} width={b.w} height={b.h} rx={1.5} style={{ fill: "var(--vein-3)" }} />
+            <rect key={b.date} x={b.x - b.w / 2} y={g.base - b.h} width={b.w} height={b.h} rx={1.5} style={{ fill: "var(--ui-line)" }} />
           ))}
-          {g.path && <path d={g.path} fill="none" style={{ stroke: "var(--leaf-300)" }} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />}
+          {g.path && <path d={g.path} fill="none" style={{ stroke: "var(--text)" }} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />}
           {active && <line x1={active.x} x2={active.x} y1={g.plot.y} y2={g.base} style={{ stroke: "var(--ui-line)" }} strokeDasharray="1 3" />}
           {g.pts.map((p, i) =>
             p.pr ? (
@@ -129,7 +125,7 @@ export function HistoryChart({
                 width={10}
                 height={10}
                 transform={`rotate(45 ${p.x} ${p.y})`}
-                style={{ fill: "var(--leaf-300)", stroke: "var(--night)" }}
+                style={{ fill: "var(--text)", stroke: "var(--bg)" }}
                 strokeWidth={1.5}
               />
             ) : (
@@ -139,8 +135,8 @@ export function HistoryChart({
                 cy={p.y}
                 r={p === active ? 4 : 2.75}
                 style={{
-                  fill: p === active ? "var(--ivory)" : "var(--ash)",
-                  stroke: "var(--night)",
+                  fill: p === active ? "var(--text)" : "var(--text-3)",
+                  stroke: "var(--bg)",
                 }}
                 strokeWidth={1.5}
               />
@@ -151,10 +147,10 @@ export function HistoryChart({
       {/* the scrubbed (or latest) entry, read out above the plot so it never covers a mark */}
       {g && active && (
         <span className="pointer-events-none absolute left-0 top-0 flex items-baseline gap-1.5 whitespace-nowrap" aria-hidden>
-          <span className="t-callout tnum font-semibold text-ivory">{format(active.value)}</span>
-          <span className="t-meta text-stone">
+          <span className="t-label font-semibold tabular-nums text-fg">{format(active.value)}</span>
+          <span className="t-cap">
             {shortDay(active.date)}
-            {active.pr ? " · record" : ""}
+            {active.pr ? " · new best" : ""}
           </span>
         </span>
       )}
@@ -164,7 +160,7 @@ export function HistoryChart({
 
 const shortDay = (d: ISODate) => `${parseISODate(d).getDate()} ${monthName(d, true)}`;
 
-function geometry(points: HistoryPoint[], w: number, h: number, invert: boolean, decimals: number) {
+function geometry(points: HistoryPoint[], w: number, h: number, decimals: number) {
   const vals = points.filter((p): p is HistoryPoint & { value: number } => p.value != null);
   if (w < 80 || !vals.length) return null;
   const plot = {
@@ -194,7 +190,7 @@ function geometry(points: HistoryPoint[], w: number, h: number, invert: boolean,
   const lineH = hasBars ? plot.h * 0.72 : plot.h;
   const y = (v: number) => {
     const f = (v - lo) / (hi - lo || 1);
-    return plot.y + (invert ? f : 1 - f) * lineH;
+    return plot.y + (1 - f) * lineH;
   };
   const yTicks: { v: number; y: number; label: string }[] = [];
   for (let v = lo; v <= hi + step * 1e-6 && yTicks.length < 6; v = Math.round((v + step) * 1000) / 1000)

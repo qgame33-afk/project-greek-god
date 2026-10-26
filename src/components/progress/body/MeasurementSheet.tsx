@@ -13,6 +13,7 @@ import { fromDisplayLength, parseNumber, round, toDisplayLength, type LengthUnit
 import { cn } from "@/lib/cn";
 import { BODY_FAT, MEASURE_FIELDS, fmtLen, hasAnyValue, measureStep, snap, type MeasureKey } from "@/lib/progress/measurements";
 import { useMeasurementWrite, type MeasurementValues } from "@/lib/progress/hooks";
+import { unitsOf } from "../kit";
 
 type Key = MeasureKey | "body_fat_pct";
 type Texts = Record<Key, string>;
@@ -39,7 +40,7 @@ const fmt = (v: number, unit: LengthUnit) => (unit === "cm" ? round(v, 1).toFixe
 export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean; onOpenChange: (o: boolean) => void; entry: Measurement | null }) {
   const today = useToday();
   const { profile } = useProfile();
-  const unit = (profile?.length_unit ?? "in") as LengthUnit;
+  const unit = unitsOf(profile).lu;
   const { data: rows = [] } = useMeasurements();
   const { write, del, pending } = useMeasurementWrite();
   const [date, setDate] = useState<ISODate>(today);
@@ -163,7 +164,7 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
   }, [pending]);
 
   const title = editing ? `Edit ${shortDate(editing.local_date, today)}` : "Log measurements";
-  const description = sameDay && !editing ? `Adds to your ${shortDate(date, today)} entry.` : unit === "cm" ? "Centimetres, 0.5 cm steps." : "Inches, 0.25 in steps.";
+  const description = sameDay && !editing ? `Adds to your ${shortDate(date, today)} entry.` : `Steps of ${measureStep(unit)} ${unit}.`;
 
   return (
     <Sheet
@@ -173,10 +174,10 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
       description={description}
       footer={
         <div className="grid grid-cols-1 gap-2">
-          {submitted && empty && <p className="text-center t-meta font-medium text-cinnabar">Enter at least one measurement.</p>}
-          {future && <p className="text-center t-meta font-medium text-cinnabar">That date is in the future.</p>}
+          {submitted && empty && <p className="t-label text-center text-danger">Enter at least one measurement.</p>}
+          {future && <p className="t-label text-center text-danger">That date is in the future.</p>}
           {collides && sameDay && (
-            <p className="text-center t-meta font-medium text-cinnabar">{shortDate(sameDay.local_date, today)} already has an entry. Pick another date or edit that one.</p>
+            <p className="t-label text-center text-danger">{shortDate(sameDay.local_date, today)} already has an entry. Pick another date or edit that one.</p>
           )}
           <Button variant="primary" size="lg" block onClick={submit} loading={pending} disabled={invalid || collides}>
             {editing ? "Save changes" : "Save measurements"}
@@ -187,7 +188,7 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
       <div className="grid grid-cols-1 gap-4 py-2">
         <Field label="Date">{(id) => <Input id={id} type="date" value={date} max={today} onChange={(e) => changeDate(e.target.value || today)} />}</Field>
 
-        <div className="card-inset divide-y divide-vein px-3.5">
+        <div className="divide-y divide-line rounded-tile-lg bg-surface px-4">
           {MEASURE_FIELDS.map((f) => {
             const last = lastOf(f.key);
             return (
@@ -224,8 +225,8 @@ export function MeasurementSheet({ open, onOpenChange, entry }: { open: boolean;
 
         {editing && (
           <Button
-            variant="ghost"
-            className="h-11 justify-self-center text-cinnabar hover:text-cinnabar"
+            variant="destructive"
+            className="justify-self-center"
             onClick={() => {
               del(editing, () => onOpenChange(false));
             }}
@@ -259,13 +260,13 @@ function MeasureRow({
   onStep: (dir: 1 | -1) => void;
   inputRef: (el: HTMLInputElement | null) => void;
 }) {
-  const btn = "press grid size-[52px] shrink-0 place-items-center rounded-field bg-m4 text-stone hover:text-ivory active:bg-m5";
+  const btn = "press grid size-11 shrink-0 place-items-center rounded-full bg-control text-fg";
   return (
     <div className="py-3">
       <div className="flex items-center gap-3">
         <label htmlFor={id} className="min-w-0 flex-1">
-          <span className="block truncate t-callout font-semibold text-ivory">{label}</span>
-          <span className="block truncate t-meta font-medium text-stone">{hint}</span>
+          <span className="t-row block truncate">{label}</span>
+          <span className="t-cap block truncate">{hint}</span>
         </label>
         <div className="flex shrink-0 items-center gap-2" role="group" aria-label={label}>
           <button type="button" className={btn} onClick={() => onStep(-1)} aria-label={`Decrease ${label}`}>
@@ -285,11 +286,11 @@ function MeasureRow({
               aria-invalid={!!error}
               aria-describedby={error ? `${id}-err` : undefined}
               className={cn(
-                "tnum h-[52px] w-[78px] rounded-field border bg-m2 pr-6 text-center t-num-s text-ivory outline-none transition-[border-color,box-shadow] placeholder:text-ash focus:border-leaf-400 focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)]",
-                error ? "border-cinnabar" : "border-ui-line",
+                "t-row h-12 w-[84px] rounded-tile border bg-control pr-8 text-center tabular-nums text-fg outline-none placeholder:text-fg-2 focus:border-fg",
+                error ? "border-danger" : "border-transparent",
               )}
             />
-            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center t-meta font-semibold text-stone">{unit}</span>
+            <span className="t-cap pointer-events-none absolute inset-y-0 right-2 flex items-center">{unit}</span>
           </div>
           <button type="button" className={btn} onClick={() => onStep(1)} aria-label={`Increase ${label}`}>
             <Plus className="size-[18px]" />
@@ -297,7 +298,7 @@ function MeasureRow({
         </div>
       </div>
       {error && (
-        <p id={`${id}-err`} className="mt-1.5 text-right t-meta font-medium text-cinnabar" role="alert">
+        <p id={`${id}-err`} className="t-cap mt-1.5 text-right text-danger" role="alert">
           {error}
         </p>
       )}

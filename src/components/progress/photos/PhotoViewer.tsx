@@ -8,7 +8,8 @@ import { useToday } from "@/lib/data/core";
 import { useWeights, type ProgressPhoto } from "@/lib/data/body";
 import { useProfile } from "@/lib/data/profile";
 import { longDate, shortDate } from "@/lib/dates";
-import { formatBodyweight, type WeightUnit } from "@/lib/units";
+import { formatBodyweight } from "@/lib/units";
+import { unitsOf } from "../kit";
 import { POSE_LABEL, nearestByDate } from "@/lib/progress/photos";
 import { usePhotoDelete } from "@/lib/progress/hooks";
 
@@ -34,7 +35,7 @@ export function PhotoViewer({
   const today = useToday();
   const { weights } = useWeights();
   const { profile } = useProfile();
-  const unit = (profile?.weight_unit ?? "lb") as WeightUnit;
+  const unit = unitsOf(profile).wu;
   const del = usePhotoDelete();
   const [confirm, setConfirm] = useState(false);
   const swipe = useRef<{ x: number; y: number } | null>(null);
@@ -52,7 +53,7 @@ export function PhotoViewer({
     <>
       <Dialog.Root open={!!photo} onOpenChange={(o) => !o && onOpenChange(null)}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-(--z-sheet) bg-obsidian data-[state=open]:animate-[rise_200ms_var(--ease-out)]" />
+          <Dialog.Overlay className="fixed inset-0 z-(--z-sheet) bg-bg data-[state=open]:animate-[rise_200ms_var(--ease-out)]" />
           <Dialog.Content
             className="fixed inset-0 z-(--z-sheet) flex flex-col outline-none"
             onKeyDown={(e) => {
@@ -64,14 +65,14 @@ export function PhotoViewer({
             {photo && (
               <>
                 <div className="flex items-center justify-between gap-3 px-3 pb-2 pt-[calc(var(--safe-top)+8px)]">
-                  <Dialog.Close className="grid size-11 place-items-center rounded-field text-stone hover:text-ivory" aria-label="Close">
+                  <Dialog.Close className="press grid size-11 place-items-center rounded-full bg-control text-fg" aria-label="Close">
                     <X className="size-6" />
                   </Dialog.Close>
                   <div className="min-w-0 text-center">
-                    <Dialog.Title className="truncate t-callout font-bold text-ivory">
+                    <Dialog.Title className="t-row truncate">
                       {POSE_LABEL[photo.pose] ?? photo.pose} · {shortDate(photo.local_date, today)}
                     </Dialog.Title>
-                    <p className="tnum t-meta text-stone">
+                    <p className="t-cap tabular-nums">
                       {i + 1} / {photos.length}
                     </p>
                   </div>
@@ -99,17 +100,17 @@ export function PhotoViewer({
                       height={photo.height ?? 2000}
                       decoding="async"
                       draggable={false}
-                      className="max-h-full max-w-full select-none rounded-field object-contain animate-[rise_200ms_var(--ease-out)_both]"
+                      className="max-h-full max-w-full select-none rounded-tile-lg object-contain animate-[rise_200ms_var(--ease-out)_both]"
                     />
                   ) : (
-                    <div className="skeleton aspect-[3/4] h-[70%] rounded-field" />
+                    <div className="skeleton aspect-[3/4] h-[70%] rounded-tile-lg" />
                   )}
                   <button
                     type="button"
                     onClick={() => go(-1)}
                     disabled={i <= 0}
                     aria-label="Previous photo"
-                    className="press absolute left-2 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-obsidian/85 text-ivory disabled:opacity-0"
+                    className="press absolute left-2 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-bg/80 text-fg disabled:opacity-0"
                   >
                     <ChevronLeft className="size-6" />
                   </button>
@@ -118,7 +119,7 @@ export function PhotoViewer({
                     onClick={() => go(1)}
                     disabled={i >= photos.length - 1}
                     aria-label="Next photo"
-                    className="press absolute right-2 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-obsidian/85 text-ivory disabled:opacity-0"
+                    className="press absolute right-2 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-bg/80 text-fg disabled:opacity-0"
                   >
                     <ChevronRight className="size-6" />
                   </button>
@@ -126,11 +127,11 @@ export function PhotoViewer({
 
                 <div className="flex items-center justify-between gap-3 px-4 pb-[calc(var(--safe-bottom)+12px)] pt-3">
                   <div className="min-w-0">
-                    <p className="t-eyebrow">{w ? (w.days === 0 ? "Weight that day" : `Weight · ${shortDate(w.row.local_date, today)}`) : "Weight"}</p>
-                    <p className="t-num-s tnum mt-1">{w ? formatBodyweight(w.row.weight_lb, unit) : "—"}</p>
+                    <p className="t-cap">{w ? (w.days === 0 ? "Weight that day" : `Weight · ${shortDate(w.row.local_date, today)}`) : "Weight"}</p>
+                    <p className="t-num-s mt-1 tabular-nums">{w ? formatBodyweight(w.row.weight_lb, unit) : "—"}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => onCompare(photo.id)} className="press inline-flex h-11 items-center gap-2 rounded-field border border-vein-3 bg-m3 px-3.5 t-callout font-bold text-ivory">
+                    <button type="button" onClick={() => onCompare(photo.id)} className="press t-button inline-flex h-11 items-center gap-2 rounded-pill bg-control px-[18px] text-fg">
                       <Columns2 className="size-4" /> Compare
                     </button>
                     <button
@@ -138,7 +139,7 @@ export function PhotoViewer({
                       onClick={() => setConfirm(true)}
                       disabled={del.isPending}
                       aria-label="Delete photo permanently"
-                      className="press grid size-11 place-items-center rounded-field border border-cinnabar-line bg-cinnabar-tint text-cinnabar disabled:opacity-50"
+                      className="press grid size-11 place-items-center rounded-full bg-danger-soft text-danger disabled:opacity-50"
                     >
                       <Trash className="size-[18px]" />
                     </button>

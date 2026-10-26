@@ -3,47 +3,40 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { WeightLogSheet } from "@/components/shared/WeightLogSheet";
-import { TabHeader } from "@/components/shell/TabHeader";
+import { PageHeader } from "@/components/shell/PageHeader";
 import { Segmented } from "@/components/ui/controls";
 import { Skeleton } from "@/components/ui/misc";
-import { useToday } from "@/lib/data/core";
-import { useProfile } from "@/lib/data/profile";
 import type { Measurement } from "@/lib/data/body";
 import type { ISODate } from "@/lib/dates";
 import { useSwapIn } from "@/lib/motion";
-import type { TestType } from "@/lib/progress/athletic";
-import { planFromProfile, programmeWeek } from "@/lib/progress/plan";
-import { ProgressActionsProvider, TABS, tabFromParam, type AscentSection, type AscentTab, type ProgressActions } from "./context";
+import { BodyTab } from "./body/BodyTab";
 import { MeasurementSheet } from "./body/MeasurementSheet";
+import { ProgressActionsProvider, TABS, tabFromParam, type ProgressActions, type ProgressSection, type ProgressTab } from "./context";
 import { PhotoUploadSheet } from "./photos/PhotoUploadSheet";
-import { AthleticLogSheet } from "./athletic/AthleticLogSheet";
-import { MountainTab } from "./mountain/MountainTab";
-import { HallTab } from "./hall/HallTab";
-import { GalleryTab } from "./gallery/GalleryTab";
+import { StrengthTab } from "./strength/StrengthTab";
+import { WeightSkeleton, WeightTab } from "./weight/WeightTab";
 
 /**
- * /progress — Ascent (docs/DESIGN-V2.md §3.6): Mountain · Hall · Gallery.
- * Deep links: ?tab=mountain|hall|gallery, the old ?tab=weight|roadmap|strength|athletic|body|photos
- * (mapped to a segment with that section scrolled into view), and ?log=1 (the weigh-in sheet).
+ * /progress (docs/DESIGN-V3-SIMPLE.md §4.5): PageHeader "Progress" and Weight · Strength · Body.
+ * Deep links (§3.7): ?tab=weight|mountain|roadmap, strength|hall|athletic, body|photos|gallery
+ * (photos scrolled to), and ?log=1 (the weigh-in sheet). Any other query (an old
+ * retired sheet) is ignored.
  */
 export function ProgressScreen() {
   const hydrated = useHydrated();
   // All data is client-fetched; render the skeleton until hydration so cached data can't mismatch the server HTML.
-  return hydrated ? <Ascent /> : <ProgressFallback />;
+  return hydrated ? <Progress /> : <ProgressFallback />;
 }
 
-function Ascent() {
+function Progress() {
   const pathname = usePathname();
   const params = useSearchParams();
-  const today = useToday();
-  const { profile } = useProfile();
   const { tab, section } = tabFromParam(params.get("tab"));
   const panelRef = useSwapIn<HTMLDivElement, number>(TABS.findIndex((t) => t.key === tab));
 
   const [weight, setWeight] = useState<{ open: boolean; date?: ISODate }>({ open: false });
   const [measure, setMeasure] = useState<{ open: boolean; entry: Measurement | null }>({ open: false, entry: null });
   const [photo, setPhoto] = useState(false);
-  const [athletic, setAthletic] = useState<{ open: boolean; type?: TestType }>({ open: false });
 
   const replace = useCallback(
     (patch: Record<string, string | null>) => {
@@ -54,13 +47,13 @@ function Ascent() {
       }
       const qs = sp.toString();
       // The native History API (kept in sync with useSearchParams by the router): switching a
-      // section never asks the server for the page, so it works with no signal.
+      // segment never asks the server for the page, so it works with no signal.
       window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
     },
     [params, pathname],
   );
 
-  const goTab = useCallback((t: AscentTab) => replace({ tab: t === "mountain" ? null : t, log: null }), [replace]);
+  const goTab = useCallback((t: ProgressTab) => replace({ tab: t === "weight" ? null : t, log: null }), [replace]);
 
   // Deep link: ?log=1 opens the weigh-in sheet once (also on client navigation to the same
   // route), then the param is dropped so a refresh doesn't reopen it.
@@ -81,52 +74,46 @@ function Ascent() {
       logWeight: (date) => setWeight({ open: true, date }),
       logMeasurements: (entry) => setMeasure({ open: true, entry: entry ?? null }),
       logPhoto: () => setPhoto(true),
-      logAthletic: (type) => setAthletic({ open: true, type }),
       goTab,
     }),
     [goTab],
   );
 
-  const plan = planFromProfile(profile, today);
-  const wk = profile ? programmeWeek(plan, today) : null;
-
   return (
     <ProgressActionsProvider value={actions}>
-      <TabHeader eyebrow={wk ? `Ascent · week ${wk.week} of ${wk.total}` : "Ascent"} oracle={{ kind: "ascent", label: wk ? `Week ${wk.week} of the climb` : "The climb" }} />
-      <h1 className="sr-only">Ascent</h1>
+      <PageHeader title="Progress" />
       <Segmented
-        ariaLabel="Ascent sections"
+        ariaLabel="Progress sections"
         value={tab}
         onChange={(v) => {
           goTab(v);
           window.scrollTo({ top: 0 });
         }}
         options={TABS.map((t) => ({ value: t.key, label: t.label }))}
-        className="mb-6 lg:max-w-sm"
+        className="mb-4 mt-2"
       />
 
-      <div ref={panelRef} id="ascent-panel" role="tabpanel" aria-label={TABS.find((t) => t.key === tab)?.label}>
-        {tab === "mountain" && <MountainTab />}
-        {tab === "hall" && <HallTab />}
-        {tab === "gallery" && <GalleryTab />}
+      <div ref={panelRef} id="progress-panel" role="tabpanel" aria-label={TABS.find((t) => t.key === tab)?.label}>
+        {tab === "weight" && <WeightTab />}
+        {tab === "strength" && <StrengthTab />}
+        {tab === "body" && <BodyTab />}
       </div>
 
       <WeightLogSheet open={weight.open} onOpenChange={(o) => setWeight((s) => ({ ...s, open: o }))} date={weight.date} />
       <MeasurementSheet open={measure.open} entry={measure.entry} onOpenChange={(o: boolean) => setMeasure((s) => ({ ...s, open: o }))} />
       <PhotoUploadSheet open={photo} onOpenChange={setPhoto} />
-      <AthleticLogSheet open={athletic.open} type={athletic.type} onOpenChange={(o: boolean) => setAthletic((s) => ({ ...s, open: o }))} />
     </ProgressActionsProvider>
   );
 }
 
-/** Bring an old URL's section into view once its block has rendered (data arrives after mount). */
-function useScrollToSection(section: AscentSection, key: string | null) {
+/** Bring an old URL's block into view once it has rendered (data arrives after mount). */
+function useScrollToSection(section: ProgressSection, key: string | null) {
   useEffect(() => {
     if (!section) return;
     let tries = 0;
     let frame = 0;
     const look = () => {
-      const el = document.getElementById(`ascent-${section}`);
+      const el = document.getElementById(`progress-${section}`);
       if (el && el.getBoundingClientRect().height > 0) {
         el.scrollIntoView({ block: "start" });
         return;
@@ -148,15 +135,14 @@ function useHydrated() {
   );
 }
 
-/** Server-rendered placeholder while the client screen hydrates: the Mountain's shapes. */
+/** Server-rendered placeholder while the client screen hydrates: the Weight segment's shapes. */
 export function ProgressFallback() {
   return (
-    <div aria-busy="true" aria-label="Loading Ascent">
-      <Skeleton className="mb-6 h-11 w-full rounded-field lg:max-w-sm" />
-      <Skeleton className="h-8 w-4/5 rounded-tag" />
-      <Skeleton className="mt-2 h-8 w-3/5 rounded-tag" />
-      <Skeleton className="mt-4 h-4 w-full rounded-tag" />
-      <Skeleton className="mt-8 h-80 w-full rounded-card" />
+    <div aria-busy="true" aria-label="Loading Progress">
+      <PageHeader title="Progress" />
+      <Skeleton className="mb-4 mt-2 h-11 w-full rounded-pill" />
+      <WeightSkeleton />
     </div>
   );
 }
+

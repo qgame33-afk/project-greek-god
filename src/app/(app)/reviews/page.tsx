@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { ChronicleIndex } from "@/components/reviews/ChronicleIndex";
+import { RecapList } from "@/components/reviews/RecapList";
 
-export const metadata: Metadata = { title: "The Chronicle" };
+export const metadata: Metadata = { title: "Monthly recap" };
 
 export default function ReviewsPage() {
-  return <ChronicleIndex />;
+  return <RecapList />;
 }

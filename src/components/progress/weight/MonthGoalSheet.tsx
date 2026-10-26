@@ -20,7 +20,8 @@ export interface MilestoneEntry {
 }
 
 /**
- * Edit a month's milestone (the old Roadmap's editor, unchanged behaviour): saves into
+ * Edit a month's goal (the old Roadmap's editor, unchanged behaviour; opened from Progress ›
+ * Weight › Milestones): saves into
  * profile.roadmap through useSaveProfile; text identical to the built-in milestone is not a
  * customisation; "Reset to original" removes the override.
  */
@@ -46,7 +47,7 @@ export function MilestoneSheet({ entry, total, onClose }: { entry: MilestoneEntr
   const commit = (next: ReturnType<typeof parseRoadmap>) => {
     if (save.isPending) return;
     // A profile write waits for a connection; say so now instead of a spinner that never ends.
-    if (isOffline()) return void toast.error("You're offline. The milestone didn't change.", { description: "Try again when you're back online." });
+    if (isOffline()) return void toast.error("You're offline. The goal didn't change.", { description: "Try again when you're back online." });
     save.mutate({ values: { roadmap: next as unknown as NonNullable<Json> } }, { onSuccess: () => onClose() });
   };
   const saveText = () => {
@@ -62,10 +63,10 @@ export function MilestoneSheet({ entry, total, onClose }: { entry: MilestoneEntr
       open={!!entry}
       onOpenChange={(o) => !o && onClose()}
       title={`${monthName(e.month)} ${e.month.slice(0, 4)}`}
-      description="Your milestone for this month."
+      description="Your goal for this month."
       footer={
         <Button variant="primary" size="lg" block loading={save.isPending} disabled={!title.trim() && !detail.trim()} onClick={saveText}>
-          Save milestone
+          Save goal
         </Button>
       }
     >
@@ -75,10 +76,10 @@ export function MilestoneSheet({ entry, total, onClose }: { entry: MilestoneEntr
           {(id) => <Textarea id={id} rows={3} maxLength={400} value={detail} onChange={(ev) => setDetail(ev.target.value)} placeholder="What this month is for" />}
         </Field>
         {def && (
-          <div className="rounded-field bg-m1 p-3.5 shadow-[inset_0_0_0_1px_var(--vein-2)]">
-            <p className="t-eyebrow mb-1">Original plan</p>
-            <p className="t-title-3 text-ivory">{def.title}</p>
-            <p className="t-callout text-stone">{def.detail}</p>
+          <div className="rounded-tile-lg bg-sheet-card px-4 py-3.5">
+            <p className="t-cap mb-1">Original plan</p>
+            <p className="t-row">{def.title}</p>
+            <p className="t-label">{def.detail}</p>
           </div>
         )}
         {e.custom && (
@@ -86,7 +87,7 @@ export function MilestoneSheet({ entry, total, onClose }: { entry: MilestoneEntr
             Reset to original
           </Button>
         )}
-        <p className="t-meta text-stone">
+        <p className="t-cap">
           Months run {monthsBetween(profile?.start_date ?? e.month, profile?.target_date ?? e.month).length} in total, from your start date to your target date (Settings).
         </p>
       </div>

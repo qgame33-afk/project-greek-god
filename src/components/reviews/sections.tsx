@@ -4,8 +4,6 @@ import Link from "next/link";
 import { Camera, ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { CardAction } from "@/components/ui/card";
-import { RecordMark } from "@/components/ui/record-mark";
-import { Tag } from "@/components/ui/tag";
 import { useSignedUrls } from "@/lib/data/body";
 import { cn } from "@/lib/cn";
 import { shortDate } from "@/lib/dates";
@@ -36,7 +34,7 @@ export function PhysicalCard({ s, unit, lengthUnit, series, className }: { s: Re
   const ahead = p.change != null && p.plannedChange != null && p.change >= p.plannedChange * 0.5 && p.change <= p.plannedChange * 1.6 && p.plannedChange > 0;
   return (
     <section className={cn("review-card min-w-0", className)}>
-      <LedgerHead numeral="I" title="The body" action={p.weighIns > 0 ? <Tag kind="LOG" /> : undefined} />
+      <LedgerHead title="Body" />
       <div className="review-metrics grid grid-cols-2 gap-x-4 gap-y-5">
         <Metric label="Start of month" value={W(p.monthStartAvg, unit)} unit={unit} caption={p.monthStartDate ? `7-day avg from ${shortDate(p.monthStartDate, s.window.to)}` : "No weigh-ins yet"} />
         <Metric
@@ -66,11 +64,11 @@ export function PhysicalCard({ s, unit, lengthUnit, series, className }: { s: Re
       </div>
       {series && <WeightChart series={series} unit={unit} />}
       {p.startWeight != null && p.monthEndAvg != null && (
-        <p className="review-sub mt-5 rounded-field bg-m3/60 px-3.5 py-3 t-meta font-medium leading-relaxed text-stone">
-          <span className="text-ivory">{formatDelta(p.fromStart, unit)}</span> since the start ({formatBodyweight(p.startWeight, unit)}).{" "}
+        <p className="review-sub mt-5 rounded-tile bg-control px-3.5 py-3 t-cap leading-relaxed text-fg-2">
+          <span className="text-fg">{formatDelta(p.fromStart, unit)}</span> since the start ({formatBodyweight(p.startWeight, unit)}).{" "}
           {p.toGoal != null && p.toGoal > 0 && (
             <>
-              <span className="text-ivory">{formatBodyweight(p.toGoal, unit)}</span> to the {formatBodyweight(p.goalWeight, unit)} goal.
+              <span className="text-fg">{formatBodyweight(p.toGoal, unit)}</span> to the {formatBodyweight(p.goalWeight, unit)} goal.
             </>
           )}
           {p.toGoal != null && p.toGoal <= 0 && <>Goal weight reached.</>}
@@ -84,7 +82,7 @@ export function PhysicalCard({ s, unit, lengthUnit, series, className }: { s: Re
           </EmptyLine>
         ) : (
           <>
-            {!m.updatedThisMonth && <p className="mb-2 t-meta font-medium text-stone">Nothing new this month. Showing your latest entry.</p>}
+            {!m.updatedThisMonth && <p className="mb-2 t-cap">Nothing new this month. Showing your latest entry.</p>}
             <dl className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
               {m.fields.map((f) => {
                 const pct = f.key === "body_fat_pct";
@@ -96,11 +94,11 @@ export function PhysicalCard({ s, unit, lengthUnit, series, className }: { s: Re
                       ? `${f.change > 0 ? "+" : "−"}${Math.abs(round(f.change, 1))}%`
                       : `${f.change > 0 ? "+" : "−"}${formatLength(Math.abs(f.change), lengthUnit)}`;
                 return (
-                  <div key={f.key} className="flex min-h-11 items-center justify-between gap-3 border-b border-vein last:border-0 sm:[&:nth-last-child(2)]:border-0">
-                    <dt className="t-callout font-semibold text-stone">{f.label}</dt>
+                  <div key={f.key} className="flex min-h-11 items-center justify-between gap-3 border-b border-line last:border-0 sm:[&:nth-last-child(2)]:border-0">
+                    <dt className="t-label font-semibold text-fg-2">{f.label}</dt>
                     <dd className="flex items-baseline gap-2.5">
-                      {delta && <span className={cn("t-meta font-bold", f.growthIsGood && f.change! > 0 ? "text-leaf-300" : "text-stone")}>{delta}</span>}
-                      <span className="t-num-s tnum text-ivory">{val}</span>
+                      {delta && <span className={cn("t-cap font-bold", f.growthIsGood && f.change! > 0 ? "text-fg" : "text-fg-2")}>{delta}</span>}
+                      <span className="t-num-s tabular-nums text-fg">{val}</span>
                     </dd>
                   </div>
                 );
@@ -137,7 +135,7 @@ function ReviewPhotos({ s }: { s: ReviewStats }) {
           const url = urls.data?.[it.storage_path];
           return (
             <figure key={it.id} className="min-w-0">
-              <div className="relative aspect-[3/4] overflow-hidden rounded-field border border-leaf-line bg-m3">
+              <div className="relative aspect-[3/4] overflow-hidden rounded-tile bg-control">
                 {url ? (
                   // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL from private storage
                   <img
@@ -148,10 +146,10 @@ function ReviewPhotos({ s }: { s: ReviewStats }) {
                     decoding="async"
                   />
                 ) : (
-                  <Camera className="absolute left-1/2 top-1/2 size-5 -translate-x-1/2 -translate-y-1/2 text-stone" aria-hidden />
+                  <Camera className="absolute left-1/2 top-1/2 size-5 -translate-x-1/2 -translate-y-1/2 text-fg-2" aria-hidden />
                 )}
               </div>
-              <figcaption className="mt-1.5 truncate t-meta font-semibold text-stone">
+              <figcaption className="mt-1.5 truncate t-cap font-semibold">
                 {POSE[it.pose] ?? it.pose} · {shortDate(it.local_date, s.window.to)}
               </figcaption>
             </figure>
@@ -164,9 +162,9 @@ function ReviewPhotos({ s }: { s: ReviewStats }) {
 
 function EmptyLine({ children, href, action }: { children: ReactNode; href: string; action: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-field bg-m3/60 py-2 pl-3.5 pr-1.5">
-      <p className="t-meta font-medium leading-snug text-stone">{children}</p>
-      <Link href={href} data-print="hide" className="inline-flex h-11 shrink-0 items-center gap-0.5 px-2 t-meta font-bold text-leaf-300 hover:text-leaf-200">
+    <div className="flex items-center justify-between gap-3 rounded-tile bg-control py-2 pl-3.5 pr-1.5">
+      <p className="t-cap leading-snug text-fg-2">{children}</p>
+      <Link href={href} data-print="hide" className="inline-flex h-11 shrink-0 items-center gap-0.5 px-2 t-cap font-bold text-fg hover:text-fg">
         {action}
         <ChevronRight className="size-4" aria-hidden />
       </Link>
@@ -181,8 +179,7 @@ export function TrainingCard({ s, unit, className }: { s: ReviewStats; unit: Wei
   return (
     <section className={cn("review-card min-w-0", className)}>
       <LedgerHead
-        numeral="II"
-        title="Training"
+                title="Training"
         action={
           t.sessions > 0 ? (
             <span data-print="hide">
@@ -192,18 +189,18 @@ export function TrainingCard({ s, unit, className }: { s: ReviewStats; unit: Wei
         }
       />
       <div className="review-metrics grid grid-cols-2 gap-x-4 gap-y-5">
-        <Metric label="Sessions" value={t.sessions || (t.planned ? "0" : "—")} caption={t.avgSessionMin ? `${t.avgSessionMin} min average` : undefined} />
+        <Metric label="Workouts" value={t.sessions || (t.planned ? "0" : "—")} caption={t.avgSessionMin ? `${t.avgSessionMin} min average` : undefined} />
         <Metric
-          label="Planned days sealed"
+          label="Planned workouts done"
           value={t.planned ? `${t.plannedDone} of ${t.planned}` : "—"}
           caption={s.recovery.consistency.weeks ? `${s.recovery.consistency.weeksOnPlan} of ${s.recovery.consistency.weeks} ${weeks(s.recovery.consistency.weeks)} on plan` : undefined}
         />
         <Metric label="Working sets" value={t.workingSets ? formatInt(t.workingSets) : "—"} caption={t.workingSets ? "Completed, warm-ups excluded" : undefined} />
-        <Metric label="Volume" value={t.volumeLb ? formatInt(toDisplayWeight(t.volumeLb, unit)) : "—"} unit={t.volumeLb ? unit : undefined} caption={t.volumeLb ? "Load × reps" : undefined} />
+        <Metric label="Total lifted" value={t.volumeLb ? formatInt(toDisplayWeight(t.volumeLb, unit)) : "—"} unit={t.volumeLb ? unit : undefined} caption={t.volumeLb ? "Load × reps" : undefined} />
       </div>
 
       {t.weeks.some((w) => w.planned > 0 || w.done > 0) && (
-        <Sub title="Week by week" aside="Leaf = sealed">
+        <Sub title="Week by week" aside="Filled = done">
           <ul className="space-y-2">
             {t.weeks
               .filter((w) => w.planned > 0 || w.done > 0 || w.extra > 0)
@@ -211,13 +208,13 @@ export function TrainingCard({ s, unit, className }: { s: ReviewStats; unit: Wei
                 const slots = Math.max(w.planned, w.done);
                 return (
                   <li key={w.weekStart} className="grid grid-cols-[4rem_1fr_2.75rem] items-center gap-3">
-                    <span className="t-meta font-semibold text-stone">{shortDate(w.weekStart, s.window.to)}</span>
+                    <span className="t-cap font-semibold">{shortDate(w.weekStart, s.window.to)}</span>
                     <span className="flex gap-1.5" role="img" aria-label={`Week of ${shortDate(w.weekStart, s.window.to)}: ${w.done} of ${w.planned} planned sessions`}>
                       {Array.from({ length: Math.max(slots, 1) }, (_, i) => (
-                        <span key={i} className={cn("h-3.5 max-w-7 flex-1 rounded-xs", i < w.done ? "bg-leaf-300" : slots === 0 ? "border border-dashed border-ui-line" : "border border-ui-line")} />
+                        <span key={i} className={cn("h-3.5 max-w-7 flex-1 rounded-xs", i < w.done ? "bg-fg" : slots === 0 ? "border border-dashed border-ui-line" : "border border-ui-line")} />
                       ))}
                     </span>
-                    <span className="t-num-s tnum text-right text-stone">
+                    <span className="t-num-s tabular-nums text-right text-fg-2">
                       {w.done}/{w.planned}
                     </span>
                   </li>
@@ -227,26 +224,25 @@ export function TrainingCard({ s, unit, className }: { s: ReviewStats; unit: Wei
         </Sub>
       )}
 
-      <Sub title="Personal records" aside={t.prs.count ? `${t.prs.count} record set${t.prs.count === 1 ? "" : "s"}` : undefined}>
+      <Sub title="New bests" aside={t.prs.count ? `${t.prs.count} new best${t.prs.count === 1 ? "" : "s"}` : undefined}>
         {t.prs.items.length === 0 ? (
-          <p className="t-meta font-medium leading-relaxed text-stone">
-            {t.sessions ? "No new records this month. Records need earlier history to beat, so they come in waves." : "Records appear here once you log sessions."}
+          <p className="t-cap leading-relaxed text-fg-2">
+            {t.sessions ? "No new bests this month. A best needs an earlier set to beat, so they come in waves." : "New bests show here once you log workouts."}
           </p>
         ) : (
-          <ul className="divide-y divide-vein">
+          <ul className="divide-y divide-line">
             {t.prs.items.slice(0, 5).map((r) => (
               <li key={r.slug} className="flex min-h-12 items-center gap-3 py-1.5">
-                <RecordMark compact label="" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate t-callout font-semibold text-ivory">{r.name}</span>
-                  <span className="block t-meta font-medium text-stone">
+                  <span className="block truncate t-label font-semibold text-fg">{r.name}</span>
+                  <span className="block t-cap">
                     {r.weight != null && r.reps != null ? `${formatLoad(r.weight, unit, false)} × ${r.reps} · ` : ""}
                     {shortDate(r.date, s.window.to)}
                   </span>
                 </span>
                 <span className="text-right">
-                  <span className="t-num-s tnum block text-ivory">{formatLoad(r.e1rm, unit)}</span>
-                  {r.gain != null && <span className="block t-meta font-bold text-leaf-300">{formatDelta(r.gain, unit)} e1RM</span>}
+                  <span className="t-num-s tabular-nums block text-fg">{formatLoad(r.e1rm, unit)}</span>
+                  {r.gain != null && <span className="block t-cap font-bold text-fg">{formatDelta(r.gain, unit)} est. max</span>}
                 </span>
               </li>
             ))}
@@ -255,15 +251,15 @@ export function TrainingCard({ s, unit, className }: { s: ReviewStats; unit: Wei
       </Sub>
 
       {t.lifts.length > 0 && (
-        <Sub title="Strength" aside="e1RM, first → last session">
-          <ul className="divide-y divide-vein">
+        <Sub title="Strength" aside="Est. max, first → last workout">
+          <ul className="divide-y divide-line">
             {t.lifts.map((l) => (
               <li key={l.slug} className="flex min-h-11 items-center gap-3 py-1.5">
-                <span className="line-clamp-2 min-w-0 flex-1 t-callout font-semibold leading-snug text-stone">{l.name}</span>
-                <span className="t-num-s tnum shrink-0 text-stone">
-                  {formatLoad(l.startE1rm, unit, false)} → <span className="text-ivory">{formatLoad(l.endE1rm, unit, false)}</span>
+                <span className="line-clamp-2 min-w-0 flex-1 t-label font-semibold leading-snug text-fg-2">{l.name}</span>
+                <span className="t-num-s tabular-nums shrink-0 text-fg-2">
+                  {formatLoad(l.startE1rm, unit, false)} → <span className="text-fg">{formatLoad(l.endE1rm, unit, false)}</span>
                 </span>
-                <span className={cn("w-16 shrink-0 text-right t-meta font-bold", l.change > 0 ? "text-leaf-300" : "text-stone")}>{l.change === 0 ? "Flat" : formatDelta(l.change, unit)}</span>
+                <span className={cn("w-16 shrink-0 text-right t-cap font-bold", l.change > 0 ? "text-fg" : "text-fg-2")}>{l.change === 0 ? "Flat" : formatDelta(l.change, unit)}</span>
               </li>
             ))}
           </ul>
@@ -286,7 +282,7 @@ export function NutritionCard({ s, className }: { s: ReviewStats; className?: st
       : undefined;
   return (
     <section className={cn("review-card min-w-0", className)}>
-      <LedgerHead numeral="III" title="Fuel" action={n.daysLogged > 0 ? <span className="t-meta font-semibold text-stone">Logged days only</span> : undefined} />
+      <LedgerHead title="Food" action={n.daysLogged > 0 ? <span className="t-cap font-semibold">Logged days only</span> : undefined} />
       <div className="review-metrics grid grid-cols-2 gap-x-4 gap-y-5">
         <Metric
           label="Avg calories"
@@ -313,9 +309,9 @@ export function NutritionCard({ s, className }: { s: ReviewStats; className?: st
       </div>
 
       {n.daysLogged === 0 ? (
-        <div className="mt-5 flex items-center justify-between gap-3 rounded-field bg-m3/60 py-2 pl-3.5 pr-1.5">
-          <p className="t-meta font-medium text-stone">No food logged in this period.</p>
-          <Link href="/nutrition?add=1" data-print="hide" className="inline-flex h-11 shrink-0 items-center px-2 t-meta font-bold text-leaf-300">
+        <div className="mt-5 flex items-center justify-between gap-3 rounded-tile bg-control py-2 pl-3.5 pr-1.5">
+          <p className="t-cap">No food logged in this period.</p>
+          <Link href="/nutrition?add=1" data-print="hide" className="inline-flex h-11 shrink-0 items-center px-2 t-cap font-bold text-fg">
             Log food
           </Link>
         </div>
@@ -328,10 +324,10 @@ export function NutritionCard({ s, className }: { s: ReviewStats; className?: st
               const partial = w.days > 0 && w.days < 3;
               return (
                 <li key={w.weekStart} className="grid grid-cols-[4rem_1fr] items-center gap-3">
-                  <span className="t-meta font-semibold text-stone">{shortDate(w.weekStart, s.window.to)}</span>
+                  <span className="t-cap font-semibold">{shortDate(w.weekStart, s.window.to)}</span>
                   <div className="min-w-0">
                     <div
-                      className="relative h-2 overflow-hidden rounded-full bg-m4"
+                      className="relative h-2 overflow-hidden rounded-full bg-track"
                       role="img"
                       aria-label={
                         w.avgCalories != null
@@ -339,14 +335,14 @@ export function NutritionCard({ s, className }: { s: ReviewStats; className?: st
                           : "No food logged"
                       }
                     >
-                      {w.avgCalories != null && <div className={cn("absolute inset-0 rounded-full", partial ? "hatch" : "bg-stone")} style={{ transform: `translateX(${(p - 1) * 100}%)` }} />}
-                      <span className="absolute inset-y-[-2px] w-[2px] bg-ivory" style={{ left: `calc(${target * 100}% - 1px)` }} aria-hidden />
+                      {w.avgCalories != null && <div className={cn("absolute inset-0 rounded-full", partial ? "bg-fg-3" : "bg-fg-2")} style={{ transform: `translateX(${(p - 1) * 100}%)` }} />}
+                      <span className="absolute inset-y-[-2px] w-[2px] bg-fg" style={{ left: `calc(${target * 100}% - 1px)` }} aria-hidden />
                     </div>
-                    <p className="mt-1 flex justify-between gap-2 t-meta font-medium text-stone">
+                    <p className="mt-1 flex justify-between gap-2 t-cap">
                       <span className="shrink-0">{w.days ? `${w.days} day${w.days === 1 ? "" : "s"}${partial ? " · partial" : ""}` : "Not logged"}</span>
                       {w.avgCalories != null && (
                         <span className="truncate tabular-nums">
-                          <span className="text-stone">{formatInt(w.avgCalories)} kcal</span> · {w.avgProtein} g protein
+                          <span className="text-fg-2">{formatInt(w.avgCalories)} kcal</span> · {w.avgProtein} g protein
                         </span>
                       )}
                     </p>
@@ -355,8 +351,8 @@ export function NutritionCard({ s, className }: { s: ReviewStats; className?: st
               );
             })}
           </ul>
-          <p className="mt-3 t-meta font-medium leading-relaxed text-stone">
-            The ivory tick is your {formatInt(n.calorieTarget)} kcal target; hatched weeks have under 3 logged days.
+          <p className="mt-3 t-cap leading-relaxed text-fg-2">
+            The white tick is your {formatInt(n.calorieTarget)} kcal target; darker weeks have under 3 logged days.
             {hasPartial && n.trend && " The trend compares weeks with 3 or more logged days."}
           </p>
         </Sub>
@@ -372,8 +368,7 @@ export function RecoveryCard({ s, className }: { s: ReviewStats; className?: str
   return (
     <section className={cn("review-card min-w-0", className)}>
       <LedgerHead
-        numeral="IV"
-        title="Recovery"
+                title="Recovery"
         action={
           r.checkIns > 0 ? (
             <span data-print="hide">
@@ -392,17 +387,16 @@ export function RecoveryCard({ s, className }: { s: ReviewStats; className?: str
         />
         <Metric label="Check-ins" value={r.checkIns || "0"} compare={`of ${s.window.days} ${days(s.window.days)}`} caption={r.painDays ? `${r.painDays} with a pain note` : undefined} />
         <Metric
-          label="Sessions / week"
+          label="Workouts a week"
           value={r.consistency.avgSessionsPerWeek ?? "—"}
           caption={r.consistency.weeks ? `${r.consistency.weeksOnPlan} of ${r.consistency.weeks} ${weeks(r.consistency.weeks)} at 80%+ of plan` : undefined}
         />
-        <Metric label="Volleyball" value={r.volleyballDays || "0"} unit="days" />
       </div>
       <Sub title="Reported, average" aside="1 low · 5 high">
         {r.checkIns === 0 ? (
-          <div className="flex items-center justify-between gap-3 rounded-field bg-m3/60 py-2 pl-3.5 pr-1.5">
-            <p className="t-meta font-medium text-stone">No check-ins in this period.</p>
-            <Link href="/recovery?checkin=1" data-print="hide" className="inline-flex h-11 shrink-0 items-center px-2 t-meta font-bold text-leaf-300">
+          <div className="flex items-center justify-between gap-3 rounded-tile bg-control py-2 pl-3.5 pr-1.5">
+            <p className="t-cap">No check-ins in this period.</p>
+            <Link href="/recovery?checkin=1" data-print="hide" className="inline-flex h-11 shrink-0 items-center px-2 t-cap font-bold text-fg">
               Check in
             </Link>
           </div>
@@ -410,10 +404,10 @@ export function RecoveryCard({ s, className }: { s: ReviewStats; className?: str
           <div>
             <FiveScale label="Sleep quality" value={r.avgQuality} low="poor" high="great" />
             <FiveScale label="Energy" value={r.avgEnergy} low="drained" high="fresh" />
-            <FiveScale label="Fatigue" value={r.avgFatigue} low="fresh" high="drained" />
+            <FiveScale label="Tiredness" value={r.avgFatigue} low="fresh" high="drained" />
             <FiveScale label="Soreness" value={r.avgSoreness} low="none" high="very sore" />
             <FiveScale label="Stress" value={r.avgStress} low="calm" high="high" />
-            <p className="mt-2 t-meta font-medium text-stone">Self-reported. A guide for planning, not a medical assessment.</p>
+            <p className="mt-2 t-cap">Self-reported. A guide for planning, not a medical assessment.</p>
           </div>
         )}
       </Sub>
