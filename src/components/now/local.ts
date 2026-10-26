@@ -1,8 +1,8 @@
 "use client";
 
-// Per-device flags for Now, kept in localStorage (docs/DESIGN-V2.md §3.1): Dawn put off until later,
-// the day sealed, the Unveiling played, yesterday's gild, a Chronicle opened. None of them is data:
-// clearing storage only means a moment plays again. Reads never throw (private mode, blocked storage).
+// Per-device flags for Today, kept in localStorage: the check-in put off, "Done for today" tapped,
+// a monthly recap opened. None of them is data: clearing storage only means a row shows again.
+// Reads never throw (private mode, blocked storage).
 
 import { useSyncExternalStore } from "react";
 
@@ -56,12 +56,8 @@ export function useLocal(key: string): string | null {
 }
 
 export const keys = {
-  /** Dawn put off for the day: the minute "Later" was tapped. */
+  /** The check-in put off for the day: the minute it was put off. */
   dawnLater: (date: string) => `pgg.dawn.later.${date}`,
-  /** "Seal the day" tapped (writes nothing to the database, §0.3). */
+  /** "Done for today" (or "Close Thursday" after midnight) tapped; writes nothing to the database. */
   sealed: (date: string) => `pgg.sealed.${date}`,
-  /** The date the Unveiling last played. */
-  unveil: "pgg.unveil",
-  /** The gild fraction the statue last showed (the Unveiling rises from it). */
-  gildLast: "pgg.gild.last",
 };

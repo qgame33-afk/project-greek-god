@@ -6,7 +6,8 @@ import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { NumberInput } from "@/components/ui/field";
-import { Meter } from "@/components/ui/meter";
+import { Bar } from "@/components/ui/progress";
+import { Chip } from "@/components/ui/controls";
 import { ErrorNote, Skeleton } from "@/components/ui/misc";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
@@ -21,8 +22,8 @@ const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour
 const litres = (ml: number) => (ml / 1000).toFixed(1);
 
 /**
- * Water history (docs/DESIGN-V2.md §3.7, §2.4): the last 7 days as meters in the water series (the
- * one quick control lives on Now and Fuel), and the chosen day's entries — each removable with
+ * Water history (Check-ins › Water, docs/DESIGN-V3-SIMPLE.md §4.6): the last 7 days as thin bars (the
+ * quick +250 ml lives on Today), and the chosen day's entries — each removable with
  * Undo, and a custom amount for a day that was missed.
  */
 export function WaterCard({
@@ -77,7 +78,7 @@ export function WaterCard({
     qc.setQueryData<WaterLog[]>(key, (rows) => rows?.filter((l) => l.id !== log.id));
     void inserted(log.id).then(() =>
       remove.mutate(log.id, {
-        onSuccess: () => toast(`Removed ${formatInt(log.amount_ml)} mL`, { id: toastId, duration: 6000, action: { label: "Undo", onClick: () => restore.mutate(log) } }),
+        onSuccess: () => toast(`Removed ${formatInt(log.amount_ml)} ml`, { id: toastId, duration: 6000, action: { label: "Undo", onClick: () => restore.mutate(log) } }),
         onSettled: () => (undoing.current = null),
       }),
     );
@@ -86,7 +87,7 @@ export function WaterCard({
   const add = (ml: number) => {
     const id = addMl(ml);
     const total = cached().filter((l) => l.id !== id).reduce((a, l) => a + l.amount_ml, 0) + ml;
-    toast(`+${formatInt(ml)} mL water`, {
+    toast(`Water +${formatInt(ml)} ml`, {
       id: toastId,
       description: `${litres(total)} of ${litres(goalMl)} L ${date === today ? "today" : `for ${relativeDay(date, today).toLowerCase()}`}`,
       duration: 6000,
@@ -100,22 +101,16 @@ export function WaterCard({
   };
 
   return (
-    <section aria-labelledby="water-title" className={className}>
-      <div className="mb-3 flex min-h-11 items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="t-eyebrow">Water · {relativeDay(date, today)}</p>
-          <h2 id="water-title" className="t-title-2 tnum mt-1 text-ivory">
-            {loading ? "—" : litres(selectedTotal)} of {litres(goalMl)} L
-          </h2>
-        </div>
-        <span className="t-meta pb-1 text-stone">{from === weekAgo ? "Last 7 days" : "Since day 1"}</span>
-      </div>
+    <section aria-label="Water by day" className={className}>
+      <p className="t-label mb-3">
+        {loading ? "—" : litres(selectedTotal)} of {litres(goalMl)} L {date === today ? "today" : relativeDay(date, today).toLowerCase()} · {from === weekAgo ? "last 7 days" : "since day 1"}
+      </p>
       {days.isLoading ? (
-        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-48 w-full rounded-tile-lg" />
       ) : days.error && !days.data ? (
-        <ErrorNote onRetry={() => void days.refetch()}>Couldn&apos;t load your water history.</ErrorNote>
+        <ErrorNote onRetry={() => void days.refetch()} />
       ) : (
-        <ul className="divide-y divide-vein border-y border-vein">
+        <ul className="overflow-hidden rounded-tile-lg bg-surface px-4 [&>*+*]:border-t [&>*+*]:border-line">
           {dateRange(from, today)
             .reverse()
             .map((d) => {
@@ -128,13 +123,13 @@ export function WaterCard({
                     onClick={() => onPickDay?.(d)}
                     aria-pressed={on}
                     aria-label={`${relativeDay(d, today)}: ${litres(ml)} of ${litres(goalMl)} litres`}
-                    className={cn("press-soft flex min-h-12 w-full items-center gap-3 text-left", on && "text-ivory")}
+                    className="press-soft flex min-h-12 w-full items-center gap-3 text-left"
                   >
-                    <span className={cn("t-meta tnum w-14 shrink-0", on ? "font-semibold text-ivory" : "text-stone")}>
+                    <span className={cn("t-label w-16 shrink-0 tabular-nums", on && "font-semibold text-fg")}>
                       {d === today ? "Today" : `${dayName(d, true)} ${parseISODate(d).getDate()}`}
                     </span>
-                    <Meter value={ml} target={goalMl} tone="water" size="sm" label={`${litres(ml)} of ${litres(goalMl)} litres`} className="flex-1" />
-                    <span className={cn("t-meta tnum w-16 shrink-0 text-right", ml >= goalMl ? "text-ivory" : "text-ash")}>{litres(ml)} L</span>
+                    <Bar value={goalMl > 0 ? ml / goalMl : 0} thin className="flex-1" />
+                    <span className="t-label w-14 shrink-0 text-right tabular-nums text-fg">{litres(ml)} L</span>
                   </button>
                 </li>
               );
@@ -145,30 +140,29 @@ export function WaterCard({
       {/* the chosen day's entries */}
       <div className="mt-4">
         <div className="flex min-h-11 items-center justify-between gap-3">
-          <p className="t-eyebrow">
+          <p className="t-row">
             {logs.length ? `${logs.length} ${logs.length === 1 ? "entry" : "entries"}` : "No water logged"} · {relativeDay(date, today)}
           </p>
-          <button type="button" onClick={() => setCustomOpen(true)} className="t-meta inline-flex min-h-11 items-center gap-1 font-semibold text-stone hover:text-ivory">
+          <button type="button" onClick={() => setCustomOpen(true)} className="press t-label inline-flex min-h-11 items-center gap-1 font-semibold">
             <Plus className="size-3.5" strokeWidth={1.8} aria-hidden /> Add an amount
           </button>
         </div>
         {loading ? (
-          <Skeleton className="h-11 w-full" />
+          <Skeleton className="h-11 w-full rounded-tile-lg" />
         ) : (
           logs.length > 0 && (
-            <ul className="divide-y divide-vein border-y border-vein">
+            <ul className="overflow-hidden rounded-tile-lg bg-surface pl-4 pr-2 [&>*+*]:border-t [&>*+*]:border-line">
               {[...logs].reverse().map((l) => (
                 <li key={l.id} className="flex min-h-11 items-center gap-3">
-                  <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-water" />
-                  <span className="t-callout tnum flex-1 text-ivory">{formatInt(l.amount_ml)} mL</span>
-                  <span className="t-meta tnum text-ash">{stamp(l)}</span>
+                                    <span className="t-row flex-1 tabular-nums">{formatInt(l.amount_ml)} ml</span>
+                  <span className="t-label tabular-nums">{stamp(l)}</span>
                   <button
                     type="button"
                     onClick={() => removeOne(l)}
-                    className="press -mr-2 grid size-11 place-items-center rounded-field text-ash hover:text-ivory"
+                    className="press grid size-11 place-items-center rounded-full text-fg-2 hover:text-fg"
                     aria-label={`Remove ${l.amount_ml} millilitres, ${stamp(l)}`}
                   >
-                    <X className="size-4" strokeWidth={1.6} />
+                    <X className="size-5" strokeWidth={1.9} />
                   </button>
                 </li>
               ))}
@@ -196,7 +190,7 @@ function CustomForm({ onAdd }: { onAdd: (ml: number) => void }) {
   const [touched, setTouched] = useState(false);
   const ml = parseNumber(text);
   const valid = ml != null && Number.isInteger(ml) && ml >= 1 && ml <= 5000;
-  const error = touched && text.trim() && !valid ? "Enter a whole number from 1 to 5,000 mL." : null;
+  const error = touched && text.trim() && !valid ? "Enter a whole number from 1 to 5,000 ml." : null;
   return (
     <form
       className="pt-1"
@@ -206,7 +200,7 @@ function CustomForm({ onAdd }: { onAdd: (ml: number) => void }) {
         if (valid) onAdd(ml!);
       }}
     >
-      <label htmlFor="water-custom" className="t-meta mb-1.5 block font-semibold text-stone">
+      <label htmlFor="water-custom" className="t-label mb-1.5 block font-semibold">
         Amount
       </label>
       <NumberInput
@@ -215,27 +209,22 @@ function CustomForm({ onAdd }: { onAdd: (ml: number) => void }) {
         decimal={false}
         enterKeyHint="done"
         placeholder="330"
-        suffix="mL"
+        suffix="ml"
         value={text}
         aria-invalid={!!error || undefined}
         onChange={(e) => setText(e.target.value.replace(/[^\d]/g, "").slice(0, 4))}
         onBlur={() => setTouched(true)}
       />
       {error && (
-        <p className="t-meta mt-1.5 text-cinnabar" role="alert">
+        <p className="t-label mt-1.5 text-danger" role="alert">
           {error}
         </p>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
         {[250, 330, 500, 1000].map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setText(String(v))}
-            className="press t-callout tnum h-11 rounded-full bg-m3 px-4 font-semibold text-stone shadow-[inset_0_0_0_1px_var(--vein-2)] hover:text-ivory"
-          >
-            {formatInt(v)} mL
-          </button>
+          <Chip key={v} selected={text === String(v)} onClick={() => setText(String(v))}>
+            {formatInt(v)} ml
+          </Chip>
         ))}
       </div>
       <Button type="submit" variant="primary" size="lg" block className="mt-6" disabled={!valid}>

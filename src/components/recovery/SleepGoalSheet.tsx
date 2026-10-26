@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Stepper } from "@/components/ui/controls";
+import { BigValue } from "@/components/ui/big-value";
 import { Sheet } from "@/components/ui/sheet";
 import { useSaveProfile } from "@/lib/data/profile";
 import { formatHours, formatSleep } from "@/lib/recovery/checkin";
@@ -27,7 +27,7 @@ export function SleepGoalSheet({
       open={open}
       onOpenChange={onOpenChange}
       title="Sleep goal"
-      description="Used for the readiness call, the sleep rite and weekly averages."
+      description="Used for the check-in, the sleep habit and weekly averages."
     >
       {open && (
         <GoalForm current={current} onDone={() => onOpenChange(false)} />
@@ -48,23 +48,20 @@ function GoalForm({
   const changed = value !== current;
   return (
     <div className="pt-2">
-      <Stepper
-        label="sleep goal"
+      <BigValue
+        name="Sleep goal"
         value={value}
+        onChange={setValue}
+        unit="h"
+        spokenUnit="hours"
         step={STEP}
         min={MIN}
         max={MAX}
-        onChange={setValue}
-        size="lg"
-      >
-        <span className="t-dial text-ivory">
-          {formatHours(value)}
-          <span className="t-meta ml-1 text-stone">h</span>
-        </span>
-      </Stepper>
-      <p className="t-callout mt-3 text-center text-stone">
-        {formatSleep(value)} a night. Most lifters recover best on 7–9 h.
-      </p>
+        format={(v) => formatHours(v)}
+        minusLabel="−15 min"
+        plusLabel="+15 min"
+        caption={`${formatSleep(value)} a night. Most lifters recover best on 7–9 h.`}
+      />
       <Button
         variant="primary"
         size="lg"
@@ -74,7 +71,7 @@ function GoalForm({
         loading={save.isPending}
         onClick={() =>
           save.mutate(
-            { values: { sleep_goal_h: value }, reason: "Edited on the Recovery ledger" },
+            { values: { sleep_goal_h: value }, reason: "Edited in Check-ins" },
             {
               onSuccess: () => {
                 toast(`Sleep goal set to ${formatHours(value)} h`, {
@@ -86,7 +83,7 @@ function GoalForm({
           )
         }
       >
-        Save goal
+        Save
       </Button>
     </div>
   );

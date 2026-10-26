@@ -91,7 +91,7 @@ export function CustomiseSheet({
     <Sheet
       open={open}
       onOpenChange={onOpenChange}
-      title="Customise habits"
+      title="Choose habits"
       description="Show, hide, reorder or add your own."
       wide
     >
@@ -261,7 +261,7 @@ function CustomiseBody() {
   return (
     <div className="pb-2">
       <div className="mt-1 flex items-center justify-between">
-        <p className="t-eyebrow">On your list · {active.length}</p>
+        <p className="t-label font-semibold">On your list · {active.length}</p>
         {active.length > 1 && (
           <button
             type="button"
@@ -270,7 +270,7 @@ function CustomiseBody() {
               setEditing(null);
             }}
             aria-pressed={reorder}
-            className="t-meta -mr-2 inline-flex h-11 items-center gap-1.5 px-2 font-semibold text-ivory underline decoration-ui-line underline-offset-4"
+            className="t-label -mr-2 inline-flex h-11 items-center gap-1.5 px-2 font-semibold text-fg"
           >
             {reorder ? (
               "Done"
@@ -309,18 +309,18 @@ function CustomiseBody() {
 
       {hidden.length > 0 && (
         <>
-          <p className="t-eyebrow mb-1 mt-6">Hidden · {hidden.length}</p>
+          <p className="t-label font-semibold mb-1 mt-6">Hidden · {hidden.length}</p>
           <ul>
             {hidden.map((d) => (
               <li
                 key={d.key}
-                className="flex min-h-14 items-center gap-2 border-b border-vein last:border-0"
+                className="flex min-h-14 items-center gap-2 border-b border-line last:border-0"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="t-title-3 block truncate text-stone">
+                  <span className="t-row block truncate text-fg-2">
                     {displayName(d)}
                   </span>
-                  <span className="t-meta block truncate text-ash">
+                  <span className="t-label block truncate text-fg-2">
                     Not counted toward your day
                   </span>
                 </span>
@@ -338,7 +338,7 @@ function CustomiseBody() {
                   <button
                     type="button"
                     onClick={() => del(d)}
-                    className="grid size-11 place-items-center rounded-field text-ash hover:text-cinnabar"
+                    className="grid size-11 place-items-center rounded-field text-fg-2 hover:text-danger"
                     aria-label={`Delete ${d.label}`}
                   >
                     <Trash className="size-4" />
@@ -350,7 +350,7 @@ function CustomiseBody() {
         </>
       )}
 
-      <p className="t-eyebrow mb-2 mt-7">Suggestions</p>
+      <p className="t-label font-semibold mb-2 mt-7">Suggestions</p>
       <div className="flex flex-wrap gap-2">
         {HABIT_PRESETS.map((p) => {
           const st = presetState(p, list);
@@ -375,7 +375,7 @@ function CustomiseBody() {
               )}
               {p.label}
               {p.target ? (
-                <span className="text-ash">
+                <span className="text-fg-2">
                   · {formatTarget(p.target, p.unit ?? null)}
                 </span>
               ) : null}
@@ -394,9 +394,9 @@ function CustomiseBody() {
       {notice && (
         <div
           role="status"
-          className="sticky bottom-3 z-10 mt-4 flex min-h-13 items-center gap-3 rounded-field bg-m4 py-1 pl-4 pr-1 shadow-(--e2)"
+          className="sticky bottom-3 z-10 mt-4 flex min-h-13 items-center gap-3 rounded-field bg-control py-1 pl-4 pr-1"
         >
-          <span className="t-callout min-w-0 flex-1 font-semibold text-ivory">
+          <span className="t-label min-w-0 flex-1 font-semibold text-fg">
             {notice.text}
           </span>
           {notice.undo && (
@@ -406,7 +406,7 @@ function CustomiseBody() {
                 notice.undo?.();
                 clear();
               }}
-              className="t-callout h-11 shrink-0 rounded-field px-3 font-semibold text-ivory underline decoration-ui-line underline-offset-4"
+              className="t-label h-11 shrink-0 rounded-field px-3 font-semibold text-fg"
             >
               Undo
             </button>
@@ -467,20 +467,20 @@ function HabitRow({
         ? `Goal ${formatTarget(d.target == null ? null : Number(d.target), d.unit)}`
         : "Tick it off each day";
   const icon =
-    "press grid size-11 shrink-0 place-items-center rounded-field text-ash transition-colors hover:text-ivory disabled:text-disabled disabled:pointer-events-none";
+    "press grid size-11 shrink-0 place-items-center rounded-field text-fg-2 transition-colors hover:text-fg disabled:text-fg-3 disabled:pointer-events-none";
 
   return (
-    <li className="border-b border-vein last:border-0">
+    <li className="border-b border-line last:border-0">
       <div className="flex min-h-14 items-center gap-1">
         <span className="min-w-0 flex-1 pr-1">
           <span className="flex items-center gap-1.5">
-            <span className="t-title-3 truncate text-ivory">
+            <span className="t-row truncate text-fg">
               {label}
             </span>
             {isAuto && <AutoBadge />}
             {optional && <OptionalBadge />}
           </span>
-          <span className="t-meta block truncate text-ash">
+          <span className="t-label block truncate text-fg-2">
             {caption}
           </span>
         </span>
@@ -668,7 +668,7 @@ function StepsGoalEditor({
   const [v, setV] = useState(current);
   return (
     <div className="card-inset mb-3 p-3">
-      <p className="t-meta mb-2 font-semibold text-stone">
+      <p className="t-label mb-2 font-semibold text-fg-2">
         Daily steps goal
       </p>
       <Stepper
@@ -679,7 +679,7 @@ function StepsGoalEditor({
         max={40000}
         onChange={setV}
         format={(n) => formatInt(n)}
-        buttonClassName="bg-m4"
+        buttonClassName="bg-control"
       />
       <div className="mt-3 flex items-center justify-end gap-2">
         <Button variant="ghost" onClick={onDone}>
@@ -759,7 +759,7 @@ function AddHabitForm({
         submit();
       }}
     >
-      <p className="t-eyebrow">Add your own</p>
+      <p className="t-label font-semibold">Add your own</p>
       <Field label="Name" error={errors.label}>
         {(id) => (
           <Input

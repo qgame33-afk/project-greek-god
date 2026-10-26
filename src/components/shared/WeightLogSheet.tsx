@@ -25,7 +25,12 @@ interface Seed {
 
 /** A day-to-day change this large is almost always a typo or the wrong unit. */
 const IMPLAUSIBLE_CHANGE = 0.1;
+/** One step of the stepper, in the profile's unit (0.1 kg). */
 const STEP = 0.1;
+/** Bounds and the empty-account starting point, stored in pounds like the database and shown through units.ts. */
+const MIN_LB = 66;
+const MAX_LB = 600;
+const PLACEHOLDER_LB = 160;
 
 /**
  * The weigh-in sheet (docs/DESIGN-V3-SIMPLE.md §4.1.3): "Weigh in", one big number prefilled with
@@ -37,7 +42,7 @@ const STEP = 0.1;
 export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open: boolean; onOpenChange: (o: boolean) => void; date?: string }) {
   const today = useToday();
   const { profile } = useProfile();
-  const unit = (profile?.weight_unit ?? "lb") as WeightUnit;
+  const unit = (profile?.weight_unit as WeightUnit | null | undefined) ?? "kg";
   const { weights, loading: weightsLoading } = useWeights();
   const { save, remove } = useWeightMutations();
   const [date, setDate] = useState(initialDate ?? today);
@@ -60,7 +65,7 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
     const last = weights.at(-1);
     const startLb = profile.start_weight_lb == null ? null : Number(profile.start_weight_lb);
     const lbRaw = ex ? Number(ex.weight_lb) : last ? Number(last.weight_lb) : startLb;
-    if (lbRaw == null || !(lbRaw > 0)) return { lb: 0, unit, shown: unit === "kg" ? 70 : 160, notes: "" };
+    if (lbRaw == null || !(lbRaw > 0)) return { lb: 0, unit, shown: round(toDisplayWeight(PLACEHOLDER_LB, unit), 1), notes: "" };
     const lb = round(lbRaw, 1);
     return { lb, unit, shown: round(toDisplayWeight(lb, unit), 1), notes: ex?.notes ?? "" };
   };
@@ -98,13 +103,13 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
     setSeed(s);
   };
 
-  const min = unit === "kg" ? 30 : 60;
-  const max = unit === "kg" ? 270 : 600;
+  const min = Math.ceil(toDisplayWeight(MIN_LB, unit));
+  const max = Math.floor(toDisplayWeight(MAX_LB, unit));
   const typed = typing == null ? null : parseNumber(typing.replace(",", "."));
   const current = typing == null ? value : typed;
   const invalid = current == null || current < min || current > max;
   // The number still reads exactly as seeded: keep the stored pounds, so opening a weigh-in in
-  // kg to add a note can't nudge 163.0 lb to 162.9 through the 0.1 kg display rounding.
+  // kg to add a note can't nudge the stored value through the 0.1 kg display rounding.
   const lb = current == null ? null : seed && seed.lb > 0 && seed.unit === unit && round(current, 1) === seed.shown ? seed.lb : round(fromDisplayWeight(current, unit), 1);
 
   // Soft check against the nearest other weigh-in (or the start weight): a 10% swing is a typo or the wrong unit.
@@ -165,7 +170,7 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
             value={value}
             onChange={setValue}
             unit={unit}
-            spokenUnit={unit === "kg" ? "kilograms" : "pounds"}
+            spokenUnit={unit}
             step={STEP}
             min={min}
             max={max}
@@ -180,7 +185,7 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
         ) : (
           <div className="flex flex-col items-center">
             <label className="w-full text-center">
-              <span className="sr-only">Weight in {unit === "kg" ? "kilograms" : "pounds"}</span>
+              <span className="sr-only">Weight in {unit}</span>
               <input
                 ref={inputRef}
                 autoFocus
@@ -198,7 +203,6 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
             <span className="t-label mt-1">{unit}</span>
           </div>
         )}
-        <p className="t-label mt-3 text-center">{caption}</p>
         {invalid && (
           <p className="t-label mt-2 text-center text-danger" role="alert">
             Enter a weight between {min} and {max} {unit}.
@@ -213,6 +217,7 @@ export function WeightLogSheet({ open, onOpenChange, date: initialDate }: { open
         <Button variant="primary" size="lg" block className="mt-5" onClick={submit} loading={save.isPending} disabled={invalid}>
           Save
         </Button>
+        <p className="t-label mt-3 text-center">{caption}</p>
         {offline && (
           <p role="status" className="t-label mt-2 text-center">
             You&apos;re offline. Try again when you&apos;re back.

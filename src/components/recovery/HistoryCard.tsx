@@ -1,41 +1,36 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { SealTick } from "@/components/art/icons";
-import { cleanLabel, riteGlyph } from "@/components/now/Lower";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
-import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
-import { useMissionDays, type MissionDay } from "@/lib/data/daily";
-import { addDays, addMonths, longDate, monthEnd, monthLabel, monthStart, parseISODate, type ISODate } from "@/lib/dates";
+import { useMissionDays } from "@/lib/data/daily";
+import { addDays, addMonths, monthEnd, monthLabel, monthStart, parseISODate, type ISODate } from "@/lib/dates";
 import { cellKind, cellLabel, monthGrid, type CellKind } from "@/lib/recovery/heatmap";
 import { Switcher } from "./parts";
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
-/** Quiet ivory steps for part-kept days; leaf (outline, never a fill) only when every rite was kept. */
+/** Quiet white steps for part-done days; a white outline when every habit was done. Never colour alone. */
 const CELL: Record<CellKind, string> = {
-  pre: "text-disabled shadow-[inset_0_0_0_1px_var(--vein)]",
-  future: "text-disabled shadow-[inset_0_0_0_1px_var(--vein)]",
-  empty: "bg-m1 text-ash",
-  low: "bg-ivory/10 text-stone",
-  mid: "bg-ivory/20 text-ivory",
-  high: "bg-ivory/30 text-ivory",
-  full: "bg-m2 text-leaf-200 shadow-[inset_0_0_0_1.5px_var(--leaf-300)]",
+  pre: "text-fg-3",
+  future: "text-fg-3",
+  empty: "bg-card-2 text-fg-2",
+  low: "bg-fg/10 text-fg-2",
+  mid: "bg-fg/20 text-fg",
+  high: "bg-fg/30 text-fg",
+  full: "bg-card-2 text-fg shadow-[inset_0_0_0_1.5px_var(--text)]",
 };
 
 /**
- * Rites by month (docs/DESIGN-V2.md §3.7, §4.6): each day's share of rites kept as a calendar,
- * a dot for a finished session, and the month as counts — "X of Y rites kept" and "X of Y
- * sessions", never a percentage or a streak. A day opens its rites and then that day's ledger.
+ * Habits by month (Check-ins › Habits, docs/DESIGN-V3-SIMPLE.md §4.6): each day's share of habits
+ * done as a calendar, a dot for a finished workout, and the month as counts — "X of Y habits done"
+ * and "X of Y workouts", never a percentage or a streak. A day opens its habits above.
  */
 export function HistoryCard({ today, startDate, onOpenDay, className }: { today: ISODate; startDate: ISODate | null; onOpenDay: (d: ISODate) => void; className?: string }) {
   const [month, setMonth] = useState(() => monthStart(today));
   const from = monthStart(month);
   const to = monthEnd(month);
   const { days, loading } = useMissionDays(from, to);
-  const [open, setOpen] = useState<MissionDay | null>(null);
 
   const byDate = useMemo(() => new Map(days.map((d) => [d.date, d])), [days]);
   const totals = useMemo(() => {
@@ -53,13 +48,12 @@ export function HistoryCard({ today, startDate, onOpenDay, className }: { today:
 
   return (
     <section aria-labelledby="rites-month-title" className={className}>
-      <p className="t-eyebrow">Rites by month</p>
+      <h3 className="t-section mb-2 mt-7">Habits by month</h3>
       <Switcher
-        className="mt-1"
         label={
-          <h2 id="rites-month-title" className="t-title-2 text-ivory">
+          <span id="rites-month-title" className="t-row block">
             {monthLabel(month)}
-          </h2>
+          </span>
         }
         onPrev={() => setMonth(addMonths(month, -1))}
         onNext={() => setMonth(addMonths(month, 1))}
@@ -68,26 +62,26 @@ export function HistoryCard({ today, startDate, onOpenDay, className }: { today:
         prevLabel="Previous month"
         nextLabel="Next month"
       />
-      <p className="t-callout tnum mt-1 text-center text-stone">
+      <p className="t-label mt-1 text-center tabular-nums">
         {loading ? (
           "—"
         ) : totals.total ? (
           <>
-            <span className="text-ivory">{totals.kept}</span> of {totals.total} rites kept
+            <span className="text-fg">{totals.kept}</span> of {totals.total} habits done
             {totals.planned > 0 && (
               <>
                 {" · "}
-                <span className="text-ivory">{totals.sessions}</span> of {totals.planned} sessions
+                <span className="text-fg">{totals.sessions}</span> of {totals.planned} workouts
               </>
             )}
           </>
         ) : (
-          "No rites counted this month yet"
+          "No habits counted this month yet"
         )}
       </p>
 
       <div className="mt-4">
-        <div className="t-eyebrow grid grid-cols-7 text-center" aria-hidden>
+        <div className="t-cap grid grid-cols-7 text-center font-semibold" aria-hidden>
           {WEEKDAYS.map((w, i) => (
             <span key={i} className="pb-1.5">
               {w}
@@ -103,7 +97,7 @@ export function HistoryCard({ today, startDate, onOpenDay, className }: { today:
             ))}
           </div>
         ) : (
-          <ol className="grid grid-cols-7" aria-label={`${monthLabel(month)}: rites kept each day`}>
+          <ol className="grid grid-cols-7" aria-label={`${monthLabel(month)}: habits done each day`}>
             {grid.map((d, i) => {
               if (!d) return <li key={i} aria-hidden className="aspect-square" />;
               const md = byDate.get(d);
@@ -115,7 +109,7 @@ export function HistoryCard({ today, startDate, onOpenDay, className }: { today:
                   <button
                     type="button"
                     disabled={disabled}
-                    onClick={() => md && setOpen(md)}
+                    onClick={() => onOpenDay(d)}
                     aria-label={cellLabel(d, kind, md?.done ?? 0, md?.total ?? 0, !!md?.workoutDone)}
                     className="press group block w-full p-0.5 disabled:pointer-events-none"
                   >
@@ -123,12 +117,12 @@ export function HistoryCard({ today, startDate, onOpenDay, className }: { today:
                       className={cn(
                         "relative grid aspect-square min-h-10 w-full place-items-center rounded-sm",
                         CELL[kind],
-                        isToday && "outline-[1.5px] outline-offset-1 outline-ivory outline-solid",
+                        isToday && "outline-[1.5px] outline-offset-1 outline-fg outline-solid",
                         !disabled && !isToday && "group-hover:ring-1 group-hover:ring-ui-line",
                       )}
                     >
-                      <span className="t-num-s leading-none">{parseISODate(d).getDate()}</span>
-                      {md?.workoutDone && <span className={cn("absolute bottom-[14%] size-1.5 rounded-full", kind === "full" ? "bg-leaf-300" : "bg-stone")} aria-hidden />}
+                      <span className="t-label font-bold leading-none">{parseISODate(d).getDate()}</span>
+                      {md?.workoutDone && <span className={cn("absolute bottom-[14%] size-1.5 rounded-full", kind === "full" ? "bg-fg" : "bg-fg-2")} aria-hidden />}
                     </span>
                   </button>
                 </li>
@@ -138,67 +132,19 @@ export function HistoryCard({ today, startDate, onOpenDay, className }: { today:
         )}
       </div>
 
-      <div className="t-meta mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-stone" aria-hidden>
+      <div className="t-cap mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2" aria-hidden data-budget-group="">
         <span className="flex items-center gap-1.5">
           None
           {(["empty", "low", "mid", "high", "full"] as CellKind[]).map((k) => (
             <span key={k} className={cn("size-3.5 rounded-xs", CELL[k])} />
           ))}
-          All kept
+          All done
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="size-1.5 rounded-full bg-stone" /> Session
+          <span className="size-1.5 rounded-full bg-fg-2" /> Workout
         </span>
       </div>
 
-      <DaySheet
-        day={open}
-        onClose={() => setOpen(null)}
-        onEdit={(d) => {
-          setOpen(null);
-          onOpenDay(d);
-        }}
-      />
     </section>
-  );
-}
-
-function DaySheet({ day, onClose, onEdit }: { day: MissionDay | null; onClose: () => void; onEdit: (d: ISODate) => void }) {
-  return (
-    <Sheet
-      open={!!day}
-      onOpenChange={(o) => !o && onClose()}
-      title={day ? longDate(day.date) : "Day"}
-      description={day ? (day.total ? `${day.done} of ${day.total} rites kept` : "No rites were switched on") : undefined}
-      footer={
-        day ? (
-          <Button variant="secondary" block onClick={() => onEdit(day.date)}>
-            Open this day
-          </Button>
-        ) : undefined
-      }
-    >
-      {day && day.statuses.length > 0 && (
-        <ul className="divide-y divide-vein pb-2">
-          {day.statuses.map((s) => (
-            <li key={s.key} className="flex min-h-14 items-center gap-3">
-              <span
-                aria-hidden
-                className={cn("grid size-9 shrink-0 place-items-center rounded-full", s.done ? "bg-(image:--leaf-v) text-ink" : "bg-m1 text-stone shadow-[inset_0_0_0_1px_var(--ui-line)]")}
-              >
-                {s.done ? <SealTick className="size-4" /> : riteGlyph(s.key)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="t-title-3 block truncate text-ivory">{cleanLabel(s.label)}</span>
-                <span className={cn("t-meta block truncate", s.done ? "text-leaf-300" : "text-ash")}>
-                  {s.kind === "check" && !s.done ? "Not kept" : s.caption}
-                  <span className="sr-only">{s.done ? ", kept" : ", not kept"}</span>
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Sheet>
   );
 }

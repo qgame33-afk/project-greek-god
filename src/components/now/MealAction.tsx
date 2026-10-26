@@ -1,8 +1,7 @@
 "use client";
 
-import { Ellipsis } from "lucide-react";
+import { Check, Ellipsis } from "lucide-react";
 import { useRef, useState } from "react";
-import { SealTick } from "@/components/art/icons";
 import { LogMealSheet, type LogMealTarget } from "@/components/meals/log/LogMealSheet";
 import { estimateFor } from "@/components/meals/log/draft";
 import { useRecipeConflicts } from "@/components/meals/shared/ConflictNote";
@@ -23,7 +22,7 @@ export function mealSpoken(m: Pick<NowMeal, "name" | "kcal" | "protein">) {
 }
 
 /**
- * Eaten for one planned meal (docs/DESIGN-V2.md §3.1.2): one tap logs it as planned through the
+ * Eaten for one planned meal (used by the Add sheet): one tap logs it as planned through the
  * idempotent useLogPlannedMeal (one entry id per row instance, so a repeat tap never logs twice)
  * with an Undo toast. Long-press, or the visible ⋯, opens the log sheet with servings editable
  * ("Eaten, but changed"). A meal that breaks an allergy always goes through the sheet.
@@ -103,8 +102,8 @@ export function MealAction({
 
   if (meal.eaten) {
     return (
-      <span className={cn("t-callout inline-flex h-11 shrink-0 items-center gap-1.5 px-1 font-semibold text-leaf-300", className)}>
-        <SealTick className="seal-in size-5" />
+      <span className={cn("t-label inline-flex h-11 shrink-0 items-center gap-1.5 px-1 font-semibold text-fg", className)}>
+        <Check className="size-5" strokeWidth={2.2} aria-hidden />
         Eaten
       </span>
     );
@@ -114,7 +113,7 @@ export function MealAction({
     <div className={cn("flex shrink-0 flex-col items-end", className)}>
       <div className={cn("flex items-center", gold ? "w-full gap-2" : "gap-1")}>
         <Button
-          variant={gold ? "primary" : "outline"}
+          variant={gold ? "primary" : "secondary"}
           size={gold ? "lg" : "sm"}
           className={cn(gold ? "flex-1" : "min-w-[72px] rounded-full px-4")}
           disabled={!meal.recipe || blocked}
@@ -142,15 +141,15 @@ export function MealAction({
           disabled={!target || blocked}
           onClick={() => setSheet(true)}
           className={cn(
-            "press grid shrink-0 place-items-center rounded-full text-stone hover:text-ivory disabled:opacity-40",
-            gold ? "size-14 bg-m3 shadow-[inset_0_0_0_1px_var(--vein-2)]" : compact ? "-mr-2 size-11" : "size-11",
+            "press grid shrink-0 place-items-center rounded-full text-fg-2 hover:text-fg disabled:opacity-40",
+            gold ? "size-14 bg-control" : compact ? "-mr-2 size-11" : "size-11",
           )}
         >
           <Ellipsis className="size-5" strokeWidth={1.6} />
         </button>
       </div>
       {note && (
-        <p role="status" className="t-meta mt-1 text-stone">
+        <p role="status" className="t-label mt-1">
           {note}
         </p>
       )}

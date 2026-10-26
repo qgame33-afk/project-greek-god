@@ -11,17 +11,16 @@ import { useMealPrefs, usePlan } from "@/lib/data/meals";
 import { useFoodEntries, useWater } from "@/lib/data/nutrition";
 import { useProfile } from "@/lib/data/profile";
 import { useRecovery } from "@/lib/data/recovery";
-import { planFor, scheduleOf, usePREvents, useDayPlans, useSessions, useTemplates, useVolleyball, type Session } from "@/lib/data/training";
-import { useRecentHistory, useStartWorkout } from "@/lib/data/workout";
-import { addDays, weekDates, weekday, type ISODate } from "@/lib/dates";
+import { planFor, usePREvents, useDayPlans, useSessions, useTemplates, type Session } from "@/lib/data/training";
+import { useStartWorkout } from "@/lib/data/workout";
+import { addDays, weekDates, type ISODate } from "@/lib/dates";
 import { recipeMacros } from "@/lib/meals/recipe";
 import type { Recipe, Slot } from "@/lib/meals/types";
 import { sessionsSealed } from "@/lib/adherence";
 import { plannedTime } from "@/lib/now/meal-times";
 import { effectiveTrainAt, parseAppPrefs, toMinutes } from "@/lib/prefs";
-import { gildFraction, pace as paceOf, terraces, trendSeries } from "@/lib/progress/pace";
+import { pace as paceOf } from "@/lib/progress/pace";
 import { useReadiness } from "@/lib/recovery/hooks";
-import { volleyballEntries } from "@/lib/recovery/volleyball";
 import { nextSession } from "@/lib/today/plan";
 import { latestRecords } from "@/lib/today/records";
 import { estimateDurationMin } from "@/lib/training/programs";
@@ -39,14 +38,17 @@ export interface NowMeal {
   recipe: Recipe | null;
   kcal: number;
   protein: number;
+  carbs: number;
+  fat: number;
   at: number;
   role: "breakfast" | "lunch" | "dinner" | "snack" | "pre" | "post";
   eaten: boolean;
 }
 
 /**
- * Everything Now shows, from the shared data hooks (docs/DESIGN-V2.md §3.1). The trend, rate,
- * projection, verdict and gild come from lib/progress/pace and are never recomputed here.
+ * Everything Today shows (docs/DESIGN-V3-SIMPLE.md §4.1), from the shared data hooks. The 7-day
+ * average and the pace call come from lib/progress/pace and are never recomputed here. The Add
+ * sheet reads the same model (meals, template, durationMin, setCount, active).
  */
 export function useNowData() {
   const today = useToday();
@@ -60,9 +62,8 @@ export function useNowData() {
   const water = useWater(today);
   const recovery = useRecovery(addDays(today, -13), today);
   const prs = usePREvents(addDays(today, -365), today);
-  const vb = useVolleyball(week[0], week[6]);
-  // yesterday too: from midnight to 05:00 the Seal card closes the day that just ended
-  const mission = useMissionDays(addDays(today, -1), today);
+  // this week for the strip, and yesterday too: after midnight Up next closes the day that just ended
+  const mission = useMissionDays(addDays(today, -1) < week[0] ? addDays(today, -1) : week[0], today);
   const workout = useStartWorkout();
   const plan = usePlan(today);
   const mealPrefs = useMealPrefs();
@@ -72,12 +73,10 @@ export function useNowData() {
   const qc = useQueryClient();
 
   const todayPlan = useMemo(() => (profile ? planFor(today, profile, plans.data ?? [], byKey) : null), [profile, today, plans.data, byKey]);
-  const slugs = useMemo(() => todayPlan?.template?.exercises.map((e) => e.slug) ?? [], [todayPlan]);
-  const history = useRecentHistory(slugs);
 
   const model = useMemo(() => {
     if (!profile || !todayPlan) return null;
-    const unit: WeightUnit = profile.weight_unit === "kg" ? "kg" : "lb";
+    const unit: WeightUnit = (profile.weight_unit as WeightUnit | null) ?? "kg";
     const mode = (profile.training_mode ?? "standard") as Mode;
     const plansRows = plans.data ?? [];
     const resolve = (d: ISODate) => planFor(d, profile, plansRows, byKey);
@@ -88,20 +87,13 @@ export function useNowData() {
     const doneToday = all.filter((s) => s.local_date === today && s.status === "done").sort((a, b) => (b.ended_at ?? "").localeCompare(a.ended_at ?? ""))[0] ?? null;
     const active = workout.active;
 
-    // recovery and volleyball
+    // the check-in
     const recRows = recovery.data ?? [];
     const todayRec = recRows.find((r) => r.local_date === today) ?? null;
-    const vbDays = volleyballEntries(vb.data ?? [], recRows);
-    const volleyballToday = vbDays.some((v) => v.local_date === today);
 
     // the one trend, rate, projection and verdict
     const pace = paceOf({ weighIns: weights, today, profile, unit });
-    const startLb = profile.start_weight_lb == null ? null : Number(profile.start_weight_lb);
-    const goalLb = profile.goal_weight_lb == null ? null : Number(profile.goal_weight_lb);
     const validCount = weights.filter((w) => w.local_date <= today && Number(w.weight_lb) > 0).length;
-    const gild = startLb != null && goalLb != null ? gildFraction(pace.trend.lb, startLb, goalLb, validCount) : 0;
-    const series = trendSeries(weights, undefined, today);
-    const terraceList = startLb != null && pace.band ? terraces(pace, series, startLb, pace.band.min) : [];
     const weighToday = weights.find((w) => w.local_date === today) ?? null;
 
     // the session
@@ -130,6 +122,8 @@ export function useNowData() {
           recipe,
           kcal: macros?.kcal ?? 0,
           protein: macros?.protein ?? 0,
+          carbs: macros?.carbs ?? 0,
+          fat: macros?.fat ?? 0,
           at: t.at,
           role: t.role,
           eaten: eatenIds.has(m.id),
@@ -137,16 +131,13 @@ export function useNowData() {
       })
       .sort((a, b) => a.at - b.at || a.position - b.position);
 
-    // this week's sessions sealed (one volleyball swap counts)
-    const schedule = scheduleOf(profile);
+    // this week's workouts done of planned
     const days = week.map((d) => {
       const p = resolve(d);
-      const scheduled = schedule[String(weekday(d))] ?? "rest";
-      const played = vbDays.some((v) => v.local_date === d);
       // days before the programme started were never planned
       const before = !!profile.start_date && d < profile.start_date;
-      const kind: "train" | "rest" | "volleyball" = before ? "rest" : p.template ? "train" : played && scheduled !== "rest" ? "volleyball" : "rest";
-      const done = kind === "volleyball" ? played : all.some((s) => s.local_date === d && s.status === "done");
+      const kind: "train" | "rest" = before ? "rest" : p.template ? "train" : "rest";
+      const done = all.some((s) => s.local_date === d && s.status === "done");
       return { date: d, kind, done };
     });
     const sealed = sessionsSealed(days, today);
@@ -160,6 +151,7 @@ export function useNowData() {
 
     return {
       today,
+      week,
       profile,
       unit,
       mode,
@@ -173,11 +165,8 @@ export function useNowData() {
       doneToday,
       todayRec,
       recRows,
-      volleyballToday,
       pace,
-      gild,
       weighInCount: validCount,
-      terraces: terraceList,
       weighToday,
       weights,
       // a block that failed to load (and has nothing saved to show) says so, never "none yet"
@@ -192,6 +181,8 @@ export function useNowData() {
       foodFailed: !!food.error && food.entries.length === 0,
       /** Food entries logged today (0 → "—" and the next step, not "0 g"). */
       foodLogged: food.entries.length,
+      foodEntries: food.entries,
+      resolve,
       waterMl: water.totalMl,
       waterLogs: water.logs,
       sealed,
@@ -200,7 +191,7 @@ export function useNowData() {
       sessionRecords,
       mission: mission.days.find((d) => d.date === today) ?? null,
       yesterday: mission.days.find((d) => d.date === addDays(today, -1)) ?? null,
-      history: history.data ?? {},
+      missionDays: mission.days,
     };
   }, [
     profile,
@@ -215,7 +206,6 @@ export function useNowData() {
     today,
     workout.active,
     recovery.data,
-    vb.data,
     weights,
     weightsError,
     typical,
@@ -232,7 +222,6 @@ export function useNowData() {
     water.totalMl,
     water.logs,
     mission.days,
-    history.data,
   ]);
 
   const coreLoading = profileLoading || templatesLoading || plans.isLoading || sessions.isLoading || weightsLoading || food.loading;

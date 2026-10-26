@@ -11,10 +11,10 @@ import { keys, useLocal } from "./local";
 import type { NowModel } from "./useNowData";
 
 /**
- * Assembles the Day Engine's input (docs/DESIGN-V2.md §4.2, §5.3) from Now's data: today's plan at
- * his usual training time (prefs.day.trainAt, else the workout reminder), the session, the planned
- * meals placed with plannedTime(), Dawn's check-in and weigh-in, and the per-device flags (Dawn put
- * off, the day sealed). Re-evaluates every minute and on focus.
+ * Assembles the Day Engine's input from Today's data: today's plan at his usual training time
+ * (prefs.day.trainAt, else the workout reminder), the session, the planned meals placed with
+ * plannedTime(), the morning check-in and weigh-in, and the per-device flags (the check-in put
+ * off, "Done for today"). Re-evaluates every minute and on focus. Up next reads `state.next`.
  */
 export function useDayInput(m: NowModel | null): { input: DayInput | null; state: DayState | null; now: number; sealDate: string } {
   const now = useMinuteOfDay();
@@ -28,7 +28,7 @@ export function useDayInput(m: NowModel | null): { input: DayInput | null; state
     if (!m) return null;
     const t = m.template;
     const train = t ? { key: t.key, name: t.name, at: m.trainAt, durationMin: m.durationMin } : null;
-    const plan: DayInput["plan"] = m.volleyballToday ? { kind: "volleyball", train: train ?? undefined } : train ? { kind: "train", ...train } : { kind: "rest" };
+    const plan: DayInput["plan"] = train ? { kind: "train", ...train } : { kind: "rest" };
 
     // the session: one running (from any day) or finished today
     let session: DayInput["session"] = { status: "none" };
