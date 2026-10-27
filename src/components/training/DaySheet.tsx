@@ -10,7 +10,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { addDays, dayName, monthName, parseISODate, relativeDay, weekday, type ISODate } from "@/lib/dates";
 import { scheduleOf, type Session } from "@/lib/data/training";
 import { useSessionDetail, useStartWorkout } from "@/lib/data/workout";
-import { templateLabels } from "@/lib/training/programs";
+import { programOfKey, templateLabels } from "@/lib/training/programs";
 import { describeMove, linkedMoveDates, planMove, rescheduleOptions, type RescheduleOption } from "@/lib/training/schedule";
 import { formatLoad } from "@/lib/units";
 import { LiftRows, plannedCounts } from "./LiftRows";
@@ -37,6 +37,9 @@ export function DaySheet({ date, open, onOpenChange, week }: { date: ISODate | n
   const plan = date ? week.resolve(date) : null;
   const done = date ? week.sessions.find((s) => s.local_date === date && s.status === "done") : undefined;
   const name = done?.name ?? plan?.template?.name ?? "Rest day";
+  // a stored name (a done workout, or a day kept from the program he left) is history (§5.2)
+  const key = done?.template_key ?? plan?.key ?? null;
+  const history = !!done || (!!key && programOfKey(key) !== null && programOfKey(key) !== week.program);
   return (
     <Sheet
       open={open}
@@ -44,7 +47,7 @@ export function DaySheet({ date, open, onOpenChange, week }: { date: ISODate | n
       title={
         <>
           <span className="t-label block font-normal">{date ? dayCaption(date) : ""}</span>
-          <span data-budget-name="" className="block">
+          <span data-budget-name="" data-history={history ? "" : undefined} className="block">
             {name}
           </span>
         </>

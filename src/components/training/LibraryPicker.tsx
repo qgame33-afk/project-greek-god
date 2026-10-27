@@ -81,7 +81,7 @@ function PickerBody({ first, firstTitle, exclude, onPick }: { first: string[]; f
   return (
     <div className="pb-2">
       <SearchField value={q} onChange={setQ} placeholder="Search by name, muscle or equipment" label="Search the exercise library" />
-      <div className="no-scrollbar -mx-5 mt-3 flex gap-2 overflow-x-auto px-5 py-1" role="group" aria-label="Filter by body region">
+      <div className="mt-3 flex flex-wrap gap-2 py-1" role="group" aria-label="Filter by body region">
         <Chip selected={region === "all"} onClick={() => setRegion("all")}>
           All
         </Chip>

@@ -12,7 +12,7 @@ import { useActiveProgram } from "@/lib/data/program";
 import { useSaveTemplate, useTemplates, type StoredTemplate } from "@/lib/data/training";
 import { parseAppPrefs } from "@/lib/prefs";
 import { getExercise } from "@/lib/training/library";
-import { carriedSwaps, PROGRAMS, templateLabels } from "@/lib/training/programs";
+import { carriedSwaps, programOfKey, PROGRAMS, templateLabels } from "@/lib/training/programs";
 import type { Mode } from "@/lib/training/progression";
 import type { ProgramId } from "@/lib/training/types";
 import { substituteExercise } from "@/lib/training/volume";
@@ -77,7 +77,8 @@ export function useTrainSuggestion(week: Week, volume: VolumeSuggestion[]): Trai
       if (swaps.length) return { kind: "swap", icon: Repeat, title: "Use the same swap?", reason: `${swaps[0].toName} instead of ${swaps[0].fromName}`, swaps, from };
     }
 
-    const missed = week.missed[0];
+    // a workout of the program he left is not moved into this one
+    const missed = week.missed.find((m) => programOfKey(m.key) === week.program);
     if (missed) {
       const t = week.byKey[missed.key];
       const name = t ? templateLabels(t).short : missed.name;

@@ -16,7 +16,7 @@ import { useUnits } from "./hooks";
 
 /**
  * A workout's lifts with their targets (docs/DESIGN-V3-SIMPLE.md §4.3.1 item 5, §4.3.2): one row
- * per exercise, the plan line ("2 sets · 12–20 reps · each hand · to failure"; optional lifts, when a
+ * per exercise, the plan line ("2 sets · 12–20 reps · each hand"; optional lifts, when a
  * program has them, last with "· optional"), the next-time weight from `suggest()` on the right ("—" before the first log,
  * with "First time" in the line), a chevron to the exercise detail. Follows the training mode.
  * AX layout: the weight moves under the name.

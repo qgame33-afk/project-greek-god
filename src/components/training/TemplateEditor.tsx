@@ -13,9 +13,10 @@ import { ListGroup, Row } from "@/components/ui/list";
 import { Confirm, Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { useProfile } from "@/lib/data/profile";
+import { useActiveProgram } from "@/lib/data/program";
 import { scheduleOf, useSaveTemplate, useTemplates, type StoredTemplate } from "@/lib/data/training";
 import { getExercise } from "@/lib/training/library";
-import { templateDef, visibleWarmup } from "@/lib/training/programs";
+import { programOfKey, templateDef, visibleWarmup } from "@/lib/training/programs";
 import { weekdaysFor } from "@/lib/training/schedule";
 import type { RepUnit, TemplateExercise, TemplateKey } from "@/lib/training/types";
 import { RIR_OPTIONS, moveItem, newTemplateExercise, sameTemplateContent, substituteExercise, validateTemplate } from "@/lib/training/volume";
@@ -61,6 +62,7 @@ function Editor({ stored }: { stored: StoredTemplate }) {
   const qc = useQueryClient();
   const router = useRouter();
   const { profile } = useProfile();
+  const { program } = useActiveProgram();
   const save = useSaveTemplate();
   const busy = useRef(false);
   const def = templateDef(stored.key)!;
@@ -95,6 +97,8 @@ function Editor({ stored }: { stored: StoredTemplate }) {
   const isPlan = sameTemplateContent(draft, def);
   const working = draft.exercises.filter((e) => !e.optional);
   const notes = def.notes ?? [];
+  // a template of the program he isn't following keeps its stored name (§5.2 data-history)
+  const inactive = programOfKey(stored.key) !== program;
 
   useEffect(() => {
     try {
@@ -213,7 +217,7 @@ function Editor({ stored }: { stored: StoredTemplate }) {
   const dayLabel = days.length === 0 ? "Not in your week" : days.length === 1 ? DAY[days[0]] : days.map((d) => SHORT[d]).join(" & ");
 
   const more = (
-    <Button variant="secondary" size="icon" aria-label="More" aria-haspopup="dialog" onClick={() => setSheet("more")}>
+    <Button variant="secondary" size="icon" aria-label="More options" aria-haspopup="dialog" onClick={() => setSheet("more")}>
       <Ellipsis aria-hidden />
     </Button>
   );
@@ -225,7 +229,7 @@ function Editor({ stored }: { stored: StoredTemplate }) {
         parent="Program"
         right={more}
         title={
-          <span className="break-words" data-budget-name="">
+          <span className="break-words" data-budget-name="" data-history={inactive ? "" : undefined}>
             {draft.name.trim() || "Untitled"}
           </span>
         }

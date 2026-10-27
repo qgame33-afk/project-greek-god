@@ -1,8 +1,10 @@
 "use client";
 
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
+import { useUser } from "@/lib/data/core";
 import { useProfile, useSavePrefs } from "@/lib/data/profile";
 import { useSetProgram } from "@/lib/data/program";
 import { parseAppPrefs } from "@/lib/prefs";
@@ -22,14 +24,23 @@ import { CheckedList, SheetActions, SheetReason, type CheckedLine } from "./part
  *   const notice = useNewPlanNotice();
  *   <NewPlanNotice open={notice.show && open} onOpenChange={...} />
  */
+/** When this page load began (a restored cache entry is older than this). */
+const PAGE_START = typeof performance === "undefined" ? 0 : performance.timeOrigin;
+
 export function useNewPlanNotice() {
   const { profile } = useProfile();
+  const { userId } = useUser();
+  const qc = useQueryClient();
+  // the profile as the server has it now (not a copy restored from the offline cache): only then
+  // may the notice open by itself, so a cache from before "seen" never brings it back
+  const fetching = useIsFetching({ queryKey: ["profile", userId] });
+  const fresh = fetching === 0 && (qc.getQueryState(["profile", userId])?.dataUpdatedAt ?? 0) >= PAGE_START;
   const prefs = parseAppPrefs(profile?.prefs);
   const sw = prefs.programSwitch;
   const active = activeProgram(profile);
   const seen = prefs.switchNoticeSeenAt;
   const show = !!profile && !!sw && sw.to === active && sw.from !== sw.to && !!PROGRAMS[sw.from] && (!seen || seen < sw.at);
-  return { show, at: sw?.at ?? null, from: (sw?.from ?? null) as ProgramId | null, to: active };
+  return { show, fresh, at: sw?.at ?? null, from: (sw?.from ?? null) as ProgramId | null, to: active };
 }
 
 const ORDER = [1, 2, 3, 4, 5, 6, 0];

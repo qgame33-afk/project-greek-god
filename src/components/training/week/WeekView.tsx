@@ -11,11 +11,11 @@ import { ErrorNote } from "@/components/ui/misc";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { addDays, dayName, type ISODate } from "@/lib/dates";
 import { useStartWorkout } from "@/lib/data/workout";
-import { estimateDurationMin, SUNDAY_RECOVERY, templateLabels } from "@/lib/training/programs";
+import { estimateDurationMin, programOfKey, SUNDAY_RECOVERY, templateLabels } from "@/lib/training/programs";
 import { modeTemplate } from "@/lib/training/volume";
 import { aboutMin, plural, spokenName } from "../format";
 import { MODE_LABEL, useAllPREvents, useTypicalDurations, useWeekVolume, type useTrainingWeek } from "../hooks";
-import { NewPlanNotice } from "../NewPlanNotice";
+import { NewPlanNotice, useNewPlanNotice } from "../NewPlanNotice";
 import { OptionsToday, useTodayOptionsFor } from "../OptionsToday";
 import { LiftRows } from "../LiftRows";
 import { RestIdeasList } from "../RestIdeas";
@@ -34,12 +34,13 @@ export function WeekView({ week, onDay, go }: { week: Week; onDay: (d: ISODate) 
   const opts = useTodayOptionsFor(week);
   const volume = useWeekVolume(week);
   const suggestion = useTrainSuggestion(week, volume.suggestions);
+  const notice = useNewPlanNotice();
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [sheet, setSheet] = useState<TrainSuggestion["kind"] | null>(null);
   // the one-time notice opens by itself on the first visit after the publication (§4.3.8)
-  const [noticeOpen, setNoticeOpen] = useState(suggestion?.kind === "notice");
-  const [seenNotice, setSeenNotice] = useState(suggestion?.kind === "notice");
-  if (suggestion?.kind === "notice" && !seenNotice) {
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  const [seenNotice, setSeenNotice] = useState(false);
+  if (notice.show && notice.fresh && !seenNotice) {
     setSeenNotice(true);
     setNoticeOpen(true);
   }
@@ -91,7 +92,7 @@ export function WeekView({ week, onDay, go }: { week: Week; onDay: (d: ISODate) 
       </ListGroup>
 
       <OptionsToday open={optionsOpen} onOpenChange={setOptionsOpen} options={opts} />
-      <NewPlanNotice open={noticeOpen} onOpenChange={setNoticeOpen} />
+      <NewPlanNotice open={noticeOpen && notice.show} onOpenChange={setNoticeOpen} />
       <LightWeekSheet
         s={suggestion && (suggestion.kind === "deload" || suggestion.kind === "lighter" || suggestion.kind === "standard" || suggestion.kind === "ease") ? suggestion : null}
         open={!!sheet && sheet !== "swap"}
@@ -110,7 +111,10 @@ function Strip({ week, onDay }: { week: Week; onDay: (d: ISODate) => void }) {
     const plan = week.resolve(d.date);
     const t = d.kind === "rest" && !done ? null : plan.template;
     const label = done ? templateLabels({ key: done.template_key ?? "", name: done.name }).abbr : t ? templateLabels(t).abbr : "Rest";
-    const name = done ? done.name : t ? t.name : "Rest day";
+    // a day of another program (before a switch) is spoken by its short label, never its old name
+    const key = done ? (done.template_key ?? "") : (t?.key ?? "");
+    const other = !!key && programOfKey(key) !== null && programOfKey(key) !== week.program;
+    const name = other ? `${label} workout` : done ? done.name : t ? t.name : "Rest day";
     const state = done ? "win" : d.missed ? "missed" : "none";
     return {
       date: d.date,

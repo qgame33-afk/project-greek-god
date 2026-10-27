@@ -106,7 +106,7 @@ function Detail({ slug }: { slug: string }) {
 
   const perHand = !!lib?.perHand;
   const right = (
-    <Button variant="secondary" size="icon" aria-label="More" aria-haspopup="dialog" onClick={() => setMore(true)}>
+    <Button variant="secondary" size="icon" aria-label="More options" aria-haspopup="dialog" onClick={() => setMore(true)}>
       <Ellipsis aria-hidden />
     </Button>
   );
@@ -146,7 +146,7 @@ function Detail({ slug }: { slug: string }) {
             <span className="t-hero mt-2 block">—</span>
           )}
           <span className="t-label mt-2 block">{best ? (next ?? `Last time ${dm(rows.reduce((a, b) => ((b.local_date ?? "") > (a.local_date ?? "") ? b : a)).local_date ?? today)}.`) : "Log it in a workout to see your best set."}</span>
-          <span id="best-hint" className="sr-only">
+          <span id="best-hint" className="sr-only" data-budget-group="">
             Shows how it is worked out
           </span>
         </button>
@@ -211,7 +211,7 @@ function Detail({ slug }: { slug: string }) {
           {te && <p className="t-row">{effortText(te.rir)}</p>}
           {lib ? (
             <>
-              <ol className="flex flex-col gap-3">
+              <ol className="flex flex-col gap-3" data-budget-group="">
                 {lib.instructions.map((x, i) => (
                   <li key={i} className="t-body flex gap-3">
                     <span aria-hidden className="t-row w-5 shrink-0 text-fg-2 tabular-nums">
@@ -222,7 +222,7 @@ function Detail({ slug }: { slug: string }) {
                 ))}
               </ol>
               {lib.formTips.length > 0 && (
-                <ul className="flex flex-col gap-2">
+                <ul className="flex flex-col gap-2" data-budget-group="">
                   {lib.formTips.map((t) => (
                     <li key={t} className="t-label">
                       {t}
@@ -358,19 +358,21 @@ function ChartCard({ daily, loading, unit, today, range, setRange }: { daily: Pa
       <div className="mt-3" data-budget-group="" role="img" aria-label={spoken}>
         {loading ? <Skeleton className="h-40 w-full" /> : data.length < 2 ? <p className="t-label grid h-40 place-items-center text-center">One session in this range. Choose All.</p> : <ExerciseChart data={data} metric={series.metric} />}
       </div>
+      <div data-budget-group="">
       <table className="sr-only">
-        <caption>{label}, last 7 sessions</caption>
-        <tbody>
-          {data.slice(-7).map((d) => (
-            <tr key={d.date}>
-              <td>{dm(d.date)}</td>
-              <td>
-                {d.value ?? "—"} {u}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          <caption>{label}, last 7 sessions</caption>
+          <tbody>
+            {data.slice(-7).map((d) => (
+              <tr key={d.date}>
+                <td>{dm(d.date)}</td>
+                <td>
+                  {d.value ?? "—"} {u}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

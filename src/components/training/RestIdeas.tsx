@@ -34,8 +34,9 @@ function IdeaRow({ idea, clamp }: { idea: Idea; clamp?: boolean }) {
       <span aria-hidden className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-icon bg-card-3 text-fg">
         {createElement(ideaIcon(idea.label), { className: "size-5", strokeWidth: 1.9 })}
       </span>
-      <span className="min-w-0 flex-1" data-program-text="">
-        <span className="t-row block" data-budget-name="">
+      {/* a rest idea is PROGRAM's data, verbatim: one name for the budget (§5.1) */}
+      <span className="min-w-0 flex-1" data-program-text="" data-budget-name="">
+        <span className="t-row block">
           {idea.label}
         </span>
         <span className={clamp ? "t-label mt-0.5 line-clamp-2 block" : "t-label mt-0.5 block"}>{idea.detail}</span>

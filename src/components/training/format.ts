@@ -39,7 +39,6 @@ export function repText(e: { repLow: number; repHigh: number; unit: string }) {
 export function liftLine(e: { sets: number; repLow: number; repHigh: number; unit: string; optional?: boolean; rir?: string }, perHand?: boolean) {
   const parts = [plural(e.sets, "set"), repText(e)];
   if (perHand && e.unit !== "each") parts.push("each hand");
-  if (toFailure(e.rir)) parts.push("to failure");
   if (e.optional) parts.push("optional");
   return parts.join(" · ");
 }
@@ -48,7 +47,7 @@ export function liftLine(e: { sets: number; repLow: number; repHigh: number; uni
 export function liftSpoken(e: { sets: number; repLow: number; repHigh: number; unit: string; optional?: boolean; rir?: string }) {
   const range = e.repLow === e.repHigh ? `${e.repLow}` : `${e.repLow} to ${e.repHigh}`;
   const what = e.unit === "sec" ? "seconds" : e.unit === "each" ? "reps each side" : "reps";
-  return `${plural(e.sets, "set")} of ${range} ${what}${toFailure(e.rir) ? ", to failure" : ""}${e.optional ? ", optional" : ""}`;
+  return `${plural(e.sets, "set")} of ${range} ${what}${e.optional ? ", optional" : ""}`;
 }
 
 /** "about 45 min" */
