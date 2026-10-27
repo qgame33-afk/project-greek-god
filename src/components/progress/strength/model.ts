@@ -5,7 +5,8 @@ import { dayName, monthName, monthStart, parseISODate, type ISODate } from "@/li
 import type { RecordEntry } from "@/lib/progress/hall";
 import { setE1rm, type LiftSummary, type StrengthSet } from "@/lib/progress/strength";
 import { getExercise } from "@/lib/training/library";
-import { round, toDisplayWeight, type WeightUnit } from "@/lib/units";
+import { loadText as gymLoadText } from "@/lib/training/loads";
+import type { WeightUnit } from "@/lib/units";
 
 /** "Thu 22 Oct" (with the year when it isn't this year). */
 export function dayLabel(d: ISODate, today: ISODate): string {
@@ -14,10 +15,9 @@ export function dayLabel(d: ISODate, today: ISODate): string {
   return d.slice(0, 4) === today.slice(0, 4) ? base : `${base} ${d.slice(0, 4)}`;
 }
 
-/** A load in the display unit without trailing zeros: "25", "27.5". */
+/** A load in the display unit without trailing zeros: "25", "27.5" (the 0.5 kg grid every screen uses). */
 export function loadText(lb: number, unit: WeightUnit): string {
-  const v = round(toDisplayWeight(lb, unit), 1);
-  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+  return gymLoadText(lb, unit, false);
 }
 
 /** "70 × 10" (§0 law 7: compact rows may drop "each hand"); "BW × 12"; "BW+25 × 8" for added load. */

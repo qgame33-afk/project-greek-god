@@ -1,6 +1,7 @@
+import { loadText } from "@/lib/training/loads";
 import { PROGRAMS } from "@/lib/training/programs";
 import type { ProgramId } from "@/lib/training/types";
-import { formatInt, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
+import { formatInt, toDisplayWeight, type WeightUnit } from "@/lib/units";
 
 /** "6,460 kg" in the user's unit (stored pounds converted once, here). */
 export function fmtVolume(lb: number | null | undefined, unit: WeightUnit) {
@@ -8,11 +9,10 @@ export function fmtVolume(lb: number | null | undefined, unit: WeightUnit) {
   return `${formatInt(toDisplayWeight(Number(lb), unit))} ${unit}`;
 }
 
-/** Load value without unit, e.g. "185" or "83.9". */
+/** Load value without unit on the shared display grid, e.g. "185" or "84". */
 export function fmtLoadValue(lb: number | null | undefined, unit: WeightUnit) {
   if (lb == null || !Number.isFinite(Number(lb))) return "—";
-  const v = round(toDisplayWeight(Number(lb), unit), 1);
-  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+  return loadText(Number(lb), unit, false);
 }
 
 /** "68 min" from seconds; "—" when unknown. */
