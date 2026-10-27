@@ -85,7 +85,7 @@ function SessionBody({ session, prSetIds, unit }: { session: Session; prSetIds: 
 
   return (
     <div className="flex flex-col gap-4 pb-2">
-      <p className="t-label -mt-1">{facts}</p>
+      <p className="t-label">{facts}</p>
       {session.notes && <p className="t-body text-fg">&ldquo;{session.notes}&rdquo;</p>}
       {q.isLoading ? (
         <Skeleton className="h-[260px] rounded-tile-lg" />

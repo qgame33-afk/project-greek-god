@@ -2,7 +2,7 @@ import { PROGRAMS } from "@/lib/training/programs";
 import type { ProgramId } from "@/lib/training/types";
 import { formatInt, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
 
-/** "14,250 lb" in the user's unit. */
+/** "6,460 kg" in the user's unit (stored pounds converted once, here). */
 export function fmtVolume(lb: number | null | undefined, unit: WeightUnit) {
   if (lb == null || !Number.isFinite(Number(lb))) return "—";
   return `${formatInt(toDisplayWeight(Number(lb), unit))} ${unit}`;

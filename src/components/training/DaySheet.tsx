@@ -153,7 +153,7 @@ function DayBody({ date, week, close }: { date: ISODate; week: Week; close: () =
 
   return (
     <div className="flex flex-col gap-4 pb-2">
-      <p className="t-label -mt-1">
+      <p className="t-label">
         {plural(lifts, "lift")} · {plural(sets, "set")} · {aboutMin(minutes)}
       </p>
       {(plan.movedFrom || plan.reason === "swap" || frozen || missed) && (
@@ -252,7 +252,7 @@ function DoneSession({ session }: { session: Session }) {
   const min = session.duration_sec ? `${Math.max(1, Math.round(session.duration_sec / 60))} min` : null;
   return (
     <div className="flex flex-col gap-3">
-      <p className="t-label -mt-1">{["Done", min, plural(session.sets_completed, "set")].filter(Boolean).join(" · ")}</p>
+      <p className="t-label">{["Done", min, plural(session.sets_completed, "set")].filter(Boolean).join(" · ")}</p>
       {q.isLoading ? (
         <Skeleton className="h-[168px] rounded-tile-lg" />
       ) : (

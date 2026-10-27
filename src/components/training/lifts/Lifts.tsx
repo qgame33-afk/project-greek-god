@@ -26,7 +26,7 @@ const e1 = (w: number, r: number) => w * (1 + r / 30);
 
 /**
  * Lifts (§4.3.10): a search field and every lift he has logged, newest first: "Incline Dumbbell
- * Press · Best 70 × 10 · +10 lb" (the change since his first logged session) → exercise detail.
+ * Press · Best 32 × 10 · +4.5 kg" (the change since his first logged session, in his unit) → exercise detail.
  * A last row "All exercises" opens the library with its region filter.
  */
 export function Lifts() {

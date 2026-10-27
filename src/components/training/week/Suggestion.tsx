@@ -45,6 +45,7 @@ export interface Swap {
   templates: StoredTemplate[];
 }
 
+const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const fmtDay = (d: ISODate) => `${dayName(d, true)} ${parseISODate(d).getDate()}`;
 
 export function volumeTitle(s: VolumeSuggestion) {
@@ -235,7 +236,7 @@ export function SwapCarrySheet({ s, open, onOpenChange }: { s: Extract<TrainSugg
             {s.swaps.length > 1 ? ` And ${s.swaps.slice(1).map((x) => `${x.toName} instead of ${x.fromName}`).join(", ")}.` : ""}
           </SheetReason>
           <CheckedList
-            lines={s.swaps.flatMap((sw) => sw.templates.map((t) => ({ title: t.name, subtitle: `${sw.fromName} → ${sw.toName}`, dataName: true })))}
+            lines={s.swaps.flatMap((sw) => sw.templates.map((t) => ({ title: `${t.name} · ${WEEKDAY[t.weekday] ?? ""}`.replace(/ · $/, ""), subtitle: `${sw.fromName} → ${sw.toName}`, dataName: true })))}
             label={`What changes in ${target}`}
           />
           <SheetActions>
