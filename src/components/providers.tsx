@@ -8,6 +8,8 @@ import { applyAppearance, useReducedMotionPref } from "@/lib/appearance";
 import { usePersistedQueryCache } from "@/lib/offline/usePersistedQueryCache";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
+const TOAST_BUTTON = { height: 44, minWidth: 44, padding: "0 14px", fontSize: 15, fontWeight: 600, borderRadius: 12 } as const;
+
 /** True once the persisted query cache has been restored (or the short restore timeout passed). */
 const CacheReady = createContext(true);
 export function useQueryCacheReady() {
@@ -78,6 +80,9 @@ export function Providers({ children }: { children: ReactNode }) {
               visibleToasts={2}
               duration={4000}
               theme="dark"
+              // Undo and the other toast actions are real 44 px targets (sonner draws them 24 px tall);
+              // inline styles beat sonner's injected stylesheet without !important.
+              toastOptions={{ actionButtonStyle: TOAST_BUTTON, cancelButtonStyle: TOAST_BUTTON }}
             />
           </LazyMotion>
         </MotionConfig>

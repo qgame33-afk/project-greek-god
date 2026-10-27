@@ -122,7 +122,8 @@ export function measureBudget(page) {
       const s = t.textContent.trim();
       if (!s) continue;
       const el = t.parentElement;
-      if (!el || el.closest("[data-tab-bar], script, style, noscript, [data-sonner-toaster]")) continue;
+      // .sr-only text is for VoiceOver only: it is never on screen, so it is not part of the budget
+      if (!el || el.closest("[data-tab-bar], script, style, noscript, [data-sonner-toaster], .sr-only")) continue;
       const cs = getComputedStyle(el);
       if (cs.visibility === "hidden" || cs.display === "none") continue;
       const r = document.createRange();

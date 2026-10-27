@@ -1115,6 +1115,8 @@ Every `.tsx` (and `.ts`, `.css`) under `src/components` and `src/app` has exactl
 FOUNDATION   src/app/globals.css
 FOUNDATION   src/app/layout.tsx
 FOUNDATION   src/app/global-error.tsx
+FOUNDATION   src/app/not-found.tsx
+FOUNDATION   src/app/(app)/not-found.tsx
 FOUNDATION   src/app/manifest.ts
 FOUNDATION   src/app/(app)/layout.tsx
 FOUNDATION   src/app/(app)/error.tsx

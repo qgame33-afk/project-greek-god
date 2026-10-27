@@ -28,7 +28,7 @@ export function TopBar({ pathname }: { pathname: string }) {
       cancelAnimationFrame(frame);
     };
   }, []);
-  const { title, show } = useScrolledPageTitle(true, pathname);
+  const { title, show, history } = useScrolledPageTitle(true, pathname);
   const showTitle = show && !!title;
   return (
     <header
@@ -37,7 +37,10 @@ export function TopBar({ pathname }: { pathname: string }) {
       style={{ paddingTop: "var(--safe-top)", opacity: scrolled ? 1 : 0 }}
     >
       <div className={cn("grid place-items-center overflow-hidden px-16", showTitle ? "h-11 border-b border-line" : "h-0")}>
-        <p className={cn("t-row truncate transition-opacity duration-(--dur-fast)", showTitle ? "opacity-100" : "opacity-0")}>{title}</p>
+        {/* a stored name of a past session (data-history on the heading) stays marked as one here */}
+        <p data-history={history ? "" : undefined} className={cn("t-row truncate transition-opacity duration-(--dur-fast)", showTitle ? "opacity-100" : "opacity-0")}>
+          {title}
+        </p>
       </div>
     </header>
   );
@@ -63,12 +66,12 @@ export function useScrolledPageTitle(enabled: boolean, pathname: string) {
       setBar((b) => {
         const base = b.path === pathname ? b : { ...NO_TITLE, path: pathname };
         const next = { ...base, ...patch };
-        return next.path === b.path && next.title === b.title && next.show === b.show ? b : next;
+        return next.path === b.path && next.title === b.title && next.show === b.show && next.history === b.history ? b : next;
       });
     const attach = () => {
       frame = 0;
       const el = pageHeading();
-      update({ title: el?.textContent?.trim() || null });
+      update({ title: el?.textContent?.trim() || null, history: !!el?.closest("[data-history]") });
       if (el === observed) return;
       io?.disconnect();
       io = null;
@@ -102,15 +105,17 @@ export function useScrolledPageTitle(enabled: boolean, pathname: string) {
     };
   }, [enabled, pathname]);
   const current = enabled && bar.path === pathname;
-  return { title: current ? bar.title : null, show: current && bar.show };
+  return { title: current ? bar.title : null, show: current && bar.show, history: current && bar.history };
 }
 
 interface PageTitleState {
   path: string;
   title: string | null;
   show: boolean;
+  /** The heading is (inside) a [data-history] element: a stored name from a past session. */
+  history: boolean;
 }
-const NO_TITLE: PageTitleState = { path: "", title: null, show: false };
+const NO_TITLE: PageTitleState = { path: "", title: null, show: false, history: false };
 
 /** The current page's heading: the first <h1> in the page that is laid out (a copy hidden at
  *  this breakpoint has no boxes and never counts). */

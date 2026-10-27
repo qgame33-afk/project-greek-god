@@ -52,9 +52,30 @@ export function LiveSlotContent({ session, compact }: { session: LiveSlotSession
     <>
       {/* keep: a rest that ends while he is on another screen reads "Rest over" until the next set */}
       <RestWatcher sessionId={session.id} chimeOn={prefs.restChime} hapticsOn={false} keep />
-      <BarLine name={short} rest={stale ? null : rest} setText={setText} compact={compact} />
+      {/* VoiceOver reads the whole line, never the truncated one: "Back to Legs. Rest 1 minute 12. Set 4 of 19." */}
+      <span className="sr-only">
+        {liveSlotLabel({ ...session, name: short })}.{!stale && rest && <SpokenRest rest={rest} />}
+        {setText && ` ${setText}.`}
+      </span>
+      <span aria-hidden className="flex min-w-0 flex-1">
+        <BarLine name={short} rest={stale ? null : rest} setText={setText} compact={compact} />
+      </span>
     </>
   );
+}
+
+function SpokenRest({ rest }: { rest: RestState }) {
+  const now = useClockSec();
+  return <>{` ${spokenRest(remainingSec(rest, now))}.`}</>;
+}
+
+/** "Rest 1 minute 12", "Rest 45 seconds", "Rest over". */
+export function spokenRest(sec: number) {
+  if (sec <= 0) return "Rest over";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  if (!m) return `Rest ${s} second${s === 1 ? "" : "s"}`;
+  return `Rest ${m} minute${m === 1 ? "" : "s"}${s ? ` ${s}` : ""}`;
 }
 
 function RestText({ rest }: { rest: RestState }) {

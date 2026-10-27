@@ -21,9 +21,18 @@ export const SECONDARY_NAV: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+/** Pages reached from inside a tab that have their own URL: the tab they belong to stays lit. */
+const PARENT_TAB: [prefix: string, tab: string][] = [
+  ["/reviews", "/progress"],
+  ["/recovery", "/"],
+];
+
 export function isActive(pathname: string, href: string) {
+  const under = (prefix: string) => pathname === prefix || pathname.startsWith(prefix + "/");
+  const parent = PARENT_TAB.find(([prefix]) => under(prefix));
+  if (parent) return parent[1] === href;
   if (href === "/") return pathname === "/";
-  return pathname === href || pathname.startsWith(href + "/");
+  return under(href);
 }
 
 /**

@@ -25,6 +25,12 @@ describe("routes", () => {
   it("matches sections and focus routes", () => {
     expect(isActive("/nutrition/meals/recipe/lib:x", "/nutrition")).toBe(true);
     expect(isActive("/nutrition", "/")).toBe(false);
+    // the monthly recap lives under Progress, Check-ins under Today
+    expect(isActive("/reviews", "/progress")).toBe(true);
+    expect(isActive("/reviews/2026-10", "/progress")).toBe(true);
+    expect(isActive("/reviews", "/")).toBe(false);
+    expect(isActive("/recovery", "/")).toBe(true);
+    expect(isActive("/recovery", "/progress")).toBe(false);
     expect(isFocusRoute("/nutrition/meals/cook/lib:x")).toBe(true);
     expect(isFocusRoute("/nutrition/meals/recipe/lib:x")).toBe(false);
   });
