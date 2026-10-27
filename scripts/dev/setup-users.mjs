@@ -37,7 +37,7 @@ const admin = createClient(URL_, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persis
 export const PASSWORD = "ascent-test-123";
 
 async function ensureUser(email) {
-  const { data: list } = await admin.auth.admin.listUsers({ perPage: 200 });
+  const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
   const existing = list.users.find((u) => u.email === email);
   if (existing && process.argv.includes("--reset")) {
     await admin.auth.admin.deleteUser(existing.id);
