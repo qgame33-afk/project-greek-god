@@ -65,12 +65,8 @@ describe("motion tokens", () => {
     expect(DURATION.press).toBeLessThan(DURATION.fast);
   });
 
-  it("keep the retired Olympus names as aliases of base", () => {
-    expect(DURATION.slow).toBe(DURATION.base);
-    expect(DURATION.lift).toBe(DURATION.base);
-    expect(DURATION.gild).toBe(DURATION.base);
-    expect(DURATION.inscribe).toBe(DURATION.base);
-    expect(DURATION.count).toBe(DURATION.base);
+  it("has no retired Olympus names", () => {
+    expect(Object.keys(DURATION)).not.toContain("gild");
   });
 
   it("fills rings and bars over 600 ms", () => {

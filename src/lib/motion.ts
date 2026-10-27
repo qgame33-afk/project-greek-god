@@ -21,16 +21,6 @@ export const DURATION = {
   sheet: 400,
   /** A ring or bar filling to a new value (stroke-dashoffset / scaleX). */
   ring: 600,
-  /** @deprecated Olympus token, an alias of `base` (deleted at integration). */
-  lift: 220,
-  /** @deprecated Olympus token, an alias of `base` (deleted at integration). */
-  gild: 220,
-  /** @deprecated Olympus token, an alias of `base` (deleted at integration). */
-  inscribe: 220,
-  /** @deprecated Olympus token, an alias of `base`; numbers change instantly now. */
-  count: 220,
-  /** @deprecated alias of `base`. */
-  slow: 220,
 } as const;
 
 /** Cubic-bezier easings as motion/react arrays… */

@@ -100,7 +100,7 @@ export function RecipeCard({
     />
   );
   return (
-    <article className={cn("overflow-hidden rounded-card bg-surface shadow-(--e1)", className)}>
+    <article className={cn("overflow-hidden rounded-card bg-surface", className)}>
       {href && recipe ? (
         <Link href={href} onClick={onOpen} className="press-soft block p-4">
           {body}

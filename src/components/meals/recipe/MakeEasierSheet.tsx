@@ -187,7 +187,7 @@ function EasierPreview({ from, choice }: { from: Recipe; choice: EasierChoice })
         {rows.map((r, i) => (
           <div key={r.label} className={cn("grid grid-cols-[1fr_auto_16px_auto] items-center gap-2.5 px-4 py-2.5", i > 0 && "border-t border-line")}>
             <span className="t-label font-semibold text-fg-2">{r.label}</span>
-            <span className="tabular-nums text-right t-row text-fg-2 line-through decoration-ash/60">{r.before}</span>
+            <span className="tabular-nums text-right t-row text-fg-2 line-through decoration-fg-2/60">{r.before}</span>
             <ArrowRight className="size-3.5 text-fg-2" aria-label="to" />
             <span className={cn("tabular-nums min-w-16 text-right t-row text-fg", r.better ? "font-bold" : "font-semibold")}>{r.after}</span>
           </div>

@@ -68,23 +68,12 @@ export function applyAppearance(a: Appearance = readAppearance(), now: Date = ne
   const root = document.documentElement;
   setAttr(root, "data-motion", a.motion === "reduce" ? "reduce" : null);
   setAttr(root, "data-night", nightOn(a.night, now) ? "on" : null);
-  // retired variants (Seal, Reduce transparency): never set any more
-  setAttr(root, "data-transparency", null);
-  setAttr(root, "data-phase", null);
 }
 
 function setAttr(el: HTMLElement, name: string, value: string | null) {
   if (value == null) {
     if (el.hasAttribute(name)) el.removeAttribute(name);
   } else if (el.getAttribute(name) !== value) el.setAttribute(name, value);
-}
-
-/**
- * @deprecated The old Now screen passed its Day Engine phase here for the Seal variant. Night
- * dimming follows only the setting and the clock now (DESIGN-V3 §1.1.2), so this does nothing.
- */
-export function setDayPhase(_phase: string | null) {
-  applyAppearance();
 }
 
 const listeners = new Set<() => void>();

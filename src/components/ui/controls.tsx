@@ -215,7 +215,7 @@ export function Stepper({
   className?: string;
   size?: "sm" | "md" | "lg";
   children?: ReactNode;
-  /** e.g. "bg-m4" when the stepper sits on an m3 surface */
+  /** e.g. "bg-card-3" when the stepper sits on a --card-2 surface */
   buttonClassName?: string;
   onValueClick?: () => void;
 }) {

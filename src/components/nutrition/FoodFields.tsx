@@ -116,7 +116,7 @@ export function FoodFields({
           {note && (
             <SoftNote className="flex items-center justify-between gap-3">
               <span>{note}</span>
-              <button type="button" onClick={() => set({ calories: String(preview.derived) })} className="press t-cap -my-2 -mr-1 inline-flex h-11 shrink-0 items-center px-2 font-semibold text-fg underline decoration-vein-3 underline-offset-4">
+              <button type="button" onClick={() => set({ calories: String(preview.derived) })} className="press t-cap -my-2 -mr-1 inline-flex h-11 shrink-0 items-center px-2 font-semibold text-fg underline decoration-ui-line underline-offset-4">
                 Use {formatInt(preview.derived)}
               </button>
             </SoftNote>

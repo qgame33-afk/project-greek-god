@@ -223,7 +223,7 @@ function RowMenu({ name, onEdit, onDelete }: { name: string; onEdit?: () => void
         <Ellipsis className="size-5" />
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content align="end" sideOffset={4} className="z-(--z-confirm) min-w-[11.25rem] rounded-field border border-ui-line bg-control p-1.5 shadow-(--e2) outline-none">
+        <DropdownMenu.Content align="end" sideOffset={4} className="z-(--z-confirm) min-w-[11.25rem] rounded-field border border-ui-line bg-control p-1.5 outline-none">
           {onEdit && (
             <DropdownMenu.Item onSelect={onEdit} className="flex h-11 cursor-pointer select-none items-center gap-3 rounded-field px-3 t-label font-semibold text-fg outline-none data-[highlighted]:bg-card-3">
               <Pencil className="size-[1.125rem] text-fg-2" /> Edit

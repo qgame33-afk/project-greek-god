@@ -15,27 +15,13 @@ export const CSS = `
   #pgg-review [data-print="only"] { display: block !important; }
   #pgg-review {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
-    --bg: #fff; --surface-1: #fff; --surface-2: #fff; --surface-3: #f5f2eb; --surface-4: #ece7dc; --surface-5: #e4ddcf;
-    --text-1: #17120a; --text-2: #3f434a; --text-3: #5d636c;
-    --line-hair: #ece6d9; --line: #ddd5c5; --line-strong: #c9bfa9; --line-gold: #b89a62;
-    --gold-50: #8a6a35; --gold-200: #7d5c2e; --gold-300: #7d5c2e; --gold-400: #7d5c2e; --gold-800: #c9b48a;
-    --lapis-text: #1f4f99; --lapis-line: #9db8e0; --success: #23744a; --s-marble: #8b857a;
+    --bg: #fff;
     /* the V3 tokens, ink on paper (gold prints as bronze, the AI label as ink blue) */
-    --card: #fff; --card-2: #f5f2eb; --card-3: #ece7dc; --surface: #fff; --control: #f5f2eb; --track: #ece7dc;
-    --text: #17120a; --text-3: #5d636c; --gold: #7d5c2e; --gold-soft: #f4ecdc; --gold-line: #b89a62; --ai: #1f4f99; --ai-soft: #eef3fb; --ai-line: #9db8e0; --danger: #a3361f;
-    /* the old tokens, ink on paper (leaf prints as bronze, the AI tag as ink blue) */
-    --night: #fff; --obsidian: #fff; --m1: #fff; --m2: #fff; --m3: #f5f2eb; --m4: #ece7dc; --m5: #e4ddcf;
-    --vein: #ece6d9; --vein-2: #ddd5c5; --vein-3: #c9bfa9; --ui-line: #9a917f;
-    --ivory: #17120a; --stone: #3f434a; --ash: #5d636c; --disabled: #9a917f;
-    --leaf-100: #8a6a35; --leaf-200: #7d5c2e; --leaf-300: #7d5c2e; --leaf-400: #7d5c2e; --leaf-500: #6b4f27; --leaf-600: #5c4421; --leaf-700: #c9b48a;
-    --leaf-line: #b89a62; --leaf-tint: #f4ecdc;
-    --aegean: #1f4f99; --aegean-line: #9db8e0; --aegean-tint: #eef3fb; --cinnabar: #a3361f;
-    --spot: none;
-    --grad-card: linear-gradient(#fff, #fff);
-    --grad-spotlight: linear-gradient(#fff, #fff);
-    --grad-monument-border: linear-gradient(180deg, #b89a62, #e5dccb);
-    --e1: none; --e2: none;
-    color: var(--text-1);
+    --card: #fff; --card-2: #f5f2eb; --card-3: #ece7dc; --sheet: #fff; --sheet-card: #fff; --surface: #fff; --control: #f5f2eb; --track: #ece7dc; --band: #ddd5c5;
+    --text: #17120a; --text-2: #3f434a; --text-3: #5d636c; --line: #ddd5c5; --ui-line: #9a917f;
+    --gold: #7d5c2e; --gold-soft: #f4ecdc; --gold-line: #b89a62; --gold-ring: #b89a62;
+    --ai: #1f4f99; --ai-soft: #eef3fb; --ai-line: #9db8e0; --danger: #a3361f; --danger-soft: #fbeae6;
+    color: var(--text);
     font-size: 12px;
   }
   #pgg-review .review-grid { display: block !important; }

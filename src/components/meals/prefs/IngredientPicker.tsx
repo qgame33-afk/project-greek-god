@@ -89,7 +89,7 @@ export function IngredientPicker({
             aria-label="Search ingredients"
             autoComplete="off"
             enterKeyHint="search"
-            className="h-12 w-full rounded-field border border-ui-line bg-surface pl-10 pr-11 text-[length:max(16px,1rem)] font-medium text-fg outline-none transition-[border-color,box-shadow] placeholder:text-fg-2 focus:border-leaf-300 focus:shadow-[0_0_0_3px_var(--leaf-tint)] [&::-webkit-search-cancel-button]:hidden"
+            className="h-12 w-full rounded-field border border-ui-line bg-surface pl-10 pr-11 text-[length:max(16px,1rem)] font-medium text-fg outline-none transition-[border-color,box-shadow] placeholder:text-fg-2 focus:border-fg-2 focus:shadow-[0_0_0_3px_rgb(255 255 255 / 0.08)] [&::-webkit-search-cancel-button]:hidden"
           />
           {query && (
             <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="press absolute right-0 top-0 grid size-12 place-items-center text-fg-2 hover:text-fg">

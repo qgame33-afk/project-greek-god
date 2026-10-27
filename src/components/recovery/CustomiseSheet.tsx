@@ -593,7 +593,7 @@ function EditForm({
     });
   };
   return (
-    <div className="card-inset mb-3 space-y-3 p-3">
+    <div className="mb-3 space-y-3 rounded-tile bg-card-2 p-3">
       <Field label="Name" error={errors.label}>
         {(id) => (
           <Input
@@ -667,7 +667,7 @@ function StepsGoalEditor({
   const current = profile?.steps_goal ?? 8000;
   const [v, setV] = useState(current);
   return (
-    <div className="card-inset mb-3 p-3">
+    <div className="mb-3 rounded-tile bg-card-2 p-3">
       <p className="t-label mb-2 font-semibold text-fg-2">
         Daily steps goal
       </p>
@@ -753,7 +753,7 @@ function AddHabitForm({
   };
   return (
     <form
-      className="card-inset mt-7 space-y-3 p-3.5"
+      className="mt-7 space-y-3 rounded-tile bg-card-2 p-3.5"
       onSubmit={(e) => {
         e.preventDefault();
         submit();

@@ -55,7 +55,7 @@ export function GoalScale({
         />
         <span className={cn("absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-fg-2")} style={{ left: `${startP}%` }} />
         <span
-          className={cn("absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-xs bg-fg shadow-[0_0_0_3px_var(--night)]")}
+          className={cn("absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-xs bg-fg shadow-[0_0_0_3px_var(--bg)]")}
           style={{ left: `${goalP}%` }}
         />
       </div>

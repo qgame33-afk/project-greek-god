@@ -3,7 +3,7 @@ import type { Macros } from "@/lib/meals/types";
 import { gramsText, kcalText, macroAria } from "./format";
 
 /** Series colours used for macros everywhere in Fuel: protein ivory (leaf only once earned), carbs terracotta, fat porphyry. */
-export const MACRO_DOT = { protein: "bg-fg", carbs: "bg-carbs", fat: "bg-fat" } as const;
+export const MACRO_DOT = { protein: "bg-fg", carbs: "bg-fg", fat: "bg-fg" } as const;
 
 const MACROS = [
   { key: "protein", short: "P", label: "Protein" },

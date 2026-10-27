@@ -105,8 +105,8 @@ export function MealChips({ value, onChange, className }: { value: Meal; onChang
 
 const SERIES = {
   protein: "bg-fg",
-  carbs: "bg-carbs",
-  fat: "bg-fat",
+  carbs: "bg-fg",
+  fat: "bg-fg",
 } as const;
 
 /** Live macro grid: KCAL large, then P / C / F with series dots. */

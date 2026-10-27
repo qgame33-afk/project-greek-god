@@ -61,8 +61,8 @@ export function LogMealSheet({
 const FIELDS: { k: MacroField; label: string; suffix: string; dot?: string }[] = [
   { k: "kcal", label: "Calories", suffix: "kcal" },
   { k: "protein", label: "Protein", suffix: "g", dot: "bg-fg" },
-  { k: "carbs", label: "Carbs", suffix: "g", dot: "bg-carbs" },
-  { k: "fat", label: "Fat", suffix: "g", dot: "bg-fat" },
+  { k: "carbs", label: "Carbs", suffix: "g", dot: "bg-fg" },
+  { k: "fat", label: "Fat", suffix: "g", dot: "bg-fg" },
 ];
 
 function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogPlannedMealResult, servings: number) => void }) {
@@ -126,7 +126,7 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
     <div ref={ref} className="space-y-6 pt-1">
       <ConflictNote conflicts={conflicts}>
         {allergy && (
-          <div className="mt-2.5 flex min-h-11 items-center justify-between gap-3 border-t border-warning/20 pt-2.5">
+          <div className="mt-2.5 flex min-h-11 items-center justify-between gap-3 border-t border-line pt-2.5">
             <span className="t-label font-semibold leading-snug text-fg">I ate it anyway. Log it.</span>
             <Switch checked={allergyOk} onCheckedChange={setAllergyOk} label="Confirm logging a meal with an allergen" />
           </div>
@@ -178,7 +178,7 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
         <SubLabel
           action={
             draft.edited ? (
-              <button type="button" onClick={() => (setDraft((d) => resetDraft(d, per)), setErrors({}))} className="press t-cap -my-3 -mr-2 inline-flex h-11 items-center rounded-field px-2 font-semibold text-fg underline decoration-vein-3 underline-offset-4">
+              <button type="button" onClick={() => (setDraft((d) => resetDraft(d, per)), setErrors({}))} className="press t-cap -my-3 -mr-2 inline-flex h-11 items-center rounded-field px-2 font-semibold text-fg underline decoration-ui-line underline-offset-4">
                 Use the estimate
               </button>
             ) : (
@@ -195,7 +195,7 @@ function LogForm({ target, onDone }: { target: LogMealTarget; onDone: (res: LogP
               error={errors[f.k] ?? null}
               label={
                 <span className="inline-flex items-center gap-1.5">
-                  {f.dot ? <span className={cn("size-1.5 rounded-full", f.dot)} aria-hidden /> : <span className="size-1.5 rounded-full bg-stone" aria-hidden />}
+                  {f.dot ? <span className={cn("size-1.5 rounded-full", f.dot)} aria-hidden /> : <span className="size-1.5 rounded-full bg-fg-2" aria-hidden />}
                   {f.label}
                 </span>
               }

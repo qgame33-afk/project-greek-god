@@ -53,7 +53,7 @@ export function ScanItemCard({
             maxLength={80}
             onChange={(e) => onChange({ ...item, name: e.target.value })}
             onBlur={(e) => !e.target.value.trim() && onChange({ ...item, name: "Food item" })}
-            className="t-row -mx-1.5 h-11 w-[calc(100%+0.75rem)] rounded-field border border-transparent bg-transparent px-1.5 text-fg outline-none transition-colors duration-(--dur-fast) hover:border-ui-line focus:border-leaf-300 focus:bg-sheet"
+            className="t-row -mx-1.5 h-11 w-[calc(100%+0.75rem)] rounded-field border border-transparent bg-transparent px-1.5 text-fg outline-none transition-colors duration-(--dur-fast) hover:border-ui-line focus:border-fg-2 focus:bg-sheet"
             enterKeyHint="done"
             autoComplete="off"
           />
@@ -63,7 +63,7 @@ export function ScanItemCard({
               // 44px tall hit area around a 28px pill; the native select is the invisible layer on top
               <span className="group relative -my-2 inline-flex h-11 items-center">
                 <span
-                  className="t-cap pointer-events-none inline-flex h-7 items-center gap-1 rounded-full bg-control pl-2.5 pr-2 font-semibold text-fg-2 transition-colors group-hover:text-fg group-has-[:focus-visible]:shadow-[inset_0_0_0_1.5px_var(--leaf-300)]"
+                  className="t-cap pointer-events-none inline-flex h-7 items-center gap-1 rounded-full bg-control pl-2.5 pr-2 font-semibold text-fg-2 transition-colors group-hover:text-fg group-has-[:focus-visible]:shadow-[inset_0_0_0_1.5px_var(--text-2)]"
                   aria-hidden
                 >
                   {prepLabel(item.preparation)}
@@ -114,7 +114,7 @@ export function ScanItemCard({
           <button
             type="button"
             onClick={() => onChange(withEstimate(item))}
-            className="press inline-flex h-11 shrink-0 items-center px-1 font-semibold text-fg underline decoration-vein-3 underline-offset-4 hover:decoration-ui-line"
+            className="press inline-flex h-11 shrink-0 items-center px-1 font-semibold text-fg underline decoration-ui-line underline-offset-4 hover:decoration-ui-line"
           >
             Not this
           </button>
@@ -144,7 +144,7 @@ export function ScanItemCard({
               inputMode="decimal"
               enterKeyHint="done"
               autoComplete="off"
-              className="tabular-nums h-11 w-[4.5rem] rounded-field border border-ui-line bg-sheet px-2 text-center text-[length:max(17px,1.0625rem)] font-semibold text-fg outline-none transition-[border-color,box-shadow] placeholder:text-fg-2 focus:border-leaf-300 focus:shadow-[0_0_0_3px_var(--leaf-tint)]"
+              className="tabular-nums h-11 w-[4.5rem] rounded-field border border-ui-line bg-sheet px-2 text-center text-[length:max(17px,1.0625rem)] font-semibold text-fg outline-none transition-[border-color,box-shadow] placeholder:text-fg-2 focus:border-fg-2 focus:shadow-[0_0_0_3px_rgb(255 255 255 / 0.08)]"
             />
             <span className="t-cap font-semibold text-fg-2">g</span>
           </label>

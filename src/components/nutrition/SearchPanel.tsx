@@ -110,7 +110,7 @@ export function SearchPanel({ q, setQ, onPick, onManual }: { q: string; setQ: (q
               </ul>
               <div className="mt-4 flex items-center justify-between gap-3">
                 <p className="t-cap text-fg-2">Not here?</p>
-                <button type="button" onClick={() => onManual(q.trim())} className="press t-cap inline-flex h-11 items-center font-semibold text-fg underline decoration-vein-3 underline-offset-4">
+                <button type="button" onClick={() => onManual(q.trim())} className="press t-cap inline-flex h-11 items-center font-semibold text-fg underline decoration-ui-line underline-offset-4">
                   Add manually
                 </button>
               </div>

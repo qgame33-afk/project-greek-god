@@ -78,13 +78,6 @@ html[data-night="on"] {
   --topbar-h: 52px;
   /* the room the bottom chrome takes: tab bar + safe area + 24 px; +64 px while the workout bar shows */
   --chrome-clear: calc(var(--tab-bar-h) + var(--safe-bottom) + 24px);
-  /* compat (old screens pin their own bars to `bottom: calc(var(--tabbar-h) + var(--safe-bottom))`):
-     that now lands just above the tab bar and its rising + */
-  --tabbar-h: calc(var(--tab-bar-h) + var(--plus-rise));
-  --capsule-h: var(--tab-bar-h);
-  --capsule-gap: 0px;
-  --slot-h: var(--workout-bar-h);
-  --dock-h: var(--workout-bar-h);
 
   /* Mirrored in src/lib/motion.ts (DURATION / EASE / SPRING). 150–250 ms; transform, opacity and
      stroke-dashoffset only. `ring` is a ring or bar filling to a new value. */
@@ -94,17 +87,10 @@ html[data-night="on"] {
   --dur-route: 200ms;
   --dur-sheet: 400ms;
   --dur-ring: 600ms;
-  /* retired Olympus tokens: aliases of `base` (deleted at integration, §6.7) */
-  --dur-lift: var(--dur-base);
-  --dur-gild: var(--dur-base);
-  --dur-inscribe: var(--dur-base);
-  --dur-count: var(--dur-base);
-  --dur-slow: var(--dur-base);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
   --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-gold: var(--ease-out);
   /* Springs as easing curves (sampled damped springs below); bezier fallbacks first. */
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -127,150 +113,6 @@ html[data-night="on"] {
   :root {
     --gutter: 16px;
   }
-}
-
-/* ==========================================================================
-   Olympus aliases (§1.7.1). Every old variable keeps its name and points at a V3 value, so old
-   classes re-theme until each screen stream rebuilds its screens. Deleted at integration (§6.7).
-   ========================================================================== */
-:root {
-  --night: var(--bg);
-  --obsidian: var(--bg);
-  --bg-deep: var(--bg);
-  --m1: var(--sheet);
-  --surface-1: var(--sheet);
-  --m2: var(--card);
-  --surface-2: var(--card);
-  --m3: var(--card-2);
-  --surface-3: var(--card-2);
-  --m4: var(--card-3);
-  --m5: var(--card-3);
-  --surface-4: var(--card-3);
-  --surface-5: var(--card-3);
-  --vein: var(--line);
-  --vein-2: var(--line);
-  --line-hair: var(--line);
-  --vein-3: var(--ui-line);
-  --line-strong: var(--ui-line);
-  --line-field: var(--ui-line);
-  --ivory: var(--text);
-  --text-1: var(--text);
-  /* old tertiary text was words, so it maps to --text-2, never to the glyph-only --text-3 */
-  --stone: var(--text-2);
-  --ash: var(--text-2);
-  --disabled: var(--text-3);
-  --text-disabled: var(--text-3);
-  --ink: var(--gold-ink);
-  --glass-solid: var(--card-3);
-
-  --leaf-50: var(--gold);
-  --leaf-100: var(--gold);
-  --leaf-200: var(--gold);
-  --leaf-300: var(--gold);
-  --leaf-400: var(--gold);
-  --leaf-450: var(--gold);
-  --leaf-500: var(--gold);
-  --leaf-600: var(--gold);
-  --leaf-700: var(--gold);
-  --leaf-800: var(--gold);
-  --gold-50: var(--gold);
-  --gold-100: var(--gold);
-  --gold-200: var(--gold);
-  --gold-300: var(--gold);
-  --gold-400: var(--gold);
-  --gold-500: var(--gold);
-  --gold-600: var(--gold);
-  --gold-700: var(--gold);
-  --gold-800: var(--gold);
-  --gold-900: var(--gold);
-  --success: var(--gold);
-  --series-protein: var(--gold);
-  --s-gold: var(--gold);
-  --leaf-tint: var(--gold-soft);
-  --gold-tint: var(--gold-soft);
-  --success-tint: var(--gold-soft);
-  --leaf-line: var(--gold-line);
-  --line-gold: var(--gold-line);
-  /* gradients die: flat gold */
-  --leaf: var(--gold);
-  --leaf-v: var(--gold);
-  --leaf-h: var(--gold);
-  --leaf-btn: var(--gold);
-  --leaf-text: var(--gold);
-  --grad-leaf: var(--gold);
-  --grad-progress: var(--gold);
-  --grad-card: var(--card);
-  --grad-spotlight: none;
-  --grad-monument-border: var(--card);
-  --leaf-spec: none;
-  --glow: 0 0 0 transparent;
-  --glow-cta: 0 0 0 transparent;
-  --spot: none;
-  --spot-dawn: none;
-  --spot-center: none;
-  --spot-opacity: 0;
-  --sheen-opacity: 0;
-  --e1: 0 0 0 transparent;
-  --e2: 0 0 0 transparent;
-  --e3: 0 0 0 transparent;
-
-  --aegean: var(--ai);
-  --aegean-tint: var(--ai-soft);
-  --aegean-line: var(--ai-line);
-  --lapis-text: var(--ai);
-  --lapis-tint: var(--ai-soft);
-  --lapis-line: var(--ai-line);
-  --info: var(--ai);
-  --cinnabar: var(--danger);
-  --cinnabar-tint: var(--danger-soft);
-  --cinnabar-line: var(--danger);
-  --danger-tint: var(--danger-soft);
-
-  --warning: var(--text-2);
-  --warning-tint: var(--card-2);
-  --series-sleep: var(--text-2);
-  --series-kcal: var(--text-2);
-  --s-marble: var(--text-2);
-  --proj: var(--text-2);
-  --series-carbs: var(--text);
-  --series-fat: var(--text);
-  --series-water: var(--text);
-  --s-terracotta: var(--text);
-  --s-porphyry: var(--text);
-  --s-lapis: var(--text);
-  --s-verdigris: var(--text);
-  --corridor: rgb(255 255 255 / 0.05);
-
-  --glass-bg: var(--card-3);
-  --glass-filter: none;
-
-  /* one family: every retired family is the sans stack */
-  --font-voice-stack: var(--font-sans-stack);
-  --font-voice-italic-stack: var(--font-sans-stack);
-  --font-monument-stack: var(--font-sans-stack);
-  --font-serif: var(--font-sans-stack);
-  --font-num: var(--font-sans-stack);
-  --font-cormorant: var(--font-sans-stack);
-  --font-cormorant-italic: var(--font-sans-stack);
-  --font-bodoni: var(--font-sans-stack);
-  --font-inter-tight: var(--font-sans-stack);
-
-  /* old spacing and radius tokens */
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-5: 20px;
-  --sp-6: 24px;
-  --sp-7: 32px;
-  --sp-8: 40px;
-  --sp-9: 56px;
-  --r-tag: 5px;
-  --r-field: 18px;
-  --r-btn: 16px;
-  --r-card: 24px;
-  --r-sheet: 28px;
-  --r-capsule: 32px;
 }
 
 @theme inline {
@@ -302,84 +144,8 @@ html[data-night="on"] {
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
 
-  /* Olympus / Pantheon class names, re-themed (deleted at integration) */
-  --color-obsidian: var(--obsidian);
-  --color-night: var(--night);
-  --color-m1: var(--m1);
-  --color-m2: var(--m2);
-  --color-m3: var(--m3);
-  --color-m4: var(--m4);
-  --color-m5: var(--m5);
-  --color-vein: var(--vein);
-  --color-vein-2: var(--vein-2);
-  --color-vein-3: var(--vein-3);
-  --color-ivory: var(--ivory);
-  --color-stone: var(--text-2);
-  --color-ash: var(--text-2);
-  --color-disabled: var(--disabled);
-  --color-ink: var(--ink);
-  --color-leaf-50: var(--gold);
-  --color-leaf-100: var(--gold);
-  --color-leaf-200: var(--gold);
-  --color-leaf-300: var(--gold);
-  --color-leaf-400: var(--gold);
-  --color-leaf-500: var(--gold);
-  --color-leaf-600: var(--gold);
-  --color-leaf-700: var(--gold);
-  --color-leaf-tint: var(--gold-soft);
-  --color-leaf-line: var(--gold-line);
-  --color-aegean: var(--ai);
-  --color-aegean-tint: var(--ai-soft);
-  --color-aegean-line: var(--ai-line);
-  --color-cinnabar: var(--danger);
-  --color-cinnabar-tint: var(--danger-soft);
-  --color-cinnabar-line: var(--danger);
-  --color-carbs: var(--text);
-  --color-fat: var(--text);
-  --color-water: var(--text);
-  --color-bg-deep: var(--bg);
-  --color-s1: var(--sheet);
-  --color-s2: var(--card);
-  --color-s3: var(--card-2);
-  --color-s4: var(--card-3);
-  --color-s5: var(--card-3);
-  --color-line-hair: var(--line);
-  --color-line-strong: var(--ui-line);
-  --color-line-field: var(--ui-line);
-  --color-line-gold: var(--gold-line);
-  --color-fg-dis: var(--text-3);
-  --color-gold-50: var(--gold);
-  --color-gold-100: var(--gold);
-  --color-gold-200: var(--gold);
-  --color-gold-300: var(--gold);
-  --color-gold-400: var(--gold);
-  --color-gold-500: var(--gold);
-  --color-gold-600: var(--gold);
-  --color-gold-700: var(--gold);
-  --color-gold-800: var(--gold);
-  --color-gold-900: var(--gold);
-  --color-gold-tint: var(--gold-soft);
-  --color-success: var(--gold);
-  --color-success-tint: var(--gold-soft);
-  --color-danger-tint: var(--danger-soft);
-  --color-warning: var(--text-2);
-  --color-warning-tint: var(--card-2);
-  --color-lapis-text: var(--ai);
-  --color-lapis-tint: var(--ai-soft);
-  --color-lapis-line: var(--ai-line);
-  --color-info: var(--ai);
-  --color-marble: var(--text-2);
-  --color-terracotta: var(--text);
-  --color-porphyry: var(--text);
-  --color-lapis: var(--text);
-  --color-verdigris: var(--text);
-
-  /* one family (§1.2.1); the retired families are aliases of it */
+  /* one family (§1.2.1) */
   --font-sans: var(--font-sans-stack);
-  --font-voice: var(--font-sans-stack);
-  --font-monument: var(--font-sans-stack);
-  --font-serif: var(--font-sans-stack);
-  --font-num: var(--font-sans-stack);
 
   /* §1.3 radii */
   --radius-card: 24px;
@@ -390,10 +156,7 @@ html[data-night="on"] {
   --radius-sheet: 28px;
   /* the 32 px icon tile of a list row */
   --radius-icon: 9px;
-  /* old names */
-  --radius-tag: 5px;
-  --radius-btn: 16px;
-  --radius-capsule: 32px;
+  /* small radii for marks, pips and code */
   --radius-xs: 6px;
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -404,7 +167,6 @@ html[data-night="on"] {
   --container-wide: 1040px;
 
   --ease-out: var(--ease-out);
-  --ease-gold: var(--ease-out);
   --ease-sheet: var(--ease-sheet);
   --ease-pop: var(--ease-pop);
   --ease-spring: var(--ease-spring);
@@ -434,6 +196,15 @@ html[data-night="on"] {
 /* ---------------------------------------------------------------- base */
 
 @layer base {
+  /* No italics anywhere (law 3): the elements browsers draw in italic by default stay upright. */
+  em,
+  i,
+  cite,
+  dfn,
+  var,
+  address {
+    font-style: normal;
+  }
   /* Root type follows the iPhone text-size setting (Dynamic Type): 17px by default there, 16px
      elsewhere. Every size in the type scale is in rem, so it all follows. */
   html {
@@ -512,36 +283,6 @@ html[data-night="on"] {
   img {
     -webkit-user-drag: none;
   }
-}
-
-/* F1 guards (laws 3 and 6): no italics, no uppercase eyebrows, no gradients, glass or blur on any
-   old screen, whatever its classes say. Unlayered and !important so no utility can bring them
-   back. The workout dock's fade is the one allowed gradient. Removed at integration once the
-   §5.2 G-7 greps are clean. */
-*,
-*::before,
-*::after {
-  font-style: normal !important;
-  text-transform: none !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-body *:not([data-dock-fade]),
-body *::before,
-body *::after {
-  background-image: none !important;
-}
-
-/* The 12 px text floor for screens that still use fixed pixel sizes (streams move them to the
-   rem scale). Unlayered, so it wins over the generated utilities. */
-.text-\[8px\],
-.text-\[8\.5px\],
-.text-\[9px\],
-.text-\[9\.5px\],
-.text-\[10px\],
-.text-\[10\.5px\],
-.text-\[11px\] {
-  font-size: 12px;
 }
 
 /* ----------------------------------------------------------- type scale (§1.2.3) */
@@ -678,185 +419,6 @@ body *::after {
   font-variant-numeric: tabular-nums;
 }
 
-/* Type aliases (§1.7.2): old utilities render in the V3 scale. Colours stay as the old ones had
-   them (most inherited), so an old label on a gold button keeps its ink. Deleted at integration. */
-@utility t-monument {
-  font-size: min(5.625rem, 25vw);
-  font-weight: 800;
-  letter-spacing: -0.045em;
-  line-height: 0.95;
-  font-variant-numeric: tabular-nums;
-}
-@utility t-dial {
-  font-size: min(3.3rem, 15vw);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-@utility t-title-1 {
-  font-size: 1.875rem;
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  line-height: 1.1;
-}
-@utility t-h1 {
-  font-size: 1.875rem;
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  line-height: 1.1;
-}
-@utility t-title-2 {
-  font-size: 1.175rem;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
-}
-@utility t-h2 {
-  font-size: 1.175rem;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
-}
-@utility t-card {
-  font-size: 1.175rem;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
-}
-@utility t-verdict {
-  font-size: 1.175rem;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
-}
-@utility t-film {
-  font-size: 1.175rem;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
-}
-@utility t-title-3 {
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.3;
-}
-@utility t-h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.3;
-}
-@utility t-num-l {
-  font-size: 1.625rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-  font-variant-numeric: tabular-nums;
-}
-@utility t-num-m {
-  font-size: 1.3rem;
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  line-height: 1.05;
-  font-variant-numeric: tabular-nums;
-}
-@utility t-callout {
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 1.35;
-}
-@utility t-meta {
-  font-size: max(12px, 0.775rem);
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 1.3;
-}
-@utility t-eyebrow {
-  font-size: max(12px, 0.775rem);
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 1.3;
-  text-transform: none;
-  color: var(--text-2);
-}
-@utility eyebrow {
-  font-size: max(12px, 0.775rem);
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 1.3;
-  text-transform: none;
-  color: var(--text-2);
-}
-@utility t-tag {
-  font-size: max(12px, 0.775rem);
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 1.3;
-  text-transform: none;
-}
-@utility t-key {
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
-  text-transform: none;
-}
-@utility t-plaque {
-  font-size: max(12px, 0.775rem);
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 1.3;
-  text-transform: none;
-  color: var(--text-2);
-}
-@utility num {
-  font-variant-numeric: tabular-nums;
-}
-@utility num-hero {
-  font-size: min(3.3rem, 15vw);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-@utility num-xl {
-  font-size: 1.625rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-  font-variant-numeric: tabular-nums;
-}
-@utility num-lg {
-  font-size: 1.625rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-  font-variant-numeric: tabular-nums;
-}
-@utility num-md {
-  font-size: 1.3rem;
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  line-height: 1.05;
-  font-variant-numeric: tabular-nums;
-}
-@utility num-sm {
-  font-size: 1.3rem;
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  line-height: 1.05;
-  font-variant-numeric: tabular-nums;
-}
-@utility num-xs {
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-
 /* -------------------------------------------------------------- surfaces (§1.4) */
 
 /* The card: flat --card, radius 24, no border, shadow, gradient or texture. */
@@ -864,68 +426,6 @@ body *::after {
   background: var(--card);
   border-radius: var(--radius-card);
 }
-/* Material aliases (§1.7.3), deleted at integration. The inset sits inside a card, so it is a
-   control surface (--card-2) to stay visible there. */
-@utility slab {
-  background: var(--card);
-  border-radius: var(--radius-card);
-}
-@utility card-instrument {
-  background: var(--card);
-  border-radius: var(--radius-tile-lg);
-}
-@utility card-inset {
-  background: var(--card-2);
-  border-radius: var(--radius-tile);
-}
-@utility card-accent {
-  background: var(--card);
-  border-radius: var(--radius-card);
-}
-@utility card-monument {
-  position: relative;
-  background: var(--card);
-  border-radius: var(--radius-card);
-}
-@utility monument {
-  background: var(--card);
-}
-@utility glass {
-  background: var(--card-3);
-}
-@utility chrome {
-  background: var(--bg);
-}
-@utility spotlight {
-  background-image: none;
-}
-@utility leaf {
-  background: var(--gold);
-}
-@utility leaf-btn {
-  position: relative;
-  background: var(--gold);
-  color: var(--gold-ink);
-}
-@utility hatch {
-  background-image: none;
-}
-@utility grain {
-  position: relative;
-}
-@utility sheen {
-  position: relative;
-}
-@utility flash-gold {
-  animation: none;
-}
-@utility pulse-soft {
-  animation: none;
-}
-@utility spot-in {
-  animation: none;
-}
-
 @utility pb-tabbar {
   padding-bottom: var(--chrome-clear);
 }
@@ -1051,12 +551,6 @@ body *::after {
       animation-timeline: scroll(self inline);
     }
   }
-}
-
-/* The workout uses the same tokens (the background is already black). Kept for the old root. */
-[data-mode="gym"] {
-  background-color: var(--bg);
-  color: var(--text);
 }
 
 /* --------------------------------------------------------------- motion (§1.6) */
