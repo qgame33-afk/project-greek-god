@@ -61,7 +61,7 @@ export function StrengthTab() {
     return (
       <div>
         <Empty
-          title="No bests yet. Log a workout to start."
+          title={sets.length ? "No bests yet" : "No bests yet. Log a workout to start."}
           action={
             !sets.length && (
               <Button asChild variant="secondary" size="sm">
@@ -70,7 +70,7 @@ export function StrengthTab() {
             )
           }
         >
-          {sets.length ? "A best is a set that beats every one before it, so it needs a second workout of a lift." : undefined}
+          {sets.length ? "A best beats every set before it, so it shows after your second workout of a lift." : undefined}
         </Empty>
         {lines.length > 0 && allLifts}
       </div>

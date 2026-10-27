@@ -87,7 +87,8 @@ export function KeypadSheet({
       <div className="pb-1">
         <div className="flex items-center gap-3">
           <p className="min-w-0 flex-1" aria-live="polite">
-            <span className={cn("t-big tabular-nums", showGhost ? "text-fg-2" : "text-fg", error && "text-danger")}>{showGhost ? ghost : text || "—"}</span>
+            {/* nothing typed yet: a dim 0 (a dash at this size reads as a white bar) */}
+            <span className={cn("t-big tabular-nums", showGhost ? "text-fg-2" : text ? "text-fg" : "text-fg-3", error && "text-danger")}>{showGhost ? ghost : text || "0"}</span>
             <span className="unit">{unitLabel}</span>
           </p>
           {lastText != null && (
