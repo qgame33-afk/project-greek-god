@@ -31,6 +31,7 @@ describe("routes", () => {
     expect(isActive("/reviews", "/")).toBe(false);
     expect(isActive("/recovery", "/")).toBe(true);
     expect(isActive("/recovery", "/progress")).toBe(false);
+    expect(isActive("/settings", "/")).toBe(true);
     expect(isFocusRoute("/nutrition/meals/cook/lib:x")).toBe(true);
     expect(isFocusRoute("/nutrition/meals/recipe/lib:x")).toBe(false);
   });

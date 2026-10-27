@@ -83,7 +83,8 @@ export function UpNext({ m, state, now, sealDate, onCheckin, onWeigh }: { m: Now
       const n = t.exercises.filter((e) => !e.optional).length;
       const lighter = m.mode === "intro" || m.mode === "deload" ? " · lighter" : "";
       const minutes = m.durationMin ? ` · about ${m.durationMin} min` : "";
-      const changes = opts.summary ? ` · ${opts.summary}` : "";
+      // the phrase never breaks inside ("1 change suggested" moves to the next line whole)
+      const changes = opts.summary ? ` · ${opts.summary.replace(/ /g, "\u00a0")}` : "";
       card = (
         <UpNextCard
           icon={Dumbbell}

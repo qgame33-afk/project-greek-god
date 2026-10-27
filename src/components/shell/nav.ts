@@ -25,6 +25,7 @@ export const SECONDARY_NAV: NavItem[] = [
 const PARENT_TAB: [prefix: string, tab: string][] = [
   ["/reviews", "/progress"],
   ["/recovery", "/"],
+  ["/settings", "/"],
 ];
 
 export function isActive(pathname: string, href: string) {

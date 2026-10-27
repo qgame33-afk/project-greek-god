@@ -71,7 +71,7 @@ export function useScrolledPageTitle(enabled: boolean, pathname: string) {
     const attach = () => {
       frame = 0;
       const el = pageHeading();
-      update({ title: el?.textContent?.trim() || null, history: !!el?.closest("[data-history]") });
+      update({ title: el?.textContent?.trim() || null, history: !!(el?.closest("[data-history]") || el?.querySelector("[data-history]")) });
       if (el === observed) return;
       io?.disconnect();
       io = null;

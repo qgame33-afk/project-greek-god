@@ -227,7 +227,8 @@ html[data-night="on"] {
     font-size: 1rem;
     line-height: 1.4;
     font-weight: 400;
-    font-variant-numeric: tabular-nums;
+    /* proportional by default: Inter's tabular set also widens the hyphen ("7 - day"); numbers that
+       line up (number cards, timers, tables) carry tabular-nums themselves */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overscroll-behavior-y: none;
