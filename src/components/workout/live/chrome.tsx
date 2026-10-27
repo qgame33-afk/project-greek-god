@@ -33,7 +33,7 @@ export const TopBar = forwardRef<
 >(function TopBar({ short, fullName, done, total, startedAt, dateLabel, finishLabel, minimizeLabel, minimizeIcon, onMinimize, onFinish, onLifts, children }, ref) {
   const minute = useNowMinute();
   const mins = minute ? Math.max(0, Math.floor((minute * 60000 - Date.parse(startedAt)) / 60000)) : 0;
-  const second = dateLabel ?? `${mins} min`;
+  const second = dateLabel ?? elapsedText(mins);
   return (
     <header ref={ref} className="sticky top-0 z-(--z-sticky) bg-bg" style={{ paddingTop: "var(--safe-top)" }}>
       <div className="mx-auto max-w-col px-4">
@@ -44,7 +44,7 @@ export const TopBar = forwardRef<
           <button
             type="button"
             onClick={onLifts}
-            aria-label={`${fullName}, ${done} of ${total} sets, ${dateLabel ?? `${mins} ${mins === 1 ? "minute" : "minutes"}`}. Shows all lifts`}
+            aria-label={`${fullName}, ${done} of ${total} sets, ${dateLabel ?? elapsedText(mins, true)}. Shows all lifts`}
             className="press-soft flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-field px-1 text-center"
           >
             <span className="t-label block w-full truncate font-semibold leading-tight text-fg" data-budget-name="">
@@ -117,3 +117,13 @@ export const Dock = forwardRef<HTMLDivElement, { children: ReactNode; hidden?: b
     </div>
   );
 });
+
+/** "14 min", "1 h 5 min", "over a day" (a workout left open never reads "8687 min"); spoken in words. */
+export function elapsedText(mins: number, spoken = false): string {
+  if (mins >= 24 * 60) return "over a day";
+  if (mins < 60) return spoken ? `${mins} ${mins === 1 ? "minute" : "minutes"}` : `${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (spoken) return `${h} ${h === 1 ? "hour" : "hours"}${m ? ` ${m} ${m === 1 ? "minute" : "minutes"}` : ""}`;
+  return `${h} h${m ? ` ${m} min` : ""}`;
+}

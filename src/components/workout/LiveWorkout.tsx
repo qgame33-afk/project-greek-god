@@ -954,17 +954,33 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     toast("Screen stays on during your workout");
   }, [awake]);
 
-  // Toasts sit just under the top bar (they never cover ⌄ or Finish).
+  // Toasts sit under the top bar (they never cover ⌄ or Finish) and, while a lift is shown, under
+  // its name, set line and "Last time" ([data-toast-anchor]), so a toast never hides what to lift.
   useEffect(() => {
     const root = document.documentElement;
     const el = headRef.current;
     if (!el) return;
-    const set = () => root.style.setProperty("--gym-toast-top", `${Math.ceil(el.getBoundingClientRect().bottom + 6)}px`);
+    let frame = 0;
+    const set = () => {
+      frame = 0;
+      const anchor = document.querySelector("[data-toast-anchor]");
+      const bottom = Math.max(el.getBoundingClientRect().bottom, anchor ? anchor.getBoundingClientRect().bottom : 0);
+      root.style.setProperty("--gym-toast-top", `${Math.ceil(bottom + 6)}px`);
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(set);
+    };
     set();
-    const ro = new ResizeObserver(set);
+    const ro = new ResizeObserver(schedule);
     ro.observe(el);
+    const mo = new MutationObserver(schedule);
+    mo.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener("scroll", schedule, { passive: true });
     return () => {
       ro.disconnect();
+      mo.disconnect();
+      window.removeEventListener("scroll", schedule);
+      cancelAnimationFrame(frame);
       root.style.removeProperty("--gym-toast-top");
     };
   }, []);
@@ -1454,7 +1470,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
         )}
 
         {!showWin && !restView && !allLogged && lift && inf && (
-          <section aria-label="This lift">
+          <section aria-label="This lift" data-toast-anchor="">
             <div className="flex items-start gap-3">
               <h1 className="t-head short:t-sheet min-w-0 flex-1 line-clamp-2 short:line-clamp-1" data-budget-name="">
                 {lift.name}

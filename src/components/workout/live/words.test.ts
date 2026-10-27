@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { elapsedText } from "./chrome";
 import { displayLoad } from "@/lib/training/loads";
 import { aimLine, finishLine, lastTimeText, spokenTime, tipRows, tipTitle, verdict, weightUnit, winSentence, workUnit } from "./words";
 
@@ -81,5 +82,16 @@ describe("workout words", () => {
     expect(finishLine(2, 17)).toBe("2 sets are not logged. They will be dropped.");
     expect(finishLine(1, 18)).toBe("1 set is not logged. It will be dropped.");
     expect(finishLine(0, 19)).toBe("All 19 sets are logged.");
+  });
+});
+
+describe("elapsedText", () => {
+  it("reads minutes, then hours, and never a huge number", () => {
+    expect(elapsedText(14)).toBe("14 min");
+    expect(elapsedText(65)).toBe("1 h 5 min");
+    expect(elapsedText(120)).toBe("2 h");
+    expect(elapsedText(8687)).toBe("over a day");
+    expect(elapsedText(1, true)).toBe("1 minute");
+    expect(elapsedText(61, true)).toBe("1 hour 1 minute");
   });
 });
