@@ -1,16 +1,17 @@
-// LOCAL DEVELOPMENT ONLY. UI checks of the Arnold switch-over (docs/PROGRAM-ARNOLD.md §8.4),
-// signed in as qa-arnold@greekgod.local (run scripts/dev/qa-arnold.mjs --setup first).
+// LOCAL DEVELOPMENT ONLY. UI checks of the two-set + metric switch-over (docs/PROGRAM-V3.md §6),
+// signed in as qa-program@greekgod.local (run scripts/dev/qa-program.mjs --setup first).
 //
-//   node scripts/dev/qa-arnold-ui.mjs [--base http://localhost:3400] [--out <dir>] [--deployA] [--only U1,U10]
+//   node scripts/dev/qa-program-ui.mjs [--base http://localhost:3400] [--out <dir>] [--deployA] [--only U1,U10]
 //
-// --deployA runs U14 instead (before qa-arnold.mjs --switch: the new app on an unswitched PPL
+// --deployA runs U14 instead (before qa-program.mjs --switch: the new app on an unswitched PPL
 // account shows the PPL week and writes nothing to program_templates or profiles).
-// The first page load as the QA user is also what D12 (qa-arnold.mjs --verify) checks.
+// The first page load as the QA user is also what D12 (qa-program.mjs --verify) checks.
+// U15: every screen shows loads and bodyweight in kg, never a pound or inch figure.
 //
 // Implemented here: U1 (week by weekday, page.clock at 09:00 Toronto), U2 (every template's
 // rows), U10 (no volleyball words in text, aria-label, title, placeholder or alt), U11
 // (screenshots at 390×844 and 375×667, horizontal overflow, console errors), U12 (fresh
-// onboarding offers the Arnold days), U14. U0, U3–U9 and U13 drive the workout, Train and
+// onboarding offers the two-set days), U14, U15 (kg on screens). U0, U3–U9 and U13 drive the workout, Train and
 // check-in screens, which the screen streams are rebuilding; they are reported as TODO with
 // the database facts they must produce, for the integration pass (G3).
 
@@ -24,7 +25,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const args = process.argv.slice(2);
 const flag = (n, d) => (args.includes(n) ? args[args.indexOf(n) + 1] : d);
 const BASE = flag("--base", "http://localhost:3400");
-const OUT = flag("--out", "/tmp/qa-arnold-ui");
+const OUT = flag("--out", "/tmp/qa-program-ui");
 const ONLY = flag("--only", "")?.split(",").filter(Boolean) ?? [];
 const DEPLOY_A = args.includes("--deployA");
 const DB = process.env.QA_DB_URL || "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
@@ -37,14 +38,16 @@ const want = (id) => !ONLY.length || ONLY.includes(id);
 const results = [];
 const report = (id, ok, detail) => results.push({ id, ok, detail });
 
-// the program, straight from the source (program-arnold.ts has only a type import)
-const { ARNOLD_TEMPLATES } = await import(`file://${path.join(ROOT, "src/lib/training/program-arnold.ts")}`).catch(async () => {
+// the program, straight from the source (program-twoset.ts has only a type import)
+const { TWOSET_TEMPLATES } = await import(`file://${path.join(ROOT, "src/lib/training/program-twoset.ts")}`).catch(async () => {
   const { execFileSync } = await import("node:child_process");
-  const js = `import(${JSON.stringify("file://" + path.join(ROOT, "src/lib/training/program-arnold.ts"))}).then((m) => process.stdout.write(JSON.stringify(m)))`;
+  const js = `import(${JSON.stringify("file://" + path.join(ROOT, "src/lib/training/program-twoset.ts"))}).then((m) => process.stdout.write(JSON.stringify(m)))`;
   return JSON.parse(execFileSync(process.execPath, ["--experimental-strip-types", "--no-warnings", "--input-type=module", "-e", js]).toString());
 });
 const PPL_NAMES = ["Push A", "Pull A", "Legs A", "Push B", "Pull B (Q)", "Legs B"];
 /** DESIGN-V3 G-1(a). */
+/** A pound or inch figure on screen (program-v3 §6: kg and cm everywhere). */
+const IMPERIAL = /\b\d+(?:[.,]\d+)?\s?(?:lb|lbs|pounds?|in|inches)\b(?!\s?(?:a|the|your|\d))/i;
 const BANNED = /volley|approach jump|box jump|broad jump|squat jump|\bsprints?\b|vertical jump|standing vertical|approach vertical|standing reach|jumps (&|and) sprints|\bathletic\b/i;
 
 const db = new pg.Client({ connectionString: DB });
@@ -97,13 +100,13 @@ const pageWords = (page) =>
 const md5 = async (uid) => (await q(`select (select md5(coalesce(string_agg(x::text,'|' order by x.id),'')) from public.program_templates x where x.user_id=$1) as t, (select md5(p::text) from public.profiles p where p.id=$1) as p`, [uid]))[0];
 
 try {
-  const uid = (await q(`select id from auth.users where email = 'qa-arnold@greekgod.local'`))[0]?.id;
-  if (!uid) throw new Error("qa-arnold@greekgod.local missing: run scripts/dev/qa-arnold.mjs --setup");
+  const uid = (await q(`select id from auth.users where email = 'qa-program@greekgod.local'`))[0]?.id;
+  if (!uid) throw new Error("qa-program@greekgod.local missing: run scripts/dev/qa-program.mjs --setup");
 
   if (DEPLOY_A) {
     /* U14: deploy A on an unswitched PPL account */
     const before = await md5(uid);
-    const { ctx, page } = await signedIn("qa-arnold@greekgod.local");
+    const { ctx, page } = await signedIn("qa-program@greekgod.local");
     const errs = [...(await visit(page, "/training")), ...(await visit(page, "/"))];
     const text = await pageWords(page);
     await visit(page, "/training");
@@ -114,8 +117,8 @@ try {
     await page.screenshot({ path: path.join(OUT, "U14-training-ppl.png") });
     await ctx.close();
   } else {
-    const { ctx, page } = await signedIn("qa-arnold@greekgod.local");
-    // the first app load: useTemplates inserts the six Arnold rows (D12)
+    const { ctx, page } = await signedIn("qa-program@greekgod.local");
+    // the first app load: useTemplates inserts the six two-set rows (D12)
     await visit(page, "/training", 2500);
 
     if (want("U1")) {
@@ -125,7 +128,7 @@ try {
         await page.clock.setFixedTime(new Date(`${d}T13:00:00Z`)); // 09:00 Toronto (EDT/EST close enough for a date)
         const tr = (await visit(page, "/training", 1500), await pageWords(page));
         const home = (await visit(page, "/", 1500), await pageWords(page));
-        const t = ARNOLD_TEMPLATES.find((x) => x.weekday === dow(d));
+        const t = TWOSET_TEMPLATES.find((x) => x.weekday === dow(d));
         // an open workout from another day leads Today until it is finished (U0), so Today is judged only without one
         const open = (await q(`select count(*)::int as n from public.workout_sessions where user_id = $1 and status = 'active'`, [uid]))[0].n > 0;
         const has = (txt) => (t ? [t.name, t.short].some((n) => txt.includes(n)) : /\brest\b/i.test(txt));
@@ -137,7 +140,7 @@ try {
 
     if (want("U2")) {
       const rows = [];
-      for (const t of ARNOLD_TEMPLATES) {
+      for (const t of TWOSET_TEMPLATES) {
         await visit(page, `/training/program/${t.key}`, 1500);
         const text = await pageWords(page);
         const missing = t.exercises.filter((e) => !text.includes(e.name)).map((e) => e.name);
@@ -163,8 +166,8 @@ try {
     if (want("U11")) {
       const shots = [];
       for (const size of [[390, 844], [375, 667]]) {
-        const s = await signedIn("qa-arnold@greekgod.local", size);
-        for (const r of ["/", "/training", "/training/program/shoulders_arms_b", "/progress"]) {
+        const s = await signedIn("qa-program@greekgod.local", size);
+        for (const r of ["/", "/training", "/training/program/arms_b", "/progress"]) {
           const errors = await visit(s.page, r, 1500);
           const overflow = await s.page.evaluate((vw) => document.documentElement.scrollWidth > window.innerWidth + 1 || window.innerWidth > vw + 1, size[0]);
           const file = path.join(OUT, `U11-${size.join("x")}-${r.replace(/[^a-z0-9]+/gi, "_") || "home"}.png`);
@@ -175,6 +178,20 @@ try {
       }
       report("U11", shots.every((s) => !s.overflow), shots);
     }
+    if (want("U15")) {
+      const active = (await q(`select id from public.workout_sessions where user_id = $1 and status = 'active' limit 1`, [uid]))[0]?.id;
+      const routes = ["/", "/training", "/training?tab=lifts", "/training/exercise/incline-db-press", "/progress", "/progress?tab=strength", "/progress?tab=body", "/coach", "/settings", ...(active ? [`/workout/${active}`] : [])];
+      const rows = [];
+      for (const r of routes) {
+        await visit(page, r, 1800);
+        const words = await pageWords(page);
+        const m = words.match(IMPERIAL);
+        const kg = /\d\s?kg\b/.test(words);
+        rows.push({ route: r, kg, imperial: m ? words.slice(Math.max(0, m.index - 30), m.index + 30).replace(/\s+/g, " ") : null });
+        await page.screenshot({ path: path.join(OUT, `U15-${r.replace(/[^a-z0-9]+/gi, "_") || "home"}.png`), fullPage: true });
+      }
+      report("U15", rows.every((x) => !x.imperial) && rows.some((x) => x.kg), rows);
+    }
     await ctx.close();
 
     if (want("U12")) {
@@ -182,27 +199,28 @@ try {
       await visit(s.page, "/onboarding", 1500);
       let text = await pageWords(s.page);
       // walk forward until the training step shows (Continue / Next)
-      for (let i = 0; i < 6 && !ARNOLD_TEMPLATES.some((t) => text.includes(t.short)); i++) {
+      for (let i = 0; i < 6 && !TWOSET_TEMPLATES.some((t) => text.includes(t.short)); i++) {
         const btn = s.page.getByRole("button", { name: /continue|next|get started|start/i }).first();
         if (!(await btn.count())) break;
         await btn.click().catch(() => {});
         await s.page.waitForTimeout(800);
         text = await pageWords(s.page);
       }
-      const offers = ARNOLD_TEMPLATES.filter((t) => text.includes(t.short) || text.includes(t.name)).length;
+      const offers = TWOSET_TEMPLATES.filter((t) => text.includes(t.short) || text.includes(t.name)).length;
       await s.page.screenshot({ path: path.join(OUT, "U12-onboarding.png") });
-      report("U12", offers >= 1 && !BANNED.test(text), { arnoldDaysShown: offers, banned: text.match(BANNED)?.[0] ?? null, note: "finishing onboarding (weekly_schedule = Arnold, 6 Arnold rows) is SHEETS' flow; lib: onboarding/plan.test.ts" });
+      report("U12", offers >= 1 && !BANNED.test(text), { twosetDaysShown: offers, banned: text.match(BANNED)?.[0] ?? null, note: "finishing onboarding (weekly_schedule = the two-set week, 6 rows) is SHEETS' flow; lib: onboarding/plan.test.ts" });
       await s.ctx.close();
     }
 
     for (const [id, what] of [
-      ["U0", "open the active Legs B session; log one open set; Finish → status done, name/template_key unchanged, no Arnold exercise added (D5 holds until then)"],
-      ["U3", "next Tuesday, intro: Start → 2 sets of each of 6 lifts; rest_sec 150/150/120/120/75/120; incline DB press suggested 65, machine chest press 150 (lib: session.test.ts, progression.test.ts)"],
-      ["U4", "log incline 65 × 8 @2; rest timer 2:30; +15 → remaining incline rest_sec 165; Undo"],
-      ["U5", "next Monday standard: lateral ghost 20, seated DB press 55; Thursday 19 sets, the Reverse Curls offer, 'Add them' → of 21"],
-      ["U6", "History lists Push A … Pull B (Q); Incline Dumbbell Press detail shows PPL sessions"],
+      ["U16", "kg entry and save in the workout (§10.5): type 22.5 kg → exercise_sets.weight_lb 49.6, shown back as 22.5 kg; the stepper moves 2 kg on dumbbells, 2.5 kg on bars and stacks (lib: loads.test.ts)"],
+      ["U0", "open the active Pull A session (started on PPL); log one open set in kg; Finish → status done, name/template_key unchanged, no two-set exercise added (D5 holds until then)"],
+      ["U3", "next Tuesday, Chest & Back: Start → 2 sets of each of 6 lifts in his order; rest 150/150/150/150/90/90; effort 0–1, then to failure; incline DB press suggested 29 kg after 27 kg × 10, 10 (lib: session.test.ts, progression.test.ts)"],
+      ["U4", "log incline 29 kg × 8; rest timer 2:30; +15 → remaining rest 2:45; Undo"],
+      ["U5", "next Monday, Arms & Shoulders: 12 sets; seated DB press suggested 24.5 kg after 22.5 kg × 12, 12; lateral raise ghost in kg"],
+      ["U6", "History lists Push A … Pull B (Q) with kg loads; Incline Dumbbell Press detail shows the PPL sessions in kg; PRs in kg"],
       ["U7", "Program → switch to Push/Pull/Legs and Undo (DB side proven by D10)"],
-      ["U8", "overlap tip in the workout (lib: overlap.test.ts)"],
+      ["U8", "overlap tip in the workout: 'stop 1–2 reps short on Machine Chest Press' (lib: overlap.test.ts)"],
       ["U9", "rest-day options from a poor check-in (lib: schedule.test.ts shiftWeek)"],
       ["U13", "reorder the week after Wednesday's workout (lib: scheduleFreeze trainedToday test)"],
     ])

@@ -9,12 +9,13 @@
 //   node scripts/dev/setup-users.mjs --qa <name> [--kind demo|onboarded|fresh] [--ppl]
 //   → qa-<name>@greekgod.local; demo = sample logs, onboarded = owner's goals but no logs
 //
-// Program (docs/PROGRAM-ARNOLD.md §3.9): demo history is seeded as production has it today —
-// the Push/Pull/Legs week and the six PPL template rows from a frozen fixture (jumps included,
-// Pull B customised) — and then switched to the Arnold split with the same database function
-// the publication uses (set_training_program). --ppl stops before the switch, so the account
+// Program (docs/PROGRAM-V3.md §3): demo history is seeded as production has it today —
+// the Push/Pull/Legs week in pounds and inches and the six PPL template rows from a frozen
+// fixture (jumps included, Pull B customised) — and then switched to the two-set split and kg/cm
+// exactly as the publication does (set_training_program, then the once-only units switch of
+// 20261026000100_program_v3_switch.sql). --ppl stops before the switch, so the account
 // looks like production before publication (to test the switch). Fresh users need nothing:
-// new accounts default to the Arnold week.
+// new accounts default to the two-set week in kg and cm.
 
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
@@ -61,8 +62,8 @@ const addDays = (s, n) => {
 async function seedPplProgram(uid) {
   const { data: prof } = await admin.from("profiles").select("prefs").eq("id", uid).single();
   const prefs = { ...(prof?.prefs ?? {}) };
-  for (const k of ["program", "schedules", "programSwitch", "switchNoticeSeenAt", "swapsOffered", "modeSetAt", "lighterSnoozedUntil"]) delete prefs[k];
-  await admin.from("profiles").update({ weekly_schedule: PPL_WEEK, prefs }).eq("id", uid);
+  for (const k of ["program", "schedules", "programSwitch", "switchNoticeSeenAt", "swapsOffered", "modeSetAt", "lighterSnoozedUntil", "unitsSwitch"]) delete prefs[k];
+  await admin.from("profiles").update({ weekly_schedule: PPL_WEEK, prefs, weight_unit: "lb", length_unit: "in" }).eq("id", uid);
   // rows a previous switch wrote belong to that switch
   await admin.from("day_plans").delete().eq("user_id", uid).eq("note", "program-switch");
   await admin.from("program_templates").delete().eq("user_id", uid);
@@ -73,11 +74,16 @@ async function seedPplProgram(uid) {
   if (error) throw error;
 }
 
-/** Switch an account to the Arnold split exactly as the publication does (unless --ppl). */
-async function switchToArnold(uid) {
+/** Switch an account to the two-set split and kg/cm exactly as the publication does (unless --ppl). */
+async function switchToTwoSet(uid) {
   if (PPL) return { skipped: "--ppl" };
-  const { data, error } = await admin.rpc("set_training_program", { p_program: "arnold", p_user: uid });
-  if (error) throw new Error(`set_training_program: ${error.message} (apply supabase/migrations/20261021000000_arnold_program.sql to the local database first)`);
+  const { data, error } = await admin.rpc("set_training_program", { p_program: "twoset", p_user: uid });
+  if (error) throw new Error(`set_training_program: ${error.message} (apply supabase/migrations/20261026000000_program_v3.sql to the local database first)`);
+  const { data: prof } = await admin.from("profiles").select("prefs, weight_unit, length_unit").eq("id", uid).single();
+  if (!prof?.prefs?.unitsSwitch) {
+    const unitsSwitch = { at: new Date().toISOString(), from: { weight: prof.weight_unit, length: prof.length_unit } };
+    await admin.from("profiles").update({ weight_unit: "kg", length_unit: "cm", prefs: { ...(prof?.prefs ?? {}), unitsSwitch } }).eq("id", uid);
+  }
   return data;
 }
 
@@ -192,8 +198,8 @@ async function seedDemo(uid) {
     { user_id: uid, local_date: addDays(start, 30), test_type: "approach_vertical", value: 32 },
     { user_id: uid, local_date: addDays(start, 30), test_type: "broad_jump", value: 104 },
   ]);
-  const sw = await switchToArnold(uid);
-  console.log(`demo seeded: ${weights.length} weigh-ins, ${entries.length} foods, ${sessions.length} sessions, ${sets.length} sets; program: ${PPL ? "Push/Pull/Legs (--ppl)" : `Arnold split ${JSON.stringify(sw)}`}`);
+  const sw = await switchToTwoSet(uid);
+  console.log(`demo seeded: ${weights.length} weigh-ins, ${entries.length} foods, ${sessions.length} sessions, ${sets.length} sets; program: ${PPL ? "Push/Pull/Legs in lb (--ppl)" : `two-set split in kg ${JSON.stringify(sw)}`}`);
 }
 
 const qaIdx = process.argv.indexOf("--qa");
@@ -221,7 +227,7 @@ if (qaIdx !== -1) {
     const today = new Date().toISOString().slice(0, 10);
     await admin
       .from("profiles")
-      .update({ onboarded: true, display_name: "Quinton", start_date: today, start_weight_lb: 163, goal_weight_lb: 183, target_date: "2027-08-01", ...(PPL ? { weekly_schedule: PPL_WEEK } : {}) })
+      .update({ onboarded: true, display_name: "Quinton", start_date: today, start_weight_lb: 163, goal_weight_lb: 183, target_date: "2027-08-01", ...(PPL ? { weekly_schedule: PPL_WEEK, weight_unit: "lb", length_unit: "in" } : {}) })
       .eq("id", uid);
   }
   console.log(JSON.stringify({ email, password: PASSWORD, id: uid, kind }));
