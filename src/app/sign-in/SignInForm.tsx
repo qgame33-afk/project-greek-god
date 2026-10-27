@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
+import { Input } from "@/components/ui/field";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type Mode = "signin" | "signup" | "reset";
@@ -68,93 +68,94 @@ export function SignInForm() {
     setError(null);
   };
 
+  const titles: Record<Mode, { title: string; line: string }> = {
+    signin: { title: "Project Greek God", line: "Sign in to keep going." },
+    signup: { title: "Create account", line: "Private to you. Your plan comes next." },
+    reset: { title: "Forgot password", line: "We'll email you a link to set a new one." },
+  };
+
   return (
-    <form onSubmit={submit} noValidate className="rise" aria-labelledby="sign-in-title">
-      <header className="text-center">
-        <h1 id="sign-in-title" className="t-film text-[length:1.75rem] leading-[1.05] lg:text-[length:2.25rem]">
-          <span className="block">Project</span>
-          <span className="block">Greek God</span>
-        </h1>
-        <p className="t-eyebrow mt-3 lg:hidden">The Ascent</p>
-      </header>
+    <form onSubmit={submit} noValidate aria-labelledby="sign-in-title" className="mt-7">
+      <h1 id="sign-in-title" className="t-title">
+        {titles[mode].title}
+      </h1>
+      <p className="t-label mt-2">{titles[mode].line}</p>
 
-      {mode !== "signin" && (
-        <div className="mt-7">
-          <h2 className="t-title-2 text-ivory">{mode === "signup" ? "Create your account" : "Reset your password"}</h2>
-          <p className="t-callout mt-1 text-stone">{mode === "signup" ? "Private to you. Your plan comes next." : "We'll email you a secure link."}</p>
-        </div>
-      )}
-
-      <div className={mode === "signin" ? "mt-8 grid gap-4" : "mt-5 grid gap-4"}>
-        <Field label="Email">
-          {(id) => (
-            <Input
-              id={id}
-              type="email"
-              autoComplete="email"
-              inputMode="email"
-              enterKeyHint="next"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-            />
-          )}
-        </Field>
+      <div className="mt-8 grid gap-3">
+        <label htmlFor="sign-in-email" className="sr-only">
+          Email
+        </label>
+        <Input
+          id="sign-in-email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          enterKeyHint="next"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          aria-invalid={!!error || undefined}
+          aria-describedby={error ? "sign-in-error" : undefined}
+          required
+        />
         {mode !== "reset" && (
-          <Field label="Password" hint={mode === "signup" ? "8+ characters" : undefined}>
-            {(id) => (
-              <Input
-                id={id}
-                type="password"
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                enterKeyHint="go"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-              />
-            )}
-          </Field>
+          <>
+            <label htmlFor="sign-in-password" className="sr-only">
+              Password{mode === "signup" ? ", 8 or more characters" : ""}
+            </label>
+            <Input
+              id="sign-in-password"
+              type="password"
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              enterKeyHint="go"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={mode === "signup" ? "Password (8 or more characters)" : "Password"}
+              aria-invalid={!!error || undefined}
+              aria-describedby={error ? "sign-in-error" : undefined}
+              required
+              minLength={8}
+            />
+          </>
+        )}
+        {error && (
+          <p id="sign-in-error" className="t-label px-1 text-danger" role="alert">
+            {error}
+          </p>
+        )}
+        {notice && (
+          <p className="t-label px-1 text-fg" role="status">
+            {notice}
+          </p>
         )}
       </div>
 
-      {error && (
-        <p className="t-callout mt-4 rounded-field bg-cinnabar-tint px-3.5 py-3 font-medium text-cinnabar shadow-[inset_0_0_0_1px_var(--cinnabar-line)]" role="alert">
-          {error}
-        </p>
-      )}
-      {notice && (
-        <p className="t-callout mt-4 rounded-field bg-m2 px-3.5 py-3 font-medium text-ivory shadow-(--e1)" role="status">
-          {notice}
-        </p>
-      )}
-
       <Button type="submit" variant="primary" size="lg" block className="mt-6" loading={busy}>
-        {mode === "signin" ? "Enter" : mode === "signup" ? "Create account" : "Send reset link"}
+        {mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
       </Button>
 
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-1">
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-6">
         {mode === "signin" ? (
           <>
-            <TextButton onClick={() => toMode("signup")}>Create an account</TextButton>
-            <span className="t-meta text-ash" aria-hidden>
-              ·
-            </span>
-            <TextButton onClick={() => toMode("reset")}>Forgot password?</TextButton>
+            <TextButton onClick={() => toMode("signup")} strong>
+              Create account
+            </TextButton>
+            <TextButton onClick={() => toMode("reset")}>Forgot password</TextButton>
           </>
         ) : (
-          <TextButton onClick={() => toMode("signin")}>Have an account? Sign in</TextButton>
+          <TextButton onClick={() => toMode("signin")} strong>
+            I have an account
+          </TextButton>
         )}
       </div>
     </form>
   );
 }
 
-/** A quiet text action with a full 44 px target. Ivory, not gold: the one gold control is Enter. */
-function TextButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+/** A quiet text action with a full 44 px target: "Create account" in --text, "Forgot password" in --text-2. */
+function TextButton({ onClick, children, strong }: { onClick: () => void; children: ReactNode; strong?: boolean }) {
   return (
-    <button type="button" onClick={onClick} className="press t-callout inline-flex h-11 items-center px-2 font-semibold text-stone underline decoration-ui-line underline-offset-4 hover:text-ivory">
+    <button type="button" onClick={onClick} className={`press t-row inline-flex h-11 items-center px-2 ${strong ? "text-fg" : "text-fg-2"}`}>
       {children}
     </button>
   );
@@ -166,7 +167,7 @@ function safeNext(n: string | null) {
 
 function humanAuthError(msg: string) {
   if (/invalid login credentials/i.test(msg)) return "That email and password don't match.";
-  if (/email not confirmed/i.test(msg)) return "Confirm your email first — check your inbox for the link.";
+  if (/email not confirmed/i.test(msg)) return "Confirm your email first. The link is in your inbox.";
   if (/already registered|already exists/i.test(msg)) return "An account with that email already exists. Sign in instead.";
   if (/rate limit|too many/i.test(msg)) return "Too many attempts. Wait a minute and try again.";
   if (/fetch|network/i.test(msg)) return "Can't reach the server. Check your connection.";
