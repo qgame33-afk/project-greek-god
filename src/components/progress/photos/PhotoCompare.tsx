@@ -79,7 +79,7 @@ export function PhotoCompare({ photos, urls, seedId }: { photos: ProgressPhoto[]
           ]}
           className="min-w-0 flex-1 sm:max-w-60"
         />
-        <Select aria-label="Placard label" value={label} onChange={(e) => setLabel(e.target.value as MeasureKey | "none")} className="h-11 w-40 sm:w-44">
+        <Select aria-label="PhotoCaption label" value={label} onChange={(e) => setLabel(e.target.value as MeasureKey | "none")} className="h-11 w-40 sm:w-44">
           <option value="none">Weight only</option>
           {MEASURE_FIELDS.map((f) => (
             <option key={f.key} value={f.key}>
@@ -99,7 +99,7 @@ export function PhotoCompare({ photos, urls, seedId }: { photos: ProgressPhoto[]
           {[a, b].map((p, i) => (
             <figure key={`${p.id}-${i}`} className="min-w-0">
               <Frame photo={p} src={urls.full(p) ?? urls.thumb(p)} />
-              <Placard photo={p} label={label} />
+              <PhotoCaption photo={p} label={label} />
             </figure>
           ))}
         </div>
@@ -107,8 +107,8 @@ export function PhotoCompare({ photos, urls, seedId }: { photos: ProgressPhoto[]
         <div className="mx-auto w-full max-w-md">
           <Wipe a={a} b={b} srcA={urls.full(a) ?? urls.thumb(a)} srcB={urls.full(b) ?? urls.thumb(b)} />
           <div className="mt-0 grid grid-cols-2 gap-3">
-            <Placard photo={a} label={label} />
-            <Placard photo={b} label={label} />
+            <PhotoCaption photo={a} label={label} />
+            <PhotoCaption photo={b} label={label} />
           </div>
         </div>
       )}
@@ -174,7 +174,7 @@ export function Frame({ photo, src, className }: { photo: ProgressPhoto; src: st
  * The caption under a photo: the day and pose, and the weight logged on (or nearest) that day.
  * With `label`, one tape measurement too.
  */
-export function Placard({ photo, label = "none" }: { photo: ProgressPhoto; label?: MeasureKey | "none" }) {
+export function PhotoCaption({ photo, label = "none" }: { photo: ProgressPhoto; label?: MeasureKey | "none" }) {
   const today = useToday();
   const { weights } = useWeights();
   const { data: measures = [] } = useMeasurements();
