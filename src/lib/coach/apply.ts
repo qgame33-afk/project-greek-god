@@ -62,7 +62,7 @@ export function planApply(s: CoachSuggestion, p: ApplyProfile): ApplyPlan | null
     const mode = String(s.proposed);
     const effects =
       s.kind === "deload_week"
-        ? ["New workouts start about 10% lighter with about half the sets, leaving 3 or more reps in the tank.", "Go back to Normal in Train › Program after about 7 days."]
+        ? ["New workouts start about 10% lighter with the same sets, stopping 3–4 reps short.", "Go back to Normal in Train › Program after about 7 days."]
         : mode === "intro"
           ? ["New workouts use fewer sets: one set fewer on most lifts, same weights."]
           : mode === "standard"

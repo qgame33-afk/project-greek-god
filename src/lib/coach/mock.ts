@@ -46,8 +46,8 @@ export function buildMockReply(message: string, snap: Snapshot, profile: Pick<Ra
     if (Math.abs(g - profile.protein_goal) >= 5) suggestions.push({ kind: "protein_goal", title: "Set protein to 2.0 g/kg", proposed: String(g), rationale: "2.0 g per kg of your trend weight (mock text)." });
   }
   if (/water|hydrat/.test(q)) suggestions.push({ kind: "water_goal_ml", title: "Raise your water target", proposed: String(profile.water_goal_ml + 500), rationale: "Training days add sweat losses (mock text)." });
-  if (/deload/.test(q)) suggestions.push({ kind: "deload_week", title: "Take a deload week", proposed: "deload", rationale: "Fatigue and soreness facts above (mock text)." });
-  if (/\bleg/.test(q)) suggestions.push({ kind: "note", title: "One fewer set on leg lifts", proposed: "", rationale: "One fewer set on leg lifts while legs are sore (mock text)." });
+  if (/deload|light(er)? week/.test(q)) suggestions.push({ kind: "deload_week", title: "Take a light week", proposed: "deload", rationale: "Tiredness and soreness above (mock text)." });
+  if (/\bleg/.test(q)) suggestions.push({ kind: "note", title: "Stop 2–3 reps short on leg lifts", proposed: "", rationale: "Easier leg sets while your legs are sore (mock text)." });
 
   const follow = TOPICS.filter((t) => t !== topic)
     .slice(0, 3)

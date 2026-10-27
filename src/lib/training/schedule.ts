@@ -386,11 +386,11 @@ export function deloadAdvice({
     const reasons: string[] = [];
     if (hw >= 5)
       reasons.push(
-        end === "data" ? `At least ${hw} hard weeks in a row.` : end === "deload" ? `${hw} hard weeks in a row since your last deload.` : `${hw} hard weeks in a row.`,
+        end === "data" ? `At least ${hw} hard weeks in a row.` : end === "deload" ? `${hw} hard weeks in a row since your last light week.` : `${hw} hard weeks in a row.`,
       );
     const recent = recovery.filter((r) => r.local_date > addDays(today, -7) && r.local_date <= today && r.fatigue != null);
     const high = recent.filter((r) => (r.fatigue ?? 0) >= 4).length;
-    if (high >= 3) reasons.push(`Fatigue was 4/5 or higher on ${high} of your last ${recent.length} check-ins.`);
+    if (high >= 3) reasons.push(`Tiredness was 4/5 or higher on ${high} of your last ${recent.length} check-ins.`);
     return { suggest: reasons.length > 0, hardWeeks: hw, reasons };
   }
 }

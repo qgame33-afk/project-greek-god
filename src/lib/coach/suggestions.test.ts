@@ -82,7 +82,7 @@ describe("validateSuggestions — protein, water, modes", () => {
     expect(validateSuggestions([s("training_mode", "intro")], base, id).suggestions[0]).toMatchObject({ field: "training_mode", current: "standard", proposed: "intro" });
     expect(validateSuggestions([s("training_mode", "standard")], base, id).suggestions).toHaveLength(0);
     expect(validateSuggestions([s("training_mode", "beast mode")], base, id).suggestions).toHaveLength(0);
-    expect(validateSuggestions([s("deload_week", "deload")], base, id).suggestions[0]).toMatchObject({ proposed: "deload", proposedLabel: "Deload, 1 week" });
+    expect(validateSuggestions([s("deload_week", "deload")], base, id).suggestions[0]).toMatchObject({ proposed: "deload", proposedLabel: "Light week, for 1 week" });
     const deloading = { ...base, profile: { ...base.profile, training_mode: "deload" } };
     expect(validateSuggestions([s("deload_week", "deload")], deloading, id).suggestions).toHaveLength(0);
   });

@@ -138,6 +138,8 @@ const GOAL_FIELD_LABEL: Record<string, string> = {
 };
 
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+/** Training modes in Train's words (components/training/hooks.ts MODE_LABEL). */
+const MODE_WORDS = { standard: "Normal", intro: "Easier sets", deload: "Light week" } as const;
 
 /** The user's calendar date of a timestamptz (never a UTC slice: 9 pm in Toronto is tomorrow in UTC). */
 export function dateInZone(ts: string, timeZone: string | null | undefined): ISODate {
@@ -317,7 +319,7 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
     const other = PROGRAMS[program === "twoset" ? "ppl" : "twoset"];
     fact("training", "plan", "prog.active", "Program", `${def.name}${since ? ` since ${sd(since)}` : ""}`, "the active weekly plan; the user can move single days or switch programs");
     fact("training", "plan", "prog.saved", "Saved alternative", `${other.name} (saved, not active)`, "kept with the user's own edits; switching is the user's choice");
-    fact("training", "plan", "tr.mode", "Training mode", cap(p.training_mode), "standard = full program; intro = one set fewer on most exercises (\"Fewer sets\"); deload = ~10% lighter, about half the sets, 3–4 RIR");
+    fact("training", "plan", "tr.mode", "How hard", MODE_WORDS[p.training_mode as keyof typeof MODE_WORDS] ?? cap(p.training_mode), "Normal = the plan as written; Easier sets (intro) = same sets, stopping 2–3 reps short; Light week (deload) = about 10% lighter, stopping 3–4 reps short");
     const schedule = mergeSchedule(p.weekly_schedule, p.prefs);
     const ctx = { program, since };
     const tplName = (key: string) => (key === "rest" ? "Rest day" : (t.templates.find((x) => x.key === key)?.name ?? templateDef(key)?.name ?? key));
@@ -475,7 +477,7 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
       historyFrom: p.start_date,
     });
     if (lighter.kind) {
-      const title = lighter.kind === "deload" ? "Light week suggested (deload: half the sets, about 10% lighter, 3–4 RIR)" : lighter.kind === "lighter" ? "Fewer sets this week (one set fewer on every exercise, same weights)" : "Back to the full plan";
+      const title = lighter.kind === "deload" ? "Light week suggested (about 10% lighter, stopping 3–4 reps short)" : lighter.kind === "lighter" ? "Easier sets this week (same weights, stopping 2–3 reps short)" : "Back to the full plan";
       fact("training", "plan", "tr.lighter", "Lighter-week check", title, lighter.reasons.length ? lighter.reasons.join(" ") : "the lighter mode has run for 7 days or more");
     }
     const active = def.keys.map((k) => {
@@ -574,7 +576,7 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
         );
       if (r.avg.energy != null) fact("recovery", "logged", "rec.energy", "Energy, average", `${r.avg.energy}/5`, `last ${r.counts.energy} of ${n} check-ins`);
       if (r.avg.soreness != null) fact("recovery", "logged", "rec.soreness", "Soreness, average", `${r.avg.soreness}/5`, `last ${r.counts.soreness} check-ins`);
-      if (r.avg.fatigue != null) fact("recovery", "logged", "rec.fatigue", "Fatigue, average", `${r.avg.fatigue}/5`, `last ${r.counts.fatigue} check-ins`);
+      if (r.avg.fatigue != null) fact("recovery", "logged", "rec.fatigue", "Tiredness, average", `${r.avg.fatigue}/5`, `last ${r.counts.fatigue} check-ins`);
       if (r.avg.stress != null) fact("recovery", "logged", "rec.stress", "Stress, average", `${r.avg.stress}/5`, `last ${r.counts.stress} check-ins`);
       fact(
         "recovery",

@@ -113,9 +113,10 @@ describe("computeGuidance", () => {
     expect(g.score).toBe(3); // sleep 2 + soreness 1
     expect(g.level).toBe("trim");
     expect(g.detail).toBe(
-      "Keep the session but drop one set per exercise and stay at RIR 2–3.",
+      "Keep the session and stop 2–3 reps short on every set.",
     );
-    expect(g.adjustments.dropSets).toBe(1);
+    // both sets stay: a bad day is eased by effort (program-v3 §5)
+    expect(g.adjustments.dropSets).toBe(0);
     expect(g.adjustments.rir).toBe("2–3");
     expect(g.reasons[0]).toBe("Slept 6 h 30 min of 8 h");
     expect(g.extras).toContain("Aim for 8 h tonight.");
@@ -133,8 +134,9 @@ describe("computeGuidance", () => {
     expect(g.level).toBe("ease");
     expect(g.adjustments.loadPct).toBe(-10);
     // the copy and the adjustments say the same thing
-    expect(g.adjustments.dropSets).toBe(1);
-    expect(g.detail).toContain("one set fewer per exercise");
+    expect(g.adjustments.dropSets).toBe(0);
+    expect(g.adjustments.rir).toBe("3");
+    expect(g.detail).toContain("stopping 3 reps short");
   });
 
   it("suggests a recovery day when many markers are poor", () => {
@@ -155,9 +157,9 @@ describe("computeGuidance", () => {
     const g = computeGuidance(input({ plan: legsA, checkins: [ci({ sleep_hours: 8, soreness: 4, energy: 4 })] }));
     expect(g.level).toBe("legs");
     expect(g.title).toBe("Ease off the legs");
-    expect(g.detail).toBe("Keep leg work at RIR 2–3 and drop one set per exercise. Your legs are still sore.");
-    expect(g.adjustments).toMatchObject({ rir: "2–3", dropSets: 1 });
-    expect(readinessLine(g, "Legs & Abs A")).toBe("Legs & Abs A today, leg work at RIR 2–3, one set fewer. Your legs are still sore.");
+    expect(g.detail).toBe("Your legs are still sore. Stop 2–3 reps short on the leg lifts.");
+    expect(g.adjustments).toMatchObject({ rir: "2–3", dropSets: 0 });
+    expect(readinessLine(g, "Legs")).toBe("Legs today: 2–3 reps short on leg lifts. Legs still sore.");
   });
 
   it("does not ease the legs for mild soreness, or on an upper-body day", () => {
@@ -318,7 +320,7 @@ describe("readinessLine", () => {
     );
     expect(g.level).toBe("ease");
     expect(readinessLine(g, "Pull B")).toBe(
-      "Pull B today, lighter: 10% less load, one set fewer, RIR 3.",
+      "Pull B today, lighter: 10% less weight, stop 3 reps short.",
     );
     const bad = computeGuidance(
       input({
@@ -341,7 +343,9 @@ describe("readinessLine", () => {
     );
     const legs = computeGuidance(input({ plan: legsA, checkins: [ci({ sleep_hours: 8, soreness: 4, pain_notes: "Left knee" })] }));
     expect(legs.level).toBe("legs");
-    expect(readinessLine(legs, "Legs & Abs A")).toBe("Legs & Abs A today, leg work at RIR 2–3, one set fewer. Your legs are still sore. Skip anything that hurts.");
+    expect(readinessLine(legs, "Legs")).toBe("Legs today: 2–3 reps short on leg lifts. Legs still sore. Skip anything that hurts.");
+    // a dropped set (an explicit adjustment) still travels with the line
+    expect(readinessLine({ ...legs, adjustments: { ...legs.adjustments, dropSets: 1 } }, "Legs")).toBe("Legs today: 2–3 reps short on leg lifts, one set fewer. Legs still sore. Skip anything that hurts.");
   });
 });
 
@@ -368,7 +372,7 @@ describe("today's session in the call", () => {
     expect(g.session).toBe("active");
     expect(g.title).toBe("Keep Pull B light");
     expect(g.detail).not.toMatch(/tomorrow/);
-    expect(readinessLine(g, "Pull B")).toBe("Pull B underway: keep the rest light, RIR 3–4, or stop early.");
+    expect(readinessLine(g, "Pull B")).toBe("Pull B underway: go light, 3–4 reps short, or stop early.");
   });
 
   it("an easy day after the session just says eat well", () => {

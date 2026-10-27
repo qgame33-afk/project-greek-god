@@ -36,7 +36,7 @@ describe("targetLine", () => {
     expect(targetLine(mkSuggestion("hold", 185), ref, fmt, "weight_reps")).toBe("185 × 5–8 · hold");
     expect(targetLine(mkSuggestion("add_reps", 185), ref, fmt, "weight_reps")).toBe("185 × 5–8 · same load, add a rep");
     expect(targetLine(mkSuggestion("reset", 165), ref, fmt, "weight_reps")).toBe("165 × 5–8 · reset from 185");
-    expect(targetLine(mkSuggestion("deload", 165), ref, fmt, "weight_reps")).toBe("165 × 5–8 · deload, 3+ in reserve");
+    expect(targetLine(mkSuggestion("deload", 165), ref, fmt, "weight_reps")).toBe("165 × 5–8 · light week, stop 3–4 reps short");
   });
   it("no history: a first-time line, never a number", () => {
     expect(targetLine(mkSuggestion("first", null), null, fmt, "weight_reps")).toBe("First time · 5–8 to find your baseline");

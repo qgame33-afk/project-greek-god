@@ -80,7 +80,7 @@ export function targetLine(s: Suggestion, ref: PastSet[] | null, fmt: Fmt, track
     case "reset":
       return top > 0 ? `${head} · reset from ${fmt(top)}` : `${head} · reset`;
     case "deload":
-      return `${head} · deload, 3+ in reserve`;
+      return `${head} · light week, stop 3–4 reps short`;
     case "hold":
       return `${head} · hold`;
     default:

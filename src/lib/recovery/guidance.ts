@@ -244,8 +244,8 @@ export function computeGuidance(input: ReadinessInput): Guidance {
       ...g,
       session: "active",
       title: `Keep ${name} light`,
-      detail: "Your markers called for a recovery day. Finish with light sets at RIR 3–4, or stop early.",
-      adjustments: { ...g.adjustments, rest: false, dropSets: Math.max(1, g.adjustments.dropSets), rir: "3–4", loadPct: -10 },
+      detail: "Your check-in called for a recovery day. Finish with light sets, stopping 3–4 reps short, or stop early.",
+      adjustments: { ...g.adjustments, rest: false, rir: "3–4", loadPct: -10 },
     };
   if (g.level === "rest")
     return {
@@ -272,7 +272,7 @@ function planCall(input: ReadinessInput): Guidance {
   const partialCheckin = !!today && !hasCheckin;
   const factors: GuidanceFactor[] = [];
 
-  /* sleep: last night, plus a 3-night average for accumulated debt */
+  /* sleep: last night, plus the average of the last nights for accumulated debt */
   const sleep = num(today?.sleep_hours);
   let sleepPts = 0;
   if (sleep != null) {
@@ -292,7 +292,7 @@ function planCall(input: ReadinessInput): Guidance {
     const debt = goal - avg >= 1 && sleepPts < 3 ? 1 : 0;
     factors.push({
       key: "sleep_debt",
-      label: `${nights.length}-night average`,
+      label: `Last ${nights.length} nights`,
       value: `${formatHours(Math.round(avg * 4) / 4)} h`,
       points: debt,
     });
@@ -326,7 +326,7 @@ function planCall(input: ReadinessInput): Guidance {
   if (fatigue != null)
     factors.push({
       key: "fatigue",
-      label: "Fatigue",
+      label: "Tiredness",
       value: `${fatigue}/5`,
       points: highBadPoints(fatigue),
     });
@@ -483,31 +483,32 @@ function planCall(input: ReadinessInput): Guidance {
     return base(
       "ease",
       "Go lighter today",
-      "Same exercises, about 10% lighter, one set fewer per exercise, and stop at RIR 3.",
+      "Same exercises, about 10% lighter, stopping 3 reps short.",
+      // both sets stay (program-v3 §5: exactly two working sets); a bad day is eased by effort
       {
-        dropSets: 1,
+        dropSets: 0,
         rir: "3",
         loadPct: -10,
       },
     );
 
   if (legsSore)
-    return base("legs", "Ease off the legs", "Keep leg work at RIR 2–3 and drop one set per exercise. Your legs are still sore.", { rir: "2–3", dropSets: 1 });
+    return base("legs", "Ease off the legs", "Your legs are still sore. Stop 2–3 reps short on the leg lifts.", { rir: "2–3", dropSets: 0 });
 
   if (score >= THRESHOLDS.trim)
     return base(
       "trim",
       "Trim the session",
-      "Keep the session but drop one set per exercise and stay at RIR 2–3.",
-      { dropSets: 1, rir: "2–3" },
+      "Keep the session and stop 2–3 reps short on every set.",
+      { dropSets: 0, rir: "2–3" },
     );
 
   return base(
     "go",
     "Train as planned",
     pain
-      ? `Other markers look fine. Run ${session} at the planned RIR and work around the sore area.`
-      : `Recovery markers look fine. Run ${session} at the planned RIR.`,
+      ? `The rest of your check-in looks fine. Train ${session} as planned and work around the sore area.`
+      : `Your check-in looks fine. Train ${session} as planned.`,
   );
 }
 
@@ -554,18 +555,18 @@ export function readinessLine(
       ? `${n} done. Recovery tonight: protein, an easy walk, an early night.`
       : `${n} done. Eat well and sleep well tonight.`;
   }
-  if (g.session === "active" && g.level === "recover") return `${n} underway: keep the rest light, RIR 3–4, or stop early.${hurts}`;
+  if (g.session === "active" && g.level === "recover") return `${n} underway: go light, 3–4 reps short, or stop early.${hurts}`;
   switch (g.level) {
     case "recover":
       return "Recovery day suggested. Walk, mobility, sleep. Six days aren't mandatory.";
     case "ease":
-      return `${n} today, lighter: 10% less load, one set fewer, RIR 3.${hurts}`;
+      return `${n} today, lighter: 10% less weight, stop 3 reps short.${hurts}`;
     case "trim":
-      return `${n} today, trimmed: one set fewer per exercise, RIR 2–3.${hurts}`;
+      return `${n} today, a bit easier: stop 2–3 reps short on every set.${hurts}`;
     case "legs":
-      return `${n} today, leg work at RIR 2–3${drop}. Your legs are still sore.${hurts}`;
+      return `${n} today: 2–3 reps short on leg lifts${drop}. Legs still sore.${hurts}`;
     case "go":
-      return g.pain ? `${n} today as planned, around the sore area.${hurts}` : `${n} today as planned. Recovery markers look fine.`;
+      return g.pain ? `${n} today as planned, around the sore area.${hurts}` : `${n} today as planned. Your check-in looks fine.`;
     case "rest":
       return g.score >= THRESHOLDS.ease ? "Rest fully today. An easy walk at most, then sleep." : null;
     default:

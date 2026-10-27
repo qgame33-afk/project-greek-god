@@ -74,9 +74,9 @@ export function dailyLine(i: DailyLineInput): string {
     // readinessLine already carries the pain caveat, so every screen words it the same way.
     if (r) return r;
     if (pain) return `${n} today. You noted pain, so skip anything that aggravates it.`;
-    if (shortNight != null) return `${n} today on ${fmtHours(shortNight)} h of sleep. Keep 2 reps in reserve.`;
-    if (lowEnergy != null) return `${n} today. Energy is ${lowEnergy}/5, so warm up longer and keep 2 in reserve.`;
-    if (highFatigue != null) return `${n} today. Fatigue is ${highFatigue}/5, so keep 2 reps in reserve.`;
+    if (shortNight != null) return `${n} today on ${fmtHours(shortNight)} h of sleep. Stop 2 reps short.`;
+    if (lowEnergy != null) return `${n} today. Energy is ${lowEnergy}/5, so warm up longer and stop 2 reps short.`;
+    if (highFatigue != null) return `${n} today. Tiredness is ${highFatigue}/5, so stop 2 reps short.`;
     if (i.protein.eaten > 0 && proteinLeft > 0) return `${n} today. Protein is the lever: ${proteinLeft} g to go.`;
     return `${n} today. Protein is the lever: ${Math.round(i.protein.goal)} g.`;
   }

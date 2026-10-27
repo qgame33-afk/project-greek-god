@@ -270,7 +270,7 @@ export function recommend(r: WeeklyReview): WeeklyRecommendation[] {
   const prevHigh = (s: RatingSummary) => s.prevAvg != null && s.prevAvg >= 3.5;
   const strained = [soreness, fatigue].find((s) => high(s) || rising(s));
   if (strained) {
-    const which = strained === soreness ? "Soreness" : "Fatigue";
+    const which = strained === soreness ? "Soreness" : "Tiredness";
     const tail =
       strained.prevAvg != null && strained.trend === "up"
         ? ` (up from ${strained.prevAvg})`
@@ -278,14 +278,14 @@ export function recommend(r: WeeklyReview): WeeklyRecommendation[] {
     if (high(strained) && prevHigh(strained)) {
       out.push({
         key: "deload",
-        title: "Consider a deload week",
+        title: "Consider a light week",
         reason: `${which} averaged ${strained.avg}/5 two weeks running. Lighter loads let it come back down.`,
       });
     } else {
       out.push({
         key: "lighter",
         title: "Plan a lighter week",
-        reason: `${which} averaged ${strained.avg}/5${tail}. Drop one set per exercise and keep RIR 2–3.`,
+        reason: `${which} averaged ${strained.avg}/5${tail}. Stop 2–3 reps short on every set for a week.`,
       });
     }
   }

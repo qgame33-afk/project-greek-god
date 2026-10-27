@@ -142,7 +142,7 @@ describe("weeklyReview", () => {
     const keys = r.recommendations.map((x) => x.key);
     expect(keys).toEqual(["lighter", "sleep", "consistency"]);
     expect(r.recommendations[0].reason).toBe(
-      "Soreness averaged 4/5 (up from 2). Drop one set per exercise and keep RIR 2–3.",
+      "Soreness averaged 4/5 (up from 2). Stop 2–3 reps short on every set for a week.",
     );
     expect(r.recommendations[1].title).toBe("Protect sleep: aim for 8 h");
   });

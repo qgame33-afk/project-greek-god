@@ -138,7 +138,7 @@ export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, h
       kind: "deload",
       weightLb: top > 0 ? scaleLoad(top, 0.9, lib, unitW) : null,
       target: { ...target, high: Math.max(target.low, target.high - 2) },
-      reason: `Deload: about 10% lighter${plannedSetCount(t, lib, "deload") < t.sets ? ", fewer sets" : ""}, finish every set with 3+ reps in reserve.`,
+      reason: `Light week: about 10% lighter${plannedSetCount(t, lib, "deload") < t.sets ? ", fewer sets" : ""}, stopping 3–4 reps short on every set.`,
       last,
     };
   }
@@ -151,7 +151,7 @@ export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, h
       kind: top > 0 ? "hold" : "bodyweight",
       weightLb: top > 0 ? top : null,
       target,
-      reason: top > 0 ? `Last time was a deload at ${L(top)}. Start there and add load once every set reaches ${t.repHigh}.` : "Last time was a deload. Add a rep to any set you can.",
+      reason: top > 0 ? `Last time was a light week at ${L(top)}. Start there and add load once every set reaches ${t.repHigh}.` : "Last time was a light week. Add a rep to any set you can.",
       last,
     };
   }

@@ -773,13 +773,13 @@ export function candidatePriorities(s: ReviewStats, unit: WeightUnit = "lb"): Pr
   // ---- fatigue / soreness (subjective, never a diagnosis)
   if (r.checkIns >= 5 && ((r.avgFatigue ?? 0) >= 3.5 || (r.avgSoreness ?? 0) >= 3.8)) {
     const fatigued = (r.avgFatigue ?? 0) >= 3.5;
-    const label = fatigued ? "Fatigue" : "Soreness";
+    const label = fatigued ? "Tiredness" : "Soreness";
     const value = fatigued ? r.avgFatigue : r.avgSoreness;
     out.push({
       id: "deload",
       area: "recovery",
       title: "Plan a lighter week",
-      detail: `${label} averaged ${value} / 5 over ${r.checkIns} check-ins. A deload week (same lifts, about half the sets) usually restores performance. If pain is sharp or lasting, get it checked.`,
+      detail: `${label} averaged ${value} / 5 over ${r.checkIns} check-ins. A light week (same lifts, about 10% lighter) usually brings it back. If pain is sharp or lasting, get it checked.`,
       evidence: [`${label} ${value} / 5`, `${r.checkIns} check-ins`],
       action: { label: "Recovery", href: "/recovery" },
       score: 6,

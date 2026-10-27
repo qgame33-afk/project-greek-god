@@ -27,7 +27,8 @@ export const BOUNDS = {
 } as const;
 
 const MODES: TrainingMode[] = ["standard", "intro", "deload"];
-const MODE_LABEL: Record<TrainingMode, string> = { standard: "Standard", intro: "Introductory", deload: "Deload" };
+// the same words as Train (components/training/hooks.ts MODE_LABEL)
+const MODE_LABEL: Record<TrainingMode, string> = { standard: "Normal", intro: "Easier sets", deload: "Light week" };
 
 export interface SuggestionContext {
   profile: { calorie_goal: number; protein_goal: number; water_goal_ml: number; training_mode: string; start_weight_lb: number };
@@ -225,7 +226,7 @@ export function validateSuggestions(raw: unknown, ctx: SuggestionContext, makeId
           current: cur,
           proposed: "deload",
           currentLabel: MODE_LABEL[cur],
-          proposedLabel: "Deload, 1 week",
+          proposedLabel: "Light week, for 1 week",
           status: "open",
         };
     }

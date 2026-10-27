@@ -112,7 +112,7 @@ describe("suggest: deloads are planned lighter work, not a performance drop", ()
     const s = suggest(bench, lib, deload, "standard");
     expect(s.kind).toBe("hold");
     expect(s.weightLb).toBe(160);
-    expect(s.reason).toContain("deload at 160 lb");
+    expect(s.reason).toContain("light week at 160 lb");
   });
 });
 
@@ -200,7 +200,7 @@ describe("double progression on the two-set split, in kg (PROGRAM-V3 §4.1)", ()
     expect([modeRir(incline, "standard"), modeRir(incline, "intro"), modeRir(incline, "deload")]).toEqual(["0–1", "2–3", "3–4"]);
     const d = kg(incline, "incline-db-press", session("2026-10-20", "standard", [`${P}x10@0`, `${P}x10@0`]), "deload");
     expect(displayLoad(d.weightLb!, "kg")).toBe(20);
-    expect(d.reason).toBe("Deload: about 10% lighter, finish every set with 3+ reps in reserve.");
+    expect(d.reason).toBe("Light week: about 10% lighter, stopping 3–4 reps short on every set.");
   });
 
   it("first time on a failure lift says so", () => {

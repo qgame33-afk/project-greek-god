@@ -213,7 +213,7 @@ describe("deloadAdvice", () => {
 
   it("says when the streak started at a deload, or ran past the fetched history", () => {
     const s = [...weeksOf(5, 5), ...weeksOf(6, 5, "deload").filter((x) => x.local_date < addDays("2026-10-12", -35))];
-    expect(deloadAdvice({ sessions: s, recovery: [], today: TODAY, mode: "standard" }).reasons[0]).toBe("5 hard weeks in a row since your last deload.");
+    expect(deloadAdvice({ sessions: s, recovery: [], today: TODAY, mode: "standard" }).reasons[0]).toBe("5 hard weeks in a row since your last light week.");
     const capped = deloadAdvice({ sessions: weeksOf(9, 5), recovery: [], today: TODAY, mode: "standard", historyFrom: addDays("2026-10-12", -42) });
     expect(capped).toMatchObject({ hardWeeks: 6 });
     expect(capped.reasons[0]).toBe("At least 6 hard weeks in a row.");
@@ -238,7 +238,7 @@ describe("deloadAdvice", () => {
     const recovery = ["2026-10-11", "2026-10-13", "2026-10-14", "2026-10-15"].map((d, i) => ({ local_date: d, soreness: 2, fatigue: i === 0 ? 2 : 4 }));
     const a = deloadAdvice({ sessions: [], recovery, today: TODAY, mode: "standard" });
     expect(a.suggest).toBe(true);
-    expect(a.reasons).toEqual(["Fatigue was 4/5 or higher on 3 of your last 4 check-ins."]);
+    expect(a.reasons).toEqual(["Tiredness was 4/5 or higher on 3 of your last 4 check-ins."]);
     expect(deloadAdvice({ sessions: weeksOf(6, 6), recovery, today: TODAY, mode: "deload" }).suggest).toBe(false);
   });
 });

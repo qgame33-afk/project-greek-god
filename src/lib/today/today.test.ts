@@ -130,8 +130,8 @@ describe("dailyLine", () => {
   it("is recovery-aware and never mentions volleyball or jumps", () => {
     for (const plan of [base.plan, legs]) expect(dailyLine({ ...base, plan })).not.toMatch(/volley|jump/i);
     const tired = { sleepHours: 5.75, energy: 3, soreness: 2, fatigue: 2, pain: false };
-    expect(dailyLine({ ...base, checkin: tired })).toBe("Push A today on 5.75 h of sleep. Keep 2 reps in reserve.");
-    expect(dailyLine({ ...base, checkin: { ...tired, sleepHours: 7.5, energy: 2 } })).toBe("Push A today. Energy is 2/5, so warm up longer and keep 2 in reserve.");
+    expect(dailyLine({ ...base, checkin: tired })).toBe("Push A today on 5.75 h of sleep. Stop 2 reps short.");
+    expect(dailyLine({ ...base, checkin: { ...tired, sleepHours: 7.5, energy: 2 } })).toBe("Push A today. Energy is 2/5, so warm up longer and stop 2 reps short.");
     expect(dailyLine({ ...base, checkin: { ...tired, pain: true } })).toBe("Push A today. You noted pain, so skip anything that aggravates it.");
   });
 
@@ -159,17 +159,17 @@ describe("dailyLine", () => {
     const adj = { dropSets: 0, rir: null, loadPct: null, rest: false };
     const tired = { sleepHours: 5.75, energy: 3, soreness: 2, fatigue: 2, pain: false };
     const trim = { level: "trim" as const, score: 2, adjustments: { ...adj, dropSets: 1, rir: "2–3" }, hasCheckin: true, pain: null };
-    expect(dailyLine({ ...base, checkin: tired, readiness: trim })).toBe("Push A today, trimmed: one set fewer per exercise, RIR 2–3.");
+    expect(dailyLine({ ...base, checkin: tired, readiness: trim })).toBe("Push A today, a bit easier: stop 2–3 reps short on every set.");
     expect(dailyLine({ ...base, checkin: tired, readiness: { ...trim, level: "ease", score: 4 } })).toBe(
-      "Push A today, lighter: 10% less load, one set fewer, RIR 3.",
+      "Push A today, lighter: 10% less weight, stop 3 reps short.",
     );
-    expect(dailyLine({ ...base, readiness: { ...trim, level: "go", score: 0 } })).toBe("Push A today as planned. Recovery markers look fine.");
+    expect(dailyLine({ ...base, readiness: { ...trim, level: "go", score: 0 } })).toBe("Push A today as planned. Your check-in looks fine.");
     // pain never sits next to "markers look fine", and the caveat is said once
     expect(dailyLine({ ...base, readiness: { ...trim, level: "go", score: 1, pain: "left knee" } })).toBe(
       "Push A today as planned, around the sore area. Skip anything that hurts.",
     );
     expect(dailyLine({ ...base, checkin: tired, readiness: { ...trim, pain: "left knee" } })).toBe(
-      "Push A today, trimmed: one set fewer per exercise, RIR 2–3. Skip anything that hurts.",
+      "Push A today, a bit easier: stop 2–3 reps short on every set. Skip anything that hurts.",
     );
     expect(dailyLine({ ...base, readiness: { ...trim, level: "recover", score: 7, pain: "left knee" } })).toBe(
       "Recovery day suggested. Walk, mobility, sleep. Six days aren't mandatory.",
