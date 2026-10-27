@@ -345,7 +345,7 @@ function DeviceRows({ status, onDevicesChange, anyEnabled }: { status: Status | 
               ? `${devices > 1 ? `${devices} devices receive reminders.` : "This device receives reminders."}${anyEnabled ? "" : " Choose which ones below."}`
               : status && !status.pushConfigured
                 ? "The server isn't set up for push yet."
-                : "Allow notifications so the reminders below can reach this device."
+                : "Allow notifications on this phone."
           }
         />
         <div className="flex w-full justify-end gap-2 pl-12 sm:w-auto sm:pl-0">
@@ -409,13 +409,13 @@ function ReminderRow({ kind, settings, onChange }: { kind: ReminderKind; setting
   return (
     <div className={cn(rowBase, "flex-col items-stretch gap-0 py-0")}>
       <div
-        className="flex min-h-[60px] cursor-pointer items-center gap-3 py-2.5"
+        className="flex min-h-14 cursor-pointer items-center gap-3 py-2.5"
         onClick={(e) => {
           if ((e.target as HTMLElement).closest("button")) return;
           onChange({ on: !r.on });
         }}
       >
-        <Labels label={meta.label} detail={meta.caption} />
+        <Labels label={meta.label} detail={r.on ? meta.caption : undefined} />
         <Switch id={id} checked={r.on} onCheckedChange={(on) => onChange({ on })} label={meta.label} />
       </div>
       {r.on && (

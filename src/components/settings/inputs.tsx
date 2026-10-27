@@ -119,12 +119,12 @@ export function StepperInput({
       <div role="group" aria-label={label}>
         {input}
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <HoldButton label={`Decrease ${label}`} disabled={value <= min} onStep={() => bump(clampStep(value - step, step, min, max))}>
+          <RepeatButton label={`Decrease ${label}`} disabled={value <= min} onStep={() => bump(clampStep(value - step, step, min, max))}>
             <Minus className="size-[18px]" />
-          </HoldButton>
-          <HoldButton label={`Increase ${label}`} disabled={value >= max} onStep={() => bump(clampStep(value + step, step, min, max))}>
+          </RepeatButton>
+          <RepeatButton label={`Increase ${label}`} disabled={value >= max} onStep={() => bump(clampStep(value + step, step, min, max))}>
             <Plus className="size-[18px]" />
-          </HoldButton>
+          </RepeatButton>
         </div>
       </div>
     );
@@ -154,7 +154,7 @@ function clampStep(v: number, step: number, min: number, max: number) {
 }
 
 /** 44px − / + that repeats while held (400ms, then every 120ms). Reads the latest step fn. */
-function HoldButton({ label, disabled, onStep, children }: { label: string; disabled?: boolean; onStep: () => void; children: ReactNode }) {
+function RepeatButton({ label, disabled, onStep, children }: { label: string; disabled?: boolean; onStep: () => void; children: ReactNode }) {
   const fn = useRef(onStep);
   useEffect(() => {
     fn.current = onStep;

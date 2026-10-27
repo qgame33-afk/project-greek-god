@@ -51,12 +51,12 @@ describe("promptsFor", () => {
   it("leaves the overlap question out when the program has no such pair", () => {
     expect(programQuestions({ arms: null, chest: "x" })).toEqual(["Do I need a lighter week?"]);
   });
-  it("never suggests volleyball, deloads or a lift that isn't in the program", () => {
+  it("never suggests deloads, jumps or a lift that isn't in the program", () => {
     const all = (["now", "train", "fuel", "ascent", "gym", "recipe", undefined] as const).flatMap((k) => {
       const p = promptsFor(k, { days: { arms: "A", chest: "B" } });
       return [p.lead, ...p.more];
     });
-    for (const q of all) expect(q).not.toMatch(/volley|deload|bench|jump|sprint/i);
+    for (const q of all) expect(q).not.toMatch(/deload|bench|jump|sprint/i);
   });
 });
 

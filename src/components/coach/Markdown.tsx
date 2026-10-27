@@ -12,7 +12,7 @@ import { memo } from "react";
 const components: Components = {
   p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
   strong: ({ children }) => <strong className="font-semibold text-fg">{children}</strong>,
-  em: ({ children }) => <em className="not-italic text-fg">{children}</em>,
+  em: ({ children }) => <span className="text-fg">{children}</span>,
   ul: ({ children }) => <ul className="mb-3 space-y-1.5 pl-5 last:mb-0 [list-style:disc] marker:text-fg-3">{children}</ul>,
   ol: ({ children }) => <ol className="mb-3 space-y-1.5 pl-5 last:mb-0 [list-style:decimal] marker:font-semibold marker:text-fg-3">{children}</ol>,
   li: ({ children }) => <li className="pl-1">{children}</li>,

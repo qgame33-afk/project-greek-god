@@ -15,7 +15,7 @@ import { MealDraftCard, type GroupInfo } from "./MealDraftCard";
 const md: Components = {
   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
   strong: ({ children }) => <strong className="font-semibold text-fg">{children}</strong>,
-  em: ({ children }) => <em className="not-italic text-fg">{children}</em>,
+  em: ({ children }) => <span className="text-fg">{children}</span>,
   ul: ({ children }) => <ul className="mb-2 list-disc space-y-1 pl-5 marker:text-fg-3 last:mb-0">{children}</ul>,
   ol: ({ children }) => <ol className="mb-2 list-decimal space-y-1 pl-5 marker:text-fg-3 last:mb-0">{children}</ol>,
   // links are stripped on the server; never render one from model text
