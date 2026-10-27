@@ -87,13 +87,13 @@ export function useTrainSuggestion(week: Week, volume: VolumeSuggestion[]): Trai
 
     const l = week.lighter;
     if (l.kind === "deload") return { kind: "deload", icon: Moon, title: "Light week suggested", reason: firstReason(l.reasons), reasons: l.reasons };
-    if (l.kind === "lighter") return { kind: "lighter", icon: Moon, title: "Fewer sets this week?", reason: firstReason(l.reasons), reasons: l.reasons };
+    if (l.kind === "lighter") return { kind: "lighter", icon: Moon, title: "Easier sets this week?", reason: firstReason(l.reasons), reasons: l.reasons };
     if (l.kind === "standard") {
       const since = prefs.modeSetAt as ISODate | undefined;
       const reason = `${MODE_LABEL[week.mode]}${since ? ` since ${fmtDay(since)}` : " is on"}`;
       return { kind: "standard", icon: Moon, title: "Back to the full plan?", reason, reasons: [`${reason}.`] };
     }
-    if (week.easeIn) return { kind: "ease", icon: Moon, title: "Ease into the new split?", reason: "One set fewer this week", reasons: [] };
+    if (week.easeIn) return { kind: "ease", icon: Moon, title: "Ease into the new split?", reason: "Stop with 2–3 reps left this week", reasons: [] };
 
     const v = volume[0];
     if (v) return { kind: "volume", icon: Activity, title: volumeTitle(v), reason: v.reason, suggestion: v };
@@ -107,28 +107,28 @@ export function SuggestionRowFor({ s, onOpen }: { s: TrainSuggestion; onOpen: ()
   return <SuggestionRow icon={s.icon} title={s.title} reason={s.reason} onClick={onOpen} />;
 }
 
-/* --------------------------------------------- light week, fewer sets, back */
+/* -------------------------------------------- light week, easier sets, back */
 
 const LIGHT: Record<"deload" | "lighter" | "standard" | "ease", { title: string; lines: string[]; action: string; mode: Mode; caption?: string }> = {
   deload: {
     title: "Light week suggested",
-    lines: ["Same lifts and days", "About half the sets", "About 10% lighter", "Leave 3–4 reps in the tank"],
+    lines: ["Same lifts, days and sets", "About 10% lighter", "Stop with 3–4 reps left"],
     action: "Start light week",
     mode: "deload",
     caption: "Starts with your next workout. Back to normal in Program any time.",
   },
   lighter: {
-    title: "Fewer sets this week?",
-    lines: ["Same lifts, days and weights", "One set fewer on most lifts"],
-    action: "Use fewer sets",
+    title: "Easier sets this week?",
+    lines: ["Same lifts, days, sets and weights", "Stop with 2–3 reps left"],
+    action: "Use easier sets",
     mode: "intro",
     caption: "Starts with your next workout. Back to normal in Program any time.",
   },
   standard: { title: "Back to the full plan?", lines: ["Every set of the plan", "Same lifts and days"], action: "Back to normal", mode: "standard", caption: "Starts with your next workout." },
   ease: {
     title: "Ease into the new split?",
-    lines: ["Same lifts, days and weights", "One set fewer on most lifts"],
-    action: "Use fewer sets",
+    lines: ["Same lifts, days, sets and weights", "Stop with 2–3 reps left"],
+    action: "Use easier sets",
     mode: "intro",
     caption: "Starts with your next workout. Back to normal in Program any time.",
   },
@@ -138,7 +138,7 @@ export function LightWeekSheet({ s, open, onOpenChange }: { s: Extract<TrainSugg
   const { setMode, pending } = useSetTrainingMode();
   const { snooze } = useLighterSnooze();
   const c = s ? LIGHT[s.kind] : null;
-  const reason = s ? (s.kind === "ease" ? "You just switched plans. A week with one set fewer lets your body get used to the new lifts." : s.reasons.join(" ")) : "";
+  const reason = s ? (s.kind === "ease" ? "You just switched plans. A week stopping a little short of failure lets your body get used to the new lifts." : s.reasons.join(" ")) : "";
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title={c?.title ?? ""}>
       {s && c && (

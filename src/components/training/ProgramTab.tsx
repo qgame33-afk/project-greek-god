@@ -39,13 +39,13 @@ const DAYS = [
 
 const MODES: { value: Mode; sub: string }[] = [
   { value: "standard", sub: "The full plan" },
-  { value: "intro", sub: "One set fewer on most lifts, same weights" },
-  { value: "deload", sub: "About half the sets, a bit lighter" },
+  { value: "intro", sub: "Same sets, stop with 2–3 reps left" },
+  { value: "deload", sub: "About 10% lighter, stop with 3–4 reps left" },
 ];
 
 /**
  * Train › Program (docs/DESIGN-V3-SIMPLE.md §4.3.5, `train-program`): the plan (every program in
- * `PROGRAMS`; the active one selected, the others saved with his changes), his week with "Change order", how hard (Normal · Fewer sets ·
+ * `PROGRAMS`; the active one selected, the others saved with his changes), his week with "Change order", how hard (Normal · Easier sets ·
  * Light week), the usual training time and "How the plan works". Every name comes from data.
  */
 export function ProgramTab({ week }: { week: Week }) {

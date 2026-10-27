@@ -84,7 +84,7 @@ function Detail({ slug }: { slug: string }) {
   }, [rows]);
   const estMax = best && best.w > 0 && best.r <= 12 ? e1(best.w, best.r) : null;
 
-  const s = te && lib && history.data ? suggest(te, lib, history.data[slug] ?? [], mode, { templateKey: inTemplate?.key }) : null;
+  const s = te && lib && history.data ? suggest(te, lib, history.data[slug] ?? [], mode, { templateKey: inTemplate?.key, unit }) : null;
   const lastSession = (history.data?.[slug] ?? []).filter((x, _, a) => x.session_id === a[0]?.session_id);
   const next = s ? nextLine(s.kind, s.weightLb, unit, te!, lastSession.length) : null;
 
