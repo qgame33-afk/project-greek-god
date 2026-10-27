@@ -2,11 +2,9 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Minus, Plus } from "lucide-react";
-import { Segmented, Stepper } from "@/components/ui/controls";
-import { Select } from "@/components/ui/field";
+import { Stepper } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
 import { CM_PER_IN, parseNumber, round } from "@/lib/units";
-import { SCHEDULE_OPTIONS, WEEK_ORDER, WEEKDAY_LABEL, type PlanKey, type Schedule } from "@/lib/onboarding/plan";
 
 /* ------------------------------------------------------------ stepper input */
 
@@ -315,83 +313,5 @@ export function HeightInput({ cm, onChange, unit, invalid }: { cm: number; onCha
         <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center t-cap font-semibold text-fg-2">in</span>
       </div>
     </div>
-  );
-}
-
-/* ------------------------------------------------------------ unit toggles */
-
-export function WeightUnitToggle({ value, onChange, className }: { value: "lb" | "kg"; onChange: (v: "lb" | "kg") => void; className?: string }) {
-  return (
-    <Segmented
-      ariaLabel="Weight unit"
-      size="sm"
-      className={cn("w-28", className)}
-      value={value}
-      onChange={onChange}
-      options={[
-        { value: "lb", label: "lb" },
-        { value: "kg", label: "kg" },
-      ]}
-    />
-  );
-}
-
-export function LengthUnitToggle({ value, onChange, className }: { value: "in" | "cm"; onChange: (v: "in" | "cm") => void; className?: string }) {
-  return (
-    <Segmented
-      ariaLabel="Length unit"
-      size="sm"
-      className={cn("w-32", className)}
-      value={value}
-      onChange={onChange}
-      options={[
-        { value: "in", label: "ft · in" },
-        { value: "cm", label: "cm" },
-      ]}
-    />
-  );
-}
-
-/* --------------------------------------------------------- weekly schedule */
-
-const SHORT: Record<string, string> = { "0": "Sun", "1": "Mon", "2": "Tue", "3": "Wed", "4": "Thu", "5": "Fri", "6": "Sat" };
-
-/** Seven rows, Monday first. Each day picks a template or Rest with the native picker. */
-export function ScheduleEditor({ value, onChange }: { value: Schedule; onChange: (s: Schedule) => void }) {
-  const id = useId();
-  return (
-    <ul className="overflow-hidden rounded-tile border border-line bg-sheet">
-      {WEEK_ORDER.map((d, i) => {
-        const v = value[d] ?? "rest";
-        const rest = v === "rest";
-        return (
-          <li key={d} className={cn("flex min-h-14 items-center gap-3 pl-4 pr-2", i > 0 && "border-t border-line")}>
-            <label htmlFor={`${id}-${d}`} className="flex w-23 shrink-0 items-center gap-2.5">
-              {/* a plan, so ivory: a training day is a filled mark, a rest day an outline (3:1) */}
-              <span className={cn("size-1.5 rounded-full", rest ? "shadow-[inset_0_0_0_1px_var(--ui-line)]" : "bg-fg")} aria-hidden />
-              <span className="t-label font-semibold text-fg">
-                <span className="sm:hidden">{SHORT[d]}</span>
-                <span className="hidden sm:inline">{WEEKDAY_LABEL[d]}</span>
-              </span>
-            </label>
-            <div className="min-w-0 flex-1">
-              <Select
-                id={`${id}-${d}`}
-                value={v}
-                onChange={(e) => onChange({ ...value, [d]: e.target.value as PlanKey })}
-                className={cn("h-11 border-transparent bg-control t-body font-semibold", rest ? "text-fg-2" : "text-fg")}
-                aria-label={`${WEEKDAY_LABEL[d]} session`}
-              >
-                {SCHEDULE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
   );
 }
