@@ -30,7 +30,7 @@ import type { Mode, PastSet } from "@/lib/training/progression";
 import { historyTimings, sessionTimingCounts } from "@/lib/training/timing-history";
 import type { ProgramId } from "@/lib/training/types";
 import { modeTemplate } from "@/lib/training/volume";
-import { groupRows, groupSets, groupTrends, plannedGroupSets, plannedSetsByZone, setsByZone, volumeSuggestions, zoneRows, type GroupRow, type VolumeSuggestion } from "@/lib/training/volume-zones";
+import { groupRows, groupSets, groupTrends, plannedGroupSets, volumeSuggestions, type GroupRow, type VolumeSuggestion } from "@/lib/training/volume-zones";
 import { sealedDays } from "@/lib/training/week";
 import {
   deloadAdvice,
@@ -203,7 +203,7 @@ export function useTrainingWeek() {
  * Sets by muscle this week so far (Mon → today, completed working sets, Quinton's 13 groups
  * with fractional credit, §5), what the still-open planned sessions of the week would add in
  * the current mode, each group's 6-week strength trend, and up to two performance-based
- * suggestions (§5.4). `legacyRows`/`other` are the old 10-zone rows (@deprecated, P2 removes).
+ * suggestions (§5.4).
  */
 export function useWeekVolume(week: ReturnType<typeof useTrainingWeek>): {
   rows: GroupRow[];
@@ -214,10 +214,6 @@ export function useWeekVolume(week: ReturnType<typeof useTrainingWeek>): {
   offline: boolean;
   error: Error | null;
   refetch: () => void;
-  /** @deprecated */
-  legacyRows: ReturnType<typeof zoneRows>;
-  /** @deprecated */
-  other: number;
 } {
   const from = weekStart(week.today);
   const q = useSetsInRange(from, week.today);
@@ -257,8 +253,7 @@ export function useWeekVolume(week: ReturnType<typeof useTrainingWeek>): {
     });
     // real sets, not the group sum (a squat set credits quads and glutes but is one set)
     const plannedTotal = open.reduce((n, o) => n + modeTemplate(o.template, week.mode).exercises.reduce((a, e) => a + e.sets, 0), 0);
-    const legacyDone = setsByZone(doneSets);
-    return { rows: groupRows(done, planned, trends), suggestions, plannedTotal, legacyRows: zoneRows(legacyDone, plannedSetsByZone(open.map((o) => o.template), week.mode)), other: legacyDone.other };
+    return { rows: groupRows(done, planned, trends), suggestions, plannedTotal };
   }, [q.data, histQ.data, open, week.mode, week.sessions, week.today, week.recovery, week.templates, week.profile, week.program]);
   // offline with nothing cached: unknown, never "nothing logged"
   const offline = q.isPending && q.fetchStatus === "paused";

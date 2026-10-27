@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { addDays, dayName, type ISODate } from "@/lib/dates";
 import { getExercise } from "@/lib/training/library";
-import { plannedSetCount, suggest, type Mode, type PastSet, type Suggestion } from "@/lib/training/progression";
+import { suggest, type Mode, type PastSet, type Suggestion } from "@/lib/training/progression";
 import type { TemplateKey } from "@/lib/training/types";
 import type { WeightUnit } from "@/lib/units";
 import { templateExerciseSets } from "@/lib/workout/session";
@@ -87,8 +87,6 @@ export interface StartOptions {
   unit?: WeightUnit;
   /** This session only (fatigue overlap, PROGRAM-V3 §4.4): sets to drop per slug, RIR per slug, exercise order by slug. */
   adjust?: { dropSets?: Record<string, number>; rir?: Record<string, string>; order?: string[] };
-  /** @deprecated the old "lighter legs" trim; use `adjust`. Removed in P2. */
-  lighterLegs?: boolean;
 }
 
 /** Whether a start materialises optional lifts by default: never (they are offered, §1.4). */
@@ -114,9 +112,7 @@ export function buildSessionSets(sessionId: string, opts: StartOptions, history:
     const lib = getExercise(t.slug);
     if (t.optional && !opts.includeOptional) continue;
     const s: Suggestion = suggest(t, lib, history[t.slug] ?? [], opts.mode, { templateKey: opts.template.key, unit: opts.unit ?? "kg" });
-    // the deprecated lighter-legs trim, expressed as dropped sets
-    const legacyDrop = opts.lighterLegs ? plannedSetCount(t, lib, opts.mode) - plannedSetCount(t, lib, opts.mode, true) : 0;
-    const drafts = templateExerciseSets(t, opts.mode, 0, s, { dropSets: (opts.adjust?.dropSets?.[t.slug] ?? 0) + legacyDrop, rir: opts.adjust?.rir?.[t.slug] });
+    const drafts = templateExerciseSets(t, opts.mode, 0, s, { dropSets: opts.adjust?.dropSets?.[t.slug] ?? 0, rir: opts.adjust?.rir?.[t.slug] });
     for (const d of drafts) rows.push({ ...d, id: newId(), session_id: sessionId, local_date: opts.date, exercise_order: order });
     order++;
   }
