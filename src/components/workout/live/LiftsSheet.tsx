@@ -10,7 +10,7 @@ import { cn } from "@/lib/cn";
 export interface LiftRowData {
   key: string;
   name: string;
-  /** "4 sets · 12–20 reps · 25 lb" */
+  /** "2 sets · 12–20 reps · 10 kg" */
   detail: string;
   state: "done" | "skipped" | "pending";
   done: number;

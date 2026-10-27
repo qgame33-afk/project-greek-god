@@ -5,6 +5,7 @@ import { Delete } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
+import type { WeightUnit } from "@/lib/units";
 import type { PadKey } from "@/lib/workout/numpad";
 import type { CellField } from "@/lib/workout/types";
 
@@ -19,10 +20,10 @@ export interface PlatesInfo {
 
 /**
  * The keypad (docs/DESIGN-V3-SIMPLE.md §4.2.7): a sheet "Barbell Back Squat · weight", the value
- * in `t-big` with its unit, a "Last 220" pill that fills it, and for barbell, Smith and
- * plate-loaded lifts "Plates on each side · 45 lb bar" with plate chips (the plate that changed
+ * in `t-big` with its unit, a "Last 100" pill that fills it, and for barbell, Smith and
+ * plate-loaded lifts "Plates on each side · 20 kg bar" with plate chips (the plate that changed
  * since last time has a white outline). A 3×4 keypad of 52 px keys and a gold "Done". The draft,
- * validation and 0 lb rules are the existing NumberPad logic, run by the controller. With
+ * validation and zero-load rules are the existing NumberPad logic, run by the controller. With
  * Settings › Workout › "Use the phone keyboard" on, a plain input replaces the keys.
  */
 export function KeypadSheet({
@@ -51,7 +52,7 @@ export function KeypadSheet({
   error: string | null;
   lastText: string | null;
   plates: PlatesInfo | null;
-  unit: "lb" | "kg";
+  unit: WeightUnit;
   systemKeyboard: boolean;
   onKey: (k: PadKey) => void;
   onText: (t: string) => void;

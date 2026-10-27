@@ -1,25 +1,25 @@
 // Plain words for the workout screens (docs/DESIGN-V3-SIMPLE.md §2, §4.2). Pure: the live screen,
 // the summary and the workout bar build their sentences here so the copy is tested in one place.
 
+import { stopWith } from "@/components/training/format";
 import type { OverlapAdvice } from "@/lib/training/overlap";
 import type { LibraryExercise } from "@/lib/training/types";
 import type { LiftResult } from "@/lib/workout/gym";
 import type { PriorBest } from "@/lib/workout/pr";
 import type { Tracking } from "@/lib/workout/types";
+import type { WeightUnit } from "@/lib/units";
 
-type Unit = "lb" | "kg";
+type Unit = WeightUnit;
 
-/** The unit beside the weight number: "lb each hand" (per-hand lifts), "lb added" (weighted bodyweight), "lb". */
+/** The unit beside the weight number: "kg each hand" (per-hand lifts), "kg added" (weighted bodyweight), "kg". */
 export function weightUnit(lib: Pick<LibraryExercise, "perHand"> | undefined, t: Tracking, unit: Unit): string {
   if (t === "bodyweight_reps") return `${unit} added`;
   return lib?.perHand ? `${unit} each hand` : unit;
 }
 
-/** The same, spoken: "pounds each hand". */
+/** The same for VoiceOver (it reads "kg" as kilograms): "kg each hand". */
 export function weightUnitSpoken(lib: Pick<LibraryExercise, "perHand"> | undefined, t: Tracking, unit: Unit): string {
-  const w = unit === "kg" ? "kilograms" : "pounds";
-  if (t === "bodyweight_reps") return `${w} added`;
-  return lib?.perHand ? `${w} each hand` : w;
+  return weightUnit(lib, t, unit);
 }
 
 /** The unit beside the reps number: "reps", "reps each side" (per-side lifts), "sec" (timed). */
@@ -45,12 +45,13 @@ const trim = (n: number) => (Number.isInteger(n) ? String(n) : String(Number(n.t
 export function lastTimeText(sets: { weight_lb: number | null; reps: number | null; duration_sec: number | null }[], t: Tracking, toDisplay: (lb: number) => number): string | null {
   if (!sets.length) return null;
   const work = (s: (typeof sets)[number]) => (t === "weight_time" ? `${s.duration_sec ?? 0} s` : String(s.reps ?? 0));
-  const loads = sets.map((s) => (s.weight_lb == null ? 0 : Number(s.weight_lb)));
+  // compared as shown: stored 50 and 49.6 both read 22.5 kg, so they are one weight
+  const loads = sets.map((s) => (s.weight_lb == null ? 0 : toDisplay(Number(s.weight_lb))));
   const loaded = t !== "reps" && loads.some((w) => w > 0);
   if (!loaded) return sets.map(work).join(", ");
   const prefix = t === "bodyweight_reps" ? "+" : "";
-  if (loads.every((w) => w === loads[0])) return `${prefix}${trim(toDisplay(loads[0]))} × ${sets.map(work).join(", ")}`;
-  return sets.map((s, i) => `${prefix}${trim(toDisplay(loads[i]))} × ${work(s)}`).join(", ");
+  if (loads.every((w) => w === loads[0])) return `${prefix}${trim(loads[0])} × ${sets.map(work).join(", ")}`;
+  return sets.map((s, i) => `${prefix}${trim(loads[i])} × ${work(s)}`).join(", ");
 }
 
 /**
@@ -90,7 +91,7 @@ export interface TipRow {
 /**
  * The in-workout tip's change rows (§4.2.15) from PROGRAM's advice: `reorder` → "Pec Deck next ·
  * Before Flat Dumbbell Bench Press"; `drop` → "Flat Dumbbell Bench Press · 1 set instead of 2";
- * `rir` → "Stop with 2–3 reps left · On Machine Shoulder Press". `planned` counts the working sets
+ * `rir` → "Stop with 1–2 reps left · On Machine Chest Press" ("Go to failure" for "0"). `planned` counts the working sets
  * of a lift in this workout.
  */
 export function tipRows(advice: Pick<OverlapAdvice, "actions">, nameOf: (slug: string) => string, planned: (slug: string) => number): TipRow[] {
@@ -101,7 +102,7 @@ export function tipRows(advice: Pick<OverlapAdvice, "actions">, nameOf: (slug: s
       const left = Math.max(1, n - a.sets);
       return { title: nameOf(a.slug), detail: `${left} ${left === 1 ? "set" : "sets"} instead of ${n}` };
     }
-    return { title: `Stop with ${a.rir} reps left`, detail: `On ${nameOf(a.slug)}` };
+    return { title: stopWith(a.rir), detail: `On ${nameOf(a.slug)}` };
   });
 }
 

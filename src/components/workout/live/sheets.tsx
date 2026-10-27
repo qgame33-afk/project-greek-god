@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { ExternalLink, History, Info, Layers, NotebookPen, Plus, Repeat, Search, SkipForward, Undo2 } from "lucide-react";
+import { effortText } from "@/components/training/format";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/field";
 import { ListGroup, Row } from "@/components/ui/list";
@@ -57,7 +58,7 @@ export function MoreSheet({
     <Sheet open={open} onOpenChange={onOpenChange} title={<span data-budget-name="">{name}</span>}>
       <div className="space-y-3 pb-2">
         <ListGroup>
-          <Row icon={Info} title="How to do it" subtitle={`Steps, form tips${rir ? `, leave ${rir} reps in the tank` : ""}`} wrap onClick={run(onHowTo)} />
+          <Row icon={Info} title="How to do it" subtitle={`Steps, form tips${rir ? `, ${effortText(rir).toLowerCase()}` : ""}`} wrap onClick={run(onHowTo)} />
           <Row icon={Repeat} title="Swap exercise" onClick={run(onSwap)} />
           <Row icon={History} title="History" onClick={run(onHistory)} />
         </ListGroup>
@@ -101,7 +102,7 @@ export function HowToSheet({ open, onOpenChange, slug, name, note, rir, rest }: 
             </ul>
           </section>
           <ListGroup>
-            {rir && <Row title="Effort" subtitle={`Leave ${rir} reps in the tank`} />}
+            {rir && <Row title="Effort" subtitle={effortText(rir)} />}
             <Row title="Rest" subtitle={`${formatClock(rest ?? lib.rest)} between sets`} />
             <Row title="Muscles worked" subtitle={lib.primary.map(muscleLabel).join(", ")} />
             <Row title="Weight" subtitle={lib.perHand ? "Log the weight of one dumbbell" : "Log the total on the bar or stack"} />

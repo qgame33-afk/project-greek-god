@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { displayLoad } from "@/lib/training/loads";
 import { aimLine, finishLine, lastTimeText, spokenTime, tipRows, tipTitle, verdict, weightUnit, winSentence, workUnit } from "./words";
 
 const id = (n: number) => n;
 
 describe("workout words", () => {
   it("names the weight unit by how the lift is loaded", () => {
-    expect(weightUnit({ perHand: true }, "weight_reps", "lb")).toBe("lb each hand");
-    expect(weightUnit({ perHand: false }, "weight_reps", "lb")).toBe("lb");
-    expect(weightUnit(undefined, "bodyweight_reps", "lb")).toBe("lb added");
+    expect(weightUnit({ perHand: true }, "weight_reps", "kg")).toBe("kg each hand");
+    expect(weightUnit({ perHand: false }, "weight_reps", "kg")).toBe("kg");
+    expect(weightUnit(undefined, "bodyweight_reps", "kg")).toBe("kg added");
   });
 
   it("says each side for per-side reps and sec for timed sets", () => {
@@ -27,14 +28,16 @@ describe("workout words", () => {
     const s = (w: number, r: number) => ({ weight_lb: w, reps: r, duration_sec: null });
     expect(lastTimeText([s(25, 16), s(25, 15), s(25, 14), s(25, 13)], "weight_reps", id)).toBe("25 × 16, 15, 14, 13");
     expect(lastTimeText([s(135, 8), s(140, 6)], "weight_reps", id)).toBe("135 × 8, 140 × 6");
+    // stored values shown once through the display helper: 50 → 22.5 kg, 49.6 → 22.5 kg
+    expect(lastTimeText([s(50, 12), s(49.6, 10)], "weight_reps", (v) => displayLoad(v, "kg"))).toBe("22.5 × 12, 10");
     expect(lastTimeText([s(0, 12), s(0, 10)], "bodyweight_reps", id)).toBe("12, 10");
     expect(lastTimeText([], "weight_reps", id)).toBeNull();
   });
 
   it("words the new best by case", () => {
-    expect(winSentence({ weightLb: 25, reps: 17 }, { weightLb: 25, reps: 16 }, "25 lb", "each hand")).toBe("Most reps you've done at 25 lb each hand.");
-    expect(winSentence({ weightLb: 140, reps: 10 }, { weightLb: 135, reps: 10 }, "140 lb", "")).toBe("Heaviest you've done for 10 reps.");
-    expect(winSentence({ weightLb: 140, reps: 8 }, { weightLb: 120, reps: 12 }, "140 lb", "")).toBe("Your strongest set yet.");
+    expect(winSentence({ weightLb: 49.6, reps: 17 }, { weightLb: 49.6, reps: 16 }, "22.5 kg", "each hand")).toBe("Most reps you've done at 22.5 kg each hand.");
+    expect(winSentence({ weightLb: 140, reps: 10 }, { weightLb: 135, reps: 10 }, "63.5 kg", "")).toBe("Heaviest you've done for 10 reps.");
+    expect(winSentence({ weightLb: 140, reps: 8 }, { weightLb: 120, reps: 12 }, "63.5 kg", "")).toBe("Your strongest set yet.");
   });
 
   it("turns lift results into plain verdicts, never the estimate's jargon", () => {
@@ -71,6 +74,7 @@ describe("workout words", () => {
       { title: "Stop with 2–3 reps left", detail: "On Machine Shoulder Press" },
     ]);
     expect(tipTitle({ muscle: "triceps" }, "Thursday")).toBe("Triceps tired from Thursday");
+    expect(tipRows({ actions: [{ kind: "rir", slug: "machine-shoulder-press", rir: "0" }] }, (s) => names[s], () => 2)[0].title).toBe("Go to failure");
   });
 
   it("counts what finishing drops", () => {

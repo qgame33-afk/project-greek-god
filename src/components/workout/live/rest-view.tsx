@@ -5,6 +5,7 @@ import { SkipForward } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { elapsedSec, endedAgoSec, formatClock, remainingSec, type RestState } from "@/lib/workout/rest";
 import { useClockSec } from "../rest";
+import { effortText } from "@/components/training/format";
 import { spokenTime } from "./words";
 
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -110,7 +111,8 @@ const TANK = [
 ];
 
 /**
- * "Left in the tank?" (§4.2.4): four 44 px chips 0 · 1 · 2 · 3+ with the lift's aim. Writes `rir`
+ * "Left in the tank?" (§4.2.4): four 44 px chips 0 · 1 · 2 · 3+ with the lift's effort target in
+ * words ("To failure", "Stop with 1–2 reps left"; `aim` is the RIR text "0", "1–2"). Writes `rir`
  * of the set just logged; tapping the chosen chip again clears it. Hidden in the short layout.
  */
 export function TankRow({ value, aim, onChange, className }: { value: number | null; aim: string | null; onChange: (v: number | null) => void; className?: string }) {
@@ -118,7 +120,7 @@ export function TankRow({ value, aim, onChange, className }: { value: number | n
     <div className={cn("flex items-center gap-3", className)} role="group" aria-label="Reps left in the tank">
       <div className="min-w-0 flex-1">
         <p className="t-row">Left in the tank?</p>
-        {aim && <p className="t-label">Aim {aim} reps</p>}
+        {aim && <p className="t-label">{effortText(aim)}</p>}
       </div>
       <div className="flex shrink-0 gap-2">
         {TANK.map((c) => {

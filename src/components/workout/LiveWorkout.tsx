@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { NumberCard } from "@/components/ui/number-card";
 import { useMediaQuery } from "@/components/ui/sheet";
 import { WinCard } from "@/components/ui/win-card";
-import { useOverlapAdvice } from "@/components/training/hooks";
+import { useOverlapAdvice, useUnits } from "@/components/training/hooks";
 import { cn } from "@/lib/cn";
 import { friendlyError, must, sb, useToday, useUser } from "@/lib/data/core";
 import { drained, useOutbox } from "@/lib/data/outbox";
@@ -29,7 +29,7 @@ import { getExercise } from "@/lib/training/library";
 import { suggestOptional, templateDef, templateLabels, visibleExercises, visibleWarmup } from "@/lib/training/programs";
 import { groupSessions, modeRir, plannedSetCount, suggest, type Mode, type PastSet } from "@/lib/training/progression";
 import type { LibraryExercise, TemplateExercise } from "@/lib/training/types";
-import { formatLoad, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
+import { BAR, displayLoad as displayLoadOf, loadStep as loadStepOf, loadText } from "@/lib/training/loads";
 import { muscleLabel, repRange } from "@/lib/workout/copy";
 import { changedPlate, endsAt as endsAtOf, gymDate, runningBest } from "@/lib/workout/gym";
 import { autoAdvances, nudgeStep, padPress, type PadKey } from "@/lib/workout/numpad";
@@ -82,6 +82,7 @@ import { KeypadSheet, type PlatesInfo } from "./live/KeypadSheet";
 import { LiftsSheet, NotesTodaySheet, type LiftRowData, type OptionalRowData } from "./live/LiftsSheet";
 import { FinishSheet, SetSheet, StaleSheet, TipCard, TipSheet, type SetRowData } from "./live/panels";
 import { CompactRest, RestControls, RestRing, TankRow } from "./live/rest-view";
+import { EmptyNumberCard } from "./live/EmptyNumberCard";
 import { HistorySheet, HowToSheet, MoreSheet, NoteSheet, PickSheet, WarmupSheet } from "./live/sheets";
 import { aimLine, finishLine, lastTimeText, rangeText, tipRows, tipTitle, weightUnit, weightUnitSpoken, winSentence, workUnit } from "./live/words";
 import { restActions, RestWatcher } from "./rest";
@@ -135,7 +136,6 @@ function snap(s: WSet, keys: readonly (keyof Snapshot)[] = SNAP_KEYS): Snapshot 
   return o as Snapshot;
 }
 
-const BAR = { lb: 45, kg: 20 } as const;
 const PLATE_EQUIPMENT = new Set(["barbell", "smith", "plate_loaded"]);
 const trimNum = (n: number) => (Number.isInteger(n) ? String(n) : String(Number(n.toFixed(1))));
 
@@ -160,7 +160,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const { userId } = useUser();
   const today = useToday();
   const { profile } = useProfile();
-  const unit: WeightUnit = profile?.weight_unit === "kg" ? "kg" : "lb";
+  // the profile's unit, kg by default; loads are stored in weight_lb and converted once (PROGRAM-V3 §2.1)
+  const { unit } = useUnits();
   const prefs = useMemo(() => parsePrefs(profile?.prefs), [profile?.prefs]);
   const { byKey } = useTemplates();
   const { session, sets } = data;
@@ -183,8 +184,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const skipped = useMemo(() => new Set(skippedArr), [skippedArr]);
   const rest = useRest(live ? id : null);
 
-  const fmt = useCallback((lb: number) => formatLoad(lb, unit, false), [unit]);
-  const toDisplay = useCallback((lb: number) => round(toDisplayWeight(lb, unit), 1), [unit]);
+  const fmt = useCallback((lb: number) => loadText(lb, unit, false), [unit]);
+  const toDisplay = useCallback((lb: number) => displayLoadOf(lb, unit), [unit]);
 
   const setMap = useMemo(() => new Map(sets.map((s) => [s.id, s])), [sets]);
   const groupOf = useMemo(() => {
@@ -301,7 +302,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const writeCell = (set: WSet, field: CellField, raw: string) => writeCellError(set, field, raw) == null;
 
   const commitPad = (p: PadState | null): boolean => {
-    if (!p) return true;
+    // untouched: nothing to write (an old record is never re-saved just by opening the keypad)
+    if (!p || p.fresh) return true;
     const set = freshSet(p.setId);
     if (!set) return true;
     const err = writeCellError(set, p.field, p.text);
@@ -319,7 +321,9 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     const s = freshSet(set.id) ?? set;
     const g = groupOf.get(s.id);
     const t = g ? info.get(g.key)!.tracking : "weight_reps";
-    setPad({ setId: s.id, field, text: cellText(s, field, t, unit), fresh: true, error: null });
+    // the keypad starts from the number on the card (kg on its 0.5 grid), never a second conversion
+    const text = field === "weight" && s.weight_lb != null ? loadText(Number(s.weight_lb), unit, false) : cellText(s, field, t, unit);
+    setPad({ setId: s.id, field, text, fresh: true, error: null });
   };
 
   const closePad = () => {
@@ -339,7 +343,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
 
   const ghostTextFor = (p: PadState): string | null => {
     const g = ghosts.get(p.setId) ?? NO_GHOST;
-    if (p.field === "weight") return g.weight == null ? null : formatLoad(g.weight, unit, false);
+    if (p.field === "weight") return g.weight == null ? null : loadText(g.weight, unit, false);
     if (p.field === "work") return g.work == null ? null : String(g.work);
     return null;
   };
@@ -353,7 +357,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     const prevInSession = [...g.working.slice(0, Math.max(0, pos))].reverse().find((s) => s.completed);
     const src = (pos >= 0 ? inf.last[pos] : undefined) ?? prevInSession ?? null;
     if (!src) return null;
-    if (p.field === "weight") return src.weight_lb == null ? null : formatLoad(Number(src.weight_lb), unit, false);
+    if (p.field === "weight") return src.weight_lb == null ? null : loadText(Number(src.weight_lb), unit, false);
     if (p.field === "rir") return src.rir == null ? null : String(Number(src.rir));
     const w = isTimed(inf.tracking) ? src.duration_sec : src.reps;
     return w == null ? null : String(w);
@@ -430,7 +434,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
           weight: wText,
           reps: logged.reps,
           sentence,
-          spoken: `New best. ${wText} ${unit === "kg" ? "kilograms" : "pounds"} times ${logged.reps}. ${sentence}`,
+          spoken: `New best. ${wText} ${unit} times ${logged.reps}. ${sentence}`,
           logged: `${nameOf(set)} logged · ${loadText_}`,
           undo,
         });
@@ -604,7 +608,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       // slug and rest: the swap keeps the rest and effort only within the same effort class
       const tg = retarget({ low: first?.target_rep_low ?? null, high: first?.target_rep_high ?? null, unit: first?.target_unit ?? null, rir: first?.target_rir ?? null, sets: g.total || 3, slug: g.slug, rest: first?.rest_sec ?? null }, lib);
       const tEx: TemplateExercise = { slug: lib.slug, name: lib.name, sets: tg.sets, repLow: tg.low, repHigh: tg.high, unit: tg.unit, rir: tg.rir, rest: tg.rest };
-      const sug = suggest(tEx, lib, hist, sessionMode);
+      const sug = suggest(tEx, lib, hist, sessionMode, { unit });
       const hasLogged = g.sets.some((s) => s.completed);
       const newOrder = hasLogged ? g.order + 1 : g.order;
       const updates: { id: string; values: Snapshot }[] = [];
@@ -679,7 +683,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       const hist = await historyFor(lib.slug);
       const tg = defaultTargets(lib);
       const tEx: TemplateExercise = { slug: lib.slug, name: lib.name, sets: tg.sets, repLow: tg.low, repHigh: tg.high, unit: tg.unit, rir: tg.rir, rest: tg.rest };
-      const sug = suggest(tEx, lib, hist, sessionMode);
+      const sug = suggest(tEx, lib, hist, sessionMode, { unit });
       const n = plannedSetCount(tEx, lib, sessionMode);
       insertExercise(lib, templateExerciseSets({ ...tEx, sets: n }, "standard", 0, sug, { rir: modeRir(tEx, sessionMode) }));
     } finally {
@@ -694,7 +698,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     setBusySlug(tEx.slug);
     try {
       const hist = await historyFor(tEx.slug);
-      insertExercise(lib, templateExerciseSets(tEx, sessionMode, 0, suggest(tEx, lib, hist, sessionMode)));
+      insertExercise(lib, templateExerciseSets(tEx, sessionMode, 0, suggest(tEx, lib, hist, sessionMode, { unit })));
     } finally {
       setBusySlug(null);
     }
@@ -986,9 +990,11 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const typedLoad = target?.weight_lb != null ? Number(target.weight_lb) : null;
   const shownLoadLb = typedLoad ?? (target?.completed ? null : tGhost.weight);
   const typedWork = target ? (isTimed(t) ? target.duration_sec : target.reps) : null;
-  const shownWork = typedWork ?? (target?.completed ? null : tGhost.work);
+  // nothing logged before: the reps start at the bottom of the target range (logged as shown)
+  const rangeLow = target && !target.completed && target.kind === "working" && !isTimed(t) ? target.target_rep_low : null;
+  const shownWork = typedWork ?? (target?.completed ? null : (tGhost.work ?? rangeLow));
   const displayLoad = shownLoadLb == null ? null : toDisplay(shownLoadLb);
-  const loadStep = nudgeStep("weight", { incrementLb: tInf?.lib?.increment ?? 5, unit, timed: isTimed(t) });
+  const loadStep = loadStepOf(tInf?.lib, unit);
   const workStep = nudgeStep("work", { incrementLb: 5, unit, timed: isTimed(t) });
   const perSide = !!tInf?.lib?.perSide || target?.target_unit === "each";
   const wUnit = weightUnit(tInf?.lib, t, unit);
@@ -1022,6 +1028,9 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     const now = nowMs();
     if (now - lastLog.current < LOG_GUARD_MS) return;
     lastLog.current = now;
+    // the reps shown from the target range are what gets logged
+    const s = freshSet(target.id) ?? target;
+    if (live && !s.completed && s.reps == null && tGhost.work == null && rangeLow != null) writeCell(s, "work", String(rangeLow));
     logSet(target);
   };
 
@@ -1094,11 +1103,13 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   /* the dock */
   const numberCards = target && targetGroup && (
     <>
-      {showWeight ? (
+      {showWeight && displayLoad == null ? (
+        <EmptyNumberCard name="Weight" unit={wUnit} onKeypad={() => openCell(target, "weight")} onStart={() => setWeight(loadStep)} />
+      ) : showWeight ? (
         <NumberCard
           name="Weight"
           value={displayLoad ?? 0}
-          format={displayLoad == null ? () => "—" : trimNum}
+          format={trimNum}
           unit={wUnit}
           spokenUnit={weightUnitSpoken(tInf?.lib, t, unit)}
           step={loadStep}
@@ -1112,10 +1123,13 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
           Add weight
         </button>
       ) : null}
-      <NumberCard
+      {shownWork == null ? (
+        <EmptyNumberCard name={isTimed(t) ? "Time" : "Reps"} unit={rUnit} onKeypad={() => openCell(target, "work")} onStart={() => setWork(workStep)} />
+      ) : (
+        <NumberCard
         name={isTimed(t) ? "Time" : "Reps"}
-        value={shownWork ?? 0}
-        format={shownWork == null ? () => "—" : String}
+        value={shownWork}
+        format={String}
         unit={rUnit}
         spokenUnit={isTimed(t) ? "seconds" : rUnit}
         step={workStep}
@@ -1124,7 +1138,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
         onChange={setWork}
         onKeypad={() => openCell(target, "work")}
         note={beats != null ? `${beats} beats your best` : undefined}
-      />
+        />
+      )}
     </>
   );
   const goldLog = (variant: "primary" | "inverse") =>
@@ -1292,8 +1307,20 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       const n = Math.min(a.sets, open.length, g.working.length - 1);
       removed.push(...open.slice(open.length - n));
     }
+    // a two-set lift is eased by effort, never by a set (PROGRAM-V3 §4.4): its unlogged sets take the new target
+    const effort: { id: string; values: Snapshot }[] = [];
+    const effortBefore: { id: string; values: Snapshot }[] = [];
+    for (const a of advice.actions) {
+      if (a.kind !== "rir") continue;
+      for (const g of groups.filter((x) => x.slug === a.slug))
+        for (const st of g.working.filter((x) => !x.completed && x.target_rir !== a.rir)) {
+          effort.push({ id: st.id, values: { target_rir: a.rir } });
+          effortBefore.push({ id: st.id, values: { target_rir: st.target_rir } });
+        }
+    }
     if (order.length) ops.updateSets(order.map((c) => ({ id: c.id, values: { exercise_order: c.exercise_order } })));
     if (removed.length) ops.deleteSets(removed.map((s) => s.id));
+    if (effort.length) ops.updateSets(effort);
     markTipFired(id, advice.muscle);
     toast("Changed for today", {
       action: {
@@ -1301,6 +1328,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
         onClick: () => {
           if (removed.length) ops.insertSets(removed);
           if (orderBefore.length) ops.updateSets(orderBefore);
+          if (effortBefore.length) ops.updateSets(effortBefore);
         },
       },
       duration: 6000,
@@ -1457,10 +1485,11 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
                 ))}
               </button>
             </div>
-            <p className="t-label mt-2" data-history="">
+            {/* the line keeps its height while history loads, so nothing below it jumps */}
+            <p className="t-label mt-2 min-h-5" data-history="">
               {(() => {
                 const txt = lastTimeText(inf.last, inf.tracking, toDisplay);
-                return txt ? `Last time ${txt}` : historyQ.isLoading ? "Last time …" : "First time";
+                return txt ? `Last time ${txt}` : historyQ.isLoading ? "" : "First time";
               })()}
             </p>
             {warmSteps.length > 0 && (
@@ -1589,7 +1618,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
             onOpenChange={setSetSheet}
             title={lift.name}
             rows={setRows}
-            weight={hasWeight(inf?.tracking ?? "weight_reps") ? { unit: weightUnit(inf?.lib, inf?.tracking ?? "weight_reps", unit), step: nudgeStep("weight", { incrementLb: inf?.lib?.increment ?? 5, unit, timed: false }) } : null}
+            weight={hasWeight(inf?.tracking ?? "weight_reps") ? { unit: weightUnit(inf?.lib, inf?.tracking ?? "weight_reps", unit), step: loadStepOf(inf?.lib, unit) } : null}
             work={{ unit: workUnit(inf?.tracking ?? "weight_reps", !!inf?.lib?.perSide), step: isTimed(inf?.tracking ?? "weight_reps") ? 5 : 1 }}
             aim={lift.working[0]?.target_rir ?? null}
             canCopy={!!inf?.last.length && lift.working.some((s) => !s.completed)}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Ellipsis, Info, MessageCircle, NotebookPen, PencilLine, Trophy } from "lucide-react";
+import { useUnits } from "@/components/training/hooks";
 import { Button } from "@/components/ui/button";
 import { DetailsSheet } from "@/components/ui/details-sheet";
 import { ListGroup, Row, SectionHead } from "@/components/ui/list";
@@ -17,7 +18,8 @@ import { useTemplates } from "@/lib/data/training";
 import { getExercise } from "@/lib/training/library";
 import { e1rm, suggest, type Mode } from "@/lib/training/progression";
 import type { TemplateExercise } from "@/lib/training/types";
-import { formatInt, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
+import { displayLoad } from "@/lib/training/loads";
+import { formatInt, toDisplayWeight } from "@/lib/units";
 import { asPastSets, gymDate, liftResults } from "@/lib/workout/gym";
 import { sessionRecords } from "@/lib/workout/pr";
 import { formatClock } from "@/lib/workout/rest";
@@ -50,7 +52,7 @@ const trim = (n: number) => (Number.isInteger(n) ? String(n) : String(Number(n.t
  * Workout done (docs/DESIGN-V3-SIMPLE.md §4.2.11): `/workout/[id]` for a finished workout.
  * "Workout done" and the workout's stored name with its date; the win card for the top new best
  * (or "Beat last time on 3 of 7 lifts"); the trio (time, sets, lifted); one row per lift with its
- * best set, "next time 135 lb" where the double progression adds weight, and a verdict. ⋯ holds
+ * best set, "next time 61 kg" where the double progression adds weight, and a verdict. ⋯ holds
  * Details, Edit sets, Notes and Ask coach. Sticky gold "Done" → Today. Everything is from the
  * logged sets; nothing animates in.
  */
@@ -58,8 +60,8 @@ export function Summary({ data, onEdit }: { data: LiveData; onEdit: () => void }
   const router = useRouter();
   const today = useToday();
   const { profile } = useProfile();
-  const unit: WeightUnit = profile?.weight_unit === "kg" ? "kg" : "lb";
-  const toDisplay = (lb: number) => round(toDisplayWeight(lb, unit), 1);
+  const { unit } = useUnits();
+  const toDisplay = (lb: number) => displayLoad(lb, unit);
   const { byKey } = useTemplates();
   const { session, sets } = data;
   const template = session.template_key ? byKey[session.template_key] : undefined;
@@ -104,11 +106,11 @@ export function Summary({ data, onEdit }: { data: LiveData; onEdit: () => void }
         rir: first?.target_rir ?? "1–2",
         rest: first?.rest_sec ?? lib?.rest ?? 90,
       };
-      const s = suggest(tEx, lib, [...(mine[g.slug] ?? []), ...(history.data[g.slug] ?? [])], (profile?.training_mode ?? "standard") as Mode);
+      const s = suggest(tEx, lib, [...(mine[g.slug] ?? []), ...(history.data[g.slug] ?? [])], (profile?.training_mode ?? "standard") as Mode, { unit });
       if (s.kind === "increase" && s.weightLb != null) out.set(g.key, s.weightLb);
     }
     return out;
-  }, [history.data, sets, session.mode, groups, template, profile?.training_mode]);
+  }, [history.data, sets, session.mode, groups, template, profile?.training_mode, unit]);
 
   const [menu, setMenu] = useState(false);
   const [details, setDetails] = useState(false);
@@ -157,7 +159,7 @@ export function Summary({ data, onEdit }: { data: LiveData; onEdit: () => void }
               sentence={heroSentence}
               lift={hero.name}
               caption={plaques.length > 1 ? `${plaques.length} new bests` : undefined}
-              ariaLabel={`New best. ${hero.name}, ${heroW} ${unit === "kg" ? "kilograms" : "pounds"} times ${hero.reps}. ${heroSentence}`}
+              ariaLabel={`New best. ${hero.name}, ${heroW} ${unit} times ${hero.reps}. ${heroSentence}`}
             />
           ) : compared > 0 ? (
             <div className="rounded-card bg-surface p-5">
