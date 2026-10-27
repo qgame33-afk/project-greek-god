@@ -1,46 +1,59 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { LogSheet, type LogRequestState } from "@/components/nutrition/LogSheet";
 import { FuelProvider } from "@/components/nutrition/context";
-import { contextFromPath, contextKey } from "@/components/oracle/context";
+import { contextFromPath, usesFoodCoach } from "@/components/oracle/context";
 import { WeightLogSheet } from "@/components/shared/WeightLogSheet";
 import { useHeader } from "@/components/shell/chrome";
 import { useToday } from "@/lib/data/core";
 import type { ISODate } from "@/lib/dates";
 import type { Meal } from "@/lib/nutrition";
-import { AskMode, type AskView } from "./AskMode";
-import { LogMode } from "./LogMode";
-import { OfferingSheet, type OfferingMode } from "./OfferingSheet";
-import { closeOffering, openOffering, useOffering, type OfferingOpen } from "./store";
+import { AddMode } from "./AddMode";
+import { OfferingSheet } from "./OfferingSheet";
+import { closeOffering, openOffering, useOffering, type OracleContext, type OfferingOpen } from "./store";
 
 const noop = () => {};
 
+/** Where "Ask coach" goes from a screen: food questions to the food coach, the rest to Coach with the screen as context. */
+export function coachHref(c: OracleContext, o: { prompt?: string; conversationId?: string } = {}) {
+  const q = new URLSearchParams();
+  if (o.conversationId) q.set("c", o.conversationId);
+  if (o.prompt) q.set("q", o.prompt);
+  if (usesFoodCoach(c)) return `/nutrition/coach${q.size ? `?${q}` : ""}`;
+  q.set("about", c.kind);
+  return `/coach?${q}`;
+}
+
 /**
- * The Offering, mounted once by the shell (docs/DESIGN-V2.md §3.9). `+` opens it in Log mode,
- * ✦ in Ask mode with the screen's context; one segmented control switches. A Log request with a
- * `panel` (Search food, /nutrition?add=1) opens the existing log panels (Search · Saved · Recent ·
- * Manual) directly, for that slot and date. The weigh-in is its own sheet.
+ * The Add sheet, mounted once by the shell (docs/DESIGN-V3-SIMPLE.md §4.7). + opens it; a request
+ * with a `panel` (Search food, /nutrition?add=1&tab=…) opens FOOD's log panels (Search · Recent ·
+ * Saved · Manual) directly, for that slot and date. The weigh-in is TODAY's sheet. An "ask"
+ * request (the old ✦) goes to the Coach screen with the screen it came from as context.
  */
 export function OfferingHost() {
   const { open, close } = useOffering();
   const pathname = usePathname();
+  const router = useRouter();
   const header = useHeader(pathname);
   const today = useToday();
   const [weightOpen, setWeightOpen] = useState(false);
-  const [footerEl, setFooterEl] = useState<HTMLDivElement | null>(null);
-  const [askView, setAskView] = useState<AskView>("thread");
+  const screenContext = header?.oracle ?? contextFromPath(pathname);
+
+  // Ask: the Coach screen, not a sheet
+  const ask = open?.mode === "ask" ? open : null;
+  useEffect(() => {
+    if (!ask) return;
+    closeOffering();
+    router.push(coachHref(ask.context ?? screenContext, { prompt: ask.prompt, conversationId: ask.conversationId }));
+  }, [ask, router, screenContext]);
 
   // the sheet keeps showing what it was opened with while it animates closed
   const panel = open?.mode === "log" && open.panel ? open : null;
-  const sheetOpen = !!open && !panel;
+  const sheetOpen = open?.mode === "log" && !panel;
   const [shown, setShown] = useState<OfferingOpen | null>(null);
-  if (sheetOpen && open !== shown) {
-    setShown(open);
-    setAskView("thread");
-  }
-  const mode: OfferingMode = shown?.mode ?? "log";
+  if (sheetOpen && open !== shown) setShown(open);
 
   // the log panels: a fresh panel state per request
   const [panelReq, setPanelReq] = useState<{ req: OfferingOpen | null; state: LogRequestState; date: ISODate | null }>({ req: null, state: { open: false, nonce: 0 }, date: null });
@@ -50,49 +63,24 @@ export function OfferingHost() {
     setPanelReq((p) => ({ ...p, req: null, state: { ...p.state, open: false } }));
   }
 
-  const screenContext = header?.oracle ?? contextFromPath(pathname);
-  const askContext = shown?.mode === "ask" ? (shown.context ?? screenContext) : screenContext;
   const logDate = (shown?.mode === "log" ? shown.date : undefined) ?? today;
-
-  const switchMode = (m: OfferingMode) => {
-    if (m === mode) return;
-    openOffering(m === "ask" ? { mode: "ask", context: screenContext } : { mode: "log" });
-  };
 
   return (
     <>
-      <OfferingSheet
-        open={sheetOpen}
-        onOpenChange={(o) => !o && close()}
-        mode={mode}
-        onMode={switchMode}
-        onHistory={() => setAskView((v) => (v === "history" ? "thread" : "history"))}
-        historyActive={askView === "history"}
-        footerRef={setFooterEl}
-        hasFooter={mode === "ask"}
-      >
-        {mode === "ask" && shown?.mode === "ask" ? (
-          <AskMode
-            key={`${contextKey(askContext)}|${shown.conversationId ?? ""}|${shown.prompt ?? ""}`}
-            context={askContext}
-            prompt={shown.prompt}
-            conversationId={shown.conversationId}
-            footerEl={footerEl}
-            view={askView}
-            setView={setAskView}
-            onNavigate={close}
-          />
-        ) : (
-          <LogMode
-            date={logDate}
-            onClose={close}
-            onWeighIn={() => {
-              close();
-              setWeightOpen(true);
-            }}
-            onSearch={(meal?: Meal) => openOffering({ mode: "log", panel: "search", slot: meal, date: logDate === today ? undefined : logDate })}
-          />
-        )}
+      <OfferingSheet open={!!sheetOpen} onOpenChange={(o) => !o && close()}>
+        <AddMode
+          date={logDate}
+          onClose={close}
+          onWeighIn={() => {
+            close();
+            setWeightOpen(true);
+          }}
+          onSearch={(meal?: Meal) => openOffering({ mode: "log", panel: "search", slot: meal, date: logDate === today ? undefined : logDate })}
+          onAsk={() => {
+            close();
+            router.push(coachHref(screenContext));
+          }}
+        />
       </OfferingSheet>
 
       <WeightLogSheet open={weightOpen} onOpenChange={setWeightOpen} />

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { contextFromPath, promptsFor, splitContext, splitVerdict, usesFoodCoach, withContext } from "./context";
+import { TWOSET_TEMPLATES, templateLabels } from "@/lib/training/programs";
+import { contextFromPath, programQuestions, promptsFor, splitContext, splitVerdict, usesFoodCoach, withContext } from "./context";
 
 describe("context prefix", () => {
   it("round-trips the screen a question came from", () => {
-    const sent = withContext("  What should I focus on?  ", { kind: "now", label: "Push A today" });
-    expect(sent).toBe("[About: Push A today]\nWhat should I focus on?");
-    expect(splitContext(sent)).toEqual({ about: "Push A today", question: "What should I focus on?" });
+    const sent = withContext("  What should I focus on?  ", { kind: "now", label: "Today" });
+    expect(sent).toBe("[About: Today]\nWhat should I focus on?");
+    expect(splitContext(sent)).toEqual({ about: "Today", question: "What should I focus on?" });
   });
   it("leaves a question without context alone", () => {
     expect(withContext("Hi", null)).toBe("Hi");
@@ -34,7 +35,28 @@ describe("promptsFor", () => {
     expect(promptsFor("fuel", { proteinGoal: 185 }).lead).toBe("What should dinner be to hit 185 g?");
     expect(promptsFor("fuel").lead).toBe("What should dinner be to hit my protein goal?");
     expect(promptsFor("ascent").lead).toBe("Am I gaining too fast?");
-    expect(promptsFor(undefined).more.length).toBeGreaterThan(1);
+    expect(promptsFor(undefined).lead).toBe("Do I need a lighter week?");
+  });
+  it("asks PROGRAM's two training questions with the active program's own day names", () => {
+    const label = (family: string) => {
+      const t = TWOSET_TEMPLATES.find((x) => x.family === family)!;
+      return templateLabels(t).short;
+    };
+    const days = { arms: label("shoulders_arms"), chest: label("chest_back") };
+    expect(programQuestions(days)).toEqual([`Is my ${days.arms} day hurting my ${days.chest} day?`, "Do I need a lighter week?"]);
+    const p = promptsFor("train", { days });
+    expect([p.lead, ...p.more]).toEqual(programQuestions(days));
+    expect(promptsFor("now", { days }).lead).toBe(`Is my ${days.arms} day hurting my ${days.chest} day?`);
+  });
+  it("leaves the overlap question out when the program has no such pair", () => {
+    expect(programQuestions({ arms: null, chest: "x" })).toEqual(["Do I need a lighter week?"]);
+  });
+  it("never suggests volleyball, deloads or a lift that isn't in the program", () => {
+    const all = (["now", "train", "fuel", "ascent", "gym", "recipe", undefined] as const).flatMap((k) => {
+      const p = promptsFor(k, { days: { arms: "A", chest: "B" } });
+      return [p.lead, ...p.more];
+    });
+    for (const q of all) expect(q).not.toMatch(/volley|deload|bench|jump|sprint/i);
   });
 });
 

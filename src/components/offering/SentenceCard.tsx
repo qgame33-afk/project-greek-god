@@ -3,15 +3,15 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { SealTick } from "@/components/art/icons";
 import { Markdown } from "@/components/food-ai/coach/ChatMessage";
 import { UNSURE_SAVE, undoChatLog, useLogDraft } from "@/components/food-ai/hooks";
-import { DevMockBadge, MacroTrio, MealDatePicker, fmtKcal } from "@/components/food-ai/parts";
+import { DevMockBadge, MealDatePicker, fmtKcal } from "@/components/food-ai/parts";
 import { ScanItemCard } from "@/components/food-ai/scanner/ScanItemCard";
+import { AiChip } from "@/components/ui/ai-chip";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/controls";
+import { InfoButton } from "@/components/ui/details-sheet";
 import { EstimateCard } from "@/components/ui/estimate-card";
-import { Tag } from "@/components/ui/tag";
 import { entriesFromItems, isLoggable } from "@/lib/ai/food-log";
 import { toEditable, type EditableItem } from "@/lib/ai/food-edit";
 import { cn } from "@/lib/cn";
@@ -26,27 +26,36 @@ import { estimateTitle, inferMeal, type PlannedLite } from "./replaces";
 import type { SentenceReply } from "./useFoodSentence";
 
 const mealLabel = (m: Meal) => MEALS.find((x) => x.key === m)?.label ?? "Snacks";
+const kcalText = (n: number) => Math.round(n).toLocaleString("en-US");
 
-interface Saved {
-  groupId: string;
-  ids: string[];
-  meal: Meal;
-  date: ISODate;
-  kcal: number;
+/**
+ * "After this: 152 kcal and 23 g protein to go today." (§4.7.2): today's logged totals plus this
+ * estimate against his goals. Over a goal reads "over", never red.
+ */
+export function afterThis(day: { kcal: number; protein: number }, add: { kcal: number; protein: number }, goals: { kcal: number; protein: number }): string {
+  const kLeft = Math.round(goals.kcal - day.kcal - add.kcal);
+  const pLeft = Math.round(goals.protein - day.protein - add.protein);
+  const k = kLeft > 0 ? `${kcalText(kLeft)} kcal` : null;
+  const p = pLeft > 0 ? `${pLeft} g protein` : null;
+  if (k && p) return `After this: ${k} and ${p} to go today.`;
+  if (p) return `After this: ${p} to go today, ${kcalText(-kLeft)} kcal over.`;
+  if (k) return `After this: protein done, ${k} to go today.`;
+  return `After this: protein done, ${kcalText(-kLeft)} kcal over today.`;
 }
 
 /**
- * One sentence's reply as an ESTIMATE card (docs/DESIGN-V2.md §3.9.1): `AI · ESTIMATE · Not saved
- * yet`, the items with portions and macros, what it replaces in the plan, and the consequence line
- * (`If you add it: 3,435 kcal · 190 g`, CALC from the day's log). Nothing is in the diary until
- * `Add as dinner`, which logs through the Food Coach's idempotent claim (useLogDraft): one row set
- * per draft even on a double tap or a retry after a lost answer. Adjust edits portions inline;
- * Discard drops the draft (nothing was saved).
+ * One sentence's (or photo's) reply as the AI card (docs/DESIGN-V3-SIMPLE.md §4.7.2): the chip
+ * "AI estimate · Not saved yet", the food, its portion, the calories, a Protein / Carbs / Fat trio,
+ * what it replaces in the plan, and what today looks like after it. Nothing is in the diary until
+ * the gold "Add as dinner", which logs through the food coach's idempotent claim (useLogDraft):
+ * one row set per draft even on a double tap or a retry after a lost answer. Edit changes portions
+ * item by item; Discard drops the draft (nothing was saved).
  */
 export function SentenceCard({
   reply,
   date,
   dayTotals,
+  goals,
   replaced,
   nowMin,
   schedule,
@@ -58,8 +67,9 @@ export function SentenceCard({
 }: {
   reply: SentenceReply;
   date: ISODate;
-  /** Today's logged kcal and protein (null while unknown: the consequence line hides). */
+  /** Today's logged kcal and protein (null while unknown: the "After this" line hides). */
   dayTotals: { kcal: number; protein: number } | null;
+  goals: { kcal: number; protein: number } | null;
   replaced: PlannedLite | null;
   nowMin: number;
   schedule: Pick<DaySchedule, "meals"> | null;
@@ -67,7 +77,7 @@ export function SentenceCard({
   /** A follow-up in the same conversation: an answer to its question or a quick fix. */
   onFollow: (text: string) => void;
   following: boolean;
-  /** Start over for the next thing (after a save). */
+  /** The draft was added: the sheet goes back to its tiles. */
   onDone: () => void;
   patchMessage: (m: { logged_group_id: string | null }) => void;
 }) {
@@ -77,10 +87,9 @@ export function SentenceCard({
   const { payload, message, conversationId } = reply;
   const log = useLogDraft(conversationId);
   const [items, setItems] = useState<EditableItem[]>(() => payload.items.map((it, i) => toEditable(it, `${message.id}-${i}`)));
-  const [adjusting, setAdjusting] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [chosen, setChosen] = useState<Meal | null>(null);
   const [logDate, setLogDate] = useState(date);
-  const [saved, setSaved] = useState<Saved | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const busy = useRef(false);
   // one group id and one id per row for this draft, kept across retries: a save whose answer was
@@ -89,12 +98,14 @@ export function SentenceCard({
 
   const meal = inferMeal({ chosen, replaced, hint: payload.meal_hint, nowMin });
   const totals = useMemo(() => sumMacroSets(items.map((i) => i.macros)), [items]);
-  const consequence = dayTotals && !saved ? ifYouAdd(dayTotals, { kcal: totals.calories, protein: totals.protein }, "add") : null;
   const loggable = items.filter(isLoggable);
   const otherDay = logDate !== today;
+  const title = estimateTitle(items.map((i) => i.name));
+  const after = dayTotals && goals && !otherDay ? afterThis(dayTotals, { kcal: totals.calories, protein: totals.protein }, goals) : null;
+  const how = dayTotals ? `${ifYouAdd(dayTotals, { kcal: totals.calories, protein: totals.protein }, "add").explain}. Your goals are ${goals ? `${kcalText(goals.kcal)} kcal and ${Math.round(goals.protein)} g protein` : "from Settings"}. The meal's numbers are the AI's estimate.` : "";
 
   const add = async () => {
-    if (busy.current || saved || !loggable.length) return;
+    if (busy.current || !loggable.length) return;
     busy.current = true;
     setFailed(null);
     if (!attempt.current || attempt.current.ids.length !== loggable.length) attempt.current = { groupId: newId(), ids: loggable.map(() => newId()) };
@@ -112,14 +123,18 @@ export function SentenceCard({
       const res = await log.mutateAsync({ message, rows, groupId, replaceGroupId: null, previousGroupId: null });
       attempt.current = null;
       patchMessage({ logged_group_id: groupId });
-      const kcal = rows.reduce((a, r) => a + Number(r.calories ?? 0), 0);
-      setSaved({ groupId, ids: res.ids, meal, date: logDate, kcal });
-      setAdjusting(false);
-      toast(`Added to ${mealLabel(meal)}${otherDay ? ` · ${relativeDay(logDate, today)}` : ""}`, {
-        description: `${rows.length} ${rows.length === 1 ? "item" : "items"} · ${fmtKcal(kcal)} kcal`,
+      const ids = res.ids;
+      toast(`${title} added${otherDay ? ` to ${relativeDay(logDate, today).toLowerCase()}` : ""}`, {
         duration: 6000,
-        action: { label: "Undo", onClick: () => void undo(res.ids, groupId) },
+        action: {
+          label: "Undo",
+          onClick: () =>
+            void undoChatLog(qc, { messageId: message.id, groupId, ids, replaced: [], conversationId, userId })
+              .then(() => toast(`${title} removed`))
+              .catch((e: Error) => toast.error("Couldn't undo", { description: e.message })),
+        },
       });
+      onDone();
     } catch (e) {
       const msg = (e as Error).message;
       setFailed(msg === UNSURE_SAVE ? UNSURE_SAVE : msg);
@@ -128,64 +143,42 @@ export function SentenceCard({
     }
   };
 
-  const undo = async (ids = saved?.ids ?? [], groupId = saved?.groupId) => {
-    if (!groupId) return;
-    try {
-      await undoChatLog(qc, { messageId: message.id, groupId, ids, replaced: [], conversationId, userId });
-      patchMessage({ logged_group_id: null });
-      setSaved(null);
-      toast("Removed from your diary");
-    } catch (e) {
-      toast.error("Couldn't undo", { description: (e as Error).message });
-    }
-  };
-
-  // a reply with nothing to log: its words (and any questions) in the Oracle's voice
+  // a reply with nothing to log: its words (and any questions), labelled AI
   if (!payload.items.length) {
     return (
-      <section className="rise rounded-card border border-aegean-line bg-m2 p-4" aria-live="polite">
+      <section className="rise rounded-card border border-ai-line bg-surface p-[18px]" aria-live="polite">
         <div className="flex flex-wrap items-center gap-2">
-          <Tag kind="AI" />
+          <AiChip label="AI" />
           {payload.mock && <DevMockBadge />}
         </div>
-        <div className="mt-2">
+        <div className="mt-3" data-ai-answer="" data-budget-group="">
           <Markdown text={message.content} />
         </div>
         <Questions payload={payload} onPick={onFollow} disabled={following} />
-        <div className="mt-3 flex justify-end">
-          <Button variant="ghost" size="sm" onClick={onDiscard}>
-            Start over
-          </Button>
-        </div>
+        <Button variant="ghost" size="sm" className="mt-2 -ml-3" onClick={onDiscard}>
+          Start over
+        </Button>
       </section>
     );
   }
 
-  const status = saved ? "saved" : log.isPending ? "saving" : failed ? "error" : "unsaved";
+  const status = log.isPending ? "saving" : failed ? "error" : "unsaved";
 
   return (
     <EstimateCard
       className="rise"
       status={status}
       tag={
-        <span className="inline-flex items-center gap-1.5">
-          <Tag kind="AI" detail="Estimate" />
+        <span className="inline-flex flex-wrap items-center gap-2">
+          <AiChip label="AI estimate" status={status === "saving" ? "Saving…" : status === "error" ? "Not saved" : "Not saved yet"} />
           {payload.mock && <DevMockBadge />}
         </span>
       }
-      title={estimateTitle(items.map((i) => i.name))}
+      title={title}
       items={
         <>
-          {replaced && (
-            <p className="t-callout mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-stone">
-              <span>
-                Replaces: <span className="font-semibold text-ivory">{replaced.name}</span> (planned)
-              </span>
-              <Tag kind="PLAN" />
-            </p>
-          )}
-          {adjusting ? (
-            <div className="divide-y divide-vein" role="group" aria-label="Adjust the items">
+          {editing ? (
+            <div className="-mt-1 divide-y divide-line" role="group" aria-label="Edit the items">
               {items.map((it) => (
                 <ScanItemCard
                   key={it.key}
@@ -195,20 +188,14 @@ export function SentenceCard({
                   onPrep={(p) => setItems((all) => all.map((x) => (x.key === it.key ? { ...x, preparation: p } : x)))}
                 />
               ))}
-              {!items.length && <p className="t-callout py-5 text-center text-stone">Every item was removed. Discard this, or describe the meal again.</p>}
-              <section className="space-y-2.5 pt-4" aria-label="Where to log it">
-                <p className="t-eyebrow">Log to</p>
-                <MealDatePicker
-                  meal={meal}
-                  onMeal={setChosen}
-                  date={logDate}
-                  onDate={(d) => setLogDate(d)}
-                  onInset
-                />
+              {!items.length && <p className="t-label py-5 text-center">Every item was removed. Discard this, or describe the meal again.</p>}
+              <section className="space-y-2.5 pt-4" aria-label="Where to add it">
+                <p className="t-label font-semibold">Add to</p>
+                <MealDatePicker meal={meal} onMeal={setChosen} date={logDate} onDate={(d) => setLogDate(d)} onInset />
               </section>
               {payload.corrections.length > 0 && (
-                <section className="pt-4" aria-label="Or tell the estimate">
-                  <p className="t-eyebrow mb-1">Or tell it</p>
+                <section className="pt-4" aria-label="Or tell it">
+                  <p className="t-label mb-1 font-semibold">Or tell it</p>
                   <div className="-mx-1 flex flex-wrap gap-2 px-1">
                     {payload.corrections.slice(0, 4).map((c) => (
                       <Chip key={c} disabled={following} onClick={() => onFollow(`Correction: ${c}`)}>
@@ -219,109 +206,97 @@ export function SentenceCard({
                 </section>
               )}
             </div>
-          ) : items.length === 1 ? (
-            <p className="t-callout -mt-2 text-stone">{portionText(items[0])}</p>
           ) : (
-            <ul className="divide-y divide-vein border-y border-vein" aria-label="Items">
-              {items.map((it) => (
-                <li key={it.key} className="flex items-start gap-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="t-title-3 text-ivory">{it.name}</p>
-                    <p className="t-meta mt-0.5 text-stone">{portionText(it)}</p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p>
-                      <span className="t-num-s text-ivory">{fmtKcal(it.macros.calories)}</span>
-                      <span className="t-meta ml-1 text-stone">kcal</span>
-                    </p>
-                    <p className="t-meta text-stone">
-                      <span className="tnum font-semibold text-ivory">{Math.round(it.macros.protein)}</span> g protein
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          {!adjusting && (
-            <div className={cn("flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1", items.length === 1 ? "mt-3 border-t border-vein pt-3" : "mt-3")}>
-              <p>
-                <span className="t-eyebrow mr-2">Meal</span>
-                <span className="t-num-s text-ivory">{fmtKcal(totals.calories)}</span>
-                <span className="t-meta ml-1 text-stone">kcal</span>
+            <>
+              {items.length === 1 ? (
+                <p className="t-label -mt-2" data-food="">
+                  {portionText(items[0])}
+                </p>
+              ) : (
+                <ul className="-mt-1" aria-label="Items">
+                  {items.map((it) => (
+                    <li key={it.key} className="flex items-baseline justify-between gap-3 py-1">
+                      <span className="t-label min-w-0" data-food="">
+                        <span className="text-fg">{it.name}</span> · {portionText(it)}
+                      </span>
+                      <span className="t-label shrink-0 tabular-nums">{fmtKcal(it.macros.calories)} kcal</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="t-hero mt-3" aria-label={`${fmtKcal(totals.calories)} calories`}>
+                {fmtKcal(totals.calories)}
+                <span className="unit">kcal</span>
               </p>
-              <MacroTrio m={totals} />
-            </div>
+              <div className="mt-3 grid grid-cols-3 gap-2 ax:grid-cols-1" aria-label={`Protein ${Math.round(totals.protein)} grams, carbs ${Math.round(totals.carbs)} grams, fat ${Math.round(totals.fat)} grams`} role="group">
+                {(
+                  [
+                    ["Protein", totals.protein],
+                    ["Carbs", totals.carbs],
+                    ["Fat", totals.fat],
+                  ] as const
+                ).map(([label, g]) => (
+                  <div key={label} className="rounded-tile-lg bg-control px-3.5 py-3" aria-hidden>
+                    <p className="t-num-s">
+                      {Math.round(g)}
+                      <span className="unit">g</span>
+                    </p>
+                    <p className="t-cap mt-0.5">{label}</p>
+                  </div>
+                ))}
+              </div>
+              {replaced && (
+                <p className="t-label mt-3">
+                  Replaces: <span data-food="">{replaced.name}</span> (planned)
+                </p>
+              )}
+              {payload.notes.length > 0 && (
+                <p className="t-cap mt-2" data-food="">
+                  {payload.notes.join(" ")}
+                </p>
+              )}
+              {reply.aside && <Aside aside={reply.aside} addLabel={`Add as ${mealLabel(meal).toLowerCase()}`} />}
+              <Questions payload={reply.aside?.payload ?? payload} onPick={onFollow} disabled={following} />
+            </>
           )}
-          {!saved && !adjusting && reply.aside && <Aside aside={reply.aside} addLabel={`Add as ${mealLabel(meal).toLowerCase()}`} />}
-          {!saved && !adjusting && <Questions payload={reply.aside?.payload ?? payload} onPick={onFollow} disabled={following} />}
         </>
       }
       consequence={
-        consequence ? (
-          <>
-            <span className="text-ivory" aria-label={consequence.spoken}>
-              {consequence.text}
-            </span>
-            <Tag kind="CALC" explain={`${consequence.explain}. From your log${otherDay ? ` for ${relativeDay(logDate, today).toLowerCase()}` : ""}.`} />
-          </>
-        ) : undefined
-      }
-      note={
-        replaced && !saved ? (
-          <>The planned meal stays in your plan, not logged. Nothing in the plan changes.</>
-        ) : payload.notes.length ? (
-          payload.notes.join(" ")
+        after && !editing ? (
+          <span className="flex items-start gap-1 text-fg">
+            <span data-derived="">{after}</span>
+            <InfoButton how={how} label="How this is worked out" className="m-0 -mr-2 -mt-2.5" />
+          </span>
         ) : undefined
       }
       actions={
-        saved ? (
-          <>
-            {/* the earned mark gets its own line, so "Added to dinner, yesterday" is never cut short */}
-            <p className="t-callout flex items-center gap-2 font-semibold text-leaf-300">
-              <SealTick className="seal-in size-5 shrink-0" />
-              <span>
-                Added to {mealLabel(saved.meal).toLowerCase()}
-                {saved.date !== today ? `, ${relativeDay(saved.date, today).toLowerCase()}` : ""}
-              </span>
+        <>
+          {failed && (
+            <p role="alert" className="t-label text-danger">
+              Not added. {failed}
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" size="md" onClick={() => void undo()}>
-                Undo
-              </Button>
-              <Button variant="ghost" size="md" onClick={onDone}>
-                Log another
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            {failed && (
-              <p role="alert" className="t-meta text-cinnabar">
-                Not added. {failed}
-              </p>
-            )}
-            <Button
-              variant="primary"
-              size="lg"
-              block
-              // the label can be "Add as breakfast, yesterday": at accessibility sizes it wraps instead of clipping
-              className="h-auto min-h-14 whitespace-normal py-3 text-balance"
-              onClick={() => void add()}
-              loading={log.isPending}
-              disabled={!loggable.length || following}
-            >
-              {failed === UNSURE_SAVE ? "Add again" : `Add as ${mealLabel(meal).toLowerCase()}${otherDay ? `, ${relativeDay(logDate, today).toLowerCase()}` : ""}`}
+          )}
+          <Button
+            variant="primary"
+            size="lg"
+            block
+            // "Add as breakfast, yesterday" wraps at accessibility sizes instead of clipping
+            className="h-auto min-h-14 whitespace-normal py-3 text-balance"
+            onClick={() => void add()}
+            loading={log.isPending}
+            disabled={!loggable.length || following}
+          >
+            {failed === UNSURE_SAVE ? "Add again" : `Add as ${mealLabel(meal).toLowerCase()}${otherDay ? `, ${relativeDay(logDate, today).toLowerCase()}` : ""}`}
+          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="ghost" size="md" onClick={() => setEditing((v) => !v)} aria-expanded={editing} disabled={log.isPending}>
+              {editing ? "Done" : "Edit"}
             </Button>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="md" onClick={() => setAdjusting((v) => !v)} aria-expanded={adjusting} disabled={log.isPending}>
-                {adjusting ? "Done adjusting" : "Adjust"}
-              </Button>
-              <Button variant="ghost" size="md" onClick={onDiscard} disabled={log.isPending}>
-                Discard
-              </Button>
-            </div>
-          </>
-        )
+            <Button variant="ghost" size="md" className="text-fg-2" onClick={onDiscard} disabled={log.isPending}>
+              Discard
+            </Button>
+          </div>
+        </>
       }
     />
   );
@@ -331,24 +306,26 @@ function portionText(i: EditableItem) {
   if (i.mult !== 1 || !i.portion) {
     const q = Number.isInteger(i.quantity) ? String(i.quantity) : i.quantity.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
     const unit = i.unit === "serving" ? (i.quantity === 1 ? "serving" : "servings") : i.unit;
-    return `${q} ${unit}${i.grams && i.unit !== "g" ? ` · ~${i.grams} g` : ""}`;
+    return `${q} ${unit}${i.grams && i.unit !== "g" ? ` · about ${i.grams} g` : ""}`;
   }
-  return `${i.portion}${i.grams && !/\bg\b/.test(i.portion) ? ` · ~${i.grams} g` : ""}`;
+  return `${i.portion}${i.grams && !/\bg\b/.test(i.portion) ? ` · about ${i.grams} g` : ""}`;
 }
 
 /**
- * A follow-up's answer that changed nothing in the draft: its words in the Oracle's voice under
- * the items. "Add it" typed in the field never saves on its own; Add stays the one confirmation.
+ * A follow-up's answer that changed nothing in the draft, under the items. "Add it" typed in the
+ * field never saves on its own: the gold Add stays the one confirmation.
  */
 function Aside({ aside, addLabel }: { aside: NonNullable<SentenceReply["aside"]>; addLabel: string }) {
   return (
-    <div className="mt-4 border-t border-vein pt-3" aria-live="polite">
+    <div className="mt-4 border-t border-line pt-3" aria-live="polite">
       {aside.payload.intent === "add_to_log" ? (
-        <p className="t-callout text-stone">
-          Ready when you are: tap <span className="font-semibold text-ivory">{addLabel}</span> to put it in your diary.
+        <p className="t-label">
+          Ready when you are: tap <span className="font-semibold text-fg">{addLabel}</span> to put it in your diary.
         </p>
       ) : (
-        <Markdown text={aside.content} />
+        <div data-ai-answer="" data-budget-group="">
+          <Markdown text={aside.content} />
+        </div>
       )}
     </div>
   );
@@ -358,10 +335,12 @@ function Aside({ aside, addLabel }: { aside: NonNullable<SentenceReply["aside"]>
 function Questions({ payload, onPick, disabled }: { payload: SentenceReply["payload"]; onPick: (t: string) => void; disabled?: boolean }) {
   if (!payload.questions.length) return null;
   return (
-    <div className="mt-4 space-y-3 border-t border-vein pt-3">
+    <div className="mt-4 space-y-3 border-t border-line pt-3">
       {payload.questions.slice(0, 2).map((q) => (
         <div key={q.id}>
-          <p className="t-callout font-semibold text-ivory">{q.question}</p>
+          <p className="t-row" data-ai-answer="">
+            {q.question}
+          </p>
           <div className={cn("mt-2 flex flex-wrap gap-2", disabled && "opacity-60")} role="group" aria-label={q.question}>
             {q.options.map((o) => (
               <Chip key={o} disabled={disabled} onClick={() => onPick(payload.questions.length > 1 ? `${q.question} ${o}.` : o)}>

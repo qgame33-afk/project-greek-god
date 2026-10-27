@@ -1,9 +1,9 @@
 "use client";
 
-// The Offering's natural-language log (docs/DESIGN-V2.md §3.9.1): one sentence goes to the
-// existing Food Coach backend (/api/ai/food-chat via sendFoodChat), and the reply comes back as a
-// draft that nothing has saved. Follow-ups (answers to its questions, quick fixes) continue the
-// same food conversation, so it stays in the Food Coach history too.
+// The Add sheet's AI field (docs/DESIGN-V3-SIMPLE.md §4.7): one sentence, a photo, or both go to
+// the existing food coach backend (/api/ai/food-chat via sendFoodChat), and the reply comes back
+// as a draft that nothing has saved. Follow-ups (answers to its questions, quick fixes) continue
+// the same food conversation, so it stays in the coach's food history too.
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
@@ -33,7 +33,12 @@ export interface SentenceError {
   text: string;
   /** Reused on Retry, so a reply the server saved but the phone never got comes back once. */
   id: string;
+  /** The photo that went with it (a data URL), resent on Retry. */
+  image?: string | null;
 }
+
+/** What is sent with a photo and no words. */
+export const PHOTO_PROMPT = "Estimate the food in this photo.";
 
 /** Retrying can't fix a missing key, a used-up quota or an expired session. */
 export const retryable = (code: string) => code !== "not_configured" && code !== "quota" && code !== "unauthorized";
@@ -89,16 +94,17 @@ export function useFoodSentence(date: ISODate) {
    * question, a quick fix); otherwise a new draft starts in a new conversation.
    */
   const send = useCallback(
-    async (raw: string, o: { follow?: boolean; retry?: SentenceError | null } = {}) => {
-      const text = raw.trim();
+    async (raw: string, o: { follow?: boolean; retry?: SentenceError | null; image?: string | null } = {}) => {
+      const image = o.image ?? (o.retry?.image || null);
+      const text = raw.trim() || (image ? PHOTO_PROMPT : "");
       if (!text || sending.current) return false;
       sending.current = true;
       const conversationId = o.follow ? (reply?.conversationId ?? null) : null;
       const clientMessageId = o.retry && o.retry.text === text ? o.retry.id : newId();
-      setPending(text);
+      setPending(image ? (raw.trim() ? `Photo · ${raw.trim()}` : "Photo") : text);
       setError(null);
       try {
-        const res = await sendFoodChat({ conversationId, clientMessageId, message: text, image: null, localDate: date });
+        const res = await sendFoodChat({ conversationId, clientMessageId, message: text, image, localDate: date });
         // the Food Coach screen reads the same cache: the conversation is there if he opens it
         qc.setQueryData<AIMessage[]>(["food-msgs", res.conversationId, userId], (prev) => {
           const base = (prev ?? []).filter((m) => m.id !== res.userMessage.id && m.id !== res.assistantMessage.id);
@@ -111,7 +117,7 @@ export function useFoodSentence(date: ISODate) {
         return true;
       } catch (e) {
         const err = e instanceof FoodAIRequestError ? e : new FoodAIRequestError("upstream", "Couldn't reach the food estimate. Try again.", 0);
-        setError({ code: err.code, message: err.message, text, id: clientMessageId });
+        setError({ code: err.code, message: err.message, text, id: clientMessageId, image });
         return false;
       } finally {
         setPending(null);
