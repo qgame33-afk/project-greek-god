@@ -1,6 +1,17 @@
 "use client";
 
-import { ArrowUp, Camera, Dumbbell, GlassWater, MessageCircle, ScanLine, Scale, Search, Sparkle, type LucideIcon } from "lucide-react";
+import {
+  ArrowUp,
+  Camera,
+  Dumbbell,
+  GlassWater,
+  MessageCircle,
+  ScanLine,
+  Scale,
+  Search,
+  Sparkle,
+  type LucideIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -21,7 +32,13 @@ import { templateLabels } from "@/lib/training/programs";
 import { formatInt, parseNumber } from "@/lib/units";
 import { mealAtMinute, findReplaced, type PlannedLite } from "./replaces";
 import { SentenceCard } from "./SentenceCard";
-import { recalledText, rememberText, retryable, useFoodCapability, useFoodSentence } from "./useFoodSentence";
+import {
+  recalledText,
+  rememberText,
+  retryable,
+  useFoodCapability,
+  useFoodSentence,
+} from "./useFoodSentence";
 
 const MAX_CHARS = 600;
 const LONG_PRESS_MS = 500;
@@ -75,21 +92,42 @@ export function AddMode({
   const configured = cap.data?.configured ?? true;
   const disabled = !configured || !online;
   const planned: PlannedLite[] = useMemo(
-    () => (date === today ? (m?.meals ?? []).map((x) => ({ id: x.id, slot: x.slot, name: x.name, eaten: x.eaten, at: x.at })) : []),
+    () =>
+      date === today
+        ? (m?.meals ?? []).map((x) => ({
+            id: x.id,
+            slot: x.slot,
+            name: x.name,
+            eaten: x.eaten,
+            at: x.at,
+          }))
+        : [],
     [m?.meals, date, today],
   );
   const reply = sentence.reply;
-  const replaced = useMemo(() => (reply ? findReplaced(reply.said, planned) : null), [reply, planned]);
-  const dayTotals = food.hasData ? { kcal: food.totals.calories, protein: food.totals.protein } : null;
-  const goals = m ? { kcal: Number(m.profile.calorie_goal ?? 0), protein: Number(m.profile.protein_goal ?? 0) } : null;
+  const replaced = useMemo(
+    () => (reply ? findReplaced(reply.said, planned) : null),
+    [reply, planned],
+  );
+  const dayTotals = food.hasData
+    ? { kcal: food.totals.calories, protein: food.totals.protein }
+    : null;
+  const goals = m
+    ? {
+        kcal: Number(m.profile.calorie_goal ?? 0),
+        protein: Number(m.profile.protein_goal ?? 0),
+      }
+    : null;
   const busy = !!sentence.pending || preparing;
-  const drafting = !!reply && reply.payload.items.length > 0 && !reply.message.logged_group_id;
+  const drafting =
+    !!reply && reply.payload.items.length > 0 && !reply.message.logged_group_id;
 
   // the field grows with the sentence (to four lines), then scrolls; sizes follow the text size
   useLayoutEffect(() => {
     const el = field.current;
     if (!el) return;
-    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const rem =
+      parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     el.style.height = "0px";
     el.style.height = `${Math.min(Math.max(el.scrollHeight, 2.75 * rem), 7.5 * rem)}px`;
   }, [text]);
@@ -98,7 +136,11 @@ export function AddMode({
     if (disabled || sentence.pending) return;
     // a sentence typed while a draft is open corrects that draft; otherwise a new one starts
     if (!image && text.trim() === sent) return;
-    const ok = await sentence.send(text, { follow: drafting && !image, retry: sentence.error, image });
+    const ok = await sentence.send(text, {
+      follow: drafting && !image,
+      retry: sentence.error,
+      image,
+    });
     if (ok) setSent(text.trim());
   };
   const reset = () => {
@@ -116,14 +158,22 @@ export function AddMode({
       setPreparing(false);
       await submit(img.dataUrl);
     } catch (e) {
-      setPhotoError(e instanceof ImagePrepError ? e.message : "Couldn't read that photo. Try another one.");
+      setPhotoError(
+        e instanceof ImagePrepError
+          ? e.message
+          : "Couldn't read that photo. Try another one.",
+      );
     } finally {
       setPreparing(false);
       if (photo.current) photo.current.value = "";
     }
   };
 
-  const caption = !configured ? "AI isn't set up yet. Search food instead." : !online ? "You're offline. Search your recent foods instead." : "AI estimates it. Nothing saves until you tap Add.";
+  const caption = !configured
+    ? "AI isn't set up yet. Search food instead."
+    : !online
+      ? "You're offline. Search your recent foods instead."
+      : "AI estimates it. Nothing saves until you tap Add.";
 
   return (
     <div className="space-y-6 pt-1">
@@ -136,12 +186,18 @@ export function AddMode({
         >
           <div
             className={cn(
-              "flex min-h-[58px] items-center gap-2 rounded-field bg-surface py-[7px] pl-4 pr-[7px] transition-shadow duration-(--dur-fast)",
+              "flex min-h-[58px] items-center gap-2 rounded-field bg-surface py-[7px] pl-4 pr-[7px] transition-shadow duration-(--dur-fast) ax:flex-wrap",
               !disabled && "focus-within:shadow-[inset_0_0_0_2px_var(--text)]",
             )}
-            onClick={(e) => e.target === e.currentTarget && field.current?.focus()}
+            onClick={(e) =>
+              e.target === e.currentTarget && field.current?.focus()
+            }
           >
-            <Sparkle className="size-5 shrink-0 text-ai" strokeWidth={1.9} aria-hidden />
+            <Sparkle
+              className="size-5 shrink-0 text-ai"
+              strokeWidth={1.9}
+              aria-hidden
+            />
             <label htmlFor="add-sentence" className="sr-only">
               Describe what you ate
             </label>
@@ -154,39 +210,63 @@ export function AddMode({
               maxLength={MAX_CHARS}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                if (
+                  e.key === "Enter" &&
+                  !e.shiftKey &&
+                  !e.nativeEvent.isComposing
+                ) {
                   e.preventDefault();
                   void submit();
                 }
               }}
-              placeholder={drafting ? "Correct it: only two slices" : "Describe what you ate"}
+              placeholder={
+                drafting
+                  ? "Correct it: only two slices"
+                  : "Describe what you ate"
+              }
               enterKeyHint="send"
               autoComplete="off"
               autoCorrect="on"
               spellCheck
-              className="t-body min-w-0 flex-1 resize-none bg-transparent py-2.5 leading-snug text-fg outline-none placeholder:text-fg-2 disabled:cursor-not-allowed"
+              className="t-body min-w-0 flex-1 resize-none ax:basis-[calc(100%-2rem)] bg-transparent py-2.5 leading-snug text-fg outline-none placeholder:text-fg-2 disabled:cursor-not-allowed"
             />
-            <input ref={photo} type="file" accept="image/*" className="hidden" tabIndex={-1} aria-hidden onChange={(e) => void pickPhoto(e.target.files?.[0])} />
-            <button
-              type="button"
-              onClick={() => photo.current?.click()}
-              disabled={disabled || busy}
-              aria-label="Take or pick a photo of your food"
-              className="press hit-44 grid size-10 shrink-0 place-items-center rounded-full bg-control text-fg-2 hover:text-fg disabled:opacity-40"
-            >
-              <Camera className="size-5" strokeWidth={1.9} aria-hidden />
-            </button>
-            <button
-              type="submit"
-              disabled={disabled || busy || !text.trim() || text.trim() === sent}
-              aria-label={busy ? "Estimating" : "Estimate it"}
-              className={cn(
-                "press hit-44 grid size-10 shrink-0 place-items-center rounded-full transition-[background-color,color] duration-(--dur-fast)",
-                disabled ? "bg-control text-fg-3" : "bg-fg text-bg",
-              )}
-            >
-              {busy ? <Spinner className="size-[1.125rem]" /> : <ArrowUp className="size-5" strokeWidth={2.2} aria-hidden />}
-            </button>
+            <input
+              ref={photo}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              tabIndex={-1}
+              aria-hidden
+              onChange={(e) => void pickPhoto(e.target.files?.[0])}
+            />
+            <span className="flex shrink-0 items-center gap-2 ax:w-full ax:justify-end">
+              <button
+                type="button"
+                onClick={() => photo.current?.click()}
+                disabled={disabled || busy}
+                aria-label="Take or pick a photo of your food"
+                className="press hit-44 grid size-10 shrink-0 place-items-center rounded-full bg-control text-fg-2 hover:text-fg disabled:opacity-40"
+              >
+                <Camera className="size-5" strokeWidth={1.9} aria-hidden />
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  disabled || busy || !text.trim() || text.trim() === sent
+                }
+                aria-label={busy ? "Estimating" : "Estimate it"}
+                className={cn(
+                  "press hit-44 grid size-10 shrink-0 place-items-center rounded-full transition-[background-color,color] duration-(--dur-fast)",
+                  disabled ? "bg-control text-fg-3" : "bg-fg text-bg",
+                )}
+              >
+                {busy ? (
+                  <Spinner className="size-[1.125rem]" />
+                ) : (
+                  <ArrowUp className="size-5" strokeWidth={2.2} aria-hidden />
+                )}
+              </button>
+            </span>
           </div>
         </form>
         <p className="t-label mt-2 px-1" role={disabled ? "status" : undefined}>
@@ -194,15 +274,32 @@ export function AddMode({
         </p>
 
         <div className="mt-4 empty:hidden" aria-live="polite">
-          {(sentence.pending || preparing) && !reply && <Estimating text={preparing ? "Photo" : sentence.pending!} />}
+          {(sentence.pending || preparing) && !reply && (
+            <Estimating text={preparing ? "Photo" : sentence.pending!} />
+          )}
           {photoError && <ErrorNote>{photoError}</ErrorNote>}
           {sentence.error && (
-            <ErrorNote onRetry={retryable(sentence.error.code) ? () => void sentence.send(sentence.error!.text, { follow: drafting, retry: sentence.error }) : undefined}>
+            <ErrorNote
+              onRetry={
+                retryable(sentence.error.code)
+                  ? () =>
+                      void sentence.send(sentence.error!.text, {
+                        follow: drafting,
+                        retry: sentence.error,
+                      })
+                  : undefined
+              }
+            >
               {sentence.error.message}
             </ErrorNote>
           )}
           {reply && (
-            <div className={cn("transition-opacity duration-(--dur-base)", sentence.pending && "opacity-60")}>
+            <div
+              className={cn(
+                "transition-opacity duration-(--dur-base)",
+                sentence.pending && "opacity-60",
+              )}
+            >
               <SentenceCard
                 key={reply.message.id}
                 reply={reply}
@@ -227,7 +324,16 @@ export function AddMode({
       </section>
 
       {!reply && !sentence.pending && !preparing && (
-        <Tiles model={m} date={date} onWeighIn={onWeighIn} onSearch={() => onSearch(date === today ? mealAtMinute(nowMin) : undefined)} onAsk={onAsk} onClose={onClose} />
+        <Tiles
+          model={m}
+          date={date}
+          onWeighIn={onWeighIn}
+          onSearch={() =>
+            onSearch(date === today ? mealAtMinute(nowMin) : undefined)
+          }
+          onAsk={onAsk}
+          onClose={onClose}
+        />
       )}
     </div>
   );
@@ -235,7 +341,10 @@ export function AddMode({
 
 function Estimating({ text }: { text: string }) {
   return (
-    <div className="rounded-card border border-ai-line bg-surface p-[18px]" role="status">
+    <div
+      className="rounded-card border border-ai-line bg-surface p-[18px]"
+      role="status"
+    >
       <p className="t-label inline-flex items-center gap-1.5 font-semibold text-ai">
         <Sparkle className="size-3.5" strokeWidth={2.2} aria-hidden />
         AI is estimating
@@ -256,7 +365,21 @@ function Estimating({ text }: { text: string }) {
 type NowModel = ReturnType<typeof useNowData>["model"];
 
 /** The 2×3 grid of 104 px tiles (§4.7.1). Never gold; one column at accessibility sizes. */
-function Tiles({ model: m, date, onWeighIn, onSearch, onAsk, onClose }: { model: NowModel; date: ISODate; onWeighIn: () => void; onSearch: () => void; onAsk: () => void; onClose: () => void }) {
+function Tiles({
+  model: m,
+  date,
+  onWeighIn,
+  onSearch,
+  onAsk,
+  onClose,
+}: {
+  model: NowModel;
+  date: ISODate;
+  onWeighIn: () => void;
+  onSearch: () => void;
+  onAsk: () => void;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const today = useToday();
   const water = useWaterMutations(today);
@@ -282,11 +405,16 @@ function Tiles({ model: m, date, onWeighIn, onSearch, onAsk, onClose }: { model:
 
   const addWater = (ml: number) => {
     if (isOffline()) {
-      toast.error("You're offline", { description: "Water didn't change. Try again when you're back." });
+      toast.error("You're offline", {
+        description: "Water didn't change. Try again when you're back.",
+      });
       return;
     }
     const id = water.addMl(ml);
-    toast(`Water +${ml} ml`, { duration: 6000, action: { label: "Undo", onClick: () => water.remove.mutate(id) } });
+    toast(`Water +${ml} ml`, {
+      duration: 6000,
+      action: { label: "Undo", onClick: () => water.remove.mutate(id) },
+    });
   };
   const endPress = () => {
     if (timer.current) window.clearTimeout(timer.current);
@@ -296,8 +424,18 @@ function Tiles({ model: m, date, onWeighIn, onSearch, onAsk, onClose }: { model:
   return (
     <>
       <div className="grid grid-cols-2 gap-3 ax:grid-cols-1">
-        <Tile icon={ScanLine} title="Scan food" subtitle="Photo or barcode" onClick={() => go("/nutrition/scan")} />
-        <Tile icon={Search} title="Search food" subtitle={date !== today ? "For that day" : "Recent and saved too"} onClick={onSearch} />
+        <Tile
+          icon={ScanLine}
+          title="Scan food"
+          subtitle="Photo or barcode"
+          onClick={() => go("/nutrition/scan")}
+        />
+        <Tile
+          icon={Search}
+          title="Search food"
+          subtitle={date !== today ? "For that day" : "Recent and saved too"}
+          onClick={onSearch}
+        />
         <Tile icon={Scale} title="Weigh in" onClick={onWeighIn} />
         <Tile
           icon={GlassWater}
@@ -339,7 +477,11 @@ function Tiles({ model: m, date, onWeighIn, onSearch, onAsk, onClose }: { model:
         />
         <Tile icon={MessageCircle} title="Ask coach" onClick={onAsk} />
       </div>
-      <WaterSheet open={waterMore} onOpenChange={setWaterMore} onAdd={addWater} />
+      <WaterSheet
+        open={waterMore}
+        onOpenChange={setWaterMore}
+        onAdd={addWater}
+      />
     </>
   );
 }
@@ -376,7 +518,10 @@ function Tile({
       <span className="min-w-0">
         <span className="t-row block">{title}</span>
         {subtitle && (
-          <span className="t-label mt-0.5 line-clamp-2 block" data-budget-name={dataName ? "" : undefined}>
+          <span
+            className="t-label mt-0.5 line-clamp-2 block"
+            data-budget-name={dataName ? "" : undefined}
+          >
             {subtitle}
           </span>
         )}
@@ -386,7 +531,15 @@ function Tile({
 }
 
 /** Hold on the Water tile: +500 ml or another amount. */
-function WaterSheet({ open, onOpenChange, onAdd }: { open: boolean; onOpenChange: (o: boolean) => void; onAdd: (ml: number) => void }) {
+function WaterSheet({
+  open,
+  onOpenChange,
+  onAdd,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onAdd: (ml: number) => void;
+}) {
   const [text, setText] = useState("");
   const ml = parseNumber(text);
   const valid = ml != null && ml >= 10 && ml <= 3000;
@@ -401,11 +554,30 @@ function WaterSheet({ open, onOpenChange, onAdd }: { open: boolean; onOpenChange
         <Button variant="secondary" size="lg" block onClick={() => done(500)}>
           +500 ml
         </Button>
-        <label className="t-label mt-2 block font-semibold" htmlFor="add-water-custom">
+        <label
+          className="t-label mt-2 block font-semibold"
+          htmlFor="add-water-custom"
+        >
           Another amount
         </label>
-        <NumberInput id="add-water-custom" decimal={false} placeholder="330" suffix="ml" value={text} onChange={(e) => setText(e.target.value.replace(/[^\d]/g, "").slice(0, 4))} onKeyDown={(e) => e.key === "Enter" && valid && done(ml!)} />
-        <Button variant="primary" size="lg" block disabled={!valid} onClick={() => valid && done(ml!)}>
+        <NumberInput
+          id="add-water-custom"
+          decimal={false}
+          placeholder="330"
+          suffix="ml"
+          value={text}
+          onChange={(e) =>
+            setText(e.target.value.replace(/[^\d]/g, "").slice(0, 4))
+          }
+          onKeyDown={(e) => e.key === "Enter" && valid && done(ml!)}
+        />
+        <Button
+          variant="primary"
+          size="lg"
+          block
+          disabled={!valid}
+          onClick={() => valid && done(ml!)}
+        >
           {valid ? `Add ${formatInt(ml!)} ml` : "Add"}
         </Button>
       </div>
