@@ -13,6 +13,7 @@ import { groupSessions, suggest, type Mode, type PastSet } from "@/lib/training/
 import { templateDef } from "@/lib/training/programs";
 import type { DayFamily, DayTemplate } from "@/lib/training/types";
 import { programWeeks, trainingWeek } from "./timeline";
+import type { WeightUnit } from "@/lib/units";
 
 /* ------------------------------------------------------------- the header */
 
@@ -104,7 +105,6 @@ export function checkinPatchPayload(date: ISODate, patch: Partial<CheckinDraft>)
 const READY: Record<DayFamily, string> = {
   shoulders_arms: "Ready for arms",
   chest_back: "Ready for chest and back",
-  legs_abs: "Ready for legs",
   legs: "Ready for legs",
   push: "Ready to push",
   pull: "Ready to pull",
@@ -151,14 +151,14 @@ export interface KeyLift {
  * timed holds have no load to suggest), with the progression rule's target for today and the
  * last top set it came from. `fmt` formats a load in lb for display (unit conversion).
  */
-export function keyLift(t: Pick<DayTemplate, "exercises"> | null | undefined, history: Record<string, PastSet[]>, mode: Mode, fmt: (lb: number) => string): KeyLift | null {
+export function keyLift(t: Pick<DayTemplate, "exercises"> | null | undefined, history: Record<string, PastSet[]>, mode: Mode, fmt: (lb: number) => string, unit: WeightUnit = "kg"): KeyLift | null {
   if (!t) return null;
   const candidates = t.exercises.filter((e) => {
     const lib = getExercise(e.slug);
     return e.unit === "reps" && lib?.category !== "explosive" && lib?.tracking !== "reps";
   });
   for (const e of candidates) {
-    const s = suggest(e, getExercise(e.slug), history[e.slug] ?? [], mode);
+    const s = suggest(e, getExercise(e.slug), history[e.slug] ?? [], mode, { unit });
     if (s.weightLb == null && s.kind !== "first") continue;
     const range = s.target.low === s.target.high ? `${s.target.low}` : `${s.target.low}–${s.target.high}`;
     const last = groupSessions(history[e.slug] ?? [])[0] ?? [];

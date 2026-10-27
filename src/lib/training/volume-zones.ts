@@ -432,6 +432,12 @@ export interface VolumeSuggestionInput {
   custom?: Record<string, MuscleGroup[]>;
 }
 
+/** Every planned exercise has at most 2 working sets: the two-set split (set counts are fixed, PROGRAM-V3 §4.5). */
+export function isFixedTwoSet(templates: Pick<DayTemplate, "exercises">[]): boolean {
+  const xs = templates.flatMap((t) => t.exercises.filter((e) => !e.optional));
+  return xs.length > 0 && xs.every((e) => e.sets <= 2);
+}
+
 /** Weeks of the current program needed before volume is judged. */
 export const VOLUME_MIN_WEEKS = 3;
 const STRAIN = 3.5;
@@ -442,6 +448,10 @@ const STRAIN = 3.5;
  * add to a group below its zone that isn't progressing while recovery is fine. A group that is
  * progressing gets nothing, whatever its sets. Nothing in deload or intro weeks, and nothing
  * before 3 weeks of the current program.
+ *
+ * A fixed two-set program (every planned exercise has 2 sets or fewer — the two-set split,
+ * PROGRAM-V3 §4.5) gets holds only: the set count is Quinton's rule, so the app never suggests
+ * adding or trimming sets; a stalled group is a matter of effort and load, not volume.
  */
 export function volumeSuggestions(input: VolumeSuggestionInput): VolumeSuggestion[] {
   const { today, mode } = input;
@@ -473,6 +483,7 @@ export function volumeSuggestions(input: VolumeSuggestionInput): VolumeSuggestio
     return hit;
   };
 
+  const fixedSets = isFixedTwoSet(input.templates);
   const out: (VolumeSuggestion & { rank: number; dev: number })[] = [];
   for (const g of GROUPS) {
     const tr = input.trends[g];
@@ -481,7 +492,8 @@ export function volumeSuggestions(input: VolumeSuggestionInput): VolumeSuggestio
     const sets = weekly[g];
     const [lo, hi] = GROUP_ZONES[g];
     const label = GROUP_LABEL[g];
-    if (sets > hi) {
+    if (fixedSets && !(trend === "down" && strained)) continue;
+    if (sets > hi && !fixedSets) {
       const n = Math.max(1, Math.ceil(sets - hi));
       const ex = lastFor(g);
       out.push({ group: g, kind: "trim", sets: n, exercise: ex, rank: 0, dev: sets - hi, reason: `${label}: about ${n} fewer ${n === 1 ? "set" : "sets"} a week. It hasn't progressed at ${sets} sets.${ex ? ` For example one set fewer of ${ex.name}.` : ""}` });
@@ -489,7 +501,7 @@ export function volumeSuggestions(input: VolumeSuggestionInput): VolumeSuggestio
       const pct = Math.abs(tr?.changePct ?? 0);
       const what = (sore ?? 0) >= (tired ?? 0) ? `soreness ${Math.round((sore ?? 0) * 10) / 10}/5` : `tiredness ${Math.round((tired ?? 0) * 10) / 10}/5`;
       out.push({ group: g, kind: "hold", sets: 0, exercise: null, rank: 1, dev: pct, reason: `${label}: keep the sets where they are and recover first. Strength is down ${pct}% with ${what}.` });
-    } else if (sets < lo && !strained) {
+    } else if (sets < lo && !strained && !fixedSets) {
       const n = Math.min(4, Math.max(1, Math.ceil(lo - sets)));
       const ex = lastFor(g);
       out.push({ group: g, kind: "add", sets: n, exercise: ex, rank: 2, dev: lo - sets, reason: `${label}: add ${n} ${n === 1 ? "set" : "sets"} a week${ex ? `, for example one more set of ${ex.name}` : ""}.` });

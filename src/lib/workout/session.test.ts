@@ -319,8 +319,8 @@ describe("targets for swaps and additions", () => {
   it("keeps the prescription for a like-for-like swap (same effort class keeps rest and RIR)", () => {
     expect(retarget({ low: 5, high: 8, unit: "reps", rir: "1–2", sets: 3, slug: "barbell-bench-press", rest: 180 }, lib({ rest: 120, perSide: false }))).toEqual({ sets: 3, low: 5, high: 8, unit: "reps", rir: "1–2", rest: 180 });
     // an unknown or different effort class takes the new exercise's effort defaults (Q§10)
-    expect(retarget({ low: 5, high: 8, unit: "reps", rir: "1–2", sets: 3 }, lib({ rest: 120, perSide: false }))).toEqual({ sets: 3, low: 5, high: 8, unit: "reps", rir: "1–3", rest: 120 });
-    expect(retarget({ low: 10, high: 15, unit: "reps", rir: "1–3", sets: 2, slug: "machine-chest-press", rest: 120 }, lib({ category: "isolation", rest: 75 }))).toMatchObject({ rir: "0–2", rest: 75 });
+    expect(retarget({ low: 5, high: 8, unit: "reps", rir: "1–2", sets: 3 }, lib({ rest: 120, perSide: false }))).toEqual({ sets: 3, low: 5, high: 8, unit: "reps", rir: "1–2", rest: 150 });
+    expect(retarget({ low: 10, high: 15, unit: "reps", rir: "1–3", sets: 2, slug: "machine-chest-press", rest: 120 }, lib({ category: "isolation", rest: 75 }))).toMatchObject({ rir: "0", rest: 90 });
     expect(retarget({ low: 10, high: 12, unit: "reps", rir: "1–2", sets: 2 }, lib({ perSide: true })).unit).toBe("each");
   });
 
@@ -330,71 +330,88 @@ describe("targets for swaps and additions", () => {
   });
 
   it("gives added exercises honest defaults", () => {
-    expect(defaultTargets(lib({ category: "isolation", rest: 75 }))).toEqual({ sets: 3, low: 10, high: 15, unit: "reps", rir: "0–2", rest: 75 });
-    expect(defaultTargets(lib({ category: "isolation", rest: 45 }))).toMatchObject({ rir: "0–2", rest: 60 });
-    expect(defaultTargets(lib({ category: "compound", rest: 210 }))).toMatchObject({ low: 6, high: 10, rir: "1–3", rest: 180 });
-    expect(defaultTargets(lib({ category: "core", rest: 60 }))).toMatchObject({ rir: "0–2", rest: 60 });
+    // two working sets, like every lift of the two-set split
+    expect(defaultTargets(lib({ category: "isolation", rest: 75 }))).toEqual({ sets: 2, low: 10, high: 15, unit: "reps", rir: "0", rest: 90 });
+    expect(defaultTargets(lib({ category: "isolation", rest: 45 }))).toMatchObject({ rir: "0", rest: 90 });
+    expect(defaultTargets(lib({ category: "compound", rest: 210 }))).toMatchObject({ sets: 2, low: 6, high: 10, rir: "1–2", rest: 180 });
+    expect(defaultTargets(lib({ category: "compound", equipment: "machine", rest: 120 }))).toMatchObject({ rir: "0", rest: 150 });
+    expect(defaultTargets(lib({ category: "compound", equipment: "dumbbell", primary: ["chest"], rest: 120 }))).toMatchObject({ rir: "0–1", rest: 150 });
+    expect(defaultTargets(lib({ category: "core", rest: 60 }))).toMatchObject({ rir: "0", rest: 90 });
     expect(defaultTargets(lib({ category: "explosive", tracking: "reps" }))).toMatchObject({ low: 3, high: 3, rir: "Fresh" });
   });
 });
 
 /* ------------------------------------------------ session start (§1.4, §4.6) */
 
-const thu = TEMPLATE_DEFS.shoulders_arms_b;
-const tue = TEMPLATE_DEFS.chest_back_a;
+const thu = TEMPLATE_DEFS.arms_b;
+const tue = TEMPLATE_DEFS.chest_a;
 const strip = (r: Record<string, unknown>) => {
   const { id: _i, session_id: _s, local_date: _d, exercise_order: _o, ...rest } = r;
   return rest;
 };
 
-describe("starting a session (§1.4, §4.6, PROGRAM-ARNOLD 4.1 case 10)", () => {
-  it("never starts Thursday's optional reverse curls unless asked", () => {
+describe("starting a session (PROGRAM-V3 §1, §4.4)", () => {
+  it("starts exactly two working sets of each of Thursday's six lifts, in his order", () => {
     const rows = buildSessionSets("s", { template: thu, date: "2026-10-29", mode: "standard" }, {});
-    expect(rows.some((r) => r.exercise_slug === "reverse-curl")).toBe(false);
-    expect(rows).toHaveLength(19);
-    const all = buildSessionSets("s", { template: thu, date: "2026-10-29", mode: "standard", includeOptional: true }, {});
-    expect(all.filter((r) => r.exercise_slug === "reverse-curl")).toHaveLength(2);
-    expect(all).toHaveLength(21);
+    expect(rows).toHaveLength(12);
+    expect(rows.every((r) => r.kind === "working")).toBe(true);
+    const order = [...new Map(rows.map((r) => [r.exercise_slug, r.exercise_order])).keys()];
+    expect(order).toEqual(thu.exercises.map((e) => e.slug));
+    expect(buildSessionSets("s", { template: thu, date: "2026-10-29", mode: "standard", includeOptional: true }, {})).toHaveLength(12);
   });
 
   it("templateExerciseSets builds exactly the rows buildSessionSets would ('Add them')", () => {
-    const rc = thu.exercises.find((e) => e.slug === "reverse-curl")!;
-    const all = buildSessionSets("s", { template: thu, date: "2026-10-29", mode: "standard", includeOptional: true }, {});
-    const fromStart = all.filter((r) => r.exercise_slug === "reverse-curl").map((r) => strip(r as Record<string, unknown>));
-    expect(templateExerciseSets(rc, "standard", 0, { target: { low: 10, high: 15, unit: "reps" }, weightLb: null })).toEqual(fromStart);
-    const added = templateExerciseSets(rc, "standard", 4);
+    const curl = thu.exercises.find((e) => e.slug === "cable-curl")!;
+    const all = buildSessionSets("s", { template: thu, date: "2026-10-29", mode: "standard" }, {});
+    const fromStart = all.filter((r) => r.exercise_slug === "cable-curl").map((r) => strip(r as Record<string, unknown>));
+    expect(templateExerciseSets(curl, "standard", 0, { target: { low: 10, high: 15, unit: "reps" }, weightLb: null })).toEqual(fromStart);
+    const added = templateExerciseSets(curl, "standard", 4);
     expect(added.map((r) => [r.set_index, r.target_rep_low, r.target_rep_high, r.target_rir, r.rest_sec])).toEqual([
-      [4, 10, 15, "0–2", 60],
-      [5, 10, 15, "0–2", 60],
+      [4, 10, 15, "0", 90],
+      [5, 10, 15, "0", 90],
     ]);
   });
 
-  it("intro mode: two sets of each Tuesday lift with the template's ranges, RIR and rest", () => {
-    const rows = buildSessionSets("s", { template: tue, date: "2026-10-27", mode: "intro" }, {});
-    const by = (slug: string) => rows.filter((r) => r.exercise_slug === slug);
-    expect(tue.exercises.map((e) => by(e.slug).length)).toEqual([2, 2, 2, 2, 2, 2]);
-    expect(tue.exercises.map((e) => by(e.slug)[0].rest_sec)).toEqual([150, 150, 120, 120, 75, 120]);
-    expect(tue.exercises.map((e) => by(e.slug)[0].target_rir)).toEqual(["1–3", "1–3", "1–3", "1–3", "0–2", "1–3"]);
-    expect(by("incline-db-press")[0]).toMatchObject({ target_rep_low: 6, target_rep_high: 10, target_unit: "reps" });
-    expect(by("single-arm-lat-pulldown")[0]).toMatchObject({ target_unit: "each" });
+  it("normal and easier weeks: two sets of each Tuesday lift with his ranges; easier stops 2–3 short", () => {
+    const by = (rows: ReturnType<typeof buildSessionSets>, slug: string) => rows.filter((r) => r.exercise_slug === slug);
+    const std = buildSessionSets("s", { template: tue, date: "2026-10-27", mode: "standard" }, {});
+    expect(tue.exercises.map((e) => by(std, e.slug).length)).toEqual([2, 2, 2, 2, 2, 2]);
+    expect(tue.exercises.map((e) => by(std, e.slug)[0].rest_sec)).toEqual([150, 150, 150, 150, 90, 90]);
+    expect(tue.exercises.map((e) => by(std, e.slug)[0].target_rir)).toEqual(["0–1", "0", "0", "0", "0", "0"]);
+    const intro = buildSessionSets("s", { template: tue, date: "2026-10-27", mode: "intro" }, {});
+    expect(tue.exercises.map((e) => by(intro, e.slug).length)).toEqual([2, 2, 2, 2, 2, 2]);
+    expect(new Set(intro.map((r) => r.target_rir))).toEqual(new Set(["2–3"]));
+    expect(by(intro, "incline-db-press")[0]).toMatchObject({ target_rep_low: 6, target_rep_high: 10, target_unit: "reps" });
+    const legs = buildSessionSets("s", { template: TEMPLATE_DEFS.lower_a, date: "2026-10-28", mode: "standard" }, {});
+    expect(by(legs, "walking-lunge")[0]).toMatchObject({ target_rep_low: 8, target_rep_high: 12, target_unit: "each", target_rir: "1–2" });
   });
 
   it("applies this session's adjustments: dropped sets (never below 1), RIR and order", () => {
     const rows = buildSessionSets(
       "s",
-      { template: tue, date: "2026-10-27", mode: "standard", adjust: { dropSets: { "machine-chest-press": 1, "single-arm-lat-pulldown": 5 }, rir: { "incline-db-press": "2–3" }, order: ["incline-db-press", "neutral-grip-lat-pulldown", "chest-supported-row", "cable-chest-fly"] } },
+      { template: tue, date: "2026-10-27", mode: "standard", adjust: { dropSets: { "machine-chest-press": 1, "seated-cable-row": 5 }, rir: { "incline-db-press": "2–3", "seated-cable-row": "1–2" }, order: ["incline-db-press", "lat-pulldown", "cable-chest-fly"] } },
       {},
     );
     expect(rows.filter((r) => r.exercise_slug === "machine-chest-press")).toHaveLength(1);
-    expect(rows.filter((r) => r.exercise_slug === "single-arm-lat-pulldown")).toHaveLength(1);
+    expect(rows.filter((r) => r.exercise_slug === "seated-cable-row")).toHaveLength(1);
     expect(rows.find((r) => r.exercise_slug === "incline-db-press")!.target_rir).toBe("2–3");
+    expect(rows.find((r) => r.exercise_slug === "seated-cable-row")!.target_rir).toBe("1–2");
     const order = [...new Map(rows.map((r) => [r.exercise_slug, r.exercise_order])).entries()].sort((a, b) => (a[1] ?? 0) - (b[1] ?? 0)).map(([s]) => s);
     expect(order.indexOf("cable-chest-fly")).toBeLessThan(order.indexOf("machine-chest-press"));
   });
 
+  it("suggested loads follow the unit (kg steps by default)", () => {
+    const hist = { "incline-db-press": [0, 1].map((i) => ({ local_date: "2026-10-20", session_id: "p", set_index: i, weight_lb: 49.6, reps: 10, duration_sec: null, rir: 0, mode: "standard" as const })) };
+    const kgRows = buildSessionSets("s", { template: tue, date: "2026-10-27", mode: "standard" }, hist);
+    expect(kgRows.find((r) => r.exercise_slug === "incline-db-press")!.suggested_weight_lb).toBe(54);
+    const lbRows = buildSessionSets("s", { template: tue, date: "2026-10-27", mode: "standard", unit: "lb" }, hist);
+    expect(lbRows.find((r) => r.exercise_slug === "incline-db-press")!.suggested_weight_lb).toBe(54.6);
+  });
+
   it("deep links start a template only when it is in the active program", () => {
-    expect(startTarget("chest_back_a", PROGRAMS.arnold.keys)).toBe("chest_back_a");
-    expect(startTarget("push_a", PROGRAMS.arnold.keys)).toBeNull();
-    expect(startTarget(null, PROGRAMS.arnold.keys)).toBeNull();
+    expect(startTarget("chest_a", PROGRAMS.twoset.keys)).toBe("chest_a");
+    expect(startTarget("push_a", PROGRAMS.twoset.keys)).toBeNull();
+    expect(startTarget("chest_back_a", PROGRAMS.twoset.keys)).toBeNull();
+    expect(startTarget(null, PROGRAMS.twoset.keys)).toBeNull();
   });
 });

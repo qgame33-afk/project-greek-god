@@ -74,13 +74,14 @@ describe("buildSnapshot", () => {
     expect(fact("nut.avg7")?.detail).toMatch(/1 of 7 days/);
   });
 
-  it("resolves today's plan from the weekly schedule (a new account follows the Arnold split)", () => {
-    expect(fact("plan.today")).toMatchObject({ value: "Chest & Back B", kind: "plan" });
-    expect(fact("prog.active")?.value).toBe("Arnold split");
+  it("resolves today's plan from the weekly schedule (a new account follows the two-set split)", () => {
+    expect(fact("plan.today")).toMatchObject({ value: "Chest & Back", kind: "plan" });
+    expect(fact("prog.active")?.value).toBe("Two-set split");
     expect(fact("prog.saved")?.value).toBe("Push/Pull/Legs (saved, not active)");
-    expect(fact("prog.chest_back_b")?.detail).toMatch(/^Incline Smith Machine Press 3×8–12 @1–3 RIR/);
+    expect(fact("prog.chest_b")?.detail).toMatch(/^Incline Dumbbell Press 2×6–10 @0–1 RIR/);
+    expect(fact("prog.lower_a")?.detail).toMatch(/Dumbbell Walking Lunges 2×8–12/);
     expect(fact("prog.push_a")).toBeUndefined();
-    expect(snap.text).toContain("## PROGRAM RULES (Arnold split)");
+    expect(snap.text).toContain("## PROGRAM RULES (Two-set split)");
     expect(snap.text).toContain("Six training days are not mandatory.");
   });
 
@@ -88,8 +89,15 @@ describe("buildSnapshot", () => {
     const ppl = buildSnapshot(raw({ profile: { ...raw().profile, weekly_schedule: { "1": "push_a", "2": "pull_a", "3": "legs_a", "4": "push_b", "5": "pull_b", "6": "legs_b", "0": "rest" } } }));
     expect(ppl.facts.find((f) => f.id === "plan.today")?.value).toBe("Pull B");
     expect(ppl.facts.find((f) => f.id === "prog.active")?.value).toBe("Push/Pull/Legs");
-    const switched = buildSnapshot(raw({ profile: { ...raw().profile, prefs: { program: "arnold", programSwitch: { from: "ppl", to: "arnold", at: "2026-10-14T12:00:00Z", date: "2026-10-14", frozen: 0, mapped: 0 } } } }));
-    expect(switched.facts.find((f) => f.id === "prog.active")?.value).toBe("Arnold split since Oct 14");
+    const switched = buildSnapshot(raw({ profile: { ...raw().profile, prefs: { program: "twoset", programSwitch: { from: "ppl", to: "twoset", at: "2026-10-14T12:00:00Z", date: "2026-10-14", frozen: 0, mapped: 0 } } } }));
+    expect(switched.facts.find((f) => f.id === "prog.active")?.value).toBe("Two-set split since Oct 14");
+  });
+
+  it("writes every weight in kg for a metric account (the coach's weight references)", () => {
+    const kg = buildSnapshot(raw({ profile: { ...raw().profile, weight_unit: "kg", length_unit: "cm" } }));
+    expect(kg.text).toMatch(/\d kg/);
+    expect(kg.text).not.toMatch(/\d(\.\d+)? ?lbs?\b/);
+    expect(JSON.stringify(kg.facts)).not.toMatch(/\d(\.\d+)? ?lbs?\b/);
   });
 
   it("never mentions volleyball or jump tests", () => {
@@ -148,7 +156,7 @@ describe("buildSnapshot", () => {
     const f = (id: string) => s.facts.find((x) => x.id === id);
     expect(f("tr.count7")?.detail).toBe("0 of 0 planned training days done so far (counting from the start date, Oct 16)");
     expect(f("tr.count28")?.detail).not.toMatch(/adherence/);
-    expect(f("plan.week")?.detail).toMatch(/Mon Shoulders, Biceps & Triceps A — before the start date/);
+    expect(f("plan.week")?.detail).toMatch(/Mon Arms & Shoulders — before the start date/);
     expect(f("plan.week")?.detail).not.toMatch(/not logged/);
   });
 
@@ -232,10 +240,13 @@ describe("dev mock topics", () => {
   });
 });
 
-describe("coach prompt and mock (PROGRAM-ARNOLD §6.3)", () => {
-  it("coaches the Arnold split and never mentions volleyball or jumps", () => {
-    expect(COACH_SYSTEM_RULES).toContain("Arnold");
-    expect(COACH_SYSTEM_RULES).toContain("1–3 reps in reserve");
+describe("coach prompt and mock (PROGRAM-V3)", () => {
+  it("coaches the two-set split in the account's units and never mentions volleyball, jumps or Arnold", () => {
+    expect(COACH_SYSTEM_RULES).toContain("two hard working sets per exercise");
+    expect(COACH_SYSTEM_RULES).toContain("technical failure");
+    expect(COACH_SYSTEM_RULES).toContain("1–2 reps in reserve");
+    expect(COACH_SYSTEM_RULES).toMatch(/kg by default/);
+    expect(COACH_SYSTEM_RULES).not.toMatch(/arnold/i);
     expect(COACH_SYSTEM_RULES).not.toMatch(/volley|jump/i);
   });
   it("the dev mock never mentions volleyball, and answers the overlap question", () => {

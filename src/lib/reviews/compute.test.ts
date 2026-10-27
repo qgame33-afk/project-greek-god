@@ -72,8 +72,8 @@ describe("parseMonthParam / reviewMonths / milestones", () => {
   });
 
   it("merges the weekly schedule over the active program's default week", () => {
-    // a new account (no program yet) follows the Arnold split
-    expect(scheduleFrom({})["2"]).toBe("chest_back_a");
+    // a new account (no program yet) follows the two-set split
+    expect(scheduleFrom({})["2"]).toBe("chest_a");
     // an account still on Push/Pull/Legs keeps its week
     expect(scheduleFrom({ "1": "push_a" })["2"]).toBe("pull_a");
     // prefs.program wins
@@ -81,9 +81,9 @@ describe("parseMonthParam / reviewMonths / milestones", () => {
   });
 
   it("maps a stale other-program key on or after the switch, never the switch's own rows", () => {
-    const ctx = { program: "arnold" as const, since: "2026-10-22" };
-    const sched = scheduleFrom({ "4": "shoulders_arms_b" }, { program: "arnold" });
-    expect(plannedKey("2026-10-23", sched, { "2026-10-23": "push_b" }, ctx)).toBe("shoulders_arms_b");
+    const ctx = { program: "twoset" as const, since: "2026-10-22" };
+    const sched = scheduleFrom({ "4": "arms_b" }, { program: "twoset" });
+    expect(plannedKey("2026-10-23", sched, { "2026-10-23": "push_b" }, ctx)).toBe("arms_b");
     expect(plannedKey("2026-10-21", sched, { "2026-10-21": "pull_a" }, ctx)).toBe("pull_a");
     expect(plannedKey("2026-10-22", sched, { "2026-10-22": { template_key: "pull_a", note: "program-switch" } }, ctx)).toBe("pull_a");
   });

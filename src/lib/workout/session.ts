@@ -477,8 +477,9 @@ export function defaultTargets(lib: LibraryExercise): Targets {
   if (lib.category === "explosive") return { sets: 3, low: 3, high: 3, unit: "reps", rir: "Fresh", rest };
   if (lib.tracking === "weight_time") return { sets: 2, low: 30, high: 45, unit: "sec", rir, rest };
   const unit = lib.perSide ? "each" : "reps";
-  if (lib.category === "compound") return { sets: 3, low: 6, high: 10, unit, rir, rest };
-  return { sets: 3, low: 10, high: 15, unit, rir, rest };
+  // two working sets: Quinton's method (PROGRAM-V3 §1); he can change it in the editor
+  if (lib.category === "compound") return { sets: 2, low: 6, high: 10, unit, rir, rest };
+  return { sets: 2, low: 10, high: 15, unit, rir, rest };
 }
 
 /**

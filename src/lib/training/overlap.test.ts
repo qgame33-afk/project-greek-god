@@ -5,9 +5,14 @@ import type { PastSet } from "./progression";
 
 const MON = "2026-10-26";
 const TUE = "2026-10-27";
-const cbA = TEMPLATE_DEFS.chest_back_a;
-const armA = TEMPLATE_DEFS.shoulders_arms_a;
-const armDone: OverlapSession = { id: "mon", local_date: MON, status: "done", name: "Shoulders, Biceps & Triceps A", template_key: "shoulders_arms_a" };
+const cbA = TEMPLATE_DEFS.chest_a;
+const armA = TEMPLATE_DEFS.arms_a;
+const armDone: OverlapSession = { id: "mon", local_date: MON, status: "done", name: "Arms & Shoulders", template_key: "arms_a" };
+/** 22.5 kg and 60 kg as stored (lb, 0.1). */
+const P = 49.6;
+const LAT = 132.3;
+/** Chest & Back with 3 sets on the accessories: the drop-a-set path (a customised day or PPL-sized volume). */
+const cb3 = { ...cbA, exercises: cbA.exercises.map((e) => (e.slug === "machine-chest-press" || e.slug === "seated-cable-row" ? { ...e, sets: 3 } : e)) };
 const yesterday = { session: armDone, sets: [] as OverlapSet[] };
 
 const ts = (date: string, min: number) => new Date(Date.parse(`${date}T18:00:00Z`) + min * 60_000).toISOString();
@@ -22,9 +27,10 @@ const past = (session: string, date: string, sets: [number, number][], restMin =
 describe("when the overlap rules apply", () => {
   it("only on chest and back after an arm day (by family, or by the arm sets logged)", () => {
     expect(overlapApplies(cbA, yesterday)).toBe(true);
+    expect(overlapApplies(TEMPLATE_DEFS.chest_b, { session: { ...armDone, template_key: "arms_b" }, sets: [] })).toBe(true);
     expect(overlapApplies(cbA, null)).toBe(false);
     expect(overlapApplies(armA, yesterday)).toBe(false);
-    const rearranged = { session: { ...armDone, template_key: "legs_abs_a" }, sets: logged("mon", MON, "preacher-curl", [[50, 10], [50, 10], [50, 10]]).concat(logged("mon", MON, "rope-triceps-pushdown", [[40, 12], [40, 12], [40, 12]])) };
+    const rearranged = { session: { ...armDone, template_key: "lower_a" }, sets: logged("mon", MON, "incline-db-curl", [[30, 10], [30, 10], [30, 10]]).concat(logged("mon", MON, "cable-triceps-pushdown", [[40, 12], [40, 12], [40, 12]])) };
     expect(overlapApplies(cbA, rearranged)).toBe(true);
     expect(overlapApplies(cbA, { ...rearranged, sets: rearranged.sets.slice(0, 5) })).toBe(false);
   });
@@ -34,43 +40,53 @@ describe("when the overlap rules apply", () => {
     expect(overlapApplies(TEMPLATE_DEFS.push_b, { session: { ...armDone, template_key: "push_a" }, sets: [] })).toBe(false);
   });
 
-  it("watches the first press and pull and trims the right accessories", () => {
-    const l = overlapLifts(cbA);
-    expect([l.press?.slug, l.pull?.slug, l.pressAccessory?.slug, l.pullAccessory?.slug, l.chestIsolation?.slug]).toEqual(["incline-db-press", "neutral-grip-lat-pulldown", "machine-chest-press", "single-arm-lat-pulldown", "cable-chest-fly"]);
-    const b = overlapLifts(TEMPLATE_DEFS.chest_back_b);
-    expect([b.press?.slug, b.pull?.slug, b.pressAccessory?.slug, b.pullAccessory?.slug, b.chestIsolation?.slug]).toEqual(["incline-smith-press", "chest-supported-wide-row", "db-bench-press", "single-arm-cable-row", "pec-deck"]);
+  it("watches the first press and pull and eases the second press and pull", () => {
+    for (const t of [cbA, TEMPLATE_DEFS.chest_b]) {
+      const l = overlapLifts(t);
+      expect([l.press?.slug, l.pull?.slug, l.pressAccessory?.slug, l.pullAccessory?.slug, l.chestIsolation?.slug]).toEqual(["incline-db-press", "lat-pulldown", "machine-chest-press", "seated-cable-row", "cable-chest-fly"]);
+    }
   });
 });
 
 describe("overlapPreStart (arms still sore)", () => {
-  it("drops one set of each accessory when the check-in soreness is 4+", () => {
+  it("keeps both sets and stops 1–2 reps short on the accessories when the check-in soreness is 4+", () => {
     const a = overlapPreStart({ today: TUE, template: cbA, yesterday, checkin: { local_date: TUE, soreness: 4 } })!;
     expect(a.actions).toEqual([
-      { kind: "drop", slug: "machine-chest-press", sets: 1 },
-      { kind: "drop", slug: "single-arm-lat-pulldown", sets: 1 },
+      { kind: "rir", slug: "machine-chest-press", rir: "1–2" },
+      { kind: "rir", slug: "seated-cable-row", rir: "1–2" },
     ]);
-    expect(a.text).toBe("Arms still sore from Shoulders, Biceps & Triceps A. Today: one set fewer on Machine Chest Press and Single-Arm Cable Lat Pulldown.");
+    expect(a.text).toBe("Arms still sore from Arms & Shoulders. Today: stop 1–2 reps short on Machine Chest Press and Seated Cable Row.");
     expect(overlapPreStart({ today: TUE, template: cbA, yesterday, checkin: { local_date: TUE, soreness: 3 } })).toBeNull();
     expect(overlapPreStart({ today: TUE, template: cbA, yesterday: null, checkin: { local_date: TUE, soreness: 5 } })).toBeNull();
+  });
+
+  it("drops a set instead when an accessory has 3 or more", () => {
+    const a = overlapPreStart({ today: TUE, template: cb3, yesterday, checkin: { local_date: TUE, soreness: 5 } })!;
+    expect(a.actions).toEqual([
+      { kind: "drop", slug: "machine-chest-press", sets: 1 },
+      { kind: "drop", slug: "seated-cable-row", sets: 1 },
+    ]);
+    expect(a.text).toBe("Arms still sore from Arms & Shoulders. Today: one set fewer on Machine Chest Press and Seated Cable Row.");
   });
 });
 
 describe("overlapInSession (first two sets of a watched lift)", () => {
-  const prior = { "incline-db-press": past("prev", "2026-10-20", [[70, 10], [70, 10], [70, 9]]), "neutral-grip-lat-pulldown": past("prev", "2026-10-20", [[140, 12], [140, 11], [140, 10]]) };
-  const rest = [...open("t", "neutral-grip-lat-pulldown", 3), ...open("t", "chest-supported-row", 3), ...open("t", "machine-chest-press", 2), ...open("t", "cable-chest-fly", 2), ...open("t", "single-arm-lat-pulldown", 2)];
-  const run = (press: [number, number][], restMin = 2.5, extra: OverlapSet[] = rest, fired: ("triceps" | "biceps")[] = []) =>
-    overlapInSession({ template: cbA, sets: [...logged("t", TUE, "incline-db-press", press, restMin), ...open("t", "incline-db-press", 1, 2), ...extra], prior, yesterday, sessionId: "t", fired });
+  const prior = { "incline-db-press": past("prev", "2026-10-20", [[P, 10], [P, 10]]), "lat-pulldown": past("prev", "2026-10-20", [[LAT, 12], [LAT, 11]]) };
+  const rest = [...open("t", "lat-pulldown", 2), ...open("t", "machine-chest-press", 2), ...open("t", "seated-cable-row", 2), ...open("t", "cable-chest-fly", 2), ...open("t", "straight-arm-pulldown", 2)];
+  const run = (press: [number, number][], restMin = 2.5, extra: OverlapSet[] = rest, fired: ("triceps" | "biceps")[] = [], template = cbA) =>
+    overlapInSession({ template, sets: [...logged("t", TUE, "incline-db-press", press, restMin), ...extra], prior, yesterday, sessionId: "t", fired });
 
-  it("a 1-rep drop does not fire; 2 fewer reps at the same load does", () => {
-    expect(run([[70, 9], [70, 9]])).toBeNull();
-    const a = run([[70, 8], [70, 8]])!;
+  it("a 1-rep drop does not fire; 2 fewer reps at the same load does, in kg", () => {
+    expect(run([[P, 9], [P, 9]])).toBeNull();
+    const a = run([[P, 8], [P, 8]])!;
     expect(a.muscle).toBe("triceps");
     expect(a.actions).toEqual([
       { kind: "reorder", move: "cable-chest-fly", before: "machine-chest-press" },
-      { kind: "drop", slug: "machine-chest-press", sets: 1 },
+      { kind: "rir", slug: "machine-chest-press", rir: "1–2" },
     ]);
-    expect(a.text).toBe("Triceps look tired from Monday: Incline Dumbbell Press is down 2 reps at 70 lb. Try the fly next and one set fewer on Machine Chest Press.");
-    expect(a.evidence[0]).toMatchObject({ slug: "incline-db-press", weightLb: 70, reps: 8, refReps: 10 });
+    expect(a.text).toBe("Triceps look tired from Monday: Incline Dumbbell Press is down 2 reps at 22.5 kg. Try the fly next, and stop 1–2 reps short on Machine Chest Press.");
+    expect(a.evidence[0]).toMatchObject({ slug: "incline-db-press", weightLb: P, reps: 8, refReps: 10 });
+    expect(overlapInSession({ template: cbA, unit: "lb", sets: [...logged("t", TUE, "incline-db-press", [[P, 8], [P, 8]]), ...rest], prior, yesterday, sessionId: "t" })!.text).toContain("at 49.6 lb");
   });
 
   it("a heavier load with fewer reps fires only when the e1RM fell 3%+", () => {
@@ -81,29 +97,35 @@ describe("overlapInSession (first two sets of a watched lift)", () => {
   });
 
   it("does not judge set 2 after a rest 45 s+ shorter than last time", () => {
-    expect(run([[70, 8], [70, 8]], 1.5)).toBeNull();
+    expect(run([[P, 8], [P, 8]], 1.5)).toBeNull();
   });
 
   it("fires once per muscle, and pulls advise the biceps", () => {
-    expect(run([[70, 8], [70, 8]], 2.5, rest, ["triceps"])).toBeNull();
-    const pulls = [...logged("t", TUE, "neutral-grip-lat-pulldown", [[140, 10], [140, 9]], 2.5, 20), ...open("t", "neutral-grip-lat-pulldown", 1, 2), ...open("t", "machine-chest-press", 2), ...open("t", "single-arm-lat-pulldown", 2)];
+    expect(run([[P, 8], [P, 8]], 2.5, rest, ["triceps"])).toBeNull();
+    const pulls = [...logged("t", TUE, "lat-pulldown", [[LAT, 10], [LAT, 9]], 2.5, 20), ...open("t", "machine-chest-press", 2), ...open("t", "seated-cable-row", 2)];
     const b = overlapInSession({ template: cbA, sets: pulls, prior, yesterday, sessionId: "t" })!;
     expect(b.muscle).toBe("biceps");
-    expect(b.actions).toEqual([{ kind: "drop", slug: "single-arm-lat-pulldown", sets: 1 }]);
-    expect(b.text).toBe("Biceps look tired from Monday: Neutral-Grip Lat Pulldown is down 2 reps at 140 lb. One set fewer on Single-Arm Cable Lat Pulldown.");
+    expect(b.actions).toEqual([{ kind: "rir", slug: "seated-cable-row", rir: "1–2" }]);
+    expect(b.text).toBe("Biceps look tired from Monday: Lat Pulldown is down 2 reps at 60 kg. Stop 1–2 reps short on Seated Cable Row.");
   });
 
-  it("never goes below one set, never names a logged set, and skips exercises already done", () => {
-    const oneLeft = rest.filter((s) => s.exercise_slug !== "machine-chest-press").concat(open("t", "machine-chest-press", 1));
-    expect(run([[70, 8], [70, 8]], 2.5, oneLeft)).toBeNull();
+  it("skips exercises already done, and a 3-set accessory never goes below one set", () => {
     const mcpDone = rest.filter((s) => s.exercise_slug !== "machine-chest-press").concat(logged("t", TUE, "machine-chest-press", [[150, 12], [150, 12]], 2, 40));
-    expect(run([[70, 8], [70, 8]], 2.5, mcpDone)).toBeNull();
+    expect(run([[P, 8], [P, 8]], 2.5, mcpDone)).toBeNull();
+    // a 2-set accessory with one set left is still eased by effort
+    const oneLeft = rest.filter((s) => s.exercise_slug !== "machine-chest-press").concat(open("t", "machine-chest-press", 1));
+    expect(run([[P, 8], [P, 8]], 2.5, oneLeft)!.actions.at(-1)).toEqual({ kind: "rir", slug: "machine-chest-press", rir: "1–2" });
+    // with 3 sets it drops one, but not when only one set is planned
+    const three = rest.filter((s) => s.exercise_slug !== "machine-chest-press").concat(open("t", "machine-chest-press", 3));
+    expect(run([[P, 8], [P, 8]], 2.5, three, [], cb3)!.actions.at(-1)).toEqual({ kind: "drop", slug: "machine-chest-press", sets: 1 });
+    expect(run([[P, 8], [P, 8]], 2.5, oneLeft, [], cb3)).toBeNull();
   });
 
   it("turns the advice into this session's adjustments", () => {
-    const a = run([[70, 8], [70, 8]])!;
+    const a = run([[P, 8], [P, 8]])!;
     const adj = adjustFromAdvice(a, cbA.exercises)!;
-    expect(adj.dropSets).toEqual({ "machine-chest-press": 1 });
+    expect(adj.dropSets).toBeUndefined();
+    expect(adj.rir).toEqual({ "machine-chest-press": "1–2" });
     expect(adj.order!.indexOf("cable-chest-fly")).toBe(adj.order!.indexOf("machine-chest-press") - 1);
   });
 });
@@ -114,25 +136,21 @@ describe("overlapNextArmDay (prevention)", () => {
   const sessions: OverlapSession[] = [];
   const sets: OverlapSet[] = [];
   // a reference Tuesday before the first pair
-  sessions.push({ id: "ref", local_date: "2026-09-29", status: "done", template_key: "chest_back_a", mode: "standard" });
-  sets.push(...logged("ref", "2026-09-29", "incline-db-press", [[70, 10], [70, 10]]));
+  sessions.push({ id: "ref", local_date: "2026-09-29", status: "done", template_key: "chest_a", mode: "standard" });
+  sets.push(...logged("ref", "2026-09-29", "incline-db-press", [[P, 10], [P, 10]]));
   pairs.forEach((mon, i) => {
     const tue = `2026-10-${String(Number(mon.slice(8)) + 1).padStart(2, "0")}`;
-    sessions.push({ id: `m${i}`, local_date: mon, status: "done", template_key: "shoulders_arms_a" }, { id: `t${i}`, local_date: tue, status: "done", template_key: "chest_back_a", mode: "standard" });
+    sessions.push({ id: `m${i}`, local_date: mon, status: "done", template_key: "arms_a" }, { id: `t${i}`, local_date: tue, status: "done", template_key: "chest_a", mode: "standard" });
     const reps = i === 1 ? 10 : 8; // dips in weeks 0 and 2
-    sets.push(...logged(`t${i}`, tue, "incline-db-press", [[70, reps], [70, reps]]));
-    if (i === 1) sets.push(...logged(`t${i}x`, tue, "x", []));
+    sets.push(...logged(`t${i}`, tue, "incline-db-press", [[P, reps], [P, reps]]));
   });
 
-  it("trims Monday's shoulder press after pressing dropped 2 of the last 3 times", () => {
+  it("eases Monday's shoulder press (both sets kept, 2–3 reps left) after pressing dropped 2 of the last 3 times", () => {
     // week 2 (i=2) compares with week 1 (10 reps) → dip; week 1 vs week 0 (8) → no dip; week 0 vs ref (10) → dip
     const a = overlapNextArmDay({ sessions, sets, template: armA })!;
     expect(a.trigger).toBe("pattern");
-    expect(a.actions).toEqual([
-      { kind: "drop", slug: "seated-db-shoulder-press", sets: 1 },
-      { kind: "rir", slug: "seated-db-shoulder-press", rir: "2–3" },
-    ]);
-    expect(a.text).toBe("Your pressing dropped the day after arm day 2 of the last 3 times. Today: one set fewer on Seated Dumbbell Shoulder Press and stop with 2–3 reps left.");
+    expect(a.actions).toEqual([{ kind: "rir", slug: "seated-db-shoulder-press", rir: "2–3" }]);
+    expect(a.text).toBe("Your pressing dropped the day after arm day 2 of the last 3 times. Today: stop with 2–3 reps left on Seated Dumbbell Shoulder Press.");
   });
 
   it("needs 2 of 3, and only suggests on an arm day", () => {

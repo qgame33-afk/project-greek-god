@@ -81,7 +81,7 @@ export interface TemplateExercise {
   repLow: number;
   repHigh: number;
   unit: RepUnit;
-  /** Target reps in reserve, shown as text: "1–3", "0–2", "1–2", or "Fresh" (retired explosive work). */
+  /** Target reps in reserve, shown as text: "0" (to failure), "0–1", "1–2", or "Fresh" (retired explosive work). */
   rir: string;
   rest: number;
   optional?: boolean;
@@ -94,25 +94,27 @@ export interface WarmupStep {
   detail: string;
 }
 
-export type ProgramId = "arnold" | "ppl";
-export type ArnoldKey = "shoulders_arms_a" | "chest_back_a" | "legs_abs_a" | "shoulders_arms_b" | "chest_back_b" | "legs_abs_b";
+/** "twoset" = Quinton's two-set split (the default, docs/PROGRAM-V3.md); "ppl" = Push/Pull/Legs, kept as the alternative. */
+export type ProgramId = "twoset" | "ppl";
+export type TwoSetKey = "arms_a" | "chest_a" | "lower_a" | "arms_b" | "chest_b" | "lower_b";
 export type PplKey = "push_a" | "pull_a" | "legs_a" | "push_b" | "pull_b" | "legs_b";
-export type TemplateKey = ArnoldKey | PplKey;
-export type DayFamily = "shoulders_arms" | "chest_back" | "legs_abs" | "push" | "pull" | "legs";
+export type TemplateKey = TwoSetKey | PplKey;
+/** shoulders_arms = Arms & Shoulders, chest_back = Chest & Back, legs = Legs (both programs), push/pull = PPL. */
+export type DayFamily = "shoulders_arms" | "chest_back" | "legs" | "push" | "pull";
 
 export interface DayTemplate {
   key: TemplateKey;
   program: ProgramId;
   name: string;
-  /** For tight places (top bar, cards): "Shoulders & Arms A". */
+  /** For tight places (top bar, cards): "Arms & Shoulders". */
   short: string;
   /** Under-date label in week strips, ≤ 5 characters: "Arms". */
   abbr: string;
   family: DayFamily;
-  /** e.g. "Side-delt width and arms" */
+  /** e.g. "Monday" (which rotation) */
   subtitle: string;
   focus: string;
-  /** Quinton's training notes for the day (built-in guidance; not stored per user). */
+  /** Built-in guidance for the day (not stored per user). */
   notes: string[];
   /** JS weekday the template defaults to: 1 = Monday … 6 = Saturday. */
   weekday: number;

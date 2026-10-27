@@ -35,7 +35,7 @@ describe("sealedDays", () => {
 
 describe("labels", () => {
   it("names the program with the one spelling every screen shows (CR-2)", () => {
-    expect(programLabel("arnold")).toBe("Arnold split");
+    expect(programLabel("twoset")).toBe("Two-set split");
     expect(programLabel("ppl")).toBe("Push/Pull/Legs");
   });
 

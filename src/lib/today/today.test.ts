@@ -323,8 +323,8 @@ describe("restDayRecommendations", () => {
 describe("plan helpers", () => {
   it("describes templates and finds the next session", () => {
     expect(planFacts(PROGRAM_BY_KEY.legs_a)).toEqual({ kind: "train", name: "Legs A", legs: true });
-    expect(planFacts(PROGRAM_BY_KEY.legs_abs_a)).toEqual({ kind: "train", name: "Legs & Abs A", legs: true });
-    expect(planFacts(PROGRAM_BY_KEY.shoulders_arms_a)).toMatchObject({ legs: false });
+    expect(planFacts(PROGRAM_BY_KEY.lower_a)).toEqual({ kind: "train", name: "Legs", legs: true });
+    expect(planFacts(PROGRAM_BY_KEY.arms_a)).toMatchObject({ name: "Arms & Shoulders", legs: false });
     expect(planFacts(PROGRAM_BY_KEY.push_a)).toMatchObject({ legs: false });
     expect(planFacts(null)).toEqual({ kind: "rest" });
     expect(prescription({ sets: 3, repLow: 5, repHigh: 8, unit: "reps" })).toBe("3 × 5–8");

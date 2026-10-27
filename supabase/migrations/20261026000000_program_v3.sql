@@ -1,31 +1,35 @@
 -- migrate:idempotent
--- Arnold Split 2.0 (docs/PROGRAM-ARNOLD.md §3). Additive and idempotent; safe to run again.
---   1. New accounts default to the Arnold weekly schedule.
+-- The two-set split and metric units (docs/PROGRAM-V3.md §3). Additive and idempotent; safe to
+-- run again. Replaces the two unpublished 2026-10-21 program migrations, which never shipped.
+--   1. New accounts default to the two-set weekly schedule, kilograms and centimetres
+--      (the database keeps storing pounds and inches; the units only change what is shown).
 --   2. public.program_of(): which program a profile follows (prefs.program, else inferred
---      from the weekly schedule, else Arnold). Mirrors activeProgram() in
+--      from the weekly schedule, else the two-set split). Mirrors activeProgram() in
 --      src/lib/training/programs.ts.
 --   3. public.set_training_program(): switches one account's active program in one
 --      transaction. It locks the profile row, so two devices switching at once serialise and
 --      the second call is a no-op. It writes only profiles.weekly_schedule, profiles.prefs
 --      and day_plans; it never touches workout_sessions, exercise_sets, program_templates,
 --      volleyball_sessions, athletic_tests or recovery_logs.
---   Step 4, the one-time switch of existing accounts, is its own file
---   (20261021000100_arnold_switch.sql) and ships one deploy later (§3.1a).
+--   Step 4, the one-time switch of existing accounts (program and units), is its own file
+--   (20261026000100_program_v3_switch.sql) and ships one deploy later.
 
 alter table public.profiles alter column weekly_schedule
-  set default '{"1":"shoulders_arms_a","2":"chest_back_a","3":"legs_abs_a","4":"shoulders_arms_b","5":"chest_back_b","6":"legs_abs_b","0":"rest"}'::jsonb;
+  set default '{"1":"arms_a","2":"chest_a","3":"lower_a","4":"arms_b","5":"chest_b","6":"lower_b","0":"rest"}'::jsonb;
+alter table public.profiles alter column weight_unit set default 'kg';
+alter table public.profiles alter column length_unit set default 'cm';
 
 create or replace function public.program_of(p_prefs jsonb, p_schedule jsonb) returns text
 language sql immutable set search_path = '' as $$
   select case
-    when p_prefs->>'program' in ('arnold', 'ppl') then p_prefs->>'program'
+    when p_prefs->>'program' in ('twoset', 'ppl') then p_prefs->>'program'
     when jsonb_typeof(p_schedule) = 'object' and exists (
       select 1 from jsonb_each_text(p_schedule) e
-      where e.value in ('shoulders_arms_a','chest_back_a','legs_abs_a','shoulders_arms_b','chest_back_b','legs_abs_b')) then 'arnold'
+      where e.value in ('arms_a','chest_a','lower_a','arms_b','chest_b','lower_b')) then 'twoset'
     when jsonb_typeof(p_schedule) = 'object' and exists (
       select 1 from jsonb_each_text(p_schedule) e
       where e.value in ('push_a','pull_a','legs_a','push_b','pull_b','legs_b')) then 'ppl'
-    else 'arnold'
+    else 'twoset'
   end
 $$;
 
@@ -35,9 +39,9 @@ language plpgsql security definer set search_path = '' as $$
 declare
   uid uuid := coalesce(p_user, auth.uid());
   ppl_keys text[] := array['push_a','pull_a','legs_a','push_b','pull_b','legs_b'];
-  arn_keys text[] := array['shoulders_arms_a','chest_back_a','legs_abs_a','shoulders_arms_b','chest_back_b','legs_abs_b'];
+  two_keys text[] := array['arms_a','chest_a','lower_a','arms_b','chest_b','lower_b'];
   ppl_week jsonb := '{"1":"push_a","2":"pull_a","3":"legs_a","4":"push_b","5":"pull_b","6":"legs_b","0":"rest"}';
-  arn_week jsonb := '{"1":"shoulders_arms_a","2":"chest_back_a","3":"legs_abs_a","4":"shoulders_arms_b","5":"chest_back_b","6":"legs_abs_b","0":"rest"}';
+  two_week jsonb := '{"1":"arms_a","2":"chest_a","3":"lower_a","4":"arms_b","5":"chest_b","6":"lower_b","0":"rest"}';
   prof record;
   cur text;
   tz text;
@@ -63,7 +67,7 @@ declare
 begin
   if uid is null then raise exception 'not signed in'; end if;
   if auth.uid() is not null and uid <> auth.uid() then raise exception 'not allowed'; end if;
-  if p_program is null or p_program not in ('arnold', 'ppl') then raise exception 'unknown program %', p_program; end if;
+  if p_program is null or p_program not in ('twoset', 'ppl') then raise exception 'unknown program %', p_program; end if;
 
   -- one switch at a time per account: a second device waits here, then sees the new program
   select p.id, p.prefs, p.weekly_schedule, p.timezone into prof from public.profiles p where p.id = uid for update;
@@ -81,10 +85,10 @@ begin
   today := coalesce(p_today, (now() at time zone tz)::date);
   if today < utc_today - 1 or today > utc_today + 1 then raise exception 'date out of range'; end if;
 
-  if p_program = 'arnold' then
-    from_keys := ppl_keys; to_keys := arn_keys; old_default := ppl_week; new_default := arn_week;
+  if p_program = 'twoset' then
+    from_keys := ppl_keys; to_keys := two_keys; old_default := ppl_week; new_default := two_week;
   else
-    from_keys := arn_keys; to_keys := ppl_keys; old_default := arn_week; new_default := ppl_week;
+    from_keys := two_keys; to_keys := ppl_keys; old_default := two_week; new_default := ppl_week;
   end if;
   old_week := old_default || case when jsonb_typeof(prof.weekly_schedule) = 'object' then prof.weekly_schedule else '{}'::jsonb end;
 
@@ -124,7 +128,7 @@ begin
   end loop;
 
   -- 2. upcoming moves, swaps and replacements keep their days, re-pointed to the same slot of
-  --    the new program (Push A <-> Shoulders, Biceps & Triceps A ...); rest days stay rest
+  --    the new program (Push A <-> Arms & Shoulders A, Pull <-> Chest & Back, Legs <-> Legs); rest days stay rest
   update public.day_plans p
      set template_key = to_keys[array_position(from_keys, p.template_key)]
    where p.user_id = uid

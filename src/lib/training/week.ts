@@ -34,7 +34,7 @@ export function sealedDays({
   });
 }
 
-/** The program's name, the one spelling every screen shows ("Arnold split" / "Push/Pull/Legs"; DESIGN-V3 CR-2). */
+/** The program's name, the one spelling every screen shows ("Two-set split" / "Push/Pull/Legs"; DESIGN-V3 CR-2). */
 export function programLabel(program: ProgramId): string {
   return PROGRAMS[program].name;
 }

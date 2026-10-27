@@ -223,8 +223,9 @@ export const RIR_OPTIONS = ["0–1", "0–2", "1–2", "1–3", "2–3", "3–4"
 /** A sensible starting prescription when an exercise is added to a template (effort per Q§10: effortDefaults). */
 export function newTemplateExercise(lib: LibraryExercise): TemplateExercise {
   const { rir, rest } = effortDefaults(lib);
-  const base = { slug: lib.slug, name: lib.name, sets: 3, rest, rir } as const;
-  if (lib.category === "explosive" || lib.tracking === "reps") return { ...base, repLow: 3, repHigh: 3, unit: lib.perSide ? "each" : "reps", rir: "Fresh" };
+  // two working sets (PROGRAM-V3 §1); explosive work keeps three
+  const base = { slug: lib.slug, name: lib.name, sets: 2, rest, rir } as const;
+  if (lib.category === "explosive" || lib.tracking === "reps") return { ...base, sets: 3, repLow: 3, repHigh: 3, unit: lib.perSide ? "each" : "reps", rir: "Fresh" };
   if (lib.category === "carry" || lib.tracking === "weight_time") return { ...base, sets: 2, repLow: 30, repHigh: 45, unit: "sec" };
   if (lib.category === "compound") return { ...base, repLow: 6, repHigh: 10, unit: lib.perSide ? "each" : "reps" };
   return { ...base, repLow: 10, repHigh: 15, unit: lib.perSide ? "each" : "reps" };

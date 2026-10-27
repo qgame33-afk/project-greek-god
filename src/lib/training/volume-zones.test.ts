@@ -1,5 +1,5 @@
 import { PROGRAMS } from "./programs";
-import { GROUP_LABEL, GROUP_ZONES, GROUPS, groupCredit, groupRows, groupSets, groupTrends, plannedGroupSets, volumeSuggestions } from "./volume-zones";
+import { GROUP_LABEL, GROUPS, groupCredit, groupRows, groupSets, groupTrends, isFixedTwoSet, plannedGroupSets, volumeSuggestions } from "./volume-zones";
 import { describe, expect, it } from "vitest";
 import { TEMPLATE_DEFS as PROGRAM_BY_KEY } from "./programs";
 import { LIBRARY } from "./library";
@@ -147,26 +147,17 @@ describe("muscle groups with fractional credit (§5)", () => {
     expect(GROUP_LABEL.chest).toBe("Upper chest and chest");
   });
 
-  it("puts every group of the standard and intro Arnold weeks inside its zone (§5.3)", () => {
-    const arnold = PROGRAMS.arnold.templates;
-    const std = plannedGroupSets(arnold, "standard");
-    const intro = plannedGroupSets(arnold, "intro");
-    expect(std).toEqual({ chest: 14, side_delts: 10, rear_delts: 11.5, front_delts: 11, back: 19, biceps: 18, triceps: 17, forearms: 6.5, quads: 13, hamstrings: 13.5, glutes: 13.5, calves: 11, abs: 6 });
-    expect(intro).toEqual({ chest: 12, side_delts: 8, rear_delts: 8, front_delts: 10, back: 14, biceps: 14, triceps: 14, forearms: 5, quads: 11, hamstrings: 10, glutes: 11, calves: 8, abs: 4 });
-    for (const g of GROUPS) {
-      expect(std[g] >= GROUP_ZONES[g][0] && std[g] <= GROUP_ZONES[g][1], `${g} standard`).toBe(true);
-      expect(intro[g] >= GROUP_ZONES[g][0] && intro[g] <= GROUP_ZONES[g][1], `${g} intro`).toBe(true);
-    }
-    // with the optional reverse curls, forearms reach 8.5
-    const withOpt = arnold.map((t) => ({ exercises: t.exercises.map((e) => ({ ...e, optional: false })) }));
-    expect(plannedGroupSets(withOpt, "standard").forearms).toBe(8.5);
-  });
-
-  it("builds rows in Quinton's order with status and a spoken sentence", () => {
-    const rows = groupRows(plannedGroupSets(PROGRAMS.arnold.templates, "standard"));
+  it("counts the two-set week honestly (PROGRAM-V3 §4.5): same in normal and easier weeks", () => {
+    const tw = PROGRAMS.twoset.templates;
+    const std = plannedGroupSets(tw, "standard");
+    expect(std).toEqual({ chest: 12, side_delts: 6, rear_delts: 2, front_delts: 10, back: 12, biceps: 12, triceps: 14, forearms: 4, quads: 8, hamstrings: 8, glutes: 12, calves: 4, abs: 0 });
+    expect(plannedGroupSets(tw, "intro")).toEqual(std);
+    // the zones stay as they are: five groups read "under", and no add is ever suggested for them (below)
+    const rows = groupRows(std);
     expect(rows.map((r) => r.group)).toEqual(GROUPS);
-    expect(rows.every((r) => r.status === "in")).toBe(true);
-    expect(rows[1].aria).toBe("Side delts, 10 sets, range 8 to 20, in range");
+    expect(rows.filter((r) => r.status === "under").map((r) => r.group)).toEqual(["side_delts", "rear_delts", "quads", "calves", "abs"]);
+    expect(rows.filter((r) => r.status === "above")).toEqual([]);
+    expect(rows[0].aria).toBe("Upper chest and chest, 12 sets, range 10 to 20, in range");
   });
 
   /* history: per slug, newest first */
@@ -195,7 +186,8 @@ describe("muscle groups with fractional credit (§5)", () => {
     today,
     sessions: weeks.map((w) => ({ local_date: w, status: "done", mode: "standard" })),
     checkins: [] as { local_date: string; soreness: number | null; fatigue: number | null }[],
-    templates: PROGRAMS.arnold.templates,
+    // Push/Pull/Legs: set counts he can tune (the two-set split holds only, see the last case)
+    templates: PROGRAMS.ppl.templates,
     mode: "standard" as const,
     programSince: null,
     startDate: "2026-09-01",
@@ -207,7 +199,7 @@ describe("muscle groups with fractional credit (§5)", () => {
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ group: "back", kind: "trim", sets: 2 });
     expect(out[0].reason).toMatch(/^Lats and upper back: about 2 fewer sets a week\. It hasn't progressed at 24 sets\./);
-    expect(out[0].exercise?.templateKey).toBe("chest_back_b");
+    expect(out[0].exercise?.templateKey).toBe(PROGRAMS.ppl.templates.filter((t) => t.exercises.some((e) => !e.optional && groupCredit(e.slug).back === 1)).at(-1)!.key);
   });
 
   it("never suggests anything for a group that is progressing, under or over its zone", () => {
@@ -218,7 +210,7 @@ describe("muscle groups with fractional credit (§5)", () => {
   it("adds to a group under its zone only when it isn't progressing and recovery is fine", () => {
     const out = volumeSuggestions({ ...base, sets: repeat("cable-lateral-raise", 6), trends: { side_delts: trend("flat") } });
     expect(out[0]).toMatchObject({ group: "side_delts", kind: "add", sets: 2 });
-    expect(out[0].reason).toBe("Side delts: add 2 sets a week, for example one more set of Dumbbell Lateral Raises.");
+    expect(out[0].reason).toMatch(/^Side delts: add 2 sets a week, for example one more set of /);
     const sore = Array.from({ length: 7 }, (_, i) => ({ local_date: `2026-11-1${i}`, soreness: 4, fatigue: 3 }));
     expect(volumeSuggestions({ ...base, checkins: sore, sets: repeat("cable-lateral-raise", 6), trends: { side_delts: trend("flat") } })).toEqual([]);
   });
@@ -239,5 +231,16 @@ describe("muscle groups with fractional credit (§5)", () => {
     expect(volumeSuggestions({ ...base, programSince: "2026-11-05", sets, trends })).toEqual([]);
     const deloadWeeks = { ...base, sessions: weeks.map((w) => ({ local_date: w, status: "done", mode: "deload" })) };
     expect(volumeSuggestions({ ...deloadWeeks, sets, trends })).toEqual([]);
+  });
+
+  it("the two-set split never suggests adding or trimming sets: holds only (PROGRAM-V3 §4.5)", () => {
+    const two = { ...base, templates: PROGRAMS.twoset.templates };
+    expect(isFixedTwoSet(PROGRAMS.twoset.templates)).toBe(true);
+    expect(isFixedTwoSet(PROGRAMS.ppl.templates)).toBe(false);
+    expect(volumeSuggestions({ ...two, sets: repeat("lat-pulldown", 24), trends: { back: trend("flat") } })).toEqual([]);
+    expect(volumeSuggestions({ ...two, sets: repeat("db-lateral-raise", 4), trends: { side_delts: trend("flat") } })).toEqual([]);
+    const sore = Array.from({ length: 7 }, (_, i) => ({ local_date: `2026-11-1${i}`, soreness: 4, fatigue: 2 }));
+    const out = volumeSuggestions({ ...two, checkins: sore, sets: repeat("cable-curl", 8), trends: { biceps: trend("down") } });
+    expect(out.map((x) => [x.group, x.kind])).toEqual([["biceps", "hold"]]);
   });
 });

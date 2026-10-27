@@ -26,8 +26,8 @@ export type StoredWeek = Record<string, string>;
 
 /** The last program switch, written by set_training_program() (docs/PROGRAM-ARNOLD.md §2.3). */
 export interface ProgramSwitch {
-  from: "arnold" | "ppl";
-  to: "arnold" | "ppl";
+  from: "twoset" | "ppl";
+  to: "twoset" | "ppl";
   /** ISO timestamp of the switch. */
   at: string;
   /** The local date the new program applies from. */
@@ -42,9 +42,9 @@ export interface AppPrefs extends WorkoutPrefs {
   gymAuto: boolean;
   coachNoteSeen?: boolean;
   /** Read-only here: written only by the database function set_training_program(). */
-  readonly program?: "arnold" | "ppl";
+  readonly program?: "twoset" | "ppl";
   /** Read-only: each program's last weekly order, restored when switching back. */
-  readonly schedules?: { ppl?: StoredWeek; arnold?: StoredWeek };
+  readonly schedules?: { ppl?: StoredWeek; twoset?: StoredWeek };
   /** Read-only: the last switch. */
   readonly programSwitch?: ProgramSwitch;
   /** The date the training mode was last set (lighter-week advice, §4.3). */
@@ -53,13 +53,15 @@ export interface AppPrefs extends WorkoutPrefs {
   lighterSnoozedUntil?: string;
   /** The carried-swap question (§3.7) was answered. */
   swapsOffered?: boolean;
-  /** ISO timestamp: the one-time "Your plan is now the Arnold split" notice was seen (DESIGN-V3 CR-1). */
+  /** ISO timestamp: the one-time "Your plan changed" notice was seen (DESIGN-V3 CR-1). */
+  /** The one-time switch to kg/cm (written by the publication's migration): the units before it. */
+  readonly unitsSwitch?: { at: string; from: { weight: string; length: string } };
   switchNoticeSeenAt?: string;
   [k: string]: unknown;
 }
 
 /** Keys only set_training_program() writes; a client prefs patch can never carry them. */
-type ServerOnlyKeys = "program" | "schedules" | "programSwitch";
+type ServerOnlyKeys = "program" | "schedules" | "programSwitch" | "unitsSwitch";
 
 /** A patch for mergePrefs(): any top-level key except the program's, and any part of `day`. */
 export type PrefsPatch = Partial<Omit<AppPrefs, "day" | ServerOnlyKeys>> & { [K in ServerOnlyKeys]?: never } & {
@@ -136,7 +138,7 @@ export function parseAppPrefs(json: unknown): AppPrefs {
   if (typeof o.coachNoteSeen === "boolean") out.coachNoteSeen = o.coachNoteSeen;
   else delete out.coachNoteSeen;
   const w = out as Record<string, unknown>;
-  if (o.program !== "arnold" && o.program !== "ppl") delete w.program;
+  if (o.program !== "twoset" && o.program !== "ppl") delete w.program;
   if (!isObj(o.schedules)) delete w.schedules;
   if (!isProgramSwitch(o.programSwitch)) delete w.programSwitch;
   for (const k of ["modeSetAt", "lighterSnoozedUntil"] as const) if (!isDate(o[k])) delete w[k];
@@ -147,7 +149,7 @@ export function parseAppPrefs(json: unknown): AppPrefs {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const isDate = (v: unknown): v is string => typeof v === "string" && DATE_RE.test(v);
-const isProgram = (v: unknown) => v === "arnold" || v === "ppl";
+const isProgram = (v: unknown) => v === "twoset" || v === "ppl";
 
 function isProgramSwitch(v: unknown): v is ProgramSwitch {
   return isObj(v) && isProgram(v.from) && isProgram(v.to) && typeof v.at === "string" && isDate(v.date);
@@ -180,7 +182,7 @@ function mergeDay(current: unknown, p: NonNullable<PrefsPatch["day"]>): Record<s
   return c;
 }
 
-const SERVER_ONLY = new Set<string>(["program", "schedules", "programSwitch"]);
+const SERVER_ONLY = new Set<string>(["program", "schedules", "programSwitch", "unitsSwitch"]);
 
 /**
  * The JSON to store: `current` (the stored prefs, read fresh) with `patch` applied.

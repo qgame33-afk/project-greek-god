@@ -166,7 +166,7 @@ export function resolvePlan(
   date: ISODate,
   schedule: Record<string, string>,
   overrides: PlanOverride[],
-  ctx: { program: ProgramId; since: ISODate | null } = { program: "arnold", since: null },
+  ctx: { program: ProgramId; since: ISODate | null } = { program: "twoset", since: null },
 ): ResolvedPlan {
   const o = overrides.find((p) => p.plan_date === date);
   return {

@@ -1,21 +1,23 @@
-// The active program and the one plan resolver every reader uses (docs/PROGRAM-ARNOLD.md §2).
+// The active program and the one plan resolver every reader uses (docs/PROGRAM-V3.md; mechanics
+// from docs/PROGRAM-ARNOLD.md §2).
 // Pure: no React, no Supabase. Screens import program data from here only.
 
 import { weekday, type ISODate } from "@/lib/dates";
 import type { ReadinessLevel } from "@/lib/recovery/guidance";
 import { getExercise, LIBRARY } from "./library";
-import { ARNOLD_RULES, ARNOLD_SCHEDULE, ARNOLD_TEMPLATES } from "./program-arnold";
 import { PPL_RULES, PPL_SCHEDULE, PPL_TEMPLATES } from "./program-ppl";
+import { TWOSET_RULES, TWOSET_SCHEDULE, TWOSET_TEMPLATES } from "./program-twoset";
 import type { Mode } from "./progression";
-import type { ArnoldKey, DayFamily, DayTemplate, LibraryExercise, PplKey, ProgramId, TemplateExercise, TemplateKey, WarmupStep } from "./types";
+import type { DayFamily, DayTemplate, LibraryExercise, PplKey, ProgramId, TemplateExercise, TemplateKey, TwoSetKey, WarmupStep } from "./types";
 
-export { ARNOLD_RULES, ARNOLD_SCHEDULE, ARNOLD_TEMPLATES, PPL_RULES, PPL_SCHEDULE, PPL_TEMPLATES };
+export { PPL_RULES, PPL_SCHEDULE, PPL_TEMPLATES, TWOSET_RULES, TWOSET_SCHEDULE, TWOSET_TEMPLATES };
 
-export const DEFAULT_PROGRAM: ProgramId = "arnold";
+/** Quinton's two-set split (docs/PROGRAM-V3.md). */
+export const DEFAULT_PROGRAM: ProgramId = "twoset";
 
 export interface ProgramDef {
   id: ProgramId;
-  /** "Arnold split" | "Push/Pull/Legs" — the one spelling every screen shows. */
+  /** "Two-set split" | "Push/Pull/Legs" — the one spelling every screen shows. */
   name: string;
   /** In weekday order; slot i of one program ↔ slot i of the other. */
   keys: TemplateKey[];
@@ -24,18 +26,18 @@ export interface ProgramDef {
   rules: string[];
 }
 
-export const ARNOLD_KEYS = ARNOLD_TEMPLATES.map((t) => t.key) as ArnoldKey[];
+export const TWOSET_KEYS = TWOSET_TEMPLATES.map((t) => t.key) as TwoSetKey[];
 export const PPL_KEYS = PPL_TEMPLATES.map((t) => t.key) as PplKey[];
 
 export const PROGRAMS: Record<ProgramId, ProgramDef> = {
-  arnold: { id: "arnold", name: "Arnold split", keys: ARNOLD_KEYS, templates: ARNOLD_TEMPLATES, schedule: ARNOLD_SCHEDULE, rules: ARNOLD_RULES },
+  twoset: { id: "twoset", name: "Two-set split", keys: TWOSET_KEYS, templates: TWOSET_TEMPLATES, schedule: TWOSET_SCHEDULE, rules: TWOSET_RULES },
   ppl: { id: "ppl", name: "Push/Pull/Legs", keys: PPL_KEYS, templates: PPL_TEMPLATES, schedule: PPL_SCHEDULE, rules: PPL_RULES },
 };
 
-export const PROGRAM_IDS: ProgramId[] = ["arnold", "ppl"];
+export const PROGRAM_IDS: ProgramId[] = ["twoset", "ppl"];
 
 /** Both programs' built-in templates by key. */
-export const TEMPLATE_DEFS = Object.fromEntries([...ARNOLD_TEMPLATES, ...PPL_TEMPLATES].map((t) => [t.key, t])) as Record<TemplateKey, DayTemplate>;
+export const TEMPLATE_DEFS = Object.fromEntries([...TWOSET_TEMPLATES, ...PPL_TEMPLATES].map((t) => [t.key, t])) as Record<TemplateKey, DayTemplate>;
 
 const has = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
 
@@ -51,7 +53,7 @@ export function programOfKey(key: string | null | undefined): ProgramId | null {
   return templateDef(key)?.program ?? null;
 }
 
-/** The same slot of the other program (Push A ↔ Shoulders, Biceps & Triceps A …). A bijection. */
+/** The same slot of the other program (Push A ↔ Arms & Shoulders A, Pull A ↔ Chest & Back A …). A bijection. */
 export function counterpartKey(key: TemplateKey, to: ProgramId): TemplateKey {
   const from = programOfKey(key);
   if (!from || from === to) return key;
@@ -65,14 +67,14 @@ type ProfileLike = { prefs?: unknown; weekly_schedule?: unknown } | null | undef
 
 /**
  * Which program a profile follows. Mirrors SQL public.program_of() exactly:
- * prefs.program when valid, else Arnold when the week holds an Arnold key, else PPL when it
- * holds a PPL key, else DEFAULT_PROGRAM.
+ * prefs.program when valid, else the two-set split when the week holds one of its keys, else PPL
+ * when it holds a PPL key, else DEFAULT_PROGRAM.
  */
 export function activeProgram(p: ProfileLike): ProgramId {
   const prefs = isObj(p?.prefs) ? p!.prefs : {};
-  if (prefs.program === "arnold" || prefs.program === "ppl") return prefs.program;
+  if (prefs.program === "twoset" || prefs.program === "ppl") return prefs.program;
   const week = isObj(p?.weekly_schedule) ? Object.values(p!.weekly_schedule) : [];
-  if (week.some((v) => typeof v === "string" && (ARNOLD_KEYS as string[]).includes(v))) return "arnold";
+  if (week.some((v) => typeof v === "string" && (TWOSET_KEYS as string[]).includes(v))) return "twoset";
   if (week.some((v) => typeof v === "string" && (PPL_KEYS as string[]).includes(v))) return "ppl";
   return DEFAULT_PROGRAM;
 }
@@ -149,25 +151,37 @@ export function templateLabels(t: { key: string; name: string }): { name: string
   return { name: t.name, short: t.name, abbr: first.slice(0, 5) || (def?.abbr ?? ""), family };
 }
 
-/* ---------------------------------------------------------- effort (Q§10) */
+/* ------------------------------------------------- effort (docs/PROGRAM-V3.md §1.2) */
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-/** RIR and rest for an exercise added or swapped in, by effort class (§1.2). */
+const STABLE: LibraryExercise["equipment"][] = ["machine", "cable", "smith", "plate_loaded"];
+const LOWER: string[] = ["quads", "hamstrings", "glutes"];
+
+/**
+ * RIR and rest for an exercise added or swapped in (Quinton's rules): isolation and stable
+ * machine/cable lifts go to failure ("0", 90–120 s); barbell lifts and free-weight lower-body
+ * lifts keep 1–2 in reserve; dumbbell and bodyweight upper-body presses and pulls 0–1. Heavy
+ * compounds rest 150–180 s.
+ */
 export function effortDefaults(lib: LibraryExercise): { rir: string; rest: number } {
   switch (lib.category) {
-    case "compound":
-      return { rir: "1–3", rest: clamp(lib.rest, 120, 180) };
+    case "compound": {
+      const rest = clamp(lib.rest, 150, 180);
+      if (STABLE.includes(lib.equipment)) return { rir: "0", rest };
+      if (lib.equipment === "barbell" || lib.primary.some((m) => LOWER.includes(m))) return { rir: "1–2", rest };
+      return { rir: "0–1", rest };
+    }
     case "carry":
       return { rir: "1–2", rest: 90 };
     case "explosive":
       return { rir: "Fresh", rest: lib.rest };
     default:
-      return { rir: "0–2", rest: clamp(lib.rest, 60, 120) };
+      return { rir: "0", rest: clamp(lib.rest, 90, 120) };
   }
 }
 
-/** "1–3" → [1, 3], "0–2" → [0, 2], "3" → [3, 3], "Fresh" / junk → null. */
+/** "1–2" → [1, 2], "0–1" → [0, 1], "0" → [0, 0], "Fresh" / junk → null. */
 export function rirRange(text: string | null | undefined): [number, number] | null {
   if (!text) return null;
   const m = /^\s*(\d+(?:\.\d+)?)\s*(?:[–—-]\s*(\d+(?:\.\d+)?))?\s*$/.exec(text);
@@ -201,7 +215,7 @@ export function estimateDurationMin(t: Pick<DayTemplate, "exercises">): number {
   return Math.round(minutes / 5) * 5;
 }
 
-/** Offer the optional lift (Thursday's reverse curls) after the last planned set (§1.4). */
+/** Offer an optional lift after the last planned set (the two-set split has none; a PPL day or his own template may). */
 export function suggestOptional(mode: Mode, level: ReadinessLevel | null | undefined): boolean {
   return mode === "standard" && (level == null || level === "go" || level === "unknown");
 }
@@ -211,12 +225,12 @@ export function suggestOptional(mode: Mode, level: ReadinessLevel | null | undef
 type TemplateLike = { key: string; exercises: TemplateExercise[] };
 
 /**
- * Exercise swaps he made in Push/Pull/Legs that Arnold could reuse: a built-in slug S missing
- * from his stored PPL row and a stored slug T not in the built-in, related through the
- * library's substitutes, kept when S is still in one of his Arnold templates.
+ * Exercise swaps he made in Push/Pull/Legs that the two-set split could reuse: a built-in slug S
+ * missing from his stored PPL row and a stored slug T not in the built-in, related through the
+ * library's substitutes, kept when S is still in one of his two-set templates. Asked, never applied.
  */
-export function carriedSwaps(storedPpl: TemplateLike[], arnold: TemplateLike[]): { from: string; to: string; keys: ArnoldKey[] }[] {
-  const out = new Map<string, { from: string; to: string; keys: ArnoldKey[] }>();
+export function carriedSwaps(storedPpl: TemplateLike[], twoset: TemplateLike[]): { from: string; to: string; keys: TwoSetKey[] }[] {
+  const out = new Map<string, { from: string; to: string; keys: TwoSetKey[] }>();
   for (const row of storedPpl) {
     const def = templateDef(row.key);
     if (!def || def.program !== "ppl") continue;
@@ -231,7 +245,7 @@ export function carriedSwaps(storedPpl: TemplateLike[], arnold: TemplateLike[]):
       const t = added.find((x) => !used.has(x) && (ls?.substitutes.includes(x) || getExercise(x)?.substitutes.includes(s)));
       if (!t) continue;
       used.add(t);
-      const keys = arnold.filter((a) => programOfKey(a.key) === "arnold" && a.exercises.some((e) => e.slug === s)).map((a) => a.key as ArnoldKey);
+      const keys = twoset.filter((a) => programOfKey(a.key) === "twoset" && a.exercises.some((e) => e.slug === s)).map((a) => a.key as TwoSetKey);
       if (!keys.length) continue;
       const id = `${s}>${t}`;
       const prev = out.get(id);

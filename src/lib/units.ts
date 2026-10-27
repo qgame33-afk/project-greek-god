@@ -35,10 +35,10 @@ export function formatBodyweight(lb: number | null | undefined, unit: WeightUnit
   return withUnit ? `${v} ${unit}` : v;
 }
 
-/** Load on the bar: whole numbers when they are whole, else one decimal. */
+/** Load on the bar: whole numbers when they are whole, else one decimal. kg snaps to the 0.5 kg grid (training/loads.ts displayLoad). */
 export function formatLoad(lb: number | null | undefined, unit: WeightUnit, withUnit = true) {
   if (lb == null || !Number.isFinite(lb)) return "—";
-  const v = round(toDisplayWeight(lb, unit), unit === "kg" ? 1 : 1);
+  const v = unit === "kg" ? round(Math.round(toDisplayWeight(lb, unit) * 2) / 2, 1) : round(toDisplayWeight(lb, unit), 1);
   const s = Number.isInteger(v) ? String(v) : v.toFixed(1);
   return withUnit ? `${s} ${unit}` : s;
 }

@@ -101,24 +101,25 @@ describe("answersFromProfile", () => {
 });
 
 describe("normalizeSchedule / restoreDraft", () => {
-  it("fills missing or bad days from the Arnold week (a Push/Pull/Legs day is not an option)", () => {
-    const s = normalizeSchedule({ "1": "legs_abs_b", "2": "nonsense", "3": "legs_a" });
-    expect(s["1"]).toBe("legs_abs_b");
-    expect(s["2"]).toBe("chest_back_a");
-    expect(s["3"]).toBe("legs_abs_a");
+  it("fills missing or bad days from the two-set week (Push/Pull/Legs and old Arnold days are not options)", () => {
+    const s = normalizeSchedule({ "1": "lower_b", "2": "nonsense", "3": "legs_a", "4": "shoulders_arms_b" });
+    expect(s["1"]).toBe("lower_b");
+    expect(s["2"]).toBe("chest_a");
+    expect(s["3"]).toBe("lower_a");
+    expect(s["4"]).toBe("arms_b");
     expect(s["0"]).toBe("rest");
-    expect(normalizeSchedule(undefined)).toEqual({ "1": "shoulders_arms_a", "2": "chest_back_a", "3": "legs_abs_a", "4": "shoulders_arms_b", "5": "chest_back_b", "6": "legs_abs_b", "0": "rest" });
+    expect(normalizeSchedule(undefined)).toEqual({ "1": "arms_a", "2": "chest_a", "3": "lower_a", "4": "arms_b", "5": "chest_b", "6": "lower_b", "0": "rest" });
   });
-  it("offers the Arnold days by their short names, then Rest", () => {
-    expect(SCHEDULE_OPTIONS.map((o) => o.label)).toEqual(["Shoulders & Arms A", "Chest & Back A", "Legs & Abs A", "Shoulders & Arms B", "Chest & Back B", "Legs & Abs B", "Rest"]);
+  it("offers the days by name and weekday, then Rest", () => {
+    expect(SCHEDULE_OPTIONS.map((o) => o.label)).toEqual(["Arms & Shoulders (Monday)", "Chest & Back (Tuesday)", "Legs (Wednesday)", "Arms & Shoulders (Thursday)", "Chest & Back (Friday)", "Legs (Saturday)", "Rest"]);
   });
   it("restores a stored draft but drops malformed fields", () => {
-    const d = restoreDraft(owner(), { goalWeightLb: 185, weightUnit: "stone", calorieGoal: "lots", todayWeighInLb: 163.4, schedule: { "0": "chest_back_a" } });
+    const d = restoreDraft(owner(), { goalWeightLb: 185, weightUnit: "stone", calorieGoal: "lots", todayWeighInLb: 163.4, schedule: { "0": "chest_a" } });
     expect(d.goalWeightLb).toBe(185);
     expect(d.weightUnit).toBe("lb");
     expect(d.calorieGoal).toBe(3300);
     expect(d.todayWeighInLb).toBe(163.4);
-    expect(d.schedule["0"]).toBe("chest_back_a");
+    expect(d.schedule["0"]).toBe("chest_a");
     expect(restoreDraft(owner(), null)).toEqual(owner());
   });
 });
@@ -236,8 +237,8 @@ describe("profileUpdateFromAnswers", () => {
     expect(u.goal_range_max_lb).toBe(186);
     expect(u.start_date).toBe(TODAY);
     expect(u.weekly_schedule["0"]).toBe("rest");
-    // a Push/Pull/Legs week from an old profile starts on the Arnold split; volleyball is never written
-    expect(u.weekly_schedule["1"]).toBe("shoulders_arms_a");
+    // a Push/Pull/Legs week from an old profile starts on the two-set split; volleyball is never written
+    expect(u.weekly_schedule["1"]).toBe("arms_a");
     expect("volleyball_per_week" in u).toBe(false);
   });
   it("stores an empty name as null", () => {
@@ -251,8 +252,8 @@ describe("profileUpdateFromAnswers", () => {
 
 describe("scheduleSummary", () => {
   it("names the default split", () => {
-    expect(scheduleSummary(owner().schedule)).toBe("6 days · Arnold split");
-    expect(scheduleSummary({ ...owner().schedule, "6": "rest" })).toBe("5 days · Arnold split");
+    expect(scheduleSummary(owner().schedule)).toBe("6 days · Two-set split");
+    expect(scheduleSummary({ ...owner().schedule, "6": "rest" })).toBe("5 days · Two-set split");
   });
 });
 

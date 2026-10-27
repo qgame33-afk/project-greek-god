@@ -314,7 +314,7 @@ export function buildSnapshot(raw: RawCoachData): Snapshot {
     const t = raw.training;
     section("TRAINING (logged sessions and sets; program = plan)");
     const since = programSince(p.prefs, program);
-    const other = PROGRAMS[program === "arnold" ? "ppl" : "arnold"];
+    const other = PROGRAMS[program === "twoset" ? "ppl" : "twoset"];
     fact("training", "plan", "prog.active", "Program", `${def.name}${since ? ` since ${sd(since)}` : ""}`, "the active weekly plan; the user can move single days or switch programs");
     fact("training", "plan", "prog.saved", "Saved alternative", `${other.name} (saved, not active)`, "kept with the user's own edits; switching is the user's choice");
     fact("training", "plan", "tr.mode", "Training mode", cap(p.training_mode), "standard = full program; intro = one set fewer on most exercises (\"Fewer sets\"); deload = ~10% lighter, about half the sets, 3–4 RIR");

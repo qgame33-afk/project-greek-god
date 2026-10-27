@@ -1,17 +1,17 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { PROGRAMS } from "@/lib/training/programs";
+import { counterpartKey, PROGRAMS } from "@/lib/training/programs";
 
-// The publication is two deploys (PROGRAM-ARNOLD §3.1a): A ships the functions, B only the switch.
+// The publication is two deploys (PROGRAM-V3 §3): A ships the functions and defaults, B only the one-time switch.
 const dir = path.resolve(__dirname, "../../../supabase/migrations");
-const A = readFileSync(path.join(dir, "20261021000000_arnold_program.sql"), "utf8");
-const B = readFileSync(path.join(dir, "20261021000100_arnold_switch.sql"), "utf8");
+const A = readFileSync(path.join(dir, "20261026000000_program_v3.sql"), "utf8");
+const B = readFileSync(path.join(dir, "20261026000100_program_v3_switch.sql"), "utf8");
 
 const arr = (sql: string, name: string) => JSON.parse(`[${new RegExp(`${name} text\\[\\] := array\\[([^\\]]+)\\]`).exec(sql)![1].replace(/'/g, '"')}]`);
 const week = (sql: string, name: string) => JSON.parse(new RegExp(`${name} jsonb := '([^']+)'`).exec(sql)![1]);
 
-describe("the Arnold migrations", () => {
+describe("the two-set + metric migrations", () => {
   it("are idempotent", () => {
     expect(A.startsWith("-- migrate:idempotent")).toBe(true);
     expect(B.startsWith("-- migrate:idempotent")).toBe(true);
@@ -19,12 +19,16 @@ describe("the Arnold migrations", () => {
 
   it("use exactly the programs' keys and weeks", () => {
     expect(arr(A, "ppl_keys")).toEqual(PROGRAMS.ppl.keys);
-    expect(arr(A, "arn_keys")).toEqual(PROGRAMS.arnold.keys);
+    expect(arr(A, "two_keys")).toEqual(PROGRAMS.twoset.keys);
     expect(week(A, "ppl_week")).toEqual(PROGRAMS.ppl.schedule);
-    expect(week(A, "arn_week")).toEqual(PROGRAMS.arnold.schedule);
+    expect(week(A, "two_week")).toEqual(PROGRAMS.twoset.schedule);
     const def = /set default '([^']+)'::jsonb/.exec(A)![1];
-    expect(JSON.parse(def)).toEqual(PROGRAMS.arnold.schedule);
-    for (const k of PROGRAMS.arnold.keys) expect(A).toContain(`'${k}'`);
+    expect(JSON.parse(def)).toEqual(PROGRAMS.twoset.schedule);
+    for (const k of PROGRAMS.twoset.keys) expect(A).toContain(`'${k}'`);
+    // the slot maps match counterpartKey (Push A ↔ Arms & Shoulders A …)
+    PROGRAMS.ppl.keys.forEach((k, i) => expect(counterpartKey(k, "twoset")).toBe(arr(A, "two_keys")[i]));
+    expect(A).not.toMatch(/arnold|shoulders_arms_a|legs_abs/i);
+    expect(B).not.toMatch(/arnold/i);
   });
 
   it("are additive: nothing dropped, no session, set or template rewritten", () => {
@@ -41,8 +45,18 @@ describe("the Arnold migrations", () => {
     const body = B.replace(/--.*$/gm, "").trim();
     expect(body).toMatch(/^do \$\$[\s\S]*end \$\$;$/);
     expect(body).not.toMatch(/\bcreate\b|\balter\b/i);
-    expect(body).toContain("public.set_training_program('arnold', null, p.id)");
+    expect(body).toContain("public.set_training_program('twoset', null, p.id)");
     expect(body).toContain("? 'program'");
+  });
+
+  it("makes kg and cm the defaults, and switches existing accounts' units once (prefs.unitsSwitch)", () => {
+    expect(A).toContain("alter column weight_unit set default 'kg'");
+    expect(A).toContain("alter column length_unit set default 'cm'");
+    const body = B.replace(/--.*$/gm, "");
+    expect(body).toMatch(/set weight_unit = 'kg',\s+length_unit = 'cm'/);
+    expect(body).toContain("where not (coalesce(prefs, '{}'::jsonb) ? 'unitsSwitch')");
+    // the stored pounds and inches are never rewritten
+    expect(body).not.toMatch(/weight_lb|_in\b|height_cm/);
   });
 
   it("guards the function: signed-in callers switch only themselves, anon can't call it", () => {

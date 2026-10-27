@@ -3,7 +3,7 @@ import type { DayTemplate, PplKey } from "./types";
 const LAST_SET = "Last set can go to 0–1.";
 
 /**
- * Push/Pull/Legs, the optional alternative to the Arnold split (docs/PROGRAM-ARNOLD.md §1.10).
+ * Push/Pull/Legs, the saved alternative to the two-set split (docs/PROGRAM-V3.md).
  * Sets and rep ranges are the program — change them here only. Jump work was taken out of the
  * built-in days; stored rows that still hold it are filtered on read (visibleExercises).
  * Ramp-up percentages refer to today's first working weight.

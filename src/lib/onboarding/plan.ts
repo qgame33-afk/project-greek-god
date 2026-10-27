@@ -5,12 +5,12 @@
 import { DEFAULT_ROADMAP, requiredWeeklyGain } from "@/lib/bodyweight";
 import { isTime, parseAppPrefs } from "@/lib/prefs";
 import { addDays, addMonths, daysBetween, monthStart, parseISODate, type ISODate } from "@/lib/dates";
-import { ARNOLD_SCHEDULE, PROGRAMS } from "@/lib/training/programs";
-import type { ArnoldKey } from "@/lib/training/types";
+import { PROGRAMS, TWOSET_SCHEDULE } from "@/lib/training/programs";
+import type { TwoSetKey } from "@/lib/training/types";
 import { round, toDisplayWeight, type LengthUnit, type WeightUnit } from "@/lib/units";
 import { balancedCarbs, macroLine, macrosOverflow } from "./macros";
 
-export type PlanKey = ArnoldKey | "rest";
+export type PlanKey = TwoSetKey | "rest";
 export type Experience = "beginner" | "intermediate" | "advanced";
 export type Schedule = Record<string, PlanKey>;
 
@@ -36,9 +36,9 @@ export const STEP_LABELS: Record<StepId, string> = {
   finale: "Your plan",
 };
 
-/** The Arnold days (their short names) and Rest: onboarding always starts on the Arnold split. */
+/** The two-set split's days ("Arms & Shoulders (Monday)" …) and Rest: onboarding always starts on it. */
 export const SCHEDULE_OPTIONS: { value: PlanKey; label: string }[] = [
-  ...PROGRAMS.arnold.templates.map((t) => ({ value: t.key as ArnoldKey, label: t.short })),
+  ...PROGRAMS.twoset.templates.map((t) => ({ value: t.key as TwoSetKey, label: `${t.short} (${t.subtitle})` })),
   { value: "rest", label: "Rest" },
 ];
 
@@ -122,9 +122,9 @@ const num = (v: unknown, fallback: number) => {
 
 const KEYS = new Set<string>(SCHEDULE_OPTIONS.map((o) => o.value));
 
-/** A clean 7-day Arnold schedule: unknown keys (a Push/Pull/Legs day too) or missing days fall back to the Arnold week. */
+/** A clean 7-day two-set schedule: unknown keys (a Push/Pull/Legs day too) or missing days fall back to the default week. */
 export function normalizeSchedule(raw: unknown): Schedule {
-  const out: Schedule = { ...(ARNOLD_SCHEDULE as Schedule) };
+  const out: Schedule = { ...(TWOSET_SCHEDULE as Schedule) };
   if (raw && typeof raw === "object") {
     for (const d of WEEK_ORDER) {
       const v = (raw as Record<string, unknown>)[d];
@@ -147,8 +147,8 @@ export function answersFromProfile(p: ProfileLike | null | undefined, today: ISO
   const exp = p?.experience === "beginner" || p?.experience === "advanced" ? p.experience : "intermediate";
   return {
     displayName: (p?.display_name ?? "").slice(0, 60),
-    weightUnit: p?.weight_unit === "kg" ? "kg" : "lb",
-    lengthUnit: p?.length_unit === "cm" ? "cm" : "in",
+    weightUnit: p?.weight_unit === "lb" ? "lb" : "kg",
+    lengthUnit: p?.length_unit === "in" ? "in" : "cm",
     startWeightLb: num(p?.start_weight_lb, D.startWeightLb),
     heightCm: num(p?.height_cm, D.heightCm),
     todayWeighInLb: null,
@@ -386,8 +386,8 @@ export function profileUpdateFromAnswers(a: OnboardingAnswers) {
   };
 }
 
-/** "6 days · Arnold split" schedule summary. */
+/** "6 days · Two-set split" schedule summary. */
 export function scheduleSummary(s: Schedule) {
   const td = trainingDays(s);
-  return `${td} ${td === 1 ? "day" : "days"} · ${PROGRAMS.arnold.name}`;
+  return `${td} ${td === 1 ? "day" : "days"} · ${PROGRAMS.twoset.name}`;
 }

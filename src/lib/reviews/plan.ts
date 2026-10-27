@@ -28,7 +28,7 @@ export function plannedKey(
   date: ISODate,
   schedule: Record<string, PlannedKey>,
   overrides: Map<ISODate, PlanOverride> | Record<ISODate, PlanOverride>,
-  ctx: { program: ProgramId; since: ISODate | null } = { program: "arnold", since: null },
+  ctx: { program: ProgramId; since: ISODate | null } = { program: "twoset", since: null },
 ): PlannedKey {
   const o = overrides instanceof Map ? overrides.get(date) : overrides[date];
   const row = o == null ? null : typeof o === "string" ? { template_key: o } : o;

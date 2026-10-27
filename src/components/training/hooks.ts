@@ -64,7 +64,7 @@ export function offlineNoChange(what: string) {
 
 export function useUnits(): { unit: WeightUnit } {
   const { profile } = useProfile();
-  return { unit: (profile?.weight_unit ?? "lb") as WeightUnit };
+  return { unit: (profile?.weight_unit ?? "kg") as WeightUnit };
 }
 
 export function toPlanLike(p: DayPlanResolved): PlanLike {
@@ -166,13 +166,13 @@ export function useTrainingWeek() {
     const since = programSince(profile?.prefs, activeProgram(profile));
     const snoozed = !!prefs.lighterSnoozedUntil && today <= (prefs.lighterSnoozedUntil as string);
     const easeIn =
-      program === "arnold" &&
+      program === "twoset" &&
       !!since &&
       today >= since &&
       today < addDays(since, 7) &&
       mode === "standard" &&
       !snoozed &&
-      !sessions.some((x) => x.status === "done" && x.local_date >= since && programOfKey(x.template_key) === "arnold");
+      !sessions.some((x) => x.status === "done" && x.local_date >= since && programOfKey(x.template_key) === "twoset");
 
     // rest today (§4.4): six days aren't mandatory
     const g = readiness.guidance;
@@ -296,6 +296,7 @@ export function useOverlapAdvice(input: { date: ISODate; template: StoredTemplat
   inSession: OverlapAdvice | null;
 } {
   const { userId } = useUser();
+  const { unit } = useUnits();
   const { date, template, sessionId } = input;
   const yesterdayDate = addDays(date, -1);
   const sessionsQ = useSessions(addDays(date, -SESSIONS_BACK), date);
@@ -321,9 +322,9 @@ export function useOverlapAdvice(input: { date: ISODate; template: StoredTemplat
     const preStart = overlapPreStart({ today: date, template, yesterday, checkin });
     const nextArmDay = overlapNextArmDay({ sessions: sessions.filter((x) => x.local_date < date), sets, template });
     const live = (liveQ.data ?? []) as OverlapSet[];
-    const inSession = sessionId ? overlapInSession({ template, sets: live, prior: prior.data ?? {}, yesterday, sessionId, fired: firedKey ? (firedKey.split(",") as ("triceps" | "biceps")[]) : [] }) : null;
+    const inSession = sessionId ? overlapInSession({ template, unit, sets: live, prior: prior.data ?? {}, yesterday, sessionId, fired: firedKey ? (firedKey.split(",") as ("triceps" | "biceps")[]) : [] }) : null;
     return { preStart, nextArmDay, inSession };
-  }, [sessionsQ.data, histQ.data, recQ.data, liveQ.data, prior.data, template, date, yesterdayDate, sessionId, firedKey]);
+  }, [sessionsQ.data, histQ.data, recQ.data, liveQ.data, prior.data, template, unit, date, yesterdayDate, sessionId, firedKey]);
 }
 
 /* ---------------------------------------------------- timing over history */
@@ -669,8 +670,8 @@ export function useSessionDelete() {
 
 export type { StoredTemplate };
 
-/** The modes' on-screen names (DESIGN-V3 §2.2): Normal · Fewer sets · Light week. Stored values stay standard/intro/deload. */
-export const MODE_LABEL: Record<Mode, string> = { standard: "Normal", intro: "Fewer sets", deload: "Light week" };
+/** The modes' on-screen names (DESIGN-V3 §2.2): Normal · Easier sets · Light week. Stored values stay standard/intro/deload. */
+export const MODE_LABEL: Record<Mode, string> = { standard: "Normal", intro: "Easier sets", deload: "Light week" };
 
 /**
  * Change profile.training_mode with Undo; double taps are ignored. Also writes

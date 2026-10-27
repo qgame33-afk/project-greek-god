@@ -31,7 +31,7 @@ const pullB = planLite("pull_b", "Pull B", [
   "neutral-grip-lat-pulldown",
   "preacher-curl",
 ]);
-const legsA = planLite("legs_abs_a", "Legs & Abs A", [
+const legsA = planLite("lower_a", "Legs", [
   "back-squat",
   "romanian-deadlift",
   "leg-press",
@@ -167,14 +167,14 @@ describe("computeGuidance", () => {
 
   it("judges a leg day by its content, not its key", () => {
     expect(legsA.isLegs).toBe(true);
-    expect(legsA.family).toBe("legs_abs");
+    expect(legsA.family).toBe("legs");
     expect(planLite("legs_b", "Legs B", ["hack-squat", "leg-press"]).isLegs).toBe(true);
-    expect(planLite("chest_back_a", "Chest & Back A", ["incline-db-press", "chest-supported-row"]).isLegs).toBe(false);
+    expect(planLite("chest_a", "Chest & Back", ["incline-db-press", "seated-cable-row"]).isLegs).toBe(false);
   });
 
   it("asks about the arms before chest and back after an arm day, the legs before a leg day", () => {
-    const cb = planLite("chest_back_a", "Chest & Back A", ["incline-db-press"]);
-    const arm = { session: { template_key: "shoulders_arms_a", status: "done" }, sets: [] };
+    const cb = planLite("chest_a", "Chest & Back", ["incline-db-press"]);
+    const arm = { session: { template_key: "arms_a", status: "done" }, sets: [] };
     const push = { session: { template_key: "push_a", status: "done" }, sets: [] };
     expect(sorenessFocus(cb, arm)).toBe("arms");
     expect(sorenessFocus(cb, push)).toBe("general");

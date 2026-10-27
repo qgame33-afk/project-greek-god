@@ -1967,7 +1967,7 @@ export const LIBRARY: LibraryExercise[] = [
     ],
     substitutes: ["hanging-leg-raise", "cable-crunch", "hanging-knee-raise"],
   },
-  // ───────────────────────── Arnold split additions ─────────────────────────
+  // ───────────────────────── Added for the Arnold split (history and pickers) ─────────────────────────
   {
     slug: "cable-rear-delt-fly",
     name: "Cable Rear Delt Fly",
@@ -2038,6 +2038,31 @@ export const LIBRARY: LibraryExercise[] = [
       "Don't twist your torso to swing the weight up.",
     ],
     substitutes: ["hammer-curl", "cable-hammer-curl", "reverse-curl"],
+  },
+
+  // ───────────────────────── Two-set split additions ─────────────────────────
+  {
+    slug: "straight-arm-pulldown",
+    name: "Straight-Arm Cable Pulldown",
+    primary: ["lats"],
+    secondary: ["upper_back"],
+    category: "isolation",
+    equipment: "cable",
+    tracking: "weight_reps",
+    rest: 90,
+    increment: 5,
+    instructions: [
+      "Set a straight bar or rope on a high pulley and stand a step back, hinged slightly at the hips.",
+      "Hold the bar at shoulder width with long arms and a soft bend in the elbows.",
+      "Sweep the bar down in an arc to your thighs by driving your upper arms back.",
+      "Pause, then let the bar rise slowly until you feel a full stretch in your lats.",
+    ],
+    formTips: [
+      "Keep the elbow angle fixed; bending the arms turns it into a pushdown.",
+      "Ribs down and no rocking: the lats should do all the work.",
+      "Stop the arc at your thighs and squeeze for a second.",
+    ],
+    substitutes: ["lat-pulldown", "single-arm-lat-pulldown"],
   },
 ];
 

@@ -78,7 +78,8 @@ describe("templates", () => {
 
   it("deload roughly halves the sets and lowers the top of each rep range by 2", () => {
     const d = modeTemplate(pushA, "deload");
-    expect(d.exercises.map((e) => e.sets)).toEqual([2, 2, 2, 2, 2, 1]);
+    // a two-set lift keeps both sets in a deload (it gets easier instead)
+    expect(d.exercises.map((e) => e.sets)).toEqual([2, 2, 2, 2, 2, 2]);
     // bench 5–8 → 5–6, laterals 12–20 → 12–18 (matches the deload suggestion's target)
     expect([d.exercises[0].repLow, d.exercises[0].repHigh]).toEqual([5, 6]);
     expect(d.exercises[3].repHigh).toBe(pushA.exercises[3].repHigh - 2);
@@ -90,11 +91,12 @@ describe("templates", () => {
     expect(modeTemplate({ ...pushA, exercises: [{ ...pushA.exercises[0], repLow: 5, repHigh: 6 }] }, "deload").exercises[0].repHigh).toBe(5);
   });
 
-  it("leaves optional exercises out unless asked (Thursday's reverse curls never start)", () => {
-    const thu = PROGRAM_BY_KEY.shoulders_arms_b;
-    expect(modeTemplate(thu, "standard").exercises.map((e) => e.slug)).not.toContain("reverse-curl");
-    expect(modeTemplate(thu, "standard").exercises.reduce((n, e) => n + e.sets, 0)).toBe(19);
-    expect(modeTemplate(thu, "standard", { includeOptional: true }).exercises.reduce((n, e) => n + e.sets, 0)).toBe(21);
+  it("leaves optional exercises out unless asked; the two-set days keep 12 / 12 / 8 sets in every mode", () => {
+    const opt = { ...PROGRAM_BY_KEY.arms_b, exercises: [...PROGRAM_BY_KEY.arms_b.exercises, { ...PROGRAM_BY_KEY.arms_b.exercises[4], slug: "reverse-curl", optional: true }] };
+    expect(modeTemplate(opt, "standard").exercises.map((e) => e.slug)).not.toContain("reverse-curl");
+    expect(modeTemplate(opt, "standard", { includeOptional: true }).exercises.map((e) => e.slug)).toContain("reverse-curl");
+    for (const m of ["standard", "intro", "deload"] as const)
+      expect((["arms_b", "chest_b", "lower_b"] as const).map((k) => modeTemplate(PROGRAM_BY_KEY[k], m).exercises.reduce((n, e) => n + e.sets, 0)), m).toEqual([12, 12, 8]);
   });
 
   it("the deprecated lighter-legs form still trims leg accessories", () => {
@@ -142,12 +144,12 @@ describe("template editing", () => {
   });
   it("creates a starting prescription from the library", async () => {
     const { getExercise } = await import("./library");
-    expect(newTemplateExercise(getExercise("barbell-bench-press")!)).toMatchObject({ sets: 3, repLow: 6, repHigh: 10, unit: "reps", rir: "1–3", rest: 180 });
-    // effortDefaults: compounds 1–3 RIR and 120–180 s, isolation 0–2 RIR and 60–120 s
-    expect(newTemplateExercise(getExercise("leg-press")!)).toMatchObject({ rir: "1–3", rest: 120 });
-    expect(newTemplateExercise(getExercise("back-squat")!)).toMatchObject({ rir: "1–3", rest: 180 });
-    expect(newTemplateExercise(getExercise("cable-lateral-raise")!)).toMatchObject({ rir: "0–2", rest: 60, unit: "each" });
-    expect(newTemplateExercise(getExercise("hanging-leg-raise")!)).toMatchObject({ rir: "0–2" });
+    expect(newTemplateExercise(getExercise("barbell-bench-press")!)).toMatchObject({ sets: 2, repLow: 6, repHigh: 10, unit: "reps", rir: "1–2", rest: 180 });
+    // effortDefaults (PROGRAM-V3 §1.3): compounds 150–180 s, failure on machines and isolation (90–120 s)
+    expect(newTemplateExercise(getExercise("leg-press")!)).toMatchObject({ sets: 2, rir: "0", rest: 150 });
+    expect(newTemplateExercise(getExercise("back-squat")!)).toMatchObject({ rir: "1–2", rest: 180 });
+    expect(newTemplateExercise(getExercise("cable-lateral-raise")!)).toMatchObject({ rir: "0", rest: 90, unit: "each" });
+    expect(newTemplateExercise(getExercise("hanging-leg-raise")!)).toMatchObject({ rir: "0" });
     expect(newTemplateExercise(getExercise("farmer-carry")!)).toMatchObject({ rir: "1–2", rest: 90, unit: "sec" });
     expect(newTemplateExercise(getExercise("box-jump")!)).toMatchObject({ repLow: 3, repHigh: 3, rir: "Fresh" });
     expect(newTemplateExercise(getExercise("cable-crunch")!)).toMatchObject({ repLow: 10, repHigh: 15 });

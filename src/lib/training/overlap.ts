@@ -1,15 +1,20 @@
 // Fatigue overlap: Monday/Thursday arm work → Tuesday/Friday chest and back
-// (docs/PROGRAM-ARNOLD.md §4.6, Q§1, Q§3). Pure. Three entry points:
-//   overlapPreStart   — before the session: arms still sore after an arm day → one set fewer
-//   overlapInSession  — during it: the first two sets of a watched lift dropped → reorder / trim
+// (docs/PROGRAM-V3.md §4.4). Pure. Three entry points:
+//   overlapPreStart   — before the session: arms still sore after an arm day → ease the accessories
+//   overlapInSession  — during it: the first two sets of a watched lift dropped → reorder / ease
 //   overlapNextArmDay — prevention: pressing or pulling dipped after 2 of the last 3 arm days
+// "Ease" means one set fewer when an exercise has 3+ sets; with the two-set program (every
+// exercise has exactly 2) it means keeping both sets and stopping 1–2 reps short instead, so the
+// set count Quinton asked for never changes.
 // Every rule reads what was ACTUALLY trained the day before, so it stays right after the days
 // are rearranged. Suggestions only: nothing here edits a template or a logged set.
 
 import { addDays, dayName, type ISODate } from "@/lib/dates";
 import { getExercise } from "./library";
 import { templateDef } from "./programs";
+import { loadText } from "./loads";
 import { e1rm, groupSessions, type PastSet } from "./progression";
+import type { WeightUnit } from "@/lib/units";
 import type { DayFamily, MuscleGroup, TemplateExercise } from "./types";
 
 export const OVERLAP = { repDrop: 2, e1rmDropPct: 0.03, soreness: 4, restShorterSec: 45, window: 3, hits: 2 } as const;
@@ -58,6 +63,23 @@ const ARM: MuscleGroup[] = ["biceps", "brachialis", "triceps"];
 const PRESS: MuscleGroup[] = ["chest", "upper_chest"];
 const PULL: MuscleGroup[] = ["lats", "upper_back"];
 
+/** Below this many sets an exercise is eased by effort, never by dropping a set. */
+const MIN_SETS_TO_DROP = 3;
+/** The effort an eased exercise uses instead of a dropped set. */
+export const EASED_RIR = "1–2";
+
+/** How to ease one exercise: drop a set (3+ sets) or stop 1–2 reps short (2 sets or fewer). */
+function easeAction(e: TemplateExercise): OverlapAction {
+  return e.sets >= MIN_SETS_TO_DROP ? { kind: "drop", slug: e.slug, sets: 1 } : { kind: "rir", slug: e.slug, rir: EASED_RIR };
+}
+function easeText(es: TemplateExercise[]): string {
+  const drops = es.filter((e) => e.sets >= MIN_SETS_TO_DROP);
+  const rirs = es.filter((e) => e.sets < MIN_SETS_TO_DROP);
+  const parts = [drops.length ? `one set fewer on ${join(drops.map((e) => e.name))}` : "", rirs.length ? `stop ${EASED_RIR} reps short on ${join(rirs.map((e) => e.name))}` : ""].filter(Boolean);
+  return parts.join(", and ");
+}
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 const familyOf = (t: { key: string | null; family?: DayFamily | null }) => t.family ?? templateDef(t.key)?.family ?? null;
 /** A completed working set (warm-ups never count). */
 const isWork = (s: OverlapSet) => s.completed !== false && s.kind !== "warmup";
@@ -85,11 +107,11 @@ export function overlapLifts(t: Pick<OverlapTemplate, "exercises">) {
   return {
     press: presses[0] ?? null,
     pull: pulls[0] ?? null,
-    /** The last pressing compound after the first one (Machine Chest Press, Flat DB Bench). */
+    /** The last pressing compound after the first one (Machine Chest Press). */
     pressAccessory: presses.length > 1 ? presses[presses.length - 1] : null,
-    /** The last pulling compound after the first two (Single-Arm Cable Lat Pulldown, Single-Arm Cable Row). */
-    pullAccessory: pulls.length > 2 ? pulls[pulls.length - 1] : null,
-    /** The day's chest isolation (Low-to-High Cable Fly, Pec Deck). */
+    /** The last pulling compound after the first one (Seated Cable Row). */
+    pullAccessory: pulls.length > 1 ? pulls[pulls.length - 1] : null,
+    /** The day's chest isolation (Cable Chest Fly). */
     chestIsolation: xs.find((e) => has(e.slug, PRESS, "isolation")) ?? null,
   };
 }
@@ -118,13 +140,13 @@ export function overlapPreStart({
   if (!template || !overlapApplies(template, yesterday)) return null;
   if (!checkin || checkin.local_date !== today || (checkin.soreness ?? 0) < OVERLAP.soreness) return null;
   const l = overlapLifts(template);
-  const trim = [l.pressAccessory, l.pullAccessory].filter((e): e is TemplateExercise => !!e && e.sets > 1);
+  const trim = [l.pressAccessory, l.pullAccessory].filter((e): e is TemplateExercise => !!e && e.sets > 0);
   if (!trim.length) return null;
   return {
     muscle: "both",
     trigger: "soreness",
-    actions: trim.map((e) => ({ kind: "drop", slug: e.slug, sets: 1 })),
-    text: `Arms still sore from ${yesterday!.session.name ?? "yesterday's session"}. Today: one set fewer on ${join(trim.map((e) => e.name))}.`,
+    actions: trim.map(easeAction),
+    text: `Arms still sore from ${yesterday!.session.name ?? "yesterday's session"}. Today: ${easeText(trim)}.`,
     evidence: [],
   };
 }
@@ -184,8 +206,11 @@ export function overlapInSession({
   yesterday,
   sessionId = null,
   fired = [],
+  unit = "kg",
 }: {
   template: OverlapTemplate | null;
+  /** The display unit for loads in the text (profiles.weight_unit). */
+  unit?: WeightUnit;
   /** This session's sets (exercise_sets rows). */
   sets: OverlapSet[];
   /** Recent history per slug (usePriorHistory / fetchRecentHistory). */
@@ -209,14 +234,16 @@ export function overlapInSession({
   ];
   for (const c of checks) {
     if (!c.lift || !c.acc || fired.includes(c.muscle)) continue;
-    if (!canDrop(c.acc.slug)) continue; // the exercises it would change are already done
+    // the exercise it would change is already done (or, to drop a set, has only one left)
+    if (c.acc.sets >= MIN_SETS_TO_DROP ? !canDrop(c.acc.slug) : open(c.acc.slug) === 0) continue;
     const d = liftDipped(sets, c.lift.slug, prior[c.lift.slug] ?? [], sessionId);
     if (!d.dipped || !d.set || !d.ref) continue;
     const down = num(d.ref.reps) - num(d.set.reps);
     const w = num(d.set.weight_lb);
     const evidence = [{ slug: c.lift.slug, name: c.lift.name, weightLb: w, reps: num(d.set.reps), refReps: num(d.ref.reps) }];
-    const drop: OverlapAction = { kind: "drop", slug: c.acc.slug, sets: 1 };
-    const downText = down > 0 ? `down ${down} ${down === 1 ? "rep" : "reps"} at ${w} lb` : `down at ${w} lb`;
+    const drop = easeAction(c.acc);
+    const at = loadText(w, unit);
+    const downText = down > 0 ? `down ${down} ${down === 1 ? "rep" : "reps"} at ${at}` : `down at ${at}`;
     if (c.muscle === "triceps") {
       const fly = l.chestIsolation;
       const order = template.exercises.map((e) => e.slug);
@@ -225,7 +252,7 @@ export function overlapInSession({
         muscle: "triceps",
         trigger: "press_dip",
         actions: [...reorder, drop],
-        text: `Triceps look tired from ${when}: ${c.lift.name} is ${downText}. ${reorder.length ? "Try the fly next and one" : "One"} set fewer on ${c.acc.name}.`,
+        text: `Triceps look tired from ${when}: ${c.lift.name} is ${downText}. ${reorder.length ? `Try the fly next, and ${easeText([c.acc])}` : cap(easeText([c.acc]))}.`,
         evidence,
       };
     }
@@ -233,7 +260,7 @@ export function overlapInSession({
       muscle: "biceps",
       trigger: "pull_dip",
       actions: [drop],
-      text: `Biceps look tired from ${when}: ${c.lift.name} is ${downText}. One set fewer on ${c.acc.name}.`,
+      text: `Biceps look tired from ${when}: ${c.lift.name} is ${downText}. ${cap(easeText([c.acc]))}.`,
       evidence,
     };
   }
@@ -292,13 +319,18 @@ export function overlapNextArmDay({
   const actions: OverlapAction[] = [];
   const parts: string[] = [];
   const of = recent.length;
-  if (pressHits >= OVERLAP.hits && press && press.sets > 1) {
-    actions.push({ kind: "drop", slug: press.slug, sets: 1 }, { kind: "rir", slug: press.slug, rir: "2–3" });
-    parts.push(`one set fewer on ${press.name} and stop with 2–3 reps left`);
+  if (pressHits >= OVERLAP.hits && press && press.sets > 0) {
+    if (press.sets >= MIN_SETS_TO_DROP) {
+      actions.push({ kind: "drop", slug: press.slug, sets: 1 }, { kind: "rir", slug: press.slug, rir: "2–3" });
+      parts.push(`one set fewer on ${press.name} and stop with 2–3 reps left`);
+    } else {
+      actions.push({ kind: "rir", slug: press.slug, rir: "2–3" });
+      parts.push(`stop with 2–3 reps left on ${press.name}`);
+    }
   }
-  if (pullHits >= OVERLAP.hits && curl && curl.sets > 1) {
-    actions.push({ kind: "drop", slug: curl.slug, sets: 1 });
-    parts.push(`one set fewer on ${curl.name}`);
+  if (pullHits >= OVERLAP.hits && curl && curl.sets > 0) {
+    actions.push(easeAction(curl));
+    parts.push(easeText([curl]));
   }
   if (!actions.length) return null;
   const what = pressHits >= OVERLAP.hits && pullHits >= OVERLAP.hits ? "pressing and pulling" : pressHits >= OVERLAP.hits ? "pressing" : "pulling";

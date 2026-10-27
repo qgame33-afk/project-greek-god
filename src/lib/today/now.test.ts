@@ -116,7 +116,7 @@ describe("key lift", () => {
   const fmt = (lb: number) => String(lb);
   it("leads with the first loaded lift and the rule's target, from the last top set", () => {
     const history = { "barbell-bench-press": [set("2026-10-12", "s1", 0, 185, 8), set("2026-10-12", "s1", 1, 185, 8), set("2026-10-12", "s1", 2, 185, 8)] };
-    const k = keyLift(PROGRAM_BY_KEY.push_a, history, "standard", fmt);
+    const k = keyLift(PROGRAM_BY_KEY.push_a, history, "standard", fmt, "lb");
     expect(k?.name).toBe("Barbell Bench Press");
     expect(k?.target).toBe("190 × 5–8");
     expect(k?.from).toBe("185 × 8");
