@@ -13,7 +13,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
@@ -33,7 +33,8 @@ const EMAIL = "qa-program@greekgod.local";
 const PASSWORD = "ascent-test-123";
 const TZ = "America/Toronto";
 const MIG_A = path.join(ROOT, "supabase/migrations/20261026000000_program_v3.sql");
-const MIG_B = path.join(ROOT, "supabase/migrations/20261026000100_program_v3_switch.sql");
+// the switch is in supabase/held/ at the Deploy A commit and in supabase/migrations/ at Deploy B
+const MIG_B = ["supabase/migrations", "supabase/held"].map((d) => path.join(ROOT, d, "20261026000100_program_v3_switch.sql")).find((p) => existsSync(p));
 const STATE_DIR = process.env.QA_PROGRAM_STATE_DIR || path.join(ROOT, "node_modules/.cache/qa-program");
 const STATE = path.join(STATE_DIR, "state.json");
 

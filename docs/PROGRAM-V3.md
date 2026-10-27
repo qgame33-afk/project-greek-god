@@ -163,6 +163,26 @@ The function has the same guarantees as before:
 
 The PPL template rows and the history stay as they are. The two-set rows are inserted on the first app load.
 
+### 3.1 Publication: exactly how (after Quinton approves)
+
+The branch ends in two commits that exist only for this:
+
+| Commit (subject starts with) | What it holds | Deploy |
+|---|---|---|
+| `Publication A:` | every code change and `20261026000000_program_v3.sql` in `supabase/migrations/`; the switch waits in `supabase/held/` | **Deploy A** |
+| `Publication B:` | only `git mv supabase/held/20261026000100_program_v3_switch.sql supabase/migrations/` | **Deploy B** |
+
+`scripts/migrate.mjs` (the `vercel-build` step) applies only `supabase/migrations/*.sql`, so Deploy A cannot run the switch. Both commits pass tsc, eslint and vitest (`migration-v3.test.ts` checks that the switch is in exactly one of the two folders and, when present, is the last migration).
+
+1. **Deploy A.** Make the `Publication A` commit production (for example, fast-forward `main` to it and push; Vercel builds `main` as production). The build log must show `[migrate] applied 20261026000000_program_v3.sql` and nothing else. Nothing is switched: his account still reads as Push/Pull/Legs in pounds, now in the new UI.
+2. **Cold launch.** On his iPhone, open the app from the home screen, then close it from the app switcher and open it again. That loads Deploy A's code everywhere (navigations are network-first and the service worker is versioned per build), so no old JavaScript is left running. Check that Today shows his Push/Pull/Legs day.
+3. **Deploy B**, straight after. Make the `Publication B` commit production. The build log must show `[migrate] applied 20261026000100_program_v3_switch.sql`. The next app load shows the two-set split in kg; a workout that was open finishes as it started.
+4. If a build fails after its migration, the previous deployment keeps serving and is program-aware from Deploy A on, so nothing breaks; fix and redeploy.
+
+Preview deployments never migrate (`migrate.mjs` exits when `VERCEL_ENV` is not `production`), so a preview link cannot switch his account.
+
+Rehearsed locally on a scratch database with the real runner (27 Oct): main's six migrations, a PPL account in lb with a live workout and a moved day, then Deploy A (only A applied; every row of his byte-identical), a preview build with B present (skipped), Deploy B (only B applied: two-set week, kg/cm, the past 14 days and today frozen, the moved day re-pointed, sessions, sets and weigh-ins unchanged), and both again (nothing changed).
+
 ## 4. Two-set rules
 
 ### 4.1 Progression

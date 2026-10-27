@@ -1,17 +1,30 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { counterpartKey, PROGRAMS } from "@/lib/training/programs";
 
 // The publication is two deploys (PROGRAM-V3 §3): A ships the functions and defaults, B only the one-time switch.
+// At the Deploy A commit the switch waits in supabase/held/ (the deploy runner reads only
+// supabase/migrations/); the Deploy B commit moves it into migrations/. Either way it is checked here.
 const dir = path.resolve(__dirname, "../../../supabase/migrations");
+const held = path.resolve(__dirname, "../../../supabase/held");
+const B_NAME = "20261026000100_program_v3_switch.sql";
 const A = readFileSync(path.join(dir, "20261026000000_program_v3.sql"), "utf8");
-const B = readFileSync(path.join(dir, "20261026000100_program_v3_switch.sql"), "utf8");
+const B = readFileSync(existsSync(path.join(dir, B_NAME)) ? path.join(dir, B_NAME) : path.join(held, B_NAME), "utf8");
 
 const arr = (sql: string, name: string) => JSON.parse(`[${new RegExp(`${name} text\\[\\] := array\\[([^\\]]+)\\]`).exec(sql)![1].replace(/'/g, '"')}]`);
 const week = (sql: string, name: string) => JSON.parse(new RegExp(`${name} jsonb := '([^']+)'`).exec(sql)![1]);
 
 describe("the two-set + metric migrations", () => {
+  it("ship in two deploys: the switch is either held back or the last migration, never both", () => {
+    const inMigrations = existsSync(path.join(dir, B_NAME));
+    const inHeld = existsSync(path.join(held, B_NAME));
+    expect(inMigrations !== inHeld).toBe(true);
+    const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+    if (inMigrations) expect(files.at(-1)).toBe(B_NAME);
+    else expect(files.at(-1)).toBe("20261026000000_program_v3.sql");
+  });
+
   it("are idempotent", () => {
     expect(A.startsWith("-- migrate:idempotent")).toBe(true);
     expect(B.startsWith("-- migrate:idempotent")).toBe(true);
