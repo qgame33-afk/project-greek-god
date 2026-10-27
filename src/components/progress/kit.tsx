@@ -10,7 +10,7 @@ import type { LengthUnit, WeightUnit } from "@/lib/units";
 export function SrTable({ caption, head, rows }: { caption: string; head: string[]; rows: (string | number)[][] }) {
   return (
     // the wrapper is the visually hidden box: a table ignores width: 1px and would widen the page
-    <div className="sr-only">
+    <div className="sr-only" data-budget-group="">
       <table>
         <caption>{caption}</caption>
         <thead>

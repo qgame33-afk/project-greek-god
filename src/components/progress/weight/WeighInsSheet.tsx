@@ -71,19 +71,13 @@ export function WeighInsSheet({
                   disabled={pending}
                   onClick={() => edit(w.local_date)}
                   className="press-soft flex min-h-[68px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 text-left"
-                  aria-label={`${label}: ${d(Number(w.weight_lb))} ${unit}${avg != null ? `, 7-day average ${d(avg)}` : ""}. Edit`}
+                  aria-label={`${label}: ${d(Number(w.weight_lb))} ${unit}${diff != null ? `, ${signed(diff, 1).replace("−", "minus ")} from the one before` : ""}${avg != null ? `, 7-day average ${d(avg)}` : ""}. Edit`}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="t-row block">{label}</span>
-                    <span className="t-label mt-0.5 block truncate">{w.notes ? w.notes : diff == null ? "First weigh-in" : `${signed(diff, 1)} from the one before`}</span>
+                    <span className="t-label mt-0.5 block truncate">{w.notes ? w.notes : diff == null ? "First" : `${signed(diff, 1)} ${unit}`}</span>
                   </span>
-                  <span className="shrink-0 text-right">
-                    <span className="t-row block tabular-nums">
-                      {d(Number(w.weight_lb))}
-                      <span className="unit">{unit}</span>
-                    </span>
-                    <span className="t-cap block tabular-nums">{avg != null ? `Avg ${d(avg)}` : "—"}</span>
-                  </span>
+                  <span className="t-row shrink-0 tabular-nums">{`${d(Number(w.weight_lb))} ${unit}`}</span>
                 </button>
                 {!pending && <RowMenu label={label} onEdit={() => edit(w.local_date)} onDelete={() => del(w)} />}
               </div>

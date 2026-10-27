@@ -12,7 +12,6 @@ import { cn } from "@/lib/cn";
 import { useToday } from "@/lib/data/core";
 import { longDate, monthEnd, monthName, type ISODate } from "@/lib/dates";
 import { dayMonth } from "@/lib/progress/pace";
-import { chronicleStamp } from "@/lib/reviews/chronicle";
 import { computePriorities, computeReview } from "@/lib/reviews/compute";
 import { useReviewSource, useSavedReviews } from "@/lib/reviews/hooks";
 import { formatBodyweight, formatDelta, formatInt, formatLiters, formatLoad, round, toDisplayWeight } from "@/lib/units";
@@ -86,7 +85,6 @@ export function RecapMonth({ month }: { month: ISODate }) {
   return (
     <div>
       {header}
-      {!stats.window.complete && <p className="t-label mt-1">So far · {chronicleStamp(month)}</p>}
 
       {/* the hero */}
       <button type="button" onClick={() => setDetails("weight")} className="press-soft mt-4 block w-full rounded-card bg-surface px-6 py-[22px] text-left" aria-describedby="recap-hero-hint">
@@ -171,14 +169,15 @@ export function RecapMonth({ month }: { month: ISODate }) {
             {best ? (
               <div>
                 <p className="t-row">{best.title}</p>
-                <p className="t-label mt-1">{best.detail}</p>
+                <p className="t-label mt-1" data-how="" data-budget-group="">
+                  {best.detail}
+                </p>
                 {best.action && (
                   <Link href={best.action.href} className="press t-label mt-1 inline-flex h-11 items-center gap-0.5 font-semibold text-fg">
                     {best.action.label}
                     <ChevronRight className="size-4" strokeWidth={2.2} aria-hidden />
                   </Link>
                 )}
-                <p className="t-cap mt-1">From your logged numbers. Nothing changes until you change it.</p>
               </div>
             ) : (
               <p className="t-label">Log weigh-ins, food and workouts for two weeks and a change to try shows here.</p>

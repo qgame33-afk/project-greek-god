@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { NotebookPen } from "lucide-react";
+import { ChevronDown, NotebookPen } from "lucide-react";
 import { Select } from "@/components/ui/field";
-import { ListGroup, Row, SectionAction, SectionHead } from "@/components/ui/list";
-import { Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
+import { ListGroup, Row, SectionHead } from "@/components/ui/list";
+import { Collapse, Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
+import { cn } from "@/lib/cn";
 import { Sheet } from "@/components/ui/sheet";
 import { useToday } from "@/lib/data/core";
 import { useMeasurements, type Measurement } from "@/lib/data/body";
@@ -44,7 +45,14 @@ export function Measurements() {
 
   return (
     <section id="progress-measurements" aria-labelledby="measure-h" className="scroll-mt-24">
-      <SectionHead id="measure-h" action={<SectionAction onClick={() => actions.logMeasurements()}>Add</SectionAction>}>
+      <SectionHead
+        id="measure-h"
+        action={
+          <button type="button" onClick={() => actions.logMeasurements()} aria-label="Add measurements" className="press t-label hit-44 font-semibold text-fg-2 hover:text-fg">
+            Add
+          </button>
+        }
+      >
         Measurements
       </SectionHead>
       {q.error ? (
@@ -180,6 +188,7 @@ function EntriesSheet({ open, onOpenChange, rows, unit }: { open: boolean; onOpe
   const today = useToday();
   const actions = useProgressActions();
   const { del } = useMeasurementWrite();
+  const [compare, setCompare] = useState(false);
   const desc = [...rows].sort((a, b) => b.local_date.localeCompare(a.local_date));
   const edit = (r: Measurement) => {
     onOpenChange(false);
@@ -197,9 +206,8 @@ function EntriesSheet({ open, onOpenChange, rows, unit }: { open: boolean; onOpe
                 <button type="button" disabled={pending} onClick={() => edit(r)} className="press-soft flex min-h-[68px] min-w-0 flex-1 flex-col justify-center py-3 pl-4 text-left">
                   <span className="t-row">{dayMonth(r.local_date, today)}</span>
                   <span className="t-label mt-0.5 truncate">
-                    {n} of {MEASURE_FIELDS.length} sites
-                    {r.waist_in != null ? ` · waist ${fmtLen(Number(r.waist_in), unit)} ${unit}` : ""}
-                    {r.body_fat_pct != null ? ` · ${Number(r.body_fat_pct).toFixed(1)}% fat` : ""}
+                    {n} {n === 1 ? "site" : "sites"}
+                    {r.body_fat_pct != null ? " · body fat" : ""}
                   </span>
                 </button>
                 {!pending && <RowMenu label={`Entry ${dayMonth(r.local_date, today)}`} onEdit={() => edit(r)} onDelete={() => del(r)} />}
@@ -207,8 +215,15 @@ function EntriesSheet({ open, onOpenChange, rows, unit }: { open: boolean; onOpe
             );
           })}
         </div>
-        <SectionHead>Compare months</SectionHead>
-        <MonthCompare rows={rows} unit={unit} />
+        <button type="button" onClick={() => setCompare(!compare)} aria-expanded={compare} aria-controls="measure-compare" className="press-soft mt-3 flex min-h-14 w-full items-center justify-between gap-3 rounded-tile-lg bg-surface px-4 text-left">
+          <span className="t-row">Compare months</span>
+          <ChevronDown className={cn("size-5 text-fg-3 transition-transform duration-(--dur-fast)", compare && "rotate-180")} strokeWidth={1.9} aria-hidden />
+        </button>
+        <Collapse open={compare} id="measure-compare">
+          <div className="pt-3">
+            <MonthCompare rows={rows} unit={unit} />
+          </div>
+        </Collapse>
       </div>
     </Sheet>
   );

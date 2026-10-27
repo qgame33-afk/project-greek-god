@@ -99,7 +99,7 @@ export function AiSummary({ stats, priorities, savedRow, stale, unit }: { stats:
         </section>
       ) : (
         <div data-print="hide">
-          <p className="t-label">Optional: a short written summary of this month, drafted by AI from these numbers. Nothing is sent but the numbers, and nothing is saved until you keep it.</p>
+          <p className="t-label">Optional. AI drafts a short summary from these numbers only; nothing saves until you keep it.</p>
           <Button variant="secondary" className="mt-3" onClick={write} loading={ai.isPending} disabled={status.isLoading || !configured}>
             Write a summary with AI
           </Button>

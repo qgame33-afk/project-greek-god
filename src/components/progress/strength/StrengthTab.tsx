@@ -106,8 +106,7 @@ export function StrengthTab() {
               <Row
                 key={r.liftKey}
                 title={r.name}
-                subtitle={dayLabel(r.date, today)}
-                value={<span className="t-row tabular-nums text-fg">{setText(r.set, unit, r.bodyweight)}</span>}
+                subtitle={`${setText(r.set, unit, r.bodyweight)} · ${dayLabel(r.date, today)}`}
                 href={exerciseHref(r.set.exercise_slug)}
                 dataName
                 wrap

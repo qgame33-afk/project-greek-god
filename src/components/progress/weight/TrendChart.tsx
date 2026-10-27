@@ -51,7 +51,7 @@ export function TrendChart({
 
   // at accessibility sizes the chart grows (§4.5.7: 240 px) and the labels get the room they need
   const ax = size.root >= 22;
-  const height = ax ? 240 : 170;
+  const height = ax ? 240 : 186;
   const labelWidth = Math.ceil(size.root * 0.775 * 0.62 * 5) + 6;
   const g = useMemo(
     () => (size.w ? chartGeometry({ width: size.w, height, range, today, start, weighIns, series, lbPerWeek, unit, labelWidth }) : null),

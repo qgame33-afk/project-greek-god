@@ -152,15 +152,13 @@ export function WeightTab() {
       {/* 3. the duo */}
       <StatRow cols={2}>
         <StatCard
-          value={rate != null ? signed(toDisplayWeight(rate, unit), 1) : "—"}
-          unit={rate != null ? unit : undefined}
+          value={rate != null ? `${signed(toDisplayWeight(rate, unit), 1)} ${unit}` : "—"}
           label="a week, last 4 weeks"
           onDetails={() => setSheet("rate")}
           ariaLabel={rate != null ? `${signed(toDisplayWeight(rate, unit), 1).replace("−", "minus ")} ${weightWords(unit)} a week, last 4 weeks` : "Weekly pace: not yet"}
         />
         <StatCard
-          value={since != null ? signed(toDisplayWeight(since, unit), 1) : "—"}
-          unit={since != null ? unit : undefined}
+          value={since != null ? `${signed(toDisplayWeight(since, unit), 1)} ${unit}` : "—"}
           label="since you started"
           onDetails={() => setSheet("since")}
           ariaLabel={since != null ? `${signed(toDisplayWeight(since, unit), 1).replace("−", "minus ")} ${weightWords(unit)} since you started` : "Change since you started: not yet"}
@@ -170,7 +168,7 @@ export function WeightTab() {
       {/* 4. rows */}
       <ListGroup>
         <Row icon={Target} title="Milestones" subtitle={milestoneLine} onClick={() => setSheet("milestones")} />
-        <Row icon={List} title="All weigh-ins" value={count ? String(count) : undefined} onClick={() => setSheet("weighins")} />
+        <Row icon={List} title="All weigh-ins" onClick={() => setSheet("weighins")} ariaLabel={`All weigh-ins, ${count}`} />
         <Row icon={CalendarDays} title="Monthly recap" subtitle={recapLine} href="/reviews" />
       </ListGroup>
 

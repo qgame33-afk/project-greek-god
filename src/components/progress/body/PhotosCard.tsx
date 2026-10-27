@@ -70,9 +70,8 @@ export function PhotosCard() {
           <Skeleton className="aspect-[3/4] rounded-tile-lg" />
         </div>
       ) : !photos.length ? (
-        <div className="flex flex-col items-center px-2 py-4 text-center">
+        <div className="flex min-h-48 flex-col items-center justify-center rounded-tile-lg border-[1.5px] border-dashed border-ui-line px-4 text-center">
           <p className="t-row">No photos yet</p>
-          <p className="t-label mt-1.5 max-w-[30ch]">Front, side and back every 2–4 weeks, in the same light.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2.5">

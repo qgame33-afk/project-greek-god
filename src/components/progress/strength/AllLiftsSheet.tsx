@@ -26,7 +26,7 @@ export function AllLiftsSheet({ open, onOpenChange, lines, today, unit }: { open
               <Row
                 key={l.key}
                 title={l.name}
-                subtitle={one ? `First time · ${dayLabel(l.first.date, today)}` : `First ${first} · ${dayLabel(l.first.date, today)}`}
+                subtitle={one ? "First time" : `First ${first}`}
                 value={<span className="t-row tabular-nums text-fg">{latest}</span>}
                 href={`/training/exercise/${encodeURIComponent(l.slug)}`}
                 dataName

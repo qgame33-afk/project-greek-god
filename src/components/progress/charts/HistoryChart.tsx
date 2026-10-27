@@ -76,7 +76,7 @@ export function HistoryChart({
   };
 
   return (
-    <div ref={box} className={cn("relative w-full select-none", className)} style={{ height }}>
+    <div ref={box} data-budget-group="" className={cn("relative w-full select-none", className)} style={{ height }}>
       {g && (
         <svg
           width={w}
