@@ -101,6 +101,9 @@ export function FoodScreen() {
   useEffect(() => {
     if (!wantsAdd) return;
     const sp = new URLSearchParams(window.location.search);
+    // once per arrival: a second run (the dev double effect, `today` settling) would find the
+    // params already dropped and open the plain sheet over the requested panel
+    if (sp.get("add") !== "1") return;
     const t = sp.get("tab") as LogTab | null;
     const m = sp.get("meal");
     const panel = t && LOG_TABS.includes(t) ? t : undefined;
