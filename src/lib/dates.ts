@@ -95,17 +95,18 @@ export function monthName(d: ISODate, short = false) {
   return short ? n.slice(0, 3) : n;
 }
 
-/** "Thursday, October 16" */
+/** "Thursday 16 October" */
 export function longDate(d: ISODate) {
   const x = parseISODate(d);
-  return `${dayName(d)}, ${MONTHS[x.getMonth()]} ${x.getDate()}`;
+  return `${dayName(d)} ${x.getDate()} ${MONTHS[x.getMonth()]}`;
 }
 
-/** "Oct 16" or "Oct 16, 2026" when the year differs from the reference */
+/** "16 Oct", or "16 Oct 2025" when the year differs from the reference */
 export function shortDate(d: ISODate, ref: ISODate = today()) {
   const x = parseISODate(d);
-  const base = `${MONTHS[x.getMonth()].slice(0, 3)} ${x.getDate()}`;
-  return d.slice(0, 4) === ref.slice(0, 4) ? base : `${base}, ${x.getFullYear()}`;
+  // day before month, as every screen writes dates ("Tue 27 Oct", "12–18 Oct")
+  const base = `${x.getDate()} ${MONTHS[x.getMonth()].slice(0, 3)}`;
+  return d.slice(0, 4) === ref.slice(0, 4) ? base : `${base} ${x.getFullYear()}`;
 }
 
 /** "October 2026" */

@@ -9,7 +9,7 @@ import { Button } from "./button";
 /**
  * Up next (docs/DESIGN-V3-SIMPLE.md §1.4.7, §4.1.2): the Day Engine's next action, never blank.
  * A `t-cap` caption, a 52 px tile with a glyph, the title (`t-row`, two lines at most; VoiceOver
- * reads it whole), a one-line subtitle, and ONE button: `sm` on the right, or full width under the
+ * reads it whole), a subtitle of up to two lines, and ONE button: `sm` on the right, or full width under the
  * text with `stack` (labels longer than "Start").
  *
  *   <UpNextCard icon={Dumbbell} title="Shoulders, Biceps & Triceps B" subtitle="7 lifts · about 45 min"
@@ -57,7 +57,8 @@ export function UpNextCard({ icon, title, subtitle, action, stack, caption = "Up
         <span className="t-row line-clamp-2 block leading-tight" data-budget-name={dataName ? "" : undefined}>
           {title}
         </span>
-        {subtitle != null && <span className="t-label mt-[3px] block truncate">{subtitle}</span>}
+        {/* two lines, so the end of the line ("1 change suggested") is never cut off */}
+        {subtitle != null && <span className="t-label mt-[3px] line-clamp-2 block">{subtitle}</span>}
       </span>
     </>
   );

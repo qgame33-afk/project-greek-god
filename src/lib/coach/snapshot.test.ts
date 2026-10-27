@@ -90,7 +90,7 @@ describe("buildSnapshot", () => {
     expect(ppl.facts.find((f) => f.id === "plan.today")?.value).toBe("Pull B");
     expect(ppl.facts.find((f) => f.id === "prog.active")?.value).toBe("Push/Pull/Legs");
     const switched = buildSnapshot(raw({ profile: { ...raw().profile, prefs: { program: "twoset", programSwitch: { from: "ppl", to: "twoset", at: "2026-10-14T12:00:00Z", date: "2026-10-14", frozen: 0, mapped: 0 } } } }));
-    expect(switched.facts.find((f) => f.id === "prog.active")?.value).toBe("Two-set split since Oct 14");
+    expect(switched.facts.find((f) => f.id === "prog.active")?.value).toBe("Two-set split since 14 Oct");
   });
 
   it("writes every weight in kg for a metric account (the coach's weight references)", () => {
@@ -154,7 +154,7 @@ describe("buildSnapshot", () => {
     const p = { ...raw().profile, start_date: today };
     const s = buildSnapshot(raw({ profile: p, training: { ...raw().training!, sessions: [], sets: [] } }));
     const f = (id: string) => s.facts.find((x) => x.id === id);
-    expect(f("tr.count7")?.detail).toBe("0 of 0 planned training days done so far (counting from the start date, Oct 16)");
+    expect(f("tr.count7")?.detail).toBe("0 of 0 planned training days done so far (counting from the start date, 16 Oct)");
     expect(f("tr.count28")?.detail).not.toMatch(/adherence/);
     expect(f("plan.week")?.detail).toMatch(/Mon Arms & Shoulders — before the start date/);
     expect(f("plan.week")?.detail).not.toMatch(/not logged/);
@@ -165,7 +165,7 @@ describe("buildSnapshot", () => {
     const g = [{ field: "calorie_goal", old_value: 3100, new_value: 3300, changed_at: "2026-10-02T01:30:00+00:00", source: "suggestion" }];
     const toronto = buildSnapshot(raw({ goalChanges: g, timeZone: "America/Toronto" }));
     expect(toronto.derived.lastCalorieChange).toBe("2026-10-01");
-    expect(toronto.facts.find((f) => f.id === "goal.change.1")?.detail).toBe("on Oct 1 (suggestion)");
+    expect(toronto.facts.find((f) => f.id === "goal.change.1")?.detail).toBe("on 1 Oct (suggestion)");
     expect(buildSnapshot(raw({ goalChanges: g, timeZone: null })).derived.lastCalorieChange).toBe("2026-10-02");
     expect(dateInZone("2026-10-02T01:30:00Z", "Not/AZone")).toBe("2026-10-02");
   });

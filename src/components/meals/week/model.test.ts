@@ -32,9 +32,9 @@ const lookup = (k: string) => getLibraryRecipe(k);
 
 describe("week labels", () => {
   it("writes the week's range, naming the month again only when it changes", () => {
-    expect(weekRangeLabel("2026-10-12")).toBe("Oct 12 – 18");
-    expect(weekRangeLabel("2026-10-26")).toBe("Oct 26 – Nov 1");
-    expect(weekRangeLabel("2026-12-28")).toBe("Dec 28 – Jan 3");
+    expect(weekRangeLabel("2026-10-12")).toBe("12–18 Oct");
+    expect(weekRangeLabel("2026-10-26")).toBe("26 Oct – 1 Nov");
+    expect(weekRangeLabel("2026-12-28")).toBe("28 Dec – 3 Jan");
   });
 });
 

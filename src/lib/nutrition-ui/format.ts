@@ -98,7 +98,7 @@ export function dayLabel(d: ISODate, today: ISODate): string {
   if (diff === 0) return "Today";
   if (diff === -1) return "Yesterday";
   const wd = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][parseISODate(d).getDay()];
-  return `${wd}, ${shortDate(d, today)}`;
+  return `${wd} ${shortDate(d, today)}`;
 }
 
 /** Never let the viewed day run into the future. */

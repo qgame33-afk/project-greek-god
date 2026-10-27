@@ -91,7 +91,7 @@ describe("buildNotice", () => {
     expect(buildNotice("food", "2026-10-16", facts({ mealsLogged: 0, caloriesToday: 0 }))!.body).toBe("Nothing logged yet today. Your target is 3,300 kcal.");
     expect(buildNotice("hydration", "2026-10-16", facts())!.body).toBe("1.4 L of 3.0 L so far today.");
     expect(buildNotice("weighin", "2026-10-18", facts())!.url).toBe("/progress?tab=weight&log=1");
-    expect(buildNotice("photos", "2026-11-01", facts())!.body).toContain("Last set: Sep 14.");
+    expect(buildNotice("photos", "2026-11-01", facts())!.body).toContain("Last set: 14 Sep.");
     const review = buildNotice("review", "2026-11-01", facts())!;
     expect(review.title).toBe("October review is ready");
     expect(review.url).toBe("/reviews/2026-10");

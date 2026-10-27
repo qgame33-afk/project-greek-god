@@ -540,7 +540,7 @@ describe("headline & AI digest", () => {
     expect(json).not.toContain("private note");
     expect(d.progressPhotos).toBe(1);
     expect(d.status).toBe("complete");
-    expect(JSON.stringify(aiDigest(computeReview({ month: "2026-10-01", today: TODAY, profile, rows }), []))).toContain("in progress through Oct 16");
+    expect(JSON.stringify(aiDigest(computeReview({ month: "2026-10-01", today: TODAY, profile, rows }), []))).toContain("in progress through 16 Oct");
   });
 
   it("is consistent with addDays boundaries", () => {

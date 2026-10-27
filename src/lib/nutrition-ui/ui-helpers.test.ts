@@ -39,7 +39,7 @@ describe("format", () => {
   it("names days and never lets them run into the future", () => {
     expect(dayLabel("2026-10-16", "2026-10-16")).toBe("Today");
     expect(dayLabel("2026-10-15", "2026-10-16")).toBe("Yesterday");
-    expect(dayLabel("2026-10-12", "2026-10-16")).toBe("Mon, Oct 12");
+    expect(dayLabel("2026-10-12", "2026-10-16")).toBe("Mon 12 Oct");
     expect(clampDay("2026-10-20", "2026-10-16")).toBe("2026-10-16");
     expect(clampDay("garbage", "2026-10-16")).toBe("2026-10-16");
     expect(clampDay("2026-09-01", "2026-10-16")).toBe("2026-09-01");

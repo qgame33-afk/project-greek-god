@@ -84,10 +84,10 @@ describe("monthSummary", () => {
 describe("cellLabel", () => {
   it("reads naturally", () => {
     expect(cellLabel("2026-10-14", "high", 5, 8, true)).toBe(
-      "Wednesday, October 14: 5 of 8 habits done, workout done",
+      "Wednesday 14 October: 5 of 8 habits done, workout done",
     );
     expect(cellLabel("2026-10-20", "future", 0, 0, false)).toBe(
-      "Tuesday, October 20: upcoming",
+      "Tuesday 20 October: upcoming",
     );
   });
 });

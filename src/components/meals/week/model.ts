@@ -15,9 +15,9 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 export function weekRangeLabel(ws: ISODate): string {
   const a = parseISODate(ws);
   const b = parseISODate(addDays(ws, 6));
-  const left = `${MONTHS[a.getMonth()]} ${a.getDate()}`;
-  const right = a.getMonth() === b.getMonth() ? `${b.getDate()}` : `${MONTHS[b.getMonth()]} ${b.getDate()}`;
-  return `${left} – ${right}`;
+  // "12–18 Oct", "26 Oct – 1 Nov" (Train's weekRangeLabel spelling)
+  if (a.getMonth() === b.getMonth()) return `${a.getDate()}–${b.getDate()} ${MONTHS[b.getMonth()]}`;
+  return `${a.getDate()} ${MONTHS[a.getMonth()]} – ${b.getDate()} ${MONTHS[b.getMonth()]}`;
 }
 
 /* ------------------------------------------------------------ regenerate */
