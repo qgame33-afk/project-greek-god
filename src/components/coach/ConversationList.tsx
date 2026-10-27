@@ -47,7 +47,7 @@ export function ConversationList({
         type="button"
         onClick={onNew}
         disabled={disabled}
-        className="press t-callout flex h-12 shrink-0 items-center justify-center gap-2 rounded-pill bg-card-2 font-semibold text-fg hover:bg-card-3 disabled:opacity-50"
+        className="press t-label flex h-12 shrink-0 items-center justify-center gap-2 rounded-pill bg-card-2 font-semibold text-fg hover:bg-card-3 disabled:opacity-50"
       >
         <SquarePen className="size-[1.125rem]" strokeWidth={1.6} aria-hidden />
         New question
@@ -77,7 +77,7 @@ export function ConversationList({
                 <li key={c.id} className={cn("relative flex items-center", active && "rounded-tile bg-card")}>
                   {active && <span className="absolute left-0 top-3 h-8 w-0.5 rounded-full bg-fg" aria-hidden />}
                   <button type="button" onClick={() => onSelect(c.id)} aria-current={active ? "true" : undefined} className="press-soft min-h-14 min-w-0 flex-1 py-2 pl-3 pr-1 text-left">
-                    <span className={cn("t-callout block truncate font-semibold", active ? "text-fg" : "text-fg-2")}>{convTitle(c.title)}</span>
+                    <span className={cn("t-label block truncate font-semibold", active ? "text-fg" : "text-fg-2")}>{convTitle(c.title)}</span>
                     <span className="t-cap mt-0.5 block">{when(c.updated_at)}</span>
                   </button>
                   <button

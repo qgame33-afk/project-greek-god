@@ -18,8 +18,8 @@ const listOf = (xs: string[]) => (xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0
 const ordinal = (n: number) => `${n}${n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th"}`;
 
 const rowBase =
-  "relative flex min-h-[52px] w-full items-center gap-3 px-4 py-2.5 text-left [&:not(:first-child)]:before:absolute [&:not(:first-child)]:before:left-4 [&:not(:first-child)]:before:right-0 [&:not(:first-child)]:before:top-0 [&:not(:first-child)]:before:h-px [&:not(:first-child)]:before:bg-vein";
-const groupCls = "overflow-hidden rounded-card bg-m2 shadow-(--e1)";
+  "relative flex min-h-[52px] w-full items-center gap-3 px-4 py-2.5 text-left [&:not(:first-child)]:before:absolute [&:not(:first-child)]:before:left-4 [&:not(:first-child)]:before:right-0 [&:not(:first-child)]:before:top-0 [&:not(:first-child)]:before:h-px [&:not(:first-child)]:before:bg-line";
+const groupCls = "overflow-hidden rounded-card bg-surface ";
 
 interface Status {
   pushConfigured: boolean;
@@ -104,7 +104,7 @@ function useReminderDraft(stored: unknown, mutate: SaveProfile) {
  * what delivery needs. Renders its own "Reminders" groups; pass `embedded` to get only
  * the rows (for a parent that already draws the group container).
  */
-export function ReminderSettings({ embedded = false }: { embedded?: boolean } = {}) {
+export function ReminderSettings({ embedded = false, heading = true }: { embedded?: boolean; /** Draw the "Reminders" heading (off on the Settings page, whose title says it). */ heading?: boolean } = {}) {
   const { profile, loading } = useProfile();
   const save = useSaveProfile();
   const settings = useReminderDraft(profile?.reminders, save.mutate);
@@ -134,11 +134,11 @@ export function ReminderSettings({ embedded = false }: { embedded?: boolean } = 
   );
   const overflow = overflowKinds(settings.value);
   const footnote = (
-    <div className="space-y-1.5 t-meta leading-relaxed font-medium text-ash">
+    <div className="space-y-1.5 t-cap leading-relaxed font-medium text-fg-2">
       <p>
         At most 3 a day, and each one is skipped when the task is already done.
         {overflow.length > 0 && (
-          <span className="text-stone">
+          <span className="text-fg-2">
             {" "}
             On days with more than 3, the least important {overflow.length === 1 ? "is" : "are"} skipped: {listOf(overflow.map((k) => REMINDER_META[k].label))}.
           </span>
@@ -153,7 +153,7 @@ export function ReminderSettings({ embedded = false }: { embedded?: boolean } = 
               This device is on {deviceTz!.replace(/_/g, " ")}.{" "}
               <button
                 type="button"
-                className="-my-3 inline-flex min-h-11 items-center font-bold text-ivory hover:text-ivory sm:my-0 sm:min-h-0"
+                className="-my-3 inline-flex min-h-11 items-center font-bold text-fg hover:text-fg sm:my-0 sm:min-h-0"
                 onClick={() => save.mutate({ values: { timezone: deviceTz! } }, { onSuccess: () => toast("Time zone updated", { description: deviceTz! }) })}
                 disabled={save.isPending}
               >
@@ -180,11 +180,15 @@ export function ReminderSettings({ embedded = false }: { embedded?: boolean } = 
 
   return (
     <section id="reminders" className="scroll-mt-20 lg:scroll-mt-8" aria-labelledby="reminders-title">
-      <div className="mb-2 flex min-h-5 items-end justify-between px-1">
-        <h2 id="reminders-title" className="t-eyebrow">
+      {heading ? (
+        <h2 id="reminders-title" className="t-section mb-3">
           Reminders
         </h2>
-      </div>
+      ) : (
+        <h2 id="reminders-title" className="sr-only">
+          Reminders
+        </h2>
+      )}
       <div className={groupCls}>{device}</div>
       <div className={cn(groupCls, "mt-3")}>{rows}</div>
       <div className="mt-2 px-1">{footnote}</div>
@@ -285,14 +289,14 @@ function DeviceRows({ status, onDevicesChange, anyEnabled }: { status: Status | 
             <Smartphone className="size-[18px]" />
           </Glyph>
           <div className="min-w-0 flex-1">
-            <p className="t-callout font-semibold text-ivory">Add to Home Screen first</p>
-            <p className="mt-0.5 t-meta font-medium leading-snug text-ash">On iPhone, Safari only delivers notifications to web apps opened from the Home Screen (iOS 16.4 or later).</p>
-            <ol className="mt-3 space-y-2 t-meta font-medium text-stone">
+            <p className="t-label font-semibold text-fg">Add to Home Screen first</p>
+            <p className="mt-0.5 t-cap font-medium leading-snug text-fg-2">On iPhone, Safari only delivers notifications to web apps opened from the Home Screen (iOS 16.4 or later).</p>
+            <ol className="mt-3 space-y-2 t-cap font-medium text-fg-2">
               <Step n={1}>
-                Tap <Share className="mx-0.5 inline size-4 -translate-y-px text-ivory" aria-label="Share" /> Share in Safari&apos;s toolbar.
+                Tap <Share className="mx-0.5 inline size-4 -translate-y-px text-fg" aria-label="Share" /> Share in Safari&apos;s toolbar.
               </Step>
               <Step n={2}>
-                Choose <SquarePlus className="mx-0.5 inline size-4 -translate-y-px text-ivory" aria-hidden /> Add to Home Screen.
+                Choose <SquarePlus className="mx-0.5 inline size-4 -translate-y-px text-fg" aria-hidden /> Add to Home Screen.
               </Step>
               <Step n={3}>Open Greek God from your Home Screen and come back here to turn reminders on.</Step>
             </ol>
@@ -363,7 +367,7 @@ function DeviceRows({ status, onDevicesChange, anyEnabled }: { status: Status | 
       </div>
       {error && (
         <div className={cn(rowBase, "py-3")} role="alert">
-          <p className="t-meta font-medium leading-snug text-cinnabar">{error}</p>
+          <p className="t-cap font-medium leading-snug text-danger">{error}</p>
         </div>
       )}
     </>
@@ -373,7 +377,7 @@ function DeviceRows({ status, onDevicesChange, anyEnabled }: { status: Status | 
 function Step({ n, children }: { n: number; children: ReactNode }) {
   return (
     <li className="flex gap-2.5">
-      <span className="tnum grid size-5 shrink-0 place-items-center rounded-full bg-m3 t-meta text-stone">{n}</span>
+      <span className="tabular-nums grid size-5 shrink-0 place-items-center rounded-full bg-control t-cap text-fg-2">{n}</span>
       <span className="leading-snug">{children}</span>
     </li>
   );
@@ -381,7 +385,7 @@ function Step({ n, children }: { n: number; children: ReactNode }) {
 
 function Glyph({ children, tone }: { children: ReactNode; tone: "gold" | "muted" }) {
   return (
-    <span className={cn("grid size-9 shrink-0 place-items-center rounded-field", tone === "gold" ? "bg-m3 text-ivory" : "bg-m3 text-stone")} aria-hidden>
+    <span className={cn("grid size-9 shrink-0 place-items-center rounded-field", tone === "gold" ? "bg-control text-fg" : "bg-control text-fg-2")} aria-hidden>
       {children}
     </span>
   );
@@ -390,8 +394,8 @@ function Glyph({ children, tone }: { children: ReactNode; tone: "gold" | "muted"
 function Labels({ label, detail }: { label: ReactNode; detail?: ReactNode }) {
   return (
     <span className="min-w-0 flex-1">
-      <span className="block t-callout font-semibold leading-snug text-ivory">{label}</span>
-      {detail && <span className="mt-0.5 block t-meta leading-snug font-medium text-ash">{detail}</span>}
+      <span className="block t-label font-semibold leading-snug text-fg">{label}</span>
+      {detail && <span className="mt-0.5 block t-cap leading-snug font-medium text-fg-2">{detail}</span>}
     </span>
   );
 }
@@ -434,7 +438,7 @@ function ReminderRow({ kind, settings, onChange }: { kind: ReminderKind; setting
               ))}
             </SelectPill>
           )}
-          {kind === "review" && <span className="t-meta font-semibold text-stone">1st of each month at</span>}
+          {kind === "review" && <span className="t-cap font-semibold text-fg-2">1st of each month at</span>}
           <TimeField label={`${meta.label} time`} value={r.time} onCommit={(time) => onChange({ time })} />
         </div>
       )}
@@ -443,7 +447,7 @@ function ReminderRow({ kind, settings, onChange }: { kind: ReminderKind; setting
 }
 
 const pillCls =
-  "h-11 rounded-field border border-ui-line bg-m3 px-3 t-body font-semibold text-ivory outline-none transition-[border-color,box-shadow] focus:border-ivory focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)] [color-scheme:dark]";
+  "h-11 rounded-field border border-ui-line bg-control px-3 t-body font-semibold text-fg outline-none transition-[border-color,box-shadow] focus:border-fg focus:shadow-[0_0_0_3px_rgb(213_172_103/.18)] [color-scheme:dark]";
 
 function SelectPill({ label, value, onChange, children }: { label: string; value: string; onChange: (v: string) => void; children: ReactNode }) {
   return (
@@ -451,7 +455,7 @@ function SelectPill({ label, value, onChange, children }: { label: string; value
       <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className={cn(pillCls, "appearance-none pr-9")}>
         {children}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-ash" aria-hidden />
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-fg-2" aria-hidden />
     </span>
   );
 }
@@ -488,7 +492,7 @@ function TimeField({ label, value, onCommit }: { label: string; value: string; o
         timer.current = window.setTimeout(() => commit(v), 700);
       }}
       onBlur={() => commit(draft)}
-      className={cn(pillCls, "tnum w-[124px] text-center tabular-nums")}
+      className={cn(pillCls, "tabular-nums w-[124px] text-center tabular-nums")}
     />
   );
 }
@@ -497,7 +501,7 @@ function SkeletonRows() {
   return (
     <>
       {ORDER.map((k, i) => (
-        <div key={k} className={cn("flex h-[60px] items-center justify-between px-4", i > 0 && "border-t border-vein")} aria-hidden>
+        <div key={k} className={cn("flex h-[60px] items-center justify-between px-4", i > 0 && "border-t border-line")} aria-hidden>
           <span>
             <span className="skeleton block h-3.5 w-36 rounded-full" />
             <span className="skeleton mt-2 block h-3 w-52 rounded-full" />

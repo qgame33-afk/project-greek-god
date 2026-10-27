@@ -15,7 +15,9 @@ import { useResetOnOpen } from "./useResetOnOpen";
 
 type SheetProps = { open: boolean; onOpenChange: (o: boolean) => void; profile: Profile; today: ISODate };
 
-const wUnit = (p: Profile) => (p.weight_unit === "kg" ? "kg" : "lb") as WeightUnit;
+const wUnit = (p: Profile) => (p.weight_unit === "lb" ? "lb" : "kg") as WeightUnit;
+/** "27 and 272 kg": the allowed bodyweight range (60–600 lb stored) in his unit. */
+const rangeText = (u: WeightUnit) => `${Math.round(toDisplayWeight(60, u))} and ${Math.round(toDisplayWeight(600, u))} ${u}`;
 const toLb = (v: number, u: WeightUnit) => round(fromDisplayWeight(v, u), 1);
 const toDisp = (lb: number, u: WeightUnit) => round(toDisplayWeight(lb, u), 1);
 const inRange = (lb: number) => lb >= 60 && lb <= 600;
@@ -33,7 +35,7 @@ export function StartWeightSheet({ open, onOpenChange, profile, today }: SheetPr
     clearError();
   });
   const lb = toLb(w, u);
-  const wErr = inRange(lb) ? null : `Enter a weight between ${u === "kg" ? "27 and 272 kg" : "60 and 600 lb"}.`;
+  const wErr = inRange(lb) ? null : `Enter a weight between ${rangeText(u)}.`;
   const dErr = !date ? "Pick a date." : date >= profile.target_date ? "The start must be before your target date." : null;
   const changed = lb !== Number(profile.start_weight_lb) || date !== profile.start_date;
   return (
@@ -54,9 +56,9 @@ export function StartWeightSheet({ open, onOpenChange, profile, today }: SheetPr
     >
       <div className="grid grid-cols-1 gap-5 pb-2">
         <div>
-          <p className="mb-2 t-meta font-semibold text-stone">Start weight</p>
+          <p className="mb-2 t-cap font-semibold text-fg-2">Start weight</p>
           <StepperInput label="Start weight" value={w} onChange={setW} step={u === "kg" ? 0.1 : 0.2} min={u === "kg" ? 27 : 60} max={u === "kg" ? 272 : 600} decimals={1} unit={u} size="lg" invalid={!!wErr} />
-          {wErr && <p className="mt-2 text-center t-meta text-cinnabar">{wErr}</p>}
+          {wErr && <p className="mt-2 text-center t-cap text-danger">{wErr}</p>}
         </div>
         <Field label="Start date" error={dErr}>
           {(id) => <Input id={id} type="date" value={date} max={addDays(profile.target_date, -1)} onChange={(e) => setDate(e.target.value)} aria-invalid={!!dErr || undefined} />}
@@ -95,7 +97,7 @@ export function GoalWeightSheet({ open, onOpenChange, profile, today }: SheetPro
   const maxLb = toLb(max, u);
   const startLb = Number(profile.start_weight_lb ?? 163);
   const err = !inRange(goalLb)
-    ? `Enter a goal between ${u === "kg" ? "27 and 272 kg" : "60 and 600 lb"}.`
+    ? `Enter a goal between ${rangeText(u)}.`
     : minLb > maxLb
       ? "The range's low end must be below its high end."
       : goalLb < minLb || goalLb > maxLb
@@ -142,8 +144,8 @@ export function GoalWeightSheet({ open, onOpenChange, profile, today }: SheetPro
         />
         <GoalScale startLb={startLb} goalLb={goalLb} rangeMinLb={minLb} rangeMaxLb={maxLb} unit={u} className="px-2" />
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-card bg-m2 shadow-(--e1) p-3">
-            <p className="mb-2 text-center t-meta font-semibold text-ash">Range low</p>
+          <div className="rounded-card bg-surface  p-3">
+            <p className="mb-2 text-center t-cap font-semibold text-fg-2">Range low</p>
             <StepperInput
               layout="stacked"
               label="Range low"
@@ -159,8 +161,8 @@ export function GoalWeightSheet({ open, onOpenChange, profile, today }: SheetPro
               minDecimals={0}
             />
           </div>
-          <div className="rounded-card bg-m2 shadow-(--e1) p-3">
-            <p className="mb-2 text-center t-meta font-semibold text-ash">Range high</p>
+          <div className="rounded-card bg-surface  p-3">
+            <p className="mb-2 text-center t-cap font-semibold text-fg-2">Range high</p>
             <StepperInput
               layout="stacked"
               label="Range high"
@@ -178,13 +180,13 @@ export function GoalWeightSheet({ open, onOpenChange, profile, today }: SheetPro
           </div>
         </div>
         {err ? (
-          <p className="text-center t-meta font-medium text-cinnabar" role="alert">
+          <p className="text-center t-cap font-medium text-danger" role="alert">
             {err}
           </p>
         ) : (
-          <p className="text-center t-meta font-medium text-stone">
+          <p className="text-center t-cap font-medium text-fg-2">
             {weeklyRateText(rate, u)} from {formatBodyweight(startLb, u)} by {shortDate(profile.target_date, today)}
-            {rate != null && rate > 1 && <span className="mt-1 block text-ash">Faster than this mostly adds fat.</span>}
+            {rate != null && rate > 1 && <span className="mt-1 block text-fg-2">Faster than this mostly adds fat.</span>}
           </p>
         )}
         <Field label="Why the change?" hint="Optional">
@@ -226,16 +228,16 @@ export function TargetDateSheet({ open, onOpenChange, profile, today }: SheetPro
           {(id) => <Input id={id} type="date" value={date} min={addDays(today, 1)} onChange={(e) => setDate(e.target.value)} aria-invalid={!!err || undefined} />}
         </Field>
         {!err && left != null && (
-          <div className="rounded-card bg-m2 shadow-(--e1) grid grid-cols-2 gap-3 p-4">
+          <div className="rounded-card bg-surface  grid grid-cols-2 gap-3 p-4">
             <div>
-              <p className="t-eyebrow">Days left</p>
-              <p className="t-num-m mt-1.5">{left.toLocaleString("en-US")}</p>
+              <p className="t-label font-semibold">Days left</p>
+              <p className="t-num-s mt-1.5">{left.toLocaleString("en-US")}</p>
             </div>
             <div>
-              <p className="t-eyebrow">Pace needed</p>
-              <p className="mt-1.5 t-callout font-semibold text-ivory">{weeklyRateText(rate, u).replace(" per week", "/wk")}</p>
+              <p className="t-label font-semibold">Pace needed</p>
+              <p className="mt-1.5 t-label font-semibold text-fg">{weeklyRateText(rate, u).replace(" per week", "/wk")}</p>
             </div>
-            {rate != null && rate > 1 && <p className="col-span-2 t-meta text-stone">Faster than this mostly adds fat.</p>}
+            {rate != null && rate > 1 && <p className="col-span-2 t-cap text-fg-2">Faster than this mostly adds fat.</p>}
           </div>
         )}
       </div>
@@ -246,7 +248,7 @@ export function TargetDateSheet({ open, onOpenChange, profile, today }: SheetPro
 /* ----------------------------------------------------------------- height */
 
 export function HeightSheet({ open, onOpenChange, profile }: SheetProps) {
-  const lu = profile.length_unit === "cm" ? "cm" : "in";
+  const lu = profile.length_unit === "in" ? "in" : "cm";
   const { commit, pending, error, clearError } = useCommit();
   const [cm, setCm] = useState(189.2);
   useResetOnOpen(open, () => {
@@ -266,7 +268,7 @@ export function HeightSheet({ open, onOpenChange, profile }: SheetProps) {
     >
       <div className="grid grid-cols-1 gap-3 pb-2">
         {open && <HeightInput cm={cm} onChange={setCm} unit={lu} invalid={!!err} />}
-        {err ? <p className="t-meta text-cinnabar">{err}</p> : <p className="t-meta text-ash">{formatHeight(cm, lu === "cm" ? "in" : "cm")}</p>}
+        {err ? <p className="t-cap text-danger">{err}</p> : <p className="t-cap text-fg-2">{formatHeight(cm, lu === "cm" ? "in" : "cm")}</p>}
       </div>
     </EditSheet>
   );

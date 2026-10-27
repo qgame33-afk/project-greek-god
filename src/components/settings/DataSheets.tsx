@@ -35,13 +35,13 @@ const BIG_EXPORT = 75 * 1024 * 1024;
 function Progress({ p }: { p: ExportProgress }) {
   const v = p.total ? Math.min(1, p.done / p.total) : 0;
   return (
-    <div className="rounded-card bg-m2 shadow-(--e1) p-4" role="status" aria-live="polite">
+    <div className="rounded-card bg-surface  p-4" role="status" aria-live="polite">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="truncate t-callout font-semibold text-ivory">{p.label}</p>
-        <p className="tnum shrink-0 t-callout text-stone">{Math.round(v * 100)}%</p>
+        <p className="truncate t-label font-semibold text-fg">{p.label}</p>
+        <p className="tabular-nums shrink-0 t-label text-fg-2">{Math.round(v * 100)}%</p>
       </div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--track)]">
-        <div className="h-full w-full rounded-full bg-ivory transition-transform duration-(--dur-lift)" style={{ transform: `translateX(${(v - 1) * 100}%)` }} />
+        <div className="h-full w-full rounded-full bg-fg transition-transform duration-(--dur-lift)" style={{ transform: `translateX(${(v - 1) * 100}%)` }} />
       </div>
     </div>
   );
@@ -53,7 +53,7 @@ function CountLine({ text }: { text: string }) {
   if (!m) return <>{text}</>;
   return (
     <>
-      <span className="tnum t-callout font-semibold text-ivory">{m[1]}</span> <span className="text-stone">{m[2]}</span>
+      <span className="tabular-nums t-label font-semibold text-fg">{m[1]}</span> <span className="text-fg-2">{m[2]}</span>
     </>
   );
 }
@@ -186,32 +186,32 @@ export function ExportSheet({
     >
       <div className="grid grid-cols-1 gap-4 pb-3 pt-1">
         {result ? (
-          <div className="rounded-card bg-m2 shadow-(--e1) flex items-center gap-4 p-4">
-            <span className="grid size-12 shrink-0 place-items-center rounded-btn bg-leaf-tint text-leaf-300">
+          <div className="rounded-card bg-surface  flex items-center gap-4 p-4">
+            <span className="grid size-12 shrink-0 place-items-center rounded-tile bg-card-3 text-fg">
               <FileArchive className="size-6" />
             </span>
             <div className="min-w-0">
-              <p className="truncate t-callout font-bold text-ivory">{result.filename}</p>
-              <p className="mt-0.5 t-meta text-stone">
-                <span className="tnum t-callout">{formatBytes(result.bytes)}</span> · {rows.toLocaleString("en-US")} rows
+              <p className="truncate t-label font-bold text-fg">{result.filename}</p>
+              <p className="mt-0.5 t-cap text-fg-2">
+                <span className="tabular-nums t-label">{formatBytes(result.bytes)}</span> · {rows.toLocaleString("en-US")} rows
                 {result.photos + result.mealPhotos ? ` · ${result.photos + result.mealPhotos} ${result.photos + result.mealPhotos === 1 ? "photo" : "photos"}` : ""}
               </p>
-              {result.photosSkipped > 0 && <p className="mt-1 t-meta text-stone">{result.photosSkipped} photos couldn&apos;t be downloaded and are listed in the README.</p>}
+              {result.photosSkipped > 0 && <p className="mt-1 t-cap text-fg-2">{result.photosSkipped} photos couldn&apos;t be downloaded and are listed in the README.</p>}
             </div>
           </div>
         ) : running && progress ? (
           <Progress p={progress} />
         ) : (
           <>
-            <ul className="grid grid-cols-1 gap-2 t-callout text-stone">
+            <ul className="grid grid-cols-1 gap-2 t-label text-fg-2">
               {["Profile, goals and every change to them", "Workouts, sets and your program", "Food, water, saved foods and AI chats", "Weigh-ins, measurements, tests and reviews", "Recovery check-ins and habits"].map((t) => (
                 <li key={t} className="flex items-start gap-2.5">
-                  <Check className="mt-0.5 size-4 shrink-0 text-ivory" aria-hidden />
+                  <Check className="mt-0.5 size-4 shrink-0 text-fg" aria-hidden />
                   {t}
                 </li>
               ))}
             </ul>
-            <div className="overflow-hidden rounded-btn border border-vein-2 bg-m1">
+            <div className="overflow-hidden rounded-tile border border-line bg-sheet">
               <SwitchRow
                 label="Include progress photos"
                 detail={fileDetail(photos, "No progress photos yet.")}
@@ -228,11 +228,11 @@ export function ExportSheet({
               />
             </div>
             {extraBytes > BIG_EXPORT && (
-              <p className="rounded-field border border-vein-3 bg-m2 px-3.5 py-3 t-meta text-ivory">
+              <p className="rounded-field border border-ui-line bg-surface px-3.5 py-3 t-cap text-fg">
                 That&apos;s a large download ({formatBytes(extraBytes)} of photos). Use Wi-Fi and keep this screen open until it finishes.
               </p>
             )}
-            <p className="t-meta leading-relaxed text-ash">The file contains health and body data, so store it somewhere private.</p>
+            <p className="t-cap leading-relaxed text-fg-2">The file contains health and body data, so store it somewhere private.</p>
           </>
         )}
         {error && <ErrorNote onRetry={run}>{error}</ErrorNote>}
@@ -258,7 +258,7 @@ function TypeDelete({ value, onChange, disabled }: { value: string; onChange: (v
           enterKeyHint="done"
           disabled={disabled}
           placeholder="DELETE"
-          className="font-bold tracking-[0.12em]"
+          className="font-bold"
         />
       )}
     </Field>
@@ -347,7 +347,7 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
             </Button>
           )
         ) : (
-          <Button variant="destructive-solid" size="lg" block className="disabled:bg-m3 disabled:text-disabled" disabled={typed !== "DELETE" || total === 0 || !!progress} loading={!!progress} onClick={run}>
+          <Button variant="destructive-solid" size="lg" block className="disabled:bg-control disabled:text-fg-3" disabled={typed !== "DELETE" || total === 0 || !!progress} loading={!!progress} onClick={run}>
             Delete logged data
           </Button>
         )
@@ -356,13 +356,13 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
       <div className="grid grid-cols-1 gap-4 pb-3 pt-1">
         {report ? (
           <div className="grid grid-cols-1 gap-3">
-            <div className="rounded-card bg-m2 shadow-(--e1) p-4">
-              <p className="t-eyebrow mb-2">Deleted</p>
+            <div className="rounded-card bg-surface  p-4">
+              <p className="t-label font-semibold mb-2">Deleted</p>
               {wipeSummary(report).length ? (
-                <ul className="grid grid-cols-1 gap-1 t-callout text-ivory">
+                <ul className="grid grid-cols-1 gap-1 t-label text-fg">
                   {wipeSummary(report).map((l) => (
                     <li key={l} className="flex items-center gap-2">
-                      <Check className="size-4 shrink-0 text-leaf-300" aria-hidden />
+                      <Check className="size-4 shrink-0 text-fg" aria-hidden />
                       <span>
                         <CountLine text={l} />
                       </span>
@@ -370,7 +370,7 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
                   ))}
                 </ul>
               ) : (
-                <p className="t-callout text-stone">Nothing needed deleting.</p>
+                <p className="t-label text-fg-2">Nothing needed deleting.</p>
               )}
             </div>
             {report.failed.length > 0 && (
@@ -383,8 +383,8 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
           <Progress p={progress} />
         ) : (
           <>
-            <div className="rounded-card bg-m2 shadow-(--e1) p-4">
-              <p className="t-eyebrow mb-2">Will be deleted</p>
+            <div className="rounded-card bg-surface  p-4">
+              <p className="t-label font-semibold mb-2">Will be deleted</p>
               {preview === null ? (
                 <div className="grid grid-cols-1 gap-2">
                   <Skeleton className="h-3.5 w-40" />
@@ -394,9 +394,9 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
               ) : preview === "error" ? (
                 <ErrorNote onRetry={load}>Couldn&apos;t count your data.</ErrorNote>
               ) : lines.length === 0 ? (
-                <p className="t-callout text-stone">There&apos;s no logged data to delete.</p>
+                <p className="t-label text-fg-2">There&apos;s no logged data to delete.</p>
               ) : (
-                <ul className="grid grid-cols-1 gap-x-4 gap-y-1.5 t-callout sm:grid-cols-2">
+                <ul className="grid grid-cols-1 gap-x-4 gap-y-1.5 t-label sm:grid-cols-2">
                   {lines.map((l) => (
                     <li key={l}>
                       <CountLine text={l} />
@@ -406,12 +406,12 @@ export function WipeSheet({ open, onOpenChange, userId, onExport }: { open: bool
               )}
             </div>
             <div className="px-1">
-              <p className="t-eyebrow mb-1.5">Kept</p>
-              <p className="t-meta leading-relaxed text-stone">{KEPT_ON_WIPE.join(" · ")}</p>
+              <p className="t-label font-semibold mb-1.5">Kept</p>
+              <p className="t-cap leading-relaxed text-fg-2">{KEPT_ON_WIPE.join(" · ")}</p>
             </div>
-            <p className="t-meta leading-relaxed text-stone">
+            <p className="t-cap leading-relaxed text-fg-2">
               This can&apos;t be undone.{" "}
-              <button type="button" className="-my-3 inline-flex min-h-11 items-center font-bold text-ivory" onClick={onExport}>
+              <button type="button" className="-my-3 inline-flex min-h-11 items-center font-bold text-fg" onClick={onExport}>
                 Export a copy first
               </button>
             </p>
@@ -465,19 +465,19 @@ export function DeleteAccountSheet({ open, onOpenChange, email, onExport }: { op
       title="Delete account"
       description={email ? `Permanently delete ${email}.` : "Permanently delete your account."}
       footer={
-        <Button variant="destructive-solid" size="lg" block className="disabled:bg-m3 disabled:text-disabled" disabled={typed !== "DELETE"} loading={pending} onClick={run}>
+        <Button variant="destructive-solid" size="lg" block className="disabled:bg-control disabled:text-fg-3" disabled={typed !== "DELETE"} loading={pending} onClick={run}>
           Delete account
         </Button>
       }
     >
       <div className="grid grid-cols-1 gap-4 pb-3 pt-1">
-        <ul className="grid grid-cols-1 gap-2 t-callout leading-relaxed text-stone">
+        <ul className="grid grid-cols-1 gap-2 t-label leading-relaxed text-fg-2">
           <li>Every workout, food log, weigh-in, measurement and check-in.</li>
           <li>All progress and meal photos in private storage.</li>
           <li>Your profile, goals and sign-in. This can&apos;t be undone.</li>
         </ul>
-        <p className="t-meta text-stone">
-          <button type="button" className="-my-3 inline-flex min-h-11 items-center font-bold text-ivory" onClick={onExport}>
+        <p className="t-cap text-fg-2">
+          <button type="button" className="-my-3 inline-flex min-h-11 items-center font-bold text-fg" onClick={onExport}>
             Export a copy first
           </button>
         </p>

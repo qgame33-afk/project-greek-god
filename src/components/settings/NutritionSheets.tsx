@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { Check, TriangleAlert } from "lucide-react";
-import { AutoBadge } from "@/components/ui/badge";
 import { Field, Textarea } from "@/components/ui/field";
 import { Empty, Skeleton } from "@/components/ui/misc";
 import { Sheet } from "@/components/ui/sheet";
-import { EmptyArt } from "@/components/art/Motifs";
 import { useGoalChanges, type Profile } from "@/lib/data/profile";
 import { localDateOf, shortDate, type ISODate } from "@/lib/dates";
 import { balancedCarbs, macroLine, macrosOverflow } from "@/lib/onboarding/macros";
@@ -24,9 +22,9 @@ type SheetProps = { open: boolean; onOpenChange: (o: boolean) => void; profile: 
 export function MacroCheck({ calories, protein, carbs, fat, className }: { calories: number; protein: number; carbs: number; fat: number; className?: string }) {
   const l = macroLine({ calories, protein, carbs, fat });
   return (
-    <p className={cn("flex items-center gap-1.5 t-meta font-semibold", l.ok ? "text-ivory" : "text-stone", className)} role="status" aria-live="polite">
+    <p className={cn("flex items-center gap-1.5 t-cap font-semibold", l.ok ? "text-fg" : "text-fg-2", className)} role="status" aria-live="polite">
       {l.ok ? <Check className="size-4 shrink-0" aria-hidden /> : <TriangleAlert className="size-4 shrink-0" aria-hidden />}
-      <span className="tnum t-callout">{l.ok ? l.text.replace(" ✓", "") : l.text}</span>
+      <span className="tabular-nums t-label">{l.ok ? l.text.replace(" ✓", "") : l.text}</span>
     </p>
   );
 }
@@ -86,35 +84,34 @@ export function NutritionSheet({ open, onOpenChange, profile }: SheetProps) {
       }
     >
       <div className="grid grid-cols-1 gap-4 pb-2">
-        <div className="rounded-card bg-m2 shadow-(--e1) p-4">
-          <p className="t-eyebrow mb-3 text-center">Calories</p>
+        <div className="rounded-card bg-surface  p-4">
+          <p className="t-label font-semibold mb-3 text-center">Calories</p>
           <StepperInput label="Calories" value={kcal} onChange={setKcal} step={50} min={1000} max={8000} unit="kcal" size="lg" thousands />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-card bg-m2 shadow-(--e1) p-3">
-            <p className="t-eyebrow mb-2 text-center">Protein</p>
+          <div className="rounded-card bg-surface  p-3">
+            <p className="t-label font-semibold mb-2 text-center">Protein</p>
             <StepperInput layout="stacked" label="Protein" value={protein} onChange={setProtein} step={5} min={0} max={500} unit="g" />
           </div>
-          <div className="rounded-card bg-m2 shadow-(--e1) p-3">
-            <p className="t-eyebrow mb-2 text-center">Fat</p>
+          <div className="rounded-card bg-surface  p-3">
+            <p className="t-label font-semibold mb-2 text-center">Fat</p>
             <StepperInput layout="stacked" label="Fat" value={fat} onChange={setFat} step={5} min={0} max={400} unit="g" />
           </div>
         </div>
-        <div className="rounded-card bg-m2 shadow-(--e1) p-3">
+        <div className="rounded-card bg-surface  p-3">
           <div className="mb-2 flex items-center justify-center gap-2">
-            <p className="t-eyebrow">Carbs</p>
-            {auto && <AutoBadge />}
+            <p className="t-label font-semibold">Carbs</p>
           </div>
           {auto ? (
             <div className="flex h-[52px] flex-col items-center justify-center">
-              <p className="t-num-m">{formatInt(c)}</p>
-              <p className="mt-1 t-tag font-semibold uppercase tracking-[0.16em] text-ash">g · balances calories</p>
+              <p className="t-num-s">{formatInt(c)}</p>
+              <p className="mt-1 t-cap">g · balanced from the others</p>
             </div>
           ) : (
             <StepperInput label="Carbs" value={carbs} onChange={setCarbs} step={5} min={0} max={1200} unit="g" />
           )}
         </div>
-        <div className="overflow-hidden rounded-btn border border-vein-2 bg-m1">
+        <div className="overflow-hidden rounded-tile border border-line bg-sheet">
           <SwitchRow
             label="Auto-balance carbs"
             detail="Carbs fill whatever calories protein and fat leave."
@@ -127,9 +124,9 @@ export function NutritionSheet({ open, onOpenChange, profile }: SheetProps) {
         </div>
         <div className="flex flex-col items-center gap-1 text-center">
           <MacroCheck calories={kcal} protein={protein} carbs={c} fat={fat} />
-          {err && line.ok && <p className="t-meta text-cinnabar">{err}</p>}
+          {err && line.ok && <p className="t-cap text-danger">{err}</p>}
           {!line.ok && !auto && (
-            <button type="button" className="h-11 px-2 t-meta font-bold text-ivory" onClick={() => setCarbs(balancedCarbs(kcal, protein, fat))}>
+            <button type="button" className="h-11 px-2 t-cap font-bold text-fg" onClick={() => setCarbs(balancedCarbs(kcal, protein, fat))}>
               Balance carbs to {formatInt(balancedCarbs(kcal, protein, fat))} g
             </button>
           )}
@@ -183,7 +180,7 @@ export function DailyGoalSheet({ kind, open, onOpenChange, profile }: SheetProps
     >
       <div className="pb-3 pt-2">
         <StepperInput label={DAILY[kind].title} value={v} onChange={setV} step={cfg.step} min={cfg.min} max={cfg.max} decimals={cfg.decimals} minDecimals={kind === "water" ? 1 : kind === "sleep" ? 0 : undefined} unit={cfg.unit} size="lg" thousands={kind === "steps"} invalid={!cfg.ok} />
-        {!cfg.ok && <p className="mt-2 text-center t-meta text-cinnabar">{cfg.msg}</p>}
+        {!cfg.ok && <p className="mt-2 text-center t-cap text-danger">{cfg.msg}</p>}
       </div>
     </EditSheet>
   );
@@ -196,14 +193,14 @@ const FIELD_LABEL: Record<string, [string, string]> = {
   protein_goal: ["Protein", "g"],
   carb_goal: ["Carbs", "g"],
   fat_goal: ["Fat", "g"],
-  goal_weight_lb: ["Goal weight", "lb"],
+  goal_weight_lb: ["Goal weight", ""],
   water_goal_ml: ["Water", "mL"],
   sleep_goal_h: ["Sleep", "h"],
   steps_goal: ["Steps", ""],
 };
-const SOURCE: Record<string, string> = { user: "You", suggestion: "Accepted suggestion", onboarding: "Onboarding" };
+const SOURCE: Record<string, string> = { user: "You", suggestion: "Coach suggestion", onboarding: "Get started" };
 
-export function GoalHistorySheet({ open, onOpenChange, today, weightUnit = "lb" }: { open: boolean; onOpenChange: (o: boolean) => void; today: ISODate; weightUnit?: "lb" | "kg" }) {
+export function GoalHistorySheet({ open, onOpenChange, today, weightUnit = "kg" }: { open: boolean; onOpenChange: (o: boolean) => void; today: ISODate; weightUnit?: "lb" | "kg" }) {
   const q = useGoalChanges();
   const rows = q.data ?? [];
   return (
@@ -216,13 +213,13 @@ export function GoalHistorySheet({ open, onOpenChange, today, weightUnit = "lb" 
             ))}
           </div>
         ) : q.error ? (
-          <p className="t-meta text-cinnabar">Couldn&apos;t load the history. {(q.error as Error).message}</p>
+          <p className="t-cap text-danger">Couldn&apos;t load the history. {(q.error as Error).message}</p>
         ) : rows.length === 0 ? (
-          <Empty art={<EmptyArt kind="plinth" size={56} />} title="No changes yet">
+          <Empty title="No changes yet">
             When you change a calorie, macro or weight goal, it shows up here with the date and your reason.
           </Empty>
         ) : (
-          <ul className="overflow-hidden rounded-btn border border-vein-2 bg-m1">
+          <ul className="overflow-hidden rounded-tile border border-line bg-sheet">
             {rows.map((r, i) => {
               const [name, baseUnit] = FIELD_LABEL[r.field] ?? [r.field, ""];
               const isWeight = r.field === "goal_weight_lb";
@@ -230,14 +227,14 @@ export function GoalHistorySheet({ open, onOpenChange, today, weightUnit = "lb" 
               const fmt = (v: number | null) =>
                 v == null ? "—" : isWeight ? round(toDisplayWeight(Number(v), weightUnit), 1).toFixed(1) : r.field === "sleep_goal_h" ? String(round(Number(v), 2)) : formatInt(Number(v));
               return (
-                <li key={r.id} className={cn("px-4 py-3", i > 0 && "border-t border-vein")}>
+                <li key={r.id} className={cn("px-4 py-3", i > 0 && "border-t border-line")}>
                   <div className="flex items-baseline justify-between gap-3">
-                    <p className="t-callout font-semibold text-ivory">{name}</p>
-                    <p className="tnum shrink-0 t-callout text-stone">
-                      {fmt(r.old_value)} → <span className="text-ivory">{fmt(r.new_value)}</span> {unit}
+                    <p className="t-label font-semibold text-fg">{name}</p>
+                    <p className="tabular-nums shrink-0 t-label text-fg-2">
+                      {fmt(r.old_value)} → <span className="text-fg">{fmt(r.new_value)}</span> {unit}
                     </p>
                   </div>
-                  <p className="mt-0.5 t-meta text-ash">
+                  <p className="mt-0.5 t-cap text-fg-2">
                     {shortDate(localDateOf(r.changed_at), today)} · {SOURCE[r.source] ?? r.source}
                     {r.reason ? ` · ${r.reason}` : ""}
                   </p>

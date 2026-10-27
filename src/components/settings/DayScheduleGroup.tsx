@@ -37,7 +37,7 @@ function patchFor(k: MealKey, v: string, day: DaySchedule): PrefsPatch {
 }
 
 /**
- * Settings → Day schedule (docs/DESIGN-V2.md §3.10, §4.4): his usual training time and meal times,
+ * Settings › Day schedule (docs/DESIGN-V3-SIMPLE.md §4.9): his usual training time and meal times,
  * stored in profiles.prefs.day through useSavePrefs (it merges, so the workout switches and every
  * other key survive). Each time saves when the picker closes, with Undo.
  */
@@ -52,8 +52,8 @@ export function DayScheduleGroup({ profile }: { profile: Profile }) {
     });
 
   return (
-    <Group id="day" title="Day schedule" footer="Now and Fuel place your planned meals at these times. A snack near training moves to the pre-workout slot.">
-      <ControlRow label="Usual training time" detail={day.trainAt ? "Now opens Train 90 minutes before" : "Not set: Now offers the session all afternoon"}>
+    <Group id="day" footer="Today and Food place your planned meals at these times. A snack near training moves to the pre-workout slot.">
+      <ControlRow label="Usual training time" detail={day.trainAt ? "Today offers your workout 90 minutes before" : "Not set: Today offers the workout all afternoon"}>
         <TimeField
           label="Usual training time"
           value={day.trainAt}
@@ -101,7 +101,7 @@ function TimeField({ label, value, onCommit, clearable }: { label: string; value
   return (
     <span className="flex items-center gap-1">
       {clearable && value && (
-        <button type="button" onClick={() => onCommit(null)} className="press t-meta h-11 px-2 font-semibold text-stone hover:text-ivory" aria-label={`Clear ${label.toLowerCase()}`}>
+        <button type="button" onClick={() => onCommit(null)} className="press t-label h-11 px-2 font-semibold hover:text-fg" aria-label={`Clear ${label.toLowerCase()}`}>
           Clear
         </button>
       )}
@@ -112,7 +112,7 @@ function TimeField({ label, value, onCommit, clearable }: { label: string; value
         onChange={(e) => setDraft(e.target.value)}
         onBlur={(e) => done(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-        className="tnum h-11 w-[8.25rem] rounded-field border border-ui-line bg-m3 px-3 text-center [&::-webkit-calendar-picker-indicator]:hidden text-[length:max(16px,1rem)] font-semibold text-ivory outline-none transition-[border-color,box-shadow] [color-scheme:dark] focus:border-leaf-300 focus:shadow-[0_0_0_3px_var(--leaf-tint)]"
+        className="t-body h-11 w-[8.25rem] rounded-field bg-control px-3 text-center font-semibold tabular-nums text-fg outline-none [color-scheme:dark] focus:shadow-[inset_0_0_0_2px_var(--text)] [&::-webkit-calendar-picker-indicator]:hidden"
       />
     </span>
   );

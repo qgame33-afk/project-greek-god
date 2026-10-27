@@ -23,11 +23,11 @@ export function SourcesSheet({ open, onOpenChange, usda }: { open: boolean; onOp
   ];
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title="Where the numbers come from">
-      <dl className="divide-y divide-vein border-y border-vein pb-1">
+      <dl className="divide-y divide-line border-y border-line pb-1">
         {rows.map((r) => (
           <div key={r.title} className="py-3.5">
-            <dt className="t-title-3 text-ivory">{r.title}</dt>
-            <dd className="t-callout mt-1 text-stone">{r.body}</dd>
+            <dt className="t-row text-fg">{r.title}</dt>
+            <dd className="t-label mt-1 text-fg-2">{r.body}</dd>
           </div>
         ))}
       </dl>
