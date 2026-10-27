@@ -67,7 +67,7 @@ export function confidenceForSource(source: string | null | undefined): "logged"
 /** Human label for a meal group's origin. */
 export function groupLabel(source: string): string {
   if (source === "photo_ai") return "Photo scan";
-  if (source === "chat_ai" || source === "assistant_handoff") return "Food Coach";
+  if (source === "chat_ai" || source === "assistant_handoff") return "Coach";
   if (source === "saved_meal") return "Saved meal";
   return "Meal";
 }

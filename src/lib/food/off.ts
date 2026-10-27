@@ -28,7 +28,9 @@ export function offUrl(code: string) {
 
 export function normalizeOFFHit(hit: OFFHit): FoodSearchResult | null {
   const code = typeof hit?.code === "string" ? hit.code.replace(/[^0-9A-Za-z-]/g, "") : "";
-  const rawName = (hit?.product_name_en || hit?.product_name || "").toString().trim();
+  // the product's own name first: product_name_en is a separate crowd-edited field that is more
+  // often vandalised or left stale
+  const rawName = (hit?.product_name || hit?.product_name_en || "").toString().trim();
   if (!code || !rawName) return null;
   const n = hit.nutriments ?? {};
   const protein = num(n["proteins_100g"]);

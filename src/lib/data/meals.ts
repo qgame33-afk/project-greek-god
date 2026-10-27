@@ -922,7 +922,7 @@ export interface LogPlannedMealResult {
  * Idempotent on input.id — keep one id per confirm sheet; repeats never add a second row.
  * Updates the day's food cache optimistically like useAddFood (Today / Nutrition totals move
  * at once), records a "logged" learning signal when `features` are given, and shows
- * "Logged … · Undo" unless `{ toast: false }`.
+ * "… eaten · Undo" unless `{ toast: false }`.
  */
 export function useLogPlannedMeal(opts: { toast?: boolean } = {}) {
   const qc = useQueryClient();
@@ -981,7 +981,7 @@ export function useLogPlannedMeal(opts: { toast?: boolean } = {}) {
         toast("Already in your food log");
         return;
       }
-      toast(`Logged ${res.entry.name}`, {
+      toast(`${res.entry.name} eaten`, {
         description: `${relativeDay(input.date, todayDate)} · ${Math.round(Number(res.entry.calories)).toLocaleString("en-US")} kcal from the recipe`,
         duration: 6000,
         action: { label: "Undo", onClick: () => undoLog(qc, userId, res) },
