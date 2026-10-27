@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Info } from "lucide-react";
+import { Info, Sparkle } from "lucide-react";
 import { useLayoutEffect, useRef, type RefObject } from "react";
-import { OracleSparkles } from "@/components/art/icons";
+import { promptsFor } from "@/components/oracle/context";
+import { SuggestionChip } from "@/components/oracle/OracleThread";
 import { Skeleton } from "@/components/ui/misc";
+import { useProfile } from "@/lib/data/profile";
 import type { FoodChatPayload } from "@/lib/ai/food-schemas";
 import { AssistantMessage, UserBubble } from "./ChatMessage";
 import { Composer, type ComposerHandle } from "./Composer";
@@ -18,8 +20,9 @@ export const EXAMPLES = [
 ];
 
 /**
- * The Food Coach thread (the Oracle with Fuel context): empty state, the conversation and its
- * meal drafts as ESTIMATE cards. Used by the /nutrition/coach page and the Offering sheet.
+ * Coach with food context (docs/DESIGN-V3-SIMPLE.md §4.8, `/nutrition/coach`): two suggested
+ * questions, then the conversation, its meal drafts as AI cards that save nothing until the gold
+ * "Add as …".
  */
 export function FoodThread({ chat, lead, onNavigate, scrollRoot }: { chat: FoodChat; lead?: string; onNavigate?: () => void; scrollRoot?: RefObject<HTMLElement | null> }) {
   const end = useRef<HTMLDivElement>(null);
@@ -45,10 +48,10 @@ export function FoodThread({ chat, lead, onNavigate, scrollRoot }: { chat: FoodC
     );
   if (msgs.isError)
     return (
-      <p className="t-callout py-10 text-center text-stone">
+      <p className="t-label py-10 text-center">
         Couldn&apos;t load this chat.{" "}
-        <button type="button" className="press inline-flex h-11 items-center font-semibold text-ivory underline decoration-ui-line underline-offset-4" onClick={() => msgs.refetch()}>
-          Retry
+        <button type="button" className="press inline-flex h-11 items-center font-semibold text-fg underline decoration-ui-line underline-offset-4" onClick={() => msgs.refetch()}>
+          Try again
         </button>
       </p>
     );
@@ -96,7 +99,7 @@ export function FoodThread({ chat, lead, onNavigate, scrollRoot }: { chat: FoodC
                 <button
                   type="button"
                   onClick={() => document.getElementById(`msg-${p.refers_to}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
-                  className="press t-callout mt-1 h-11 font-semibold text-ivory underline decoration-ui-line underline-offset-4"
+                  className="press t-label mt-1 h-11 font-semibold text-fg underline decoration-ui-line underline-offset-4"
                 >
                   Show the meal
                 </button>
@@ -110,8 +113,8 @@ export function FoodThread({ chat, lead, onNavigate, scrollRoot }: { chat: FoodC
               <UserBubble text={shownPending.text} localImage={shownPending.image} pending />
             </li>
             <li className="flex items-center gap-2.5" role="status">
-              <OracleSparkles className="size-4 animate-pulse text-aegean" />
-              <span className="t-callout text-stone">Working out the numbers…</span>
+              <Sparkle className="size-4 text-ai" strokeWidth={2.2} aria-hidden />
+              <span className="t-label">Working out the numbers…</span>
             </li>
           </>
         )}
@@ -127,18 +130,18 @@ export function FoodComposerBlock({ chat, composerRef, placeholder }: { chat: Fo
   return (
     <>
       {error && (
-        <div className="t-callout mb-2.5 flex items-start justify-between gap-3 rounded-field border border-cinnabar-line bg-cinnabar-tint px-3.5 py-2.5 text-ivory" role="alert">
+        <div className="t-label mb-2.5 flex items-start justify-between gap-3 rounded-tile-lg bg-card px-4 py-2.5 text-fg" role="alert">
           <span className="py-1">
             {error.message}
             {foodRetryable(error.code) && !error.retry ? " Your message is kept." : ""}
           </span>
           {foodRetryable(error.code) ? (
-            <button type="button" onClick={() => void chat.send(error.retry ?? undefined, error.sent)} className="press -my-1 h-11 shrink-0 px-1 font-semibold text-ivory underline decoration-ui-line underline-offset-4">
-              Retry
+            <button type="button" onClick={() => void chat.send(error.retry ?? undefined, error.sent)} className="press -my-1 h-11 shrink-0 px-1 font-semibold text-fg underline decoration-ui-line underline-offset-4">
+              Try again
             </button>
           ) : (
-            <Link href={error.code === "unauthorized" ? "/sign-in" : "/nutrition?add=1"} className="press -my-1 inline-flex h-11 shrink-0 items-center px-1 font-semibold text-ivory underline decoration-ui-line underline-offset-4">
-              {error.code === "unauthorized" ? "Sign in" : "Log by search"}
+            <Link href={error.code === "unauthorized" ? "/sign-in" : "/nutrition?add=1"} className="press -my-1 inline-flex h-11 shrink-0 items-center px-1 font-semibold text-fg underline decoration-ui-line underline-offset-4">
+              {error.code === "unauthorized" ? "Sign in" : "Search food"}
             </Link>
           )}
         </div>
@@ -154,45 +157,35 @@ export function FoodComposerBlock({ chat, composerRef, placeholder }: { chat: Fo
         preparingImage={chat.preparing}
         disabled={!chat.configured}
         sending={!!chat.pending}
-        placeholder={chat.configured ? placeholder : "The Food Coach needs an AI key"}
+        placeholder={chat.configured ? placeholder : "Coach isn't set up yet"}
       />
     </>
   );
 }
 
 function EmptyFood({ configured, lead, onExample, onNavigate }: { configured: boolean; lead?: string; onExample: (e: string) => void; onNavigate?: () => void }) {
-  const list = lead ? [lead, ...EXAMPLES.slice(0, 3)] : EXAMPLES;
+  const { profile } = useProfile();
+  const list = [lead ?? promptsFor("fuel", { proteinGoal: profile?.protein_goal ?? null }).lead, EXAMPLES[0]];
+  if (!configured)
+    return (
+      <p role="status" className="t-label flex items-start gap-2.5 rounded-tile-lg bg-card px-4 py-3">
+        <Info className="mt-0.5 size-4 shrink-0 text-fg-3" strokeWidth={2} aria-hidden />
+        <span>
+          Coach isn&apos;t set up yet. It needs an AI key on the server.{" "}
+          <Link href="/nutrition?add=1&tab=search" onClick={onNavigate} className="font-semibold text-fg underline decoration-ui-line underline-offset-4">
+            Search food
+          </Link>{" "}
+          works now.
+        </span>
+      </p>
+    );
   return (
-    <div className="rise">
-      <OracleSparkles className="size-7 text-aegean" />
-      <p className="t-verdict mt-3 text-ivory">Tell it what you ate, or ask about food.</p>
-      <p className="t-callout mt-2 max-w-[38ch] text-stone">Plain words work. Quantities and restaurant names make it sharper. Nothing is logged until you add it.</p>
-      {configured ? (
-        <>
-          <p className="t-eyebrow mb-1 mt-7">Try</p>
-          <ul className="divide-y divide-vein border-y border-vein">
-            {list.map((e, i) => (
-              <li key={e}>
-                <button type="button" onClick={() => onExample(e)} className="press-soft flex min-h-14 w-full items-center gap-3 py-2.5 text-left">
-                  <span className={i === 0 && lead ? "t-title-3 min-w-0 flex-1 text-ivory" : "t-callout min-w-0 flex-1 font-semibold text-ivory"}>{e}</span>
-                  <ChevronRight className="size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : (
-        <div role="status" className="t-callout mt-6 flex items-start gap-2.5 rounded-field bg-m2 px-3.5 py-3 text-stone shadow-(--e1)">
-          <Info className="mt-0.5 size-4 shrink-0 text-ash" strokeWidth={1.6} aria-hidden />
-          <p>
-            <span className="font-semibold text-ivory">The Food Coach isn&apos;t connected.</span> It needs an AI key on the server.{" "}
-            <Link href="/nutrition?add=1" onClick={onNavigate} className="font-semibold text-ivory underline decoration-ui-line underline-offset-4">
-              Log by search
-            </Link>{" "}
-            works now.
-          </p>
-        </div>
-      )}
+    <div className="flex flex-col items-start gap-2.5" aria-label="Suggested questions">
+      {list.map((e) => (
+        <SuggestionChip key={e} onClick={() => onExample(e)}>
+          {e}
+        </SuggestionChip>
+      ))}
     </div>
   );
 }

@@ -11,13 +11,13 @@ export interface ComposerHandle {
 }
 
 /**
- * The Oracle's question field: a 56 px well that grows to five lines, with a 44 px send disc
- * (ivory when there is something to send — the question is his, so it is never aegean or gold).
+ * Coach's composer (docs/DESIGN-V3-SIMPLE.md §4.8): "Ask anything" in a --card pill that grows to
+ * five lines, with a 44 px white send (never gold: the question is his).
  */
 export const OracleComposer = forwardRef<
   ComposerHandle,
   { value: string; onChange: (v: string) => void; onSend: () => void; busy?: boolean; disabled?: boolean; placeholder?: string; id?: string; max?: number }
->(function OracleComposer({ value, onChange, onSend, busy, disabled, placeholder = "Ask the Oracle", id = "oracle-composer", max = MAX_MESSAGE_CHARS }, ref) {
+>(function OracleComposer({ value, onChange, onSend, busy, disabled, placeholder = "Ask anything", id = "coach-composer", max = MAX_MESSAGE_CHARS }, ref) {
   const ta = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(ref, () => ({ focus: () => ta.current?.focus() }), []);
 
@@ -39,12 +39,12 @@ export const OracleComposer = forwardRef<
       }}
       onClick={(e) => e.target === e.currentTarget && ta.current?.focus()}
       className={cn(
-        "flex items-end gap-1.5 rounded-card border bg-m2 py-1.5 pl-4 pr-1.5 transition-[border-color,box-shadow] duration-(--dur-fast)",
-        disabled ? "border-vein-2" : "border-ui-line focus-within:border-aegean-line focus-within:shadow-[0_0_0_3px_var(--aegean-tint)]",
+        "flex min-h-14 items-end gap-1.5 rounded-sheet bg-card py-1.5 pl-5 pr-1.5 transition-shadow duration-(--dur-fast)",
+        !disabled && "focus-within:shadow-[inset_0_0_0_2px_var(--text)]",
       )}
     >
       <label className="sr-only" htmlFor={id}>
-        Ask the Oracle
+        Ask coach
       </label>
       <textarea
         id={id}
@@ -65,10 +65,10 @@ export const OracleComposer = forwardRef<
         autoComplete="off"
         autoCorrect="on"
         spellCheck
-        className="min-h-11 flex-1 resize-none bg-transparent py-2.5 text-[length:max(16px,1rem)] leading-snug text-ivory outline-none placeholder:text-ash disabled:cursor-not-allowed"
+        className="t-body min-h-11 flex-1 resize-none bg-transparent py-2.5 leading-snug text-fg outline-none placeholder:text-fg-2 disabled:cursor-not-allowed"
       />
       {near && (
-        <span className="t-meta tnum mb-3 shrink-0 text-ash" aria-live="polite">
+        <span className="t-cap mb-3 shrink-0 tabular-nums" aria-live="polite">
           {value.length}/{max}
         </span>
       )}
@@ -78,10 +78,10 @@ export const OracleComposer = forwardRef<
         aria-label={busy ? "Sending" : "Send"}
         className={cn(
           "press grid size-11 shrink-0 place-items-center rounded-full transition-[background-color,color] duration-(--dur-fast)",
-          canSend ? "bg-ivory text-ink" : "bg-m3 text-disabled",
+          disabled ? "bg-card-3 text-fg-3" : "bg-fg text-bg disabled:opacity-60",
         )}
       >
-        {busy ? <Spinner className="size-[1.125rem] text-stone" /> : <ArrowUp className="size-5" strokeWidth={2.2} aria-hidden />}
+        {busy ? <Spinner className="size-[1.125rem]" /> : <ArrowUp className="size-5" strokeWidth={2.2} aria-hidden />}
       </button>
     </form>
   );

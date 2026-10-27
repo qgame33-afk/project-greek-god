@@ -112,7 +112,7 @@ export function useFoodChat({ convId, setConvId }: { convId: string | null; setC
       if (res.conversationId !== convId && viewingRef.current === convId) setConvId(res.conversationId);
       qc.invalidateQueries({ queryKey: ["food-convs"] });
     } catch (e) {
-      const err = e instanceof FoodAIRequestError ? e : new FoodAIRequestError("upstream", "Couldn't reach the Food Coach. Try again.", 0);
+      const err = e instanceof FoodAIRequestError ? e : new FoodAIRequestError("upstream", "Couldn't reach Coach. Try again.", 0);
       if (fromComposer) {
         setText(msg);
         setImage(img);

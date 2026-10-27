@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ProposalCard } from "@/components/ui/proposal-card";
 import { Confirm } from "@/components/ui/sheet";
-import { Tag } from "@/components/ui/tag";
+import { AiChip } from "@/components/ui/ai-chip";
 import { fieldLabel, planApply, type ApplyProfile } from "@/lib/coach/apply";
 import { useApplyProfileChange, useRevertProfileChange } from "@/lib/coach/hooks";
 import { suggestionIsCurrent } from "@/lib/coach/suggestions";
@@ -18,11 +18,11 @@ import { formatInt } from "@/lib/units";
 const UNIT: Partial<Record<NonNullable<CoachSuggestion["field"]>, string>> = { calorie_goal: " kcal/day", protein_goal: " g/day" };
 
 /**
- * One change the Oracle proposes (docs/DESIGN-V2.md §3.9.2), as "Proposed · not saved": the exact
- * before → after, `Not now` (writes nothing but the dismissal on the message) and `Apply…`, which
- * opens a confirm showing the diff and only then writes through useApplyProfileChange (the goal
- * history records it; Undo puts the old values back and removes that history row). A note (advice
- * that changes no setting) has only `Got it`.
+ * One change Coach suggests (docs/DESIGN-V3-SIMPLE.md §4.8), as an AI card "Suggested change · Not
+ * saved": the exact before → after, `Not now` (writes nothing but the dismissal on the message) and
+ * `Review`, which opens the confirm showing the diff; only its `Apply` writes, through
+ * useApplyProfileChange (profiles + goal_changes; Undo puts the old values back and removes that
+ * history row). A note (advice that changes no setting) has only `Got it`.
  */
 export function Proposal({ suggestion: s, profile, onStatus }: { suggestion: CoachSuggestion; profile: Profile | undefined; onStatus: (st: SuggestionStatus) => void }) {
   const [confirm, setConfirm] = useState(false);
@@ -36,10 +36,10 @@ export function Proposal({ suggestion: s, profile, onStatus }: { suggestion: Coa
 
   if (s.status === "applied") {
     return (
-      <p className="t-callout mt-4 flex min-h-11 items-center gap-2.5 rounded-field bg-m2 px-3.5 py-2 text-stone shadow-(--e1)">
-        <Check className="size-4 shrink-0 text-ivory" strokeWidth={2} aria-hidden />
+      <p className="t-label mt-3 flex min-h-11 items-center gap-2.5 rounded-tile-lg bg-card px-4 py-2">
+        <Check className="size-4 shrink-0 text-fg" strokeWidth={2.2} aria-hidden />
         <span className="min-w-0 flex-1">
-          <span className="font-semibold text-ivory">{isNote ? s.title : `${label} set to ${s.proposedLabel}`}</span>
+          <span className="font-semibold text-fg">{isNote ? s.title : `${label} set to ${s.proposedLabel}`}</span>
           {s.decidedAt && <span> · {new Date(s.decidedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
         </span>
       </p>
@@ -48,11 +48,11 @@ export function Proposal({ suggestion: s, profile, onStatus }: { suggestion: Coa
 
   if (s.status === "dismissed") {
     return (
-      <div className="t-callout mt-4 flex min-h-11 items-center justify-between gap-3 rounded-field border border-dashed border-ui-line px-3.5 text-stone">
+      <div className="t-label mt-3 flex min-h-11 items-center justify-between gap-3 rounded-tile-lg border border-dashed border-ui-line px-4">
         <span className="min-w-0 truncate">
           {isNote ? "Noted" : "Not now"} · {s.title}
         </span>
-        <button type="button" onClick={() => onStatus("open")} className="press -mr-2 inline-flex h-11 shrink-0 items-center gap-1.5 px-2 font-semibold text-ivory">
+        <button type="button" onClick={() => onStatus("open")} className="press -mr-2 inline-flex h-11 shrink-0 items-center gap-1.5 px-2 font-semibold text-fg">
           <RotateCcw className="size-3.5" strokeWidth={1.8} aria-hidden />
           Review
         </button>
@@ -62,13 +62,12 @@ export function Proposal({ suggestion: s, profile, onStatus }: { suggestion: Coa
 
   if (isNote) {
     return (
-      <section className="mt-4 rounded-card border border-aegean-line bg-m2 p-4">
-        <div className="flex items-center gap-2">
-          <Tag kind="AI" />
-          <span className="t-tag text-aegean">Suggestion</span>
-        </div>
-        <h3 className="t-title-3 mt-2 text-ivory">{s.title}</h3>
-        <p className="t-callout mt-1 text-stone">{s.rationale}</p>
+      <section className="mt-3 rounded-card border border-ai-line bg-surface p-[18px]">
+        <AiChip label="AI" status="Suggestion" />
+        <h3 className="t-section mt-3">{s.title}</h3>
+        <p className="t-label mt-1" data-ai-answer="">
+          {s.rationale}
+        </p>
         <Button variant="ghost" size="sm" className="mt-2 -ml-3" onClick={() => onStatus("dismissed")}>
           Got it
         </Button>
@@ -90,7 +89,7 @@ export function Proposal({ suggestion: s, profile, onStatus }: { suggestion: Coa
     busy.current = true;
     // mutateAsync, so the toast's Undo still works after this card unmounts (sheet closed)
     save
-      .mutateAsync({ values: plan.values as Record<string, number | string>, reason: `Oracle suggestion: ${s.title}` })
+      .mutateAsync({ values: plan.values as Record<string, number | string>, reason: `Coach suggestion: ${s.title}` })
       .then(({ goalChangeIds }) => {
         onStatus("applied");
         toast(`${label} set to ${s.proposedLabel}`, {
@@ -119,13 +118,13 @@ export function Proposal({ suggestion: s, profile, onStatus }: { suggestion: Coa
   return (
     <>
       <ProposalCard
-        className="mt-4"
+        className="mt-3"
         title={s.title}
         rows={rows.map((r) => ({ label: r.label, before: r.before, after: unitize(r.after, s, r.label === label) }))}
         note={
           <>
             {s.rationale}
-            {!current && <span className="mt-1.5 block text-stone">Your {label.toLowerCase()} changed after this was proposed. Ask again for a fresh one.</span>}
+            {!current && <span className="mt-1.5 block">Your {label.toLowerCase()} changed after this was proposed. Ask again for a fresh one.</span>}
           </>
         }
         onDismiss={() => onStatus("dismissed")}
@@ -143,14 +142,14 @@ export function Proposal({ suggestion: s, profile, onStatus }: { suggestion: Coa
           onConfirm={apply}
           body={
             <div>
-              <dl className="divide-y divide-vein border-y border-vein">
+              <dl className="[&>div+div]:border-t [&>div+div]:border-line">
                 {rows.map((r) => (
                   <div key={r.label} className="flex min-h-12 items-center justify-between gap-3 py-2">
-                    <dt className="text-stone">{r.label}</dt>
+                    <dt>{r.label}</dt>
                     <dd className="flex flex-wrap items-center justify-end gap-x-2">
-                      <span className="t-num-s whitespace-nowrap text-stone line-through decoration-ui-line">{r.before}</span>
-                      <ArrowRight className="size-4 text-ash" strokeWidth={1.6} aria-label="to" />
-                      <span className="t-num-s whitespace-nowrap text-ivory">{unitize(r.after, s, r.label === label)}</span>
+                      <span className="t-row whitespace-nowrap text-fg-2 line-through decoration-ui-line">{r.before}</span>
+                      <ArrowRight className="size-4 text-fg-3" strokeWidth={2.2} aria-label="to" />
+                      <span className="t-row whitespace-nowrap text-fg">{unitize(r.after, s, r.label === label)}</span>
                     </dd>
                   </div>
                 ))}

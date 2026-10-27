@@ -10,8 +10,8 @@ export interface ComposerHandle {
 }
 
 /**
- * The Food Coach's field: a 56 px well that grows to five lines, a photo button and a 44 px send
- * disc (ivory when there is something to send).
+ * The food coach's composer (docs/DESIGN-V3-SIMPLE.md §4.8): "Ask anything" in a --card pill that
+ * grows to five lines, a photo button and a 44 px white send.
  */
 export const Composer = forwardRef<
   ComposerHandle,
@@ -45,18 +45,18 @@ export const Composer = forwardRef<
     <div>
       {(image || preparingImage) && (
         <div className="mb-2 flex items-center gap-2">
-          <div className="relative size-16 overflow-hidden rounded-field bg-m3 shadow-[inset_0_0_0_1px_var(--vein-2)]">
+          <div className="relative size-16 overflow-hidden rounded-tile bg-card-2">
             {image ? (
               // eslint-disable-next-line @next/next/no-img-element -- local preview
               <img src={image} alt="Photo to send" className="size-full object-cover" />
             ) : (
-              <span className="grid size-full place-items-center text-stone">
+              <span className="grid size-full place-items-center text-fg-2">
                 <Spinner />
               </span>
             )}
           </div>
           {image && (
-            <button type="button" onClick={onRemoveImage} className="press t-callout inline-flex h-11 items-center gap-1 px-2 font-semibold text-stone hover:text-ivory" aria-label="Remove photo">
+            <button type="button" onClick={onRemoveImage} className="press t-label inline-flex h-11 items-center gap-1 px-2 font-semibold hover:text-fg" aria-label="Remove photo">
               <X className="size-4" strokeWidth={1.8} />
               Remove
             </button>
@@ -69,8 +69,8 @@ export const Composer = forwardRef<
           if (canSend) onSend();
         }}
         className={cn(
-          "flex items-end gap-1 rounded-card border bg-m2 py-1.5 pl-1 pr-1.5 transition-[border-color,box-shadow] duration-(--dur-fast)",
-          disabled ? "border-vein-2 opacity-70" : "border-ui-line focus-within:border-aegean-line focus-within:shadow-[0_0_0_3px_var(--aegean-tint)]",
+          "flex min-h-14 items-end gap-1 rounded-sheet bg-card py-1.5 pl-1.5 pr-1.5 transition-shadow duration-(--dur-fast)",
+          disabled ? "opacity-70" : "focus-within:shadow-[inset_0_0_0_2px_var(--text)]",
         )}
       >
         <input
@@ -91,12 +91,12 @@ export const Composer = forwardRef<
           onClick={() => file.current?.click()}
           disabled={disabled}
           aria-label="Attach a meal photo"
-          className="press grid size-11 shrink-0 place-items-center rounded-full text-stone hover:text-ivory disabled:opacity-40"
+          className="press grid size-11 shrink-0 place-items-center rounded-full text-fg-2 hover:text-fg disabled:opacity-40"
         >
-          <ImagePlus className="size-5" strokeWidth={1.6} />
+          <ImagePlus className="size-5" strokeWidth={1.9} />
         </button>
         <label htmlFor="food-coach-input" className="sr-only">
-          Describe what you ate
+          Ask coach about food
         </label>
         <textarea
           id="food-coach-input"
@@ -112,18 +112,18 @@ export const Composer = forwardRef<
               if (canSend) onSend();
             }
           }}
-          placeholder={placeholder ?? "Describe what you ate"}
+          placeholder={placeholder ?? "Ask anything"}
           enterKeyHint="send"
           autoComplete="off"
-          className="min-h-11 flex-1 resize-none bg-transparent py-2.5 text-[length:max(16px,1rem)] leading-snug text-ivory outline-none placeholder:text-ash disabled:cursor-not-allowed"
+          className="t-body min-h-11 flex-1 resize-none bg-transparent py-2.5 leading-snug text-fg outline-none placeholder:text-fg-2 disabled:cursor-not-allowed"
         />
         <button
           type="submit"
           disabled={!canSend}
           aria-label={sending ? "Sending" : "Send"}
-          className={cn("press grid size-11 shrink-0 place-items-center rounded-full transition-[background-color,color] duration-(--dur-fast)", canSend ? "bg-ivory text-ink" : "bg-m3 text-disabled")}
+          className={cn("press grid size-11 shrink-0 place-items-center rounded-full transition-[background-color,color] duration-(--dur-fast)", disabled ? "bg-card-3 text-fg-3" : "bg-fg text-bg disabled:opacity-60")}
         >
-          {sending ? <Spinner className="size-[1.125rem] text-stone" /> : <ArrowUp className="size-5" strokeWidth={2.2} />}
+          {sending ? <Spinner className="size-[1.125rem]" /> : <ArrowUp className="size-5" strokeWidth={2.2} />}
         </button>
       </form>
     </div>

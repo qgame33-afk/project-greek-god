@@ -321,7 +321,7 @@ export function HandoffSheet({
             </p>
           )}
           <div className="flex items-baseline justify-between">
-            <span className="t-eyebrow">{parsed.items.length + extraItems.length} items</span>
+            <span className="t-label font-semibold">{parsed.items.length + extraItems.length} items</span>
             <span>
               <span className="t-num-m text-ivory">{fmtKcal(total + extraItems.reduce((a, e) => a + e.macros.calories, 0))}</span>
               <span className="t-meta ml-1 text-stone">kcal</span>

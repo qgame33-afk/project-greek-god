@@ -3,13 +3,13 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Search, Star } from "lucide-react";
-import { SealTick } from "@/components/art/icons";
+import { Check, Search, Star } from "lucide-react";
 import { estimateTitle } from "@/components/offering/replaces";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/controls";
 import { EstimateCard } from "@/components/ui/estimate-card";
-import { Tag } from "@/components/ui/tag";
+import { AiChip } from "@/components/ui/ai-chip";
+import { InfoButton } from "@/components/ui/details-sheet";
 import { useFoodEntries } from "@/lib/data/nutrition";
 import { ifYouAdd } from "@/lib/fuel/consequence";
 import { cn } from "@/lib/cn";
@@ -316,34 +316,33 @@ export function MealDraftCard({
       <EstimateCard
         status={status}
         tag={
-          <span className="inline-flex items-center gap-1.5">
-            <Tag kind="AI" detail="Estimate" />
-            {payload.revises && <span className="t-tag text-stone">· Updated</span>}
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <AiChip label="AI estimate" status={status === "saved" ? "Saved" : status === "saving" ? "Saving…" : payload.revises ? "Updated · Not saved yet" : "Not saved yet"} />
             {payload.mock && <DevMockBadge />}
           </span>
         }
         title={estimateTitle(items.map((i) => (i.brand && i.kind !== "generic" && !i.name.toLowerCase().includes(i.brand.toLowerCase()) ? `${i.brand} ${i.name}` : i.name)))}
         items={
           <>
-            <ul className="divide-y divide-vein border-y border-vein" aria-label="Items">
+            <ul className="[&>li+li]:border-t [&>li+li]:border-line" aria-label="Items">
               {items.map((i) => (
                 <li key={i.id} className="py-3">
                   <div className="flex items-start gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="t-title-3 line-clamp-2 text-ivory">
+                      <p className="t-row line-clamp-2" data-food="">
                         {i.brand && i.kind !== "generic" && !i.name.toLowerCase().includes(i.brand.toLowerCase()) ? `${i.brand} ` : ""}
                         {i.name}
                       </p>
-                      <p className="t-meta truncate text-stone">{qtyLabel(i)}</p>
+                      <p className="t-label truncate" data-food="">{qtyLabel(i)}</p>
                       {i.source && (
-                        <p className="t-meta truncate text-ash" title={i.source.label}>
+                        <p className="t-cap truncate" title={i.source.label} data-food="">
                           Matched: {i.source.label}
                         </p>
                       )}
                     </div>
                     <p className="shrink-0 pt-0.5 text-right">
-                      <span className="t-num-s text-ivory">{fmtKcal(i.macros.calories)}</span>
-                      <span className="t-meta ml-1 text-stone">kcal</span>
+                      <span className="t-num-s">{fmtKcal(i.macros.calories)}</span>
+                      <span className="t-label ml-1">kcal</span>
                     </p>
                   </div>
                   <div className="mt-2 flex items-center gap-x-2.5">
@@ -351,7 +350,7 @@ export function MealDraftCard({
                     <MacroTrio m={i.macros} className="min-w-0 flex-1" />
                     {i.provenance === "saved" ? (
                       <span className="-my-2 -mr-2.5 grid size-11 shrink-0 place-items-center" title="Already in your saved foods">
-                        <Star className="size-4 fill-ivory text-ivory" strokeWidth={1.6} aria-hidden />
+                        <Star className="size-4 fill-fg text-fg" strokeWidth={1.6} aria-hidden />
                         <span className="sr-only">Already in your saved foods</span>
                       </span>
                     ) : (
@@ -360,14 +359,14 @@ export function MealDraftCard({
                         onClick={() => star(i)}
                         aria-label={starred.has(i.id) ? `Remove ${i.name} from your foods` : `Save ${i.name} to your foods`}
                         aria-pressed={starred.has(i.id)}
-                        className="press -my-2 -mr-2.5 grid size-11 shrink-0 place-items-center rounded-full text-ash hover:text-ivory"
+                        className="press -my-2 -mr-2.5 grid size-11 shrink-0 place-items-center rounded-full text-fg-3 hover:text-fg"
                       >
-                        <Star className={cn("size-4", starred.has(i.id) && "fill-ivory text-ivory")} strokeWidth={1.6} />
+                        <Star className={cn("size-4", starred.has(i.id) && "fill-fg text-fg")} strokeWidth={1.6} />
                       </button>
                     )}
                   </div>
                   {i.note && (
-                    <p className="t-meta mt-1.5 text-stone">
+                    <p className="t-cap mt-1.5" data-food="">
                       {i.note}
                       {i.handoff && !superseded && (
                         <>
@@ -376,7 +375,7 @@ export function MealDraftCard({
                             type="button"
                             onClick={() => setHandoff([i])}
                             // inline in the note, so the 44px hit area comes from an invisible overlay
-                            className="relative font-semibold text-ivory underline decoration-ui-line underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-3.5 after:content-['']"
+                            className="relative font-semibold text-fg underline decoration-ui-line underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-3.5 after:content-['']"
                           >
                             Research it
                           </button>
@@ -389,9 +388,9 @@ export function MealDraftCard({
             </ul>
             <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <p>
-                <span className="t-eyebrow mr-2">Meal</span>
-                <span className="t-num-s text-ivory">{fmtKcal(totals.calories)}</span>
-                <span className="t-meta ml-1 text-stone">kcal</span>
+                <span className="t-label mr-2">Meal</span>
+                <span className="t-num-s">{fmtKcal(totals.calories)}</span>
+                <span className="t-label ml-1">kcal</span>
               </p>
               <MacroTrio m={sumMacroSets(items.map((i) => i.macros))} />
             </div>
@@ -400,21 +399,21 @@ export function MealDraftCard({
         consequence={
           consequence ? (
             <>
-              <span className="text-ivory" aria-label={consequence.spoken}>
+              <span className="text-fg" aria-label={consequence.spoken} data-derived="">
                 {consequence.text}
               </span>
-              <Tag kind="CALC" explain={`${consequence.explain}. From your log.`} />
+              <InfoButton how={`${consequence.explain}. From your log; the meal's numbers are the AI's estimate.`} className="m-0 -my-2" />
             </>
           ) : undefined
         }
         actions={
           superseded ? (
-            <p className="t-meta text-stone">Updated below.</p>
+            <p className="t-label">Updated below.</p>
           ) : isLogged ? (
             <>
               <div className="flex items-center gap-3">
-                <p className="t-callout flex min-w-0 flex-1 items-center gap-2 font-semibold text-leaf-300">
-                  <SealTick className="seal-in size-5 shrink-0" />
+                <p className="t-row flex min-w-0 flex-1 items-center gap-2">
+                  <Check className="size-5 shrink-0" strokeWidth={2.2} aria-hidden />
                   <span className="truncate">
                     Added{shownMeal ? ` to ${mealLabel(shownMeal)}` : ""}
                     {shownDate && shownDate !== todayDate ? ` · ${relativeDay(shownDate, todayDate)}` : ""}
@@ -425,10 +424,10 @@ export function MealDraftCard({
                 </Button>
               </div>
               {(differs || session?.via) && (
-                <p className="t-meta text-stone">
+                <p className="t-label">
                   {differs ? (
                     <>
-                      Your diary has <span className="tnum font-semibold text-ivory">{fmtKcal(diaryKcal)}</span> kcal for this meal
+                      Your diary has <span className="font-semibold tabular-nums text-fg">{fmtKcal(diaryKcal)}</span> kcal for this meal
                       {session?.via ? `, using published numbers as reported by ${session.via}.` : ", not the draft above."}
                     </>
                   ) : (
@@ -440,7 +439,7 @@ export function MealDraftCard({
           ) : (
             <>
               {removedFromDiary && (
-                <p className="t-meta text-stone">{unsure ? "The connection dropped while adding this. Add it again: it can't be added twice." : "This was logged, then removed from your diary."}</p>
+                <p className="t-label">{unsure ? "The connection dropped while adding this. Add it again: it can't be added twice." : "This was logged, then removed from your diary."}</p>
               )}
               <Button variant={latest ? "primary" : "outline"} size="lg" block onClick={add} loading={log.isPending}>
                 {removedFromDiary ? "Add again" : addLabel}
@@ -451,7 +450,7 @@ export function MealDraftCard({
                 </Button>
                 {handoffItems.length > 0 && (
                   <Button variant="ghost" size="md" className="flex-1" onClick={() => setHandoff(handoffItems)}>
-                    <Search className="size-4" strokeWidth={1.6} aria-hidden />
+                    <Search className="size-4" strokeWidth={2} aria-hidden />
                     Published numbers
                   </Button>
                 )}
@@ -459,7 +458,7 @@ export function MealDraftCard({
               {confirming && (
                 <div ref={confirmRef} className="scroll-mb-28 pt-1">
                   <MealDatePicker onInset meal={meal} onMeal={setMeal} date={date} onDate={setDate} />
-                  {replacesGroup && <p className="t-meta mt-2 text-stone">Replaces the earlier logged version.</p>}
+                  {replacesGroup && <p className="t-label mt-2">Replaces the earlier logged version.</p>}
                 </div>
               )}
               {latest && payload.corrections.length > 0 && (
