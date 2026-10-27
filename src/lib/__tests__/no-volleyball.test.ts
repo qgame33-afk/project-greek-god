@@ -21,11 +21,7 @@ const ALLOWED = new Set([
  * §6.2 and the deprecated P1 exports they read). It never grows; PROGRAM removes entries as
  * files come clean (the second test lists them) and P2/F4 empties it.
  */
-const PENDING = new Set<string>([
-  // FOUNDATION's neutralised ornaments, deleted in F4
-  "components/art/icons.tsx",
-  "components/signature/Colonnade.tsx",
-]);
+const PENDING = new Set<string>([]);
 
 function files(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {

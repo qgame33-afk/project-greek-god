@@ -5,7 +5,6 @@
  *   still opens the app (the HTML carries no user data: app screens render on the client), and the
  *   data comes back from the persisted query cache (src/lib/offline). No copy → the offline page.
  * - /_next/static/* (content-hashed, immutable): cache first.
- * - /art/*: stale-while-revalidate.
  * - Everything else (API routes, Supabase, RSC fetches) passes straight through, never cached:
  *   live data is never served stale by the worker.
  * The cache name carries the deploy's version (`/sw.js?v=<build>`), so each deploy starts clean.
@@ -93,26 +92,6 @@ self.addEventListener("fetch", (event) => {
       })(),
     );
     return;
-  }
-
-  if (url.pathname.startsWith("/art/")) {
-    event.respondWith(
-      (async () => {
-        const cache = await caches.open(SHELL_CACHE);
-        const hit = await cache.match(req);
-        const refresh = fetch(req)
-          .then((res) => {
-            if (res.ok) return cache.put(req, res.clone()).then(() => res);
-            return res;
-          })
-          .catch(() => null);
-        if (hit) {
-          event.waitUntil(refresh);
-          return hit;
-        }
-        return (await refresh) || new Response("", { status: 504 });
-      })(),
-    );
   }
 });
 

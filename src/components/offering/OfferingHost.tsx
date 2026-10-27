@@ -6,7 +6,6 @@ import { LogSheet, type LogRequestState } from "@/components/nutrition/LogSheet"
 import { FuelProvider } from "@/components/nutrition/context";
 import { contextFromPath, usesFoodCoach } from "@/components/oracle/context";
 import { WeightLogSheet } from "@/components/shared/WeightLogSheet";
-import { useHeader } from "@/components/shell/chrome";
 import { useToday } from "@/lib/data/core";
 import type { ISODate } from "@/lib/dates";
 import type { Meal } from "@/lib/nutrition";
@@ -36,10 +35,9 @@ export function OfferingHost() {
   const { open, close } = useOffering();
   const pathname = usePathname();
   const router = useRouter();
-  const header = useHeader(pathname);
   const today = useToday();
   const [weightOpen, setWeightOpen] = useState(false);
-  const screenContext = header?.oracle ?? contextFromPath(pathname);
+  const screenContext = contextFromPath(pathname);
 
   // Ask: the Coach screen, not a sheet
   const ask = open?.mode === "ask" ? open : null;

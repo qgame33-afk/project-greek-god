@@ -5,7 +5,6 @@ import { DropdownMenu } from "radix-ui";
 import { ChevronRight, Ellipsis, Pencil, Search, Trash } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { FuelAmphora } from "@/components/art/icons";
 import { Segmented } from "@/components/ui/controls";
 import { Input } from "@/components/ui/field";
 import { Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
@@ -91,7 +90,7 @@ function FoodsList({ q, onPick, onEdit }: { q: string; onPick: (f: SavedFood) =>
   if (foods.error) return <ErrorNote onRetry={() => foods.refetch()}>Couldn&apos;t load saved foods.</ErrorNote>;
   if (!foods.data?.length)
     return (
-      <Empty className="mt-3" art={<FuelAmphora className="size-10 text-ui-line" />} title="No saved foods yet">
+      <Empty className="mt-3" title="No saved foods yet">
         Turn on “Save to my foods” when you log something, or save any entry from its edit sheet.
       </Empty>
     );
@@ -159,7 +158,7 @@ function MealsList({ q, onPick }: { q: string; onPick: (m: SavedMeal) => void })
   if (meals.error) return <ErrorNote onRetry={() => meals.refetch()}>Couldn&apos;t load saved meals.</ErrorNote>;
   if (!meals.data?.length)
     return (
-      <Empty className="mt-3" art={<FuelAmphora className="size-10 text-ui-line" />} title="No saved meals yet">
+      <Empty className="mt-3" title="No saved meals yet">
         Use “Save as meal” in a meal card&apos;s menu to reuse a whole meal in one tap.
       </Empty>
     );

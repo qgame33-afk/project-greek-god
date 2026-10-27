@@ -1125,8 +1125,6 @@ FOUNDATION   src/app/auth/**
 FOUNDATION   src/components/providers.tsx
 FOUNDATION   src/components/ui/**
 FOUNDATION   src/components/shell/**
-FOUNDATION   src/components/art/**
-FOUNDATION   src/components/signature/**
 FOUNDATION   src/components/shared/Offline.tsx
 PROGRAM      src/components/training/hooks.ts
 TODAY        src/app/(app)/page.tsx

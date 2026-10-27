@@ -3,11 +3,10 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import type { TagKind } from "@/lib/provenance";
 import { AiChip } from "./ai-chip";
-import { RecordMark } from "./record-mark";
 
 // The old badges (docs/DESIGN-V3-SIMPLE.md §1.7.5). No provenance tags except the AI label:
 // Logged, Plan, rule-Suggested, Optional and Auto render nothing; Estimate and AI-Suggested render
-// the AI chip; PR renders "New best"; Source and Database stay small source chips; First benchmark
+// the AI chip; Source and Database stay small source chips; First benchmark
 // reads "First time". Deleted at integration (§6.7) once nothing imports them.
 
 /** Plain text of simple children ("Estimate · via ", "ChatGPT") for the AI heuristics below. */
@@ -69,10 +68,6 @@ export function SuggestedBadge({ className, children, kind }: { className?: stri
   const k = kind ?? (/\bAI\b/.test(textOf(children)) ? "AI" : "RULE");
   if (k !== "AI") return null;
   return <AiChip label="AI" className={className} />;
-}
-
-export function PRBadge({ className }: { className?: string }) {
-  return <RecordMark className={className} />;
 }
 
 export function OptionalBadge(_props: { className?: string; children?: ReactNode }) {

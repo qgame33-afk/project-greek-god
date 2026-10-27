@@ -2,7 +2,6 @@
 
 import { Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { FuelAmphora } from "@/components/art/icons";
 import { Input } from "@/components/ui/field";
 import { Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
 import { newId } from "@/lib/data/core";
@@ -54,7 +53,7 @@ export function RecentPanel({ when, onPick }: { when: When; onPick: (e: FoodEntr
   if (recent.error) return <ErrorNote onRetry={() => recent.refetch()}>Couldn&apos;t load recent foods.</ErrorNote>;
   if (!recent.data?.length)
     return (
-      <Empty art={<FuelAmphora className="size-10 text-ui-line" />} title="Nothing logged yet">
+      <Empty title="Nothing logged yet">
         Foods you log show up here, so the next time takes one tap.
       </Empty>
     );
