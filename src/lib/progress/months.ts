@@ -116,7 +116,8 @@ export function roadmapMonths(opts: {
     const o = overrides.find((x) => x.offset === i);
     const d = defaultMilestone(i, n);
     let detail = o?.detail ?? d?.detail ?? "";
-    if (!o && i === 0 && startLabel) detail = detail.replace(/163 lb/, startLabel);
+    // the start weight in the profile's unit (never a number baked into the copy)
+    if (!o && i === 0 && startLabel) detail = `Start at ${startLabel}. ${detail}`;
     const status: MonthStatus = month < cur ? "past" : month === cur ? "current" : "future";
     const end = monthEnd(month);
     const planDate = end > plan.targetDate ? plan.targetDate : end;

@@ -178,7 +178,7 @@ export interface RoadmapMonth {
 }
 
 export const DEFAULT_ROADMAP: { offset: number; title: string; detail: string }[] = [
-  { offset: 0, title: "The start", detail: "Start at 163 lb. Baseline weigh-ins, photos and measurements." },
+  { offset: 0, title: "The start", detail: "Baseline weigh-ins, photos and measurements." },
   { offset: 1, title: "Build the habits", detail: "Establish consistent training and nutrition." },
   { offset: 2, title: "First progress review", detail: "Compare trend weight, lifts and photos to October." },
   { offset: 3, title: "Strength and size", detail: "Strength and hypertrophy progression." },

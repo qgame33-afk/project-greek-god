@@ -414,7 +414,7 @@ export const LIBRARY: LibraryExercise[] = [
     formTips: [
       "Lead with your elbows and keep your pinkies level with your thumbs.",
       "If you have to swing, the weight is too heavy.",
-      "A 5 lb jump is big here — add reps before adding weight.",
+      "Even the smallest weight jump is big here — add reps before adding weight.",
     ],
     substitutes: ["cable-lateral-raise", "machine-lateral-raise"],
   },

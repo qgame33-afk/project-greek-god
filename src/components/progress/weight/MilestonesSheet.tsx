@@ -14,7 +14,7 @@ import { weightWords } from "../kit";
 import { MilestoneSheet, type MilestoneEntry } from "./MonthGoalSheet";
 
 /**
- * Milestones (docs/DESIGN-V3-SIMPLE.md §2.2, §4.5.1 item 4): every 5 lb from the start weight up
+ * Milestones (docs/DESIGN-V3-SIMPLE.md §2.2, §4.5.1 item 4): every 2.5 kg (5 lb) from the start weight up
  * to the bottom of the goal range, with the day the 7-day average first reached it, or the day it
  * would at the current pace ("if you keep this pace"), or "—". Below them, a goal for each month
  * of the plan (the old roadmap), each editable.
