@@ -109,10 +109,10 @@ export function WeightTab() {
       };
 
   return (
-    <div className="grid gap-3">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
       {/* 1. the 7-day average */}
       <section className="@container rounded-card bg-surface p-5" aria-label="Weight">
-        <div className="flex min-h-9 items-center justify-between gap-3">
+        <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <h2 className="t-cap min-w-0">{ready ? "Weight · 7-day average" : "Latest weigh-in"}</h2>
           {chip && (
             <Chip tone={pc.verdict === "arrived" ? "win" : "default"} onClick={() => setSheet("pace")} ariaLabel={`${chip}. Shows your pace and how it is worked out`} className="h-9 px-3.5">

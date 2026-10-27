@@ -111,7 +111,7 @@ export function TrendChart({
       className="rounded-card bg-surface pb-3.5 pl-4 pr-3 pt-4"
       aria-labelledby="trend-h"
     >
-      <div className="mb-2.5 flex items-center justify-between gap-3">
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h2 id="trend-h" className="t-row">
           Trend
         </h2>
