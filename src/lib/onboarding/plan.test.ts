@@ -275,7 +275,7 @@ describe("the Oath (five steps)", () => {
     const bad = { ...owner(), startWeightLb: 20, timezone: " ", goalWeightLb: 9, calorieGoal: 100 };
     expect(Object.keys(validateOathStep("climber", bad, TODAY)).sort()).toEqual(["startWeightLb", "timezone"]);
     expect(validateOathStep("summit", bad, TODAY).goalWeightLb).toBeTruthy();
-    expect(validateOathStep("training", { ...bad, volleyballPerWeek: 20 }, TODAY)).toEqual({});
+    expect(validateOathStep("training", bad, TODAY)).toEqual({});
     expect(validateOathStep("fuel", bad, TODAY).calorieGoal).toBeTruthy();
     expect(validateOathStep("oath", bad, TODAY)).toEqual({});
     expect(firstInvalidOathStep(bad, TODAY)).toBe("climber");

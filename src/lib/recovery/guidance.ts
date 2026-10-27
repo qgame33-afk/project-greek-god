@@ -19,8 +19,6 @@ export interface CheckinLite {
   fatigue: number | null;
   stress: number | null;
   pain_notes: string | null;
-  /** @deprecated ignored (no volleyball); removed in P2. */
-  volleyball?: boolean;
 }
 
 export interface SessionLite {
@@ -46,8 +44,6 @@ export interface ReadinessInput {
   sleepGoalH: number;
   /** Check-ins around the date (the last ~2 weeks is plenty). */
   checkins: CheckinLite[];
-  /** @deprecated ignored (no volleyball); removed in P2. */
-  volleyballDates?: ISODate[];
   /** Workout sessions over the last ~4 weeks (only `done` ones count). */
   sessions: SessionLite[];
   plan: PlanLite;

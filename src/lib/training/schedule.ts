@@ -26,11 +26,6 @@ export interface SessionLike {
   name?: string | null;
 }
 
-/** @deprecated nothing reads volleyball any more; removed in P2. */
-export interface VolleyballLike {
-  local_date: ISODate;
-}
-
 export interface RecoveryLike {
   local_date: ISODate;
   soreness: number | null;
@@ -45,8 +40,6 @@ export interface ColonnadeDay {
   label: string;
   done: boolean;
   today: boolean;
-  /** @deprecated always false (no volleyball); removed in P2. */
-  volleyball: boolean;
   missed?: boolean;
 }
 
@@ -65,8 +58,6 @@ export function weekDays({
   dates: ISODate[];
   plans: PlanLike[];
   sessions: SessionLike[];
-  /** @deprecated ignored. */
-  volleyball?: VolleyballLike[];
   today: ISODate;
 }): ColonnadeDay[] {
   return dates.map((date) => {
@@ -80,7 +71,6 @@ export function weekDays({
       label: doneSession?.name ?? (planned ? (plan!.name ?? plan!.key) : "Rest"),
       done: !!doneSession,
       today: date === today,
-      volleyball: false,
       missed: planned && !doneSession && date < today,
     };
   });
@@ -302,15 +292,6 @@ export function shiftWeek({ from, plans, horizon = 7 }: { from: ISODate; plans: 
 /** "Rest today, skip it": one write, today → rest. */
 export function skipToday(from: ISODate): DayPlanWrite[] {
   return [{ plan_date: from, template_key: "rest", reason: "rest", moved_from: null }];
-}
-
-/* ------------------------------------------------------------- volleyball */
-
-/** @deprecated only types the always-empty useTrainingWeek().vbAdvice; removed when the screens stop reading it. */
-export interface VolleyballAdvice {
-  /** True when leg volume / plyometrics should be trimmed (a suggestion, never automatic). */
-  heavy: boolean;
-  reasons: string[];
 }
 
 /** Latest check-in (by date) that rated soreness or fatigue at all. */

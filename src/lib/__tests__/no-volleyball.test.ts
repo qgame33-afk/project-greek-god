@@ -21,59 +21,10 @@ const ALLOWED = new Set([
  * §6.2 and the deprecated P1 exports they read). It never grows; PROGRAM removes entries as
  * files come clean (the second test lists them) and P2/F4 empties it.
  */
-const PENDING = new Set([
-  // screens (TODAY, TRAIN, FOOD, PROGRESS, SHEETS, WORKOUT) and FOUNDATION's art/signature
+const PENDING = new Set<string>([
+  // FOUNDATION's neutralised ornaments, deleted in F4
   "components/art/icons.tsx",
-  "components/meals/week/Mosaic.tsx",
-  "components/meals/week/WeekPlanner.tsx",
-  "components/now/CheckIn.tsx",
-  "components/now/NowScreen.tsx",
-  "components/now/bodies.tsx",
-  "components/now/useDayInput.ts",
-  "components/now/useNowData.ts",
-  "components/onboarding/OathArt.tsx",
-  "components/onboarding/OathSummary.tsx",
-  "components/onboarding/steps.tsx",
-  "components/oracle/context.ts",
-  "components/progress/athletic/AthleticLogSheet.tsx",
-  "components/progress/charts/HistoryChart.tsx",
-  "components/progress/hall/Athletic.tsx",
-  "components/progress/hall/HallTab.tsx",
-  "components/progress/hall/TestSheet.tsx",
-  "components/recovery/DateStrip.tsx",
-  "components/recovery/GuidanceCard.tsx",
-  "components/recovery/LedgerCheckIn.tsx",
-  "components/recovery/VolleyballSheet.tsx",
-  "components/recovery/WeeklyReviewCard.tsx",
-  "components/reviews/sections.tsx",
-  "components/settings/SettingsView.tsx",
-  "components/settings/inputs.tsx",
   "components/signature/Colonnade.tsx",
-  "components/training/DaySheet.tsx",
-  "components/training/ProgramTab.tsx",
-  "components/training/TrainingHub.tsx",
-  "components/training/VolleyballList.tsx",
-  "components/training/VolleyballSheet.tsx",
-  "components/training/week/ReadinessStrip.tsx",
-  "components/training/week/Temple.tsx",
-  "components/training/week/TodaySession.tsx",
-  "components/training/week/WeekTab.tsx",
-  "components/workout/inscription/data.ts",
-  // PROGRAM's deprecated exports those screens still read (P2 deletes them once they stop)
-  "components/training/hooks.ts",
-  "lib/adherence.ts",
-  "lib/data/training.ts",
-  "lib/now/day-engine.ts",
-  "lib/onboarding/plan.ts",
-  "lib/progress/athletic.ts",
-  "lib/progress/hall.ts",
-  "lib/recovery/checkin.ts",
-  "lib/recovery/guidance.ts",
-  "lib/recovery/volleyball.ts",
-  "lib/recovery/weekly.ts",
-  "lib/reviews/compute.ts",
-  "lib/training/schedule.ts",
-  "lib/training/week.ts",
 ]);
 
 function files(dir: string, out: string[] = []): string[] {

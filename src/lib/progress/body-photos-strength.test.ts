@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fieldSeries, fieldSummary, fmtLen, hasAnyValue, measureStep, snap } from "./measurements";
 import { clampPct, defaultComparePair, fitWithin, groupPhotosByMonth, nearestByDate, photoPath, thumbPath } from "./photos";
-import { feetInches, prIds, sprintDistances, squatToBodyweight, testPR, testSeries, touchHeight, volleyballFrequency } from "./athletic";
 import { formatSet, metricMode, otherExercises, summarizeLift, type StrengthSet } from "./strength";
 
 describe("measurements", () => {
@@ -76,52 +75,6 @@ describe("photos", () => {
     expect(nearestByDate(weights, "2026-11-30", 7)).toBeNull();
     expect(clampPct(140)).toBe(100);
     expect(clampPct(Number.NaN)).toBe(50);
-  });
-});
-
-describe("athletic", () => {
-  const tests = [
-    { id: "a", local_date: "2026-10-01", test_type: "standing_vertical", value: 26.5 },
-    { id: "b", local_date: "2026-10-31", test_type: "standing_vertical", value: "27.25" },
-    { id: "c", local_date: "2026-11-30", test_type: "standing_vertical", value: 27 },
-    { id: "d", local_date: "2026-10-01", test_type: "sprint", value: 4.4, sprint_distance_m: 30 },
-    { id: "e", local_date: "2026-11-01", test_type: "sprint", value: 4.31, sprint_distance_m: "30" },
-    { id: "f", local_date: "2026-11-01", test_type: "sprint", value: 2.1, sprint_distance_m: 10 },
-    { id: "g", local_date: "2026-11-01", test_type: "standing_reach", value: 98 },
-  ];
-  it("finds records in the right direction", () => {
-    expect(testPR(tests, "standing_vertical")!.id).toBe("b");
-    expect(testPR(tests, "sprint", 30)!.id).toBe("e");
-    expect(testPR(tests, "standing_reach")).toBeNull(); // reference measurement, not a record
-    expect([...prIds(tests, "standing_vertical")]).toEqual(["b"]); // first result is a benchmark
-    expect([...prIds(tests, "sprint", 30)]).toEqual(["e"]);
-    expect(testSeries(tests, "sprint", 10).map((t) => t.id)).toEqual(["f"]);
-    expect(sprintDistances(tests)).toEqual([30, 10]);
-  });
-  it("computes squat relative to bodyweight", () => {
-    expect(squatToBodyweight(236, 166.4)).toBe(1.42);
-    expect(squatToBodyweight(null, 166)).toBeNull();
-    expect(squatToBodyweight(200, 0)).toBeNull();
-  });
-  it("counts volleyball sessions per week over 4 weeks", () => {
-    const vb = [
-      { local_date: "2026-10-16" },
-      { local_date: "2026-10-14" },
-      { local_date: "2026-10-07" },
-      { local_date: "2026-09-25" },
-      { local_date: "2026-09-18" }, // 28 days back → outside
-    ];
-    const f = volleyballFrequency(vb, "2026-10-16");
-    expect(f.total).toBe(4);
-    expect(f.perWeek).toBe(1);
-    expect(f.weeks.map((w) => w.count)).toEqual([1, 0, 1, 2]);
-    expect(f.weeks[3]).toMatchObject({ start: "2026-10-10", end: "2026-10-16" });
-  });
-  it("formats heights", () => {
-    expect(feetInches(104)).toBe("8′8″");
-    expect(feetInches(98.5)).toBe("8′2.5″");
-    expect(touchHeight(98, 31)).toBe(129);
-    expect(touchHeight(null, 31)).toBeNull();
   });
 });
 

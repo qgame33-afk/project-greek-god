@@ -11,8 +11,6 @@ export interface CheckinDraft {
   fatigue: number | null;
   stress: number | null;
   pain: string;
-  /** @deprecated always false, never saved (the stored column stays as it is); removed in P2. */
-  volleyball: boolean;
 }
 
 /** The subset of a recovery_logs row the form reads. */
@@ -35,7 +33,6 @@ export const EMPTY_DRAFT: CheckinDraft = {
   fatigue: null,
   stress: null,
   pain: "",
-  volleyball: false,
 };
 
 export const SLEEP_STEP = 0.25;
@@ -83,7 +80,6 @@ export function draftFromRow(
     fatigue: scale(row.fatigue),
     stress: scale(row.stress),
     pain: row.pain_notes ?? "",
-    volleyball: false,
   };
 }
 
@@ -202,7 +198,6 @@ export function loadStoredDraft(date: ISODate): CheckinDraft | null {
       fatigue: scale(v.fatigue ?? null),
       stress: scale(v.stress ?? null),
       pain: typeof v.pain === "string" ? v.pain.slice(0, PAIN_MAX) : "",
-      volleyball: false,
     };
   } catch {
     return null;

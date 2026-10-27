@@ -77,8 +77,6 @@ export interface OnboardingAnswers {
   targetDate: ISODate;
   experience: Experience;
   schedule: Schedule;
-  /** @deprecated always 0, never validated or written (PROGRAM-ARNOLD §6); removed in P2 once the step drops it. */
-  volleyballPerWeek: number;
   introVolume: boolean;
   calorieGoal: number;
   proteinGoal: number;
@@ -159,7 +157,6 @@ export function answersFromProfile(p: ProfileLike | null | undefined, today: ISO
     targetDate: target,
     experience: exp,
     schedule: normalizeSchedule(p?.weekly_schedule),
-    volleyballPerWeek: 0,
     introVolume: p?.training_mode === "intro",
     calorieGoal: Math.round(num(p?.calorie_goal, D.calorieGoal)),
     proteinGoal: Math.round(num(p?.protein_goal, D.proteinGoal)),

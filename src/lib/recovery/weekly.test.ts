@@ -21,7 +21,6 @@ const ci = (date: string, over: Partial<CheckinLite> = {}): CheckinLite => ({
   fatigue: null,
   stress: null,
   pain_notes: null,
-  volleyball: false,
   ...over,
 });
 const sess = (
@@ -180,7 +179,7 @@ describe("weeklyReview", () => {
         sessions: plannedSix.map((d) => sess(d)),
       }),
     );
-    expect(r.volleyball).toEqual({ sessions: 0, minutes: 0, prevSessions: 0 });
+    expect("volleyball" in r).toBe(false);
     expect(r.restDays).toBe(1); // Sunday: no session
     const keys = r.recommendations.map((x) => x.key as string);
     expect(keys).not.toContain("volleyball");

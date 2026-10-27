@@ -57,7 +57,6 @@ describe("draft ↔ row", () => {
       fatigue: 2,
       stress: 1,
       pain: "Left shoulder",
-      volleyball: false,
     });
     expect(draftFromRow(null)).toEqual(EMPTY_DRAFT);
   });
@@ -89,9 +88,7 @@ describe("draft ↔ row", () => {
   });
   it("detects empty and changed drafts", () => {
     expect(isDraftEmpty(EMPTY_DRAFT)).toBe(true);
-    // the deprecated volleyball flag is not a check-in answer
-    expect(isDraftEmpty({ ...EMPTY_DRAFT, volleyball: true })).toBe(true);
-    expect(filledCount({ ...EMPTY_DRAFT, volleyball: true, sleep: 7, pain: "x" })).toBe(2);
+    expect(filledCount({ ...EMPTY_DRAFT, sleep: 7, pain: "x" })).toBe(2);
     expect(
       draftsEqual(draftFromRow(row), {
         ...draftFromRow(row),

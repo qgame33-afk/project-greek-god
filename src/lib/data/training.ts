@@ -25,8 +25,6 @@ import { useProfile, type Profile } from "./profile";
 export type Session = Row<"workout_sessions">;
 export type SetRow = Row<"exercise_sets">;
 export type DayPlan = Row<"day_plans">;
-/** @deprecated volleyball is no longer read by the app (PROGRAM-ARNOLD §6); the table stays for the export. */
-export type Volleyball = Row<"volleyball_sessions">;
 
 /* -------------------------------------------------------------- templates */
 
@@ -285,32 +283,3 @@ export function useSetsInRange(from: ISODate, to: ISODate) {
   });
 }
 
-/* ------------------------------------------------------------- volleyball */
-
-/** @deprecated nothing reads volleyball any more (PROGRAM-ARNOLD §6); removed in P2. */
-export function useVolleyball(from: ISODate, to: ISODate) {
-  const { userId } = useUser();
-  return useQuery({
-    queryKey: ["volleyball", from, to, userId],
-    enabled: !!userId,
-    queryFn: async () => must(await sb().from("volleyball_sessions").select("*").gte("local_date", from).lte("local_date", to).order("local_date", { ascending: false })),
-  });
-}
-
-/** @deprecated removed in P2 (PROGRAM-ARNOLD §6). */
-export function useVolleyballMutations() {
-  const qc = useQueryClient();
-  const done = () => qc.invalidateQueries({ queryKey: ["volleyball"] });
-  const onError = (e: Error) => toast.error("Couldn't save", { description: e.message });
-  const add = useMutation({
-    mutationFn: async (v: Omit<Insert<"volleyball_sessions">, "user_id">) => must(await sb().from("volleyball_sessions").insert(v).select("*").single()),
-    onSuccess: done,
-    onError,
-  });
-  const remove = useMutation({
-    mutationFn: async (id: string) => must(await sb().from("volleyball_sessions").delete().eq("id", id)),
-    onSuccess: done,
-    onError,
-  });
-  return { add, remove };
-}

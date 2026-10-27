@@ -216,8 +216,6 @@ export interface ReviewStats {
     avgFatigue: number | null;
     avgStress: number | null;
     painDays: number;
-    /** @deprecated never computed (no volleyball); saved reviews that still hold it are not rendered. */
-    volleyballDays?: number;
     consistency: { weeksOnPlan: number; weeks: number; avgSessionsPerWeek: number | null };
   };
 }

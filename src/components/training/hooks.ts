@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { useMemo, useRef } from "react";
 import { toast } from "sonner";
-import { fetchAll, isOffline, must, newId, sb, useToday, useUser, type Insert } from "@/lib/data/core";
+import { fetchAll, isOffline, must, sb, useToday, useUser } from "@/lib/data/core";
 import { useProfile, useSaveProfile, useSavePrefs } from "@/lib/data/profile";
 import { useRecovery } from "@/lib/data/recovery";
 import { useRecentHistory } from "@/lib/data/workout";
@@ -20,10 +20,9 @@ import {
   type DayPlanResolved,
   type Session,
   type StoredTemplate,
-  type Volleyball,
 } from "@/lib/data/training";
 import { sessionsSealed } from "@/lib/adherence";
-import { addDays, dateRange, shortDate, weekDates, weekStart, type ISODate } from "@/lib/dates";
+import { addDays, dateRange, weekDates, weekStart, type ISODate } from "@/lib/dates";
 import { blockStrip, lighterWeekAdvice, programWeek, type LighterWeekAdvice } from "@/lib/training/block";
 import { overlapInSession, overlapNextArmDay, overlapPreStart, type OverlapAdvice, type OverlapSet } from "@/lib/training/overlap";
 import { activeProgram, programOfKey, programSince } from "@/lib/training/programs";
@@ -42,7 +41,6 @@ import {
   weekDays,
   type DayPlanWrite,
   type PlanLike,
-  type VolleyballAdvice,
 } from "@/lib/training/schedule";
 import type { WeightUnit } from "@/lib/units";
 
@@ -182,13 +180,7 @@ export function useTrainingWeek() {
     const restToday: { shift: DayPlanWrite[]; skip: DayPlanWrite[] } | null =
       wantsRest && !!todayPlan.template && !startedToday ? { shift: shiftWeek({ from: today, plans: planLikes.filter((p) => p.date >= today), horizon: 7 }), skip: skipToday(today) } : null;
 
-    /** @deprecated volleyball is no longer read (PROGRAM-ARNOLD §6); kept empty until P2. */
-    const volleyball: Volleyball[] = [];
-    /** @deprecated */
-    const volleyballDays: { local_date: ISODate }[] = [];
-    /** @deprecated */
-    const vbAdvice: VolleyballAdvice = { heavy: false, reasons: [] };
-    return { plansRows, resolved, planLikes, resolve, sessions, recovery, days, dates, missed, deload, block, sealed, weekNo, lighter, easeIn, restToday, volleyball, volleyballDays, load7d: 0, vbAdvice };
+    return { plansRows, resolved, planLikes, resolve, sessions, recovery, days, dates, missed, deload, block, sealed, weekNo, lighter, easeIn, restToday };
   }, [plansQ.data, pastPlansQ.data, sessionsQ.data, recQ.data, setsQ.data, readiness.guidance, profile, byKey, program, today, from, to]);
 
   const loading = profileLoading || templatesLoading || plansQ.isLoading || sessionsQ.isLoading;
@@ -451,146 +443,6 @@ export function useDayPlanWrites() {
   };
 
   return { apply, pending: m.isPending };
-}
-
-/* ------------------------------------------------------------- volleyball */
-/* @deprecated: the volleyball UI is removed by the screen streams; P2 deletes this block. */
-
-export const VB_KINDS = [
-  { value: "practice", label: "Practice" },
-  { value: "game", label: "Game" },
-  { value: "tournament", label: "Tournament" },
-  { value: "open_gym", label: "Open gym" },
-] as const;
-export type VbKind = (typeof VB_KINDS)[number]["value"];
-export const vbKindLabel = (k: string) => VB_KINDS.find((x) => x.value === k)?.label ?? k;
-
-function patchVolleyball(qc: ReturnType<typeof useQueryClient>, fn: (rows: Volleyball[], from: string, to: string) => Volleyball[]) {
-  const snaps = qc.getQueriesData<Volleyball[]>({ queryKey: ["volleyball"] });
-  for (const [key, rows] of snaps) {
-    if (!rows) continue;
-    const [, f, t] = key as [string, string, string];
-    qc.setQueryData(key, fn(rows, f, t));
-  }
-  return snaps;
-}
-
-/**
- * @deprecated removed in P2.
- * Log / delete volleyball sessions optimistically; both offer Undo. Double taps are ignored
- * (a ref guard, so two taps in the same frame never write twice).
- */
-export function useVolleyballLog() {
-  const qc = useQueryClient();
-  const { userId } = useUser();
-  const adding = useRef(false);
-  /** Row ids with a delete or restore in flight; another write to the same row waits. */
-  const deleting = useRef(new Set<string>());
-  const rollback = (snaps: [QueryKey, Volleyball[] | undefined][] | undefined) => snaps?.forEach(([k, rows]) => qc.setQueryData(k, rows));
-  const settle = () => {
-    qc.invalidateQueries({ queryKey: ["volleyball"] });
-  };
-
-  const insert = useMutation({
-    networkMode: "always",
-    mutationFn: async (row: Omit<Insert<"volleyball_sessions">, "user_id"> & { id: string }) => must(await sb().from("volleyball_sessions").insert(row).select("*").single()),
-    onMutate: async (row) => {
-      await qc.cancelQueries({ queryKey: ["volleyball"] });
-      const full: Volleyball = {
-        id: row.id,
-        user_id: userId ?? "",
-        local_date: row.local_date,
-        kind: row.kind ?? "practice",
-        duration_min: row.duration_min ?? null,
-        intensity: row.intensity ?? null,
-        notes: row.notes ?? null,
-        created_at: new Date().toISOString(),
-      };
-      return { snaps: patchVolleyball(qc, (rows, f, t) => (full.local_date >= f && full.local_date <= t && !rows.some((r) => r.id === full.id) ? [full, ...rows] : rows)) };
-    },
-    onError: (e: Error, _v, ctx) => {
-      rollback(ctx?.snaps);
-      toast.error("Couldn't save. Your entry is kept.", { description: e.message });
-    },
-    onSettled: settle,
-  });
-
-  const remove = useMutation({
-    networkMode: "always",
-    mutationFn: async (id: string) => must(await sb().from("volleyball_sessions").delete().eq("id", id).select("id")),
-    onMutate: async (id) => {
-      await qc.cancelQueries({ queryKey: ["volleyball"] });
-      return { snaps: patchVolleyball(qc, (rows) => rows.filter((r) => r.id !== id)) };
-    },
-    onError: (e: Error, _v, ctx) => {
-      rollback(ctx?.snaps);
-      toast.error("Couldn't delete it. Nothing changed.", { description: e.message });
-    },
-    onSettled: settle,
-  });
-
-  const add = async (v: { local_date: ISODate; kind: VbKind; duration_min: number | null; intensity: number | null; notes?: string | null }) => {
-    if (adding.current) return false;
-    adding.current = true;
-    const id = newId();
-    try {
-      await insert.mutateAsync({ id, ...v, notes: v.notes ?? null });
-    } catch {
-      return false;
-    } finally {
-      adding.current = false;
-    }
-    toast.success(`Volleyball logged · ${vbKindLabel(v.kind)}${v.duration_min ? ` · ${v.duration_min} min` : ""}`, {
-      duration: 6000,
-      action: { label: "Undo", onClick: () => remove.mutate(id) },
-    });
-    return true;
-  };
-
-  /** Put a deleted row back exactly as it was (same id). A delete of that row waits for it. */
-  const restore = async (row: Volleyball) => {
-    if (deleting.current.has(row.id)) return false;
-    deleting.current.add(row.id);
-    try {
-      await insert.mutateAsync({ id: row.id, local_date: row.local_date, kind: row.kind, duration_min: row.duration_min, intensity: row.intensity, notes: row.notes });
-      return true;
-    } catch {
-      return false;
-    } finally {
-      deleting.current.delete(row.id);
-    }
-  };
-
-  /**
-   * Delete with a toast Undo. Resolves to the toast's id (so an inline Undo can dismiss it), or
-   * null when nothing was deleted. `onUndone` keeps the caller's inline Undo in sync.
-   */
-  const del = async (row: Volleyball, opts: { onUndone?: () => void } = {}): Promise<string | null> => {
-    if (deleting.current.has(row.id)) return null;
-    deleting.current.add(row.id);
-    try {
-      await remove.mutateAsync(row.id);
-    } catch {
-      return null;
-    } finally {
-      deleting.current.delete(row.id);
-    }
-    const toastId = `vb-del-${row.id}-${Date.now()}`;
-    toast(`Deleted ${vbKindLabel(row.kind).toLowerCase()} · ${shortDate(row.local_date)}`, {
-      id: toastId,
-      duration: 6000,
-      action: {
-        label: "Undo",
-        onClick: () => {
-          opts.onUndone?.();
-          restore(row);
-        },
-      },
-    });
-    return toastId;
-  };
-
-  return { add, del, restore, adding: insert.isPending };
 }
 
 /* --------------------------------------------------------------- history */

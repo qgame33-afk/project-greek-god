@@ -77,8 +77,6 @@ export interface WeeklyReview {
     /** What volumeChange compares against: the whole of last week, or the same days of it. */
     compareTo: "last week" | "same days last week";
   };
-  /** @deprecated always zero (no volleyball is read); removed in P2. */
-  volleyball: { sessions: number; minutes: number; prevSessions: number };
   restDays: number;
   soreness: RatingSummary;
   fatigue: RatingSummary;
@@ -210,8 +208,6 @@ export function weeklyReview(input: WeeklyInput): WeeklyReview {
       : ("last week" as const),
   };
 
-  const volleyball = { sessions: 0, minutes: 0, prevSessions: 0 };
-
   /* rest days: elapsed days without a finished session. Today only counts once it can't
      still hold training: a planned rest day, not a session to come. */
   const trainedDates = new Set(wk.map((s) => s.local_date));
@@ -237,7 +233,6 @@ export function weeklyReview(input: WeeklyInput): WeeklyReview {
     empty,
     sleep,
     training,
-    volleyball,
     restDays,
     soreness,
     fatigue,

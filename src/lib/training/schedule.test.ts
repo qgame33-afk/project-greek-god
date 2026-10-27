@@ -50,7 +50,7 @@ describe("weekDays", () => {
     });
     expect(days).toHaveLength(7);
     expect(days[0]).toMatchObject({ date: "2026-10-12", kind: "train", done: true, missed: false, label: "Push A" });
-    expect(days[1]).toMatchObject({ date: "2026-10-13", kind: "train", done: false, missed: true, volleyball: false, label: "Pull A" });
+    expect(days[1]).toMatchObject({ date: "2026-10-13", kind: "train", done: false, missed: true, label: "Pull A" });
     expect(days[2]).toMatchObject({ done: true, missed: false });
     // in-progress today is neither done nor missed
     expect(days[3]).toMatchObject({ today: true, done: false, missed: false });

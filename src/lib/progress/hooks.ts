@@ -7,7 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { fetchAll, friendlyError, must, newId, sb, useUser, type Insert, type Update } from "@/lib/data/core";
-import { useAthleticMutations, useMeasurementMutations, type AthleticTest, type Measurement, type ProgressPhoto } from "@/lib/data/body";
+import { useMeasurementMutations, type Measurement, type ProgressPhoto } from "@/lib/data/body";
 import type { ISODate } from "@/lib/dates";
 import { photoPath, thumbPath, type Pose } from "./photos";
 import type { StrengthSet } from "./strength";
@@ -129,59 +129,6 @@ export function useMeasurementWrite() {
   return { write, del, pending: save.isPending || update.isPending || remove.isPending };
 }
 
-/* --------------------------------------------------------------- athletic */
-
-export type AthleticValues = Omit<Insert<"athletic_tests">, "user_id" | "id" | "created_at">;
-
-export function useAthleticWrite() {
-  const qc = useQueryClient();
-  const { userId } = useUser();
-  const key = ["athletic", userId];
-  const { add, remove } = useAthleticMutations();
-
-  const log = (v: AthleticValues, done?: () => void) => {
-    void qc.cancelQueries({ queryKey: key });
-    const prev = qc.getQueryData<AthleticTest[]>(key);
-    if (prev) {
-      const temp = { id: `optimistic-${newId()}`, user_id: userId ?? "", created_at: new Date().toISOString(), conditions: null, notes: null, sprint_distance_m: null, ...v } as AthleticTest;
-      qc.setQueryData(key, [...prev, temp].sort((a, b) => a.local_date.localeCompare(b.local_date)));
-    }
-    add.mutate(v, {
-      onSuccess: (row) => {
-        done?.();
-        toast("Result saved", { duration: 6000, action: { label: "Undo", onClick: () => idOf(row) && remove.mutate(idOf(row)!) } });
-      },
-      onError: () => prev && qc.setQueryData(key, prev),
-    });
-  };
-
-  const del = (row: AthleticTest) => {
-    void qc.cancelQueries({ queryKey: key });
-    const prev = qc.getQueryData<AthleticTest[]>(key);
-    if (prev) qc.setQueryData(key, prev.filter((r) => r.id !== row.id));
-    remove.mutate(row.id, {
-      onSuccess: () =>
-        toast("Result deleted", {
-          duration: 6000,
-          action: {
-            label: "Undo",
-            onClick: () =>
-              add.mutate({
-                local_date: row.local_date,
-                test_type: row.test_type,
-                value: Number(row.value),
-                sprint_distance_m: row.sprint_distance_m == null ? null : Number(row.sprint_distance_m),
-                conditions: row.conditions,
-                notes: row.notes,
-              }),
-          },
-        }),
-      onError: () => prev && qc.setQueryData(key, prev),
-    });
-  };
-
-  return { log, del, pending: add.isPending };
-}
 
 /* ----------------------------------------------------------------- photos */
 

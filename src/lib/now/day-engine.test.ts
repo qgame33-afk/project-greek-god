@@ -155,12 +155,6 @@ describe("other days", () => {
     expect(s.later.some((x) => x.kind === "session")).toBe(false);
   });
 
-  it("a volleyball day trains only when it carries a session", () => {
-    const vb = day({ ...dawnDone, now: t("15:10"), plan: { kind: "volleyball" }, meals: meals(null) });
-    expect(dayPhase(vb)).toBe("fuel");
-    expect(dayPhase({ ...vb, plan: { kind: "volleyball", train: PUSH_A } })).toBe("train");
-  });
-
   it("Dawn done by 07:20 → fuel at 07:21 (§4.2 test 3)", () => {
     expect(dayPhase(day({ ...dawnDone, now: t("07:21") }))).toBe("fuel");
   });

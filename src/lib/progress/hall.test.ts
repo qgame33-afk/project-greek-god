@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { summarizeLift, type StrengthSet } from "./strength";
-import { allRecords, firstLatest, hallLifts, recentRecords, standingRecords, testLine } from "./hall";
+import { allRecords, firstLatest, hallLifts, recentRecords, standingRecords } from "./hall";
 
 let n = 0;
 const set = (slug: string, date: string, weight: number | null, reps: number, session = date): StrengthSet => ({
@@ -66,46 +66,5 @@ describe("the Hall", () => {
     const pull = firstLatest(summaries.get("pull-ups")!, { bodyweight: true })!;
     expect(pull.mode).toBe("load");
     expect(firstLatest(summarizeLift([]))).toBeNull();
-  });
-});
-
-describe("athletic tests", () => {
-  const t = (id: string, type: string, date: string, value: number, d?: number) => ({ id, test_type: type, local_date: date, value, sprint_distance_m: d ?? null });
-  const rows = [
-    t("a1", "approach_vertical", "2026-09-05", 30.5),
-    t("a2", "approach_vertical", "2026-10-03", 32),
-    t("s1", "standing_vertical", "2026-09-05", 27.25),
-    t("p1", "sprint", "2026-09-05", 2.1, 10),
-    t("p2", "sprint", "2026-10-03", 2.0, 10),
-    t("p3", "sprint", "2026-10-03", 4.6, 30),
-  ];
-
-  it("an approach jump that beats the first is the record and an improvement", () => {
-    const l = testLine(rows, "approach_vertical");
-    expect(l.latest?.id).toBe("a2");
-    expect(l.latestIsRecord).toBe(true);
-    expect(l.change).toBe(1.5);
-    expect(l.improved).toBe(true);
-  });
-
-  it("one result is a benchmark: no record, no change", () => {
-    const l = testLine(rows, "standing_vertical");
-    expect(l.latestIsRecord).toBe(false);
-    expect(l.change).toBeNull();
-  });
-
-  it("a faster sprint is an improvement, at the most-used distance", () => {
-    const l = testLine(rows, "sprint");
-    expect(l.distance).toBe(10);
-    expect(l.change).toBe(-0.1);
-    expect(l.improved).toBe(true);
-    expect(l.latestIsRecord).toBe(true);
-  });
-
-  it("no results: nothing invented", () => {
-    const l = testLine([], "broad_jump");
-    expect(l.latest).toBeNull();
-    expect(l.best).toBeNull();
-    expect(l.change).toBeNull();
   });
 });

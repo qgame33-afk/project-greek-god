@@ -89,7 +89,7 @@ describe("check-in", () => {
     expect(server).toMatchObject({ sleep_hours: "6.5", sleep_quality: 4, fatigue: 2, stress: 3, pain_notes: "left knee", volleyball: true, energy: 5 });
     // and the shared merge rule agrees for the optimistic draft
     const draft = mergeCheckin(fromRecovery, { energy: 5 });
-    expect(draft).toMatchObject({ sleep: 6.5, quality: 4, fatigue: 2, stress: 3, pain: "left knee", volleyball: false, energy: 5, soreness: null });
+    expect(draft).toMatchObject({ sleep: 6.5, quality: 4, fatigue: 2, stress: 3, pain: "left knee", energy: 5, soreness: null });
     // the patch never carries volleyball, so the stored value is untouched
     expect("volleyball" in payload).toBe(false);
   });

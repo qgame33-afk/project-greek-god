@@ -39,7 +39,7 @@ describe("planFollowed", () => {
 
 describe("sessionsSealed", () => {
   // PPL: Mon–Sat training, Sunday rest
-  const week = (done: string[], over: Record<string, "train" | "rest" | "volleyball"> = {}) =>
+  const week = (done: string[], over: Record<string, "train" | "rest"> = {}) =>
     ["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2026-10-24", "2026-10-25"].map((date, i) => ({
       date,
       kind: over[date] ?? (i === 6 ? ("rest" as const) : ("train" as const)),
@@ -49,11 +49,6 @@ describe("sessionsSealed", () => {
   it("sealed of planned, whole week", () => {
     expect(sessionsSealed(week(["2026-10-19", "2026-10-20"]), TODAY)).toEqual({ done: 2, planned: 6 });
     expect(sessionsLabel({ done: 4, planned: 6 })).toBe("4 of 6 sessions");
-  });
-
-  it("counts training days only: a legacy volleyball day is neither planned nor done", () => {
-    const legacy = { "2026-10-20": "volleyball" as const };
-    expect(sessionsSealed(week(["2026-10-19", "2026-10-20"], legacy), TODAY)).toEqual({ done: 1, planned: 5 });
   });
 
   it("a session moved to the rest day still counts, never above the plan", () => {

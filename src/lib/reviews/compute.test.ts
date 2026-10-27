@@ -434,7 +434,7 @@ describe("nutrition & recovery", () => {
     expect(r.avgFatigue).toBe(3);
     expect(r.avgEnergy).toBe(3);
     expect(r.painDays).toBe(1);
-    expect(r.volleyballDays).toBeUndefined();
+    expect("volleyballDays" in r).toBe(false);
   });
 });
 

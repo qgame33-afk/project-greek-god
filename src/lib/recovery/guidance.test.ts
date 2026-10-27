@@ -186,7 +186,7 @@ describe("computeGuidance", () => {
   });
 
   it("never weighs volleyball", () => {
-    const g = computeGuidance(input({ checkins: [ci({ sleep_hours: 8, energy: 4 })], volleyballDates: [D, addDays(D, -1), addDays(D, -2)] }));
+    const g = computeGuidance(input({ checkins: [ci({ sleep_hours: 8, energy: 4, volleyball: true } as Parameters<typeof ci>[0])] }));
     expect(g.factors.map((f) => f.key as string)).not.toContain("volleyball");
     expect(g.level).toBe("go");
   });

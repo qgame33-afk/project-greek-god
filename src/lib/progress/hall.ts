@@ -1,10 +1,8 @@
-// The Hall (docs/DESIGN-V2.md §3.6.2): records as plaques, the main lifts first → latest, and
-// the athletic tests. Everything here is read from logged sets and tests through the existing
-// strength and athletic helpers (summarizeLift, testSeries, testPR, prIds); a record is a set
-// that beat every earlier e1RM by the one record margin (lib/workout/pr). Pure.
+// Strength records: the main lifts first → latest, and the records (bests). Everything here is
+// read from logged sets through the strength helpers (summarizeLift); a record is a set that beat
+// every earlier e1RM by the one record margin (lib/workout/pr). Pure.
 
 import { addDays, type ISODate } from "@/lib/dates";
-import { TEST_BY_KEY, prIds, sprintDistances, testPR, testSeries, type TestRow, type TestType } from "./athletic";
 import { TRACKED_LIFTS, metricMode, otherExercises, sessionMetric, setE1rm, type LiftSummary, type StrengthSet } from "./strength";
 
 export interface HallLift {
@@ -115,49 +113,3 @@ export function firstLatest(s: LiftSummary, opts: { bodyweight?: boolean } = {})
   };
 }
 
-/* --------------------------------------------------------------- athletic */
-
-export interface TestLine<T extends TestRow = TestRow> {
-  type: TestType;
-  label: string;
-  /** The sprint distance shown (the most-used one), else null. */
-  distance: number | null;
-  series: T[];
-  latest: T | null;
-  best: T | null;
-  /** The latest result is the record (and there was an earlier one to beat). */
-  latestIsRecord: boolean;
-  /** latest − first in the stored unit (in or s); null with one result. */
-  change: number | null;
-  /** The change is an improvement (higher jump, faster sprint). */
-  improved: boolean;
-  first: T | null;
-  /** Results that set a record when logged (the first result is a benchmark, not a record). */
-  recordIds: Set<string>;
-}
-
-/** One athletic test, summarised from logged results only. Nothing predicted. */
-export function testLine<T extends TestRow>(rows: T[], type: TestType): TestLine<T> {
-  const def = TEST_BY_KEY[type];
-  const distance = type === "sprint" ? (sprintDistances(rows)[0] ?? null) : null;
-  const series = testSeries(rows, type, distance);
-  const latest = series.at(-1) ?? null;
-  const first = series[0] ?? null;
-  const best = testPR(rows, type, distance);
-  const records = prIds(rows, type, distance);
-  const change = latest && first && latest !== first ? Math.round((Number(latest.value) - Number(first.value)) * 100) / 100 : null;
-  const improved = change == null || !def.better ? false : def.better === "higher" ? change > 0 : change < 0;
-  return {
-    type,
-    label: def.label,
-    distance,
-    series,
-    latest,
-    best,
-    latestIsRecord: !!latest && series.length > 1 && records.has(latest.id),
-    change,
-    improved,
-    first,
-    recordIds: records,
-  };
-}

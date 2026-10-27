@@ -8,7 +8,6 @@ import { fetchAll, must, sb, useUser, type Insert, type Row, type Update } from 
 export type WeightEntry = Row<"weight_entries">;
 export type Measurement = Row<"body_measurements">;
 export type ProgressPhoto = Row<"progress_photos">;
-export type AthleticTest = Row<"athletic_tests">;
 
 /* ----------------------------------------------------------------- weight */
 
@@ -131,32 +130,3 @@ export function useSignedUrls(bucket: "progress-photos" | "meal-photos", paths: 
   });
 }
 
-/* --------------------------------------------------------------- athletic */
-
-export function useAthleticTests() {
-  const { userId } = useUser();
-  return useQuery({
-    queryKey: ["athletic", userId],
-    enabled: !!userId,
-    queryFn: async () => fetchAll((a, b) => sb().from("athletic_tests").select("*").order("local_date").range(a, b)),
-  });
-}
-
-export function useAthleticMutations() {
-  const qc = useQueryClient();
-  const done = () => qc.invalidateQueries({ queryKey: ["athletic"] });
-  const onError = (e: Error) => toast.error("Couldn't save", { description: e.message });
-  const add = useMutation({
-    networkMode: "always",
-    mutationFn: async (v: Omit<Insert<"athletic_tests">, "user_id">) => must(await sb().from("athletic_tests").insert(v).select("*").single()),
-    onSuccess: done,
-    onError,
-  });
-  const remove = useMutation({
-    networkMode: "always",
-    mutationFn: async (id: string) => must(await sb().from("athletic_tests").delete().eq("id", id)),
-    onSuccess: done,
-    onError,
-  });
-  return { add, remove };
-}

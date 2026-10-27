@@ -63,7 +63,7 @@ describe("mergeCheckin", () => {
 
   it("keeps every field the patch leaves out", () => {
     const d = mergeCheckin(stored, { soreness: 2 });
-    expect(d).toEqual({ sleep: 7.5, quality: 4, energy: null, soreness: 2, fatigue: 2, stress: 3, pain: "left knee", volleyball: false });
+    expect(d).toEqual({ sleep: 7.5, quality: 4, energy: null, soreness: 2, fatigue: 2, stress: 3, pain: "left knee" });
     const payload = draftToPayload(TODAY, d);
     expect(payload.pain_notes).toBe("left knee");
     expect(payload.sleep_quality).toBe(4);
@@ -86,7 +86,7 @@ describe("mergeCheckin", () => {
     expect(mergeCheckin(stored, { fatigue: undefined }).fatigue).toBe(2);
     expect(mergeCheckin(stored, { fatigue: null }).fatigue).toBeNull();
     expect(mergeCheckin(stored, {})).toEqual(mergeCheckin(stored, {}));
-    expect(mergeCheckin(null, {})).toMatchObject({ sleep: null, pain: "", volleyball: false });
+    expect(mergeCheckin(null, {})).toMatchObject({ sleep: null, pain: "" });
   });
 });
 

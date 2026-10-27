@@ -31,8 +31,8 @@ export interface TrainPlan {
 export interface DayInput {
   date: ISODate;
   now: Min;
-  /** Train or rest. (The `volleyball` variant is @deprecated: read as its training session, or rest; removed in P2.) */
-  plan: ({ kind: "train" } & TrainPlan) | { kind: "rest" } | { kind: "volleyball"; train?: TrainPlan };
+  /** Train or rest. */
+  plan: ({ kind: "train" } & TrainPlan) | { kind: "rest" };
   session: { status: "none" } | { status: "active"; startedAt: Min } | { status: "done"; endedAt: Min };
   meals: PlannedMealSlot[];
   checkInDone: boolean; // the 3 Dawn questions answered (sleep, soreness, energy non-null)
@@ -98,7 +98,6 @@ export function minutesSinceMidnight(d: Date): Min {
 /** Today's training session, if any. */
 export function trainOf(plan: DayInput["plan"]): TrainPlan | null {
   if (plan.kind === "train") return { key: plan.key, name: plan.name, at: plan.at, durationMin: plan.durationMin };
-  if (plan.kind === "volleyball" && plan.train) return plan.train;
   return null;
 }
 

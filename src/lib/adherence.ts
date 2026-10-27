@@ -30,17 +30,15 @@ export function planFollowed(planned: { id: string; local_date: ISODate; at: Min
  * Sealed sessions ÷ planned training days this week (Mon–Sun of `today`).
  * - `train`: a planned training day; `done` = a session was sealed that day.
  * - `rest`: not planned; a session sealed on a rest day (`done`) still counts, up to the plan.
- * Only days up to today can be done. (A deprecated `volleyball` day from an older caller counts
- * as rest: nothing reads volleyball any more.)
+ * Only days up to today can be done.
  */
-export function sessionsSealed(days: { date: ISODate; kind: "train" | "rest" | "volleyball"; done: boolean }[], today: ISODate): { done: number; planned: number } {
+export function sessionsSealed(days: { date: ISODate; kind: "train" | "rest"; done: boolean }[], today: ISODate): { done: number; planned: number } {
   const week = new Set(weekDates(today));
-  const byDate = new Map<ISODate, { kind: "train" | "rest" | "volleyball"; done: boolean }>();
+  const byDate = new Map<ISODate, { kind: "train" | "rest"; done: boolean }>();
   for (const d of days) if (week.has(d.date)) byDate.set(d.date, d);
   let planned = 0;
   let sealed = 0;
   for (const [date, d] of byDate) {
-    if (d.kind === "volleyball") continue;
     if (d.kind === "train") planned++;
     if (d.done && date <= today) sealed++;
   }
