@@ -3,16 +3,16 @@
 // the learning events to record, and the data hooks (src/lib/data/meals.ts) persist them.
 // Deterministic for a given seed.
 
-import { addDays, daysBetween, weekStart as mondayOf, type ISODate } from "@/lib/dates";
+import { addDays, weekStart as mondayOf, type ISODate } from "@/lib/dates";
 import { LIBRARY, getLibraryRecipe } from "../library";
 import { shopKey } from "../ingredients";
 import { coreIngredients, recipeMacros, recipeFeatures, validateRecipe } from "../recipe";
 import type { FeedbackEvent, FeedbackReason, FeedbackRow, Macros, MealPrefs, PlannedMeal, Recipe, Slot, WhyReason } from "../types";
-import { candidatesFor, type Favourite } from "./constraints";
+import { candidatesFor, dayGap, type Favourite } from "./constraints";
 import { explainPick, repeatReason } from "./explain";
 import { learnPrefs, type LearnedModel, type NameOf } from "./prefs";
 import { rngFor } from "./rng";
-import { SERVING_STEPS, scoreRecipe, selectCandidate, slotTarget, VARIETY, type Goals, type NearbyMeal, type ScoredCandidate, type SlotTarget } from "./score";
+import { fullGoals, SERVING_STEPS, scoreRecipe, selectCandidate, slotShare, slotTarget, VARIETY, type Goals, type NearbyMeal, type ScoredCandidate, type SlotTarget } from "./score";
 
 /* ------------------------------------------------------------------ types */
 
@@ -77,10 +77,14 @@ export interface DaySummary {
   planned: Macros;
   kcalGoal: number;
   proteinGoal: number;
+  /** The profile's fat goal (or 25% of kcal when it has none). */
+  fatGoal: number;
   /** Within ±12% of the calorie goal. */
   kcalOk: boolean;
   /** At least 90% of the protein goal. */
   proteinOk: boolean;
+  /** No more than 10% over the fat goal. */
+  fatOk: boolean;
   meals: number;
 }
 
@@ -108,8 +112,16 @@ export interface WeekResult {
 
 /* ------------------------------------------------------------------ pool */
 
+/** What the UI calls a day that fits (and what generateWeek warns below). */
 export const DAY_KCAL_TOLERANCE = 0.12;
 export const DAY_PROTEIN_MIN = 0.9;
+export const DAY_FAT_MAX = 1.1;
+
+/**
+ * What day balancing aims for, tighter than the "fits" check above: kcal within ±3%, protein
+ * at goal to 8% over (185–200 g on a 185 g goal), fat 80–100% of goal; carbs are what is left.
+ */
+export const DAY_AIM = { kcal: 0.03, proteinMin: 1.0, proteinMax: 1.08, fatMin: 0.8, fatMax: 1.0 } as const;
 export const MIN_SERVINGS = 0.25;
 export const MAX_SERVINGS = 6;
 
@@ -147,6 +159,8 @@ function stripComputed(r: Recipe): unknown {
 
 interface Prepared {
   ctx: PlanContext;
+  /** The day's goals, carbs and fat filled in. */
+  goals: Macros;
   learned: LearnedModel;
   favourites: Map<string, Favourite>;
   byKey: Map<string, Recipe>;
@@ -174,6 +188,7 @@ function prepare(input: PlanContext): Prepared {
   ];
   return {
     ctx,
+    goals: fullGoals(ctx.goals),
     learned,
     favourites: new Map((ctx.favourites ?? []).map((f) => [f.recipe_key, f])),
     byKey,
@@ -222,11 +237,11 @@ function nearbyFor(P: Prepared, placed: readonly Placed[], date: ISODate, except
   const out: NearbyMeal[] = [];
   for (const p of placed) {
     if (!p.recipe || (except && samePlace(p.meal, except))) continue;
-    if (Math.abs(daysBetween(p.meal.local_date, date)) <= VARIETY.cooldownDays) out.push({ recipe: p.recipe, local_date: p.meal.local_date, slot: p.meal.slot });
+    if (Math.abs(dayGap(p.meal.local_date, date)) <= VARIETY.cooldownDays) out.push({ recipe: p.recipe, local_date: p.meal.local_date, slot: p.meal.slot });
   }
   for (const h of P.ctx.history ?? []) {
     const r = P.byKey.get(h.recipe_key);
-    if (r && Math.abs(daysBetween(h.local_date, date)) <= VARIETY.cooldownDays) out.push({ recipe: r, local_date: h.local_date, slot: h.slot });
+    if (r && Math.abs(dayGap(h.local_date, date)) <= VARIETY.cooldownDays) out.push({ recipe: r, local_date: h.local_date, slot: h.slot });
   }
   return out;
 }
@@ -239,12 +254,13 @@ interface ChooseArgs {
   target: SlotTarget;
   attempt: number;
   exclude?: ReadonlySet<string>;
-  /** Only candidates passing this (e.g. higher protein) are considered. */
-  only?: (c: ScoredCandidate) => boolean;
+  /** Recipes failing this are not scored at all (a cheap test before the scoring). */
+  prefilter?: (r: Recipe) => boolean;
   tag?: string;
 }
 
-function choose(P: Prepared, a: ChooseArgs): { candidate: ScoredCandidate; relaxed: number } | null {
+/** Every candidate that may fill the place (hard filters, then `prefilter`), scored. */
+function scoreChoices(P: Prepared, a: ChooseArgs): { scored: ScoredCandidate[]; relaxed: number } {
   const { ctx } = P;
   const place = { local_date: a.date, slot: a.slot, position: a.position };
   const others = a.placed.filter((p) => !samePlace(p.meal, place));
@@ -258,11 +274,12 @@ function choose(P: Prepared, a: ChooseArgs): { candidate: ScoredCandidate; relax
     exclude: a.exclude,
     today: ctx.today,
   });
-  if (!recipes.length) return null;
+  const pool = a.prefilter ? recipes.filter(a.prefilter) : recipes;
+  if (!pool.length) return { scored: [], relaxed };
   const dayMeals = others.filter((p) => p.meal.local_date === a.date && p.recipe).map((p) => ({ recipe: p.recipe!, servings: p.meal.servings }));
   const nearby = nearbyFor(P, others, a.date);
   const onList = weekIngredients(P, others);
-  let scored = recipes.map((r) =>
+  const scored = pool.map((r) =>
     scoreRecipe(r, {
       slot: a.slot,
       date: a.date,
@@ -280,9 +297,44 @@ function choose(P: Prepared, a: ChooseArgs): { candidate: ScoredCandidate; relax
       weekIngredients: onList,
     }),
   );
-  if (a.only) scored = scored.filter(a.only);
+  return { scored, relaxed };
+}
+
+function choose(P: Prepared, a: ChooseArgs): { candidate: ScoredCandidate; relaxed: number } | null {
+  const { scored, relaxed } = scoreChoices(P, a);
   const sel = selectCandidate(scored, rngFor(P.seed, a.tag ?? "pick", a.date, a.slot, a.position, a.attempt));
   return sel ? { candidate: sel.pick, relaxed } : null;
+}
+
+/**
+ * What the meal in this place should bring: what the day still needs after the meals already
+ * on it, shared out over the places still open by slot share. A fatty breakfast leaves a leaner
+ * lunch and dinner to find; a light one, bigger ones. Each macro stays within 0.25–1.6× of the
+ * slot's plain share (kcal 0.6–1.6×), so one odd meal never asks for an absurd plate.
+ */
+export function dayTarget(
+  goals: Goals,
+  snacksPerDay: number,
+  slot: Slot,
+  have: Macros,
+  /** Slots still open on the day, this one included. */
+  open: readonly Slot[],
+): Required<SlotTarget> {
+  const g = fullGoals(goals);
+  const base = slotTarget(slot, goals, snacksPerDay);
+  const shares = open.reduce((s, o) => s + slotShare(o, snacksPerDay), 0) || slotShare(slot, snacksPerDay);
+  const f = slotShare(slot, snacksPerDay) / shares;
+  const pick = (k: keyof Macros, lo: number, hi = 1.6) => Math.min(hi * base[k], Math.max(lo * base[k], (g[k] - have[k]) * f));
+  return { kcal: pick("kcal", 0.6), protein: pick("protein", 0.25), carbs: pick("carbs", 0.25, 2), fat: pick("fat", 0.25) };
+}
+
+/** dayTarget for a place, from what's already placed on its day. */
+function placeTarget(P: Prepared, placed: readonly Placed[], date: ISODate, slot: Slot, position: number): Required<SlotTarget> {
+  const place = { local_date: date, slot, position };
+  const day = placed.filter((p) => p.meal.local_date === date && !samePlace(p.meal, place));
+  const have = sumMacros(day.map((p) => macrosOf(p.recipe, p.meal.servings)));
+  const open = P.places.filter((q) => samePlace({ local_date: date, ...q }, place) || !day.some((p) => samePlace(p.meal, { local_date: date, ...q }))).map((q) => q.slot);
+  return dayTarget(P.ctx.goals, P.ctx.prefs.snacksPerDay, slot, have, open);
 }
 
 /* ------------------------------------------------------------------ day balancing */
@@ -294,30 +346,67 @@ function stepIndex(s: number): number {
 }
 
 /**
- * Bring a day within ±12% of the calorie goal and to ≥ 90% of the protein goal where possible:
- * first by stepping servings of the day's new picks along the serving ladder, then (if protein
- * is still short) by swapping a snack for a higher-protein one, then servings again.
+ * How far a day's totals sit from DAY_AIM, as one number (0 = on aim). Calories off, protein
+ * short (worst), protein over, fat over and fat well under each cost, squared, in shares of the
+ * goal. Carbs are what the calories leave.
  */
-function balanceDay(P: Prepared, placed: Placed[], date: ISODate): void {
+export function dayMiss(t: Macros, goals: Goals): number {
+  const g = fullGoals(goals);
+  const k = Math.max(0, Math.abs(t.kcal - g.kcal) / g.kcal - DAY_AIM.kcal / 2);
+  const pShort = Math.max(0, DAY_AIM.proteinMin * g.protein - t.protein) / g.protein;
+  const pOver = Math.max(0, t.protein - DAY_AIM.proteinMax * g.protein) / g.protein;
+  const fOver = Math.max(0, t.fat - DAY_AIM.fatMax * g.fat) / g.fat;
+  const fUnder = Math.max(0, DAY_AIM.fatMin * g.fat - t.fat) / g.fat;
+  return 900 * k * k + 900 * pShort * pShort + 1200 * pOver * pOver + 500 * fOver * fOver + 100 * fUnder * fUnder;
+}
+
+/** True when a day's totals are within DAY_AIM. */
+export function dayOnAim(t: Macros, goals: Goals): boolean {
+  const g = fullGoals(goals);
+  return (
+    Math.abs(t.kcal - g.kcal) / g.kcal <= DAY_AIM.kcal &&
+    t.protein >= DAY_AIM.proteinMin * g.protein &&
+    t.protein <= DAY_AIM.proteinMax * g.protein &&
+    t.fat <= DAY_AIM.fatMax * g.fat &&
+    t.fat >= DAY_AIM.fatMin * g.fat
+  );
+}
+
+/** Serving steps away from 1 (and 2 or more) cost a little, so plates stay normal. */
+const servingsCost = (servings: number[]) => servings.reduce((s, x) => s + 0.08 * (x - 1) * (x - 1) + (x >= 2 ? 0.1 : 0), 0);
+
+/**
+ * Day balancing swaps (balanceDay). A swap is chosen by what it does to the score of that place
+ * (taste, variety, fit: the new pick's score minus the current one's) plus how much it brings the
+ * day toward aim (`gain`, the drop in dayMiss, counted up to `gainCap`), so among swaps that fix
+ * the day the user's taste still decides, and a liked meal is only swapped out for a real gain.
+ */
+export const BALANCE = { swaps: 8, minGain: 0.05, gainWeight: 1, gainCap: 3 } as const;
+
+/** Where a meal sits, as a map key. */
+const placeId = (m: Pick<EngineMeal, "local_date" | "slot" | "position">) => `${m.local_date}|${m.slot}|${m.position}`;
+
+/**
+ * Bring a day onto DAY_AIM (kcal ±3%, protein 100–108%, fat 80–100% of goal) where the allowed
+ * recipes can: first by stepping servings of the day's new picks along the serving ladder; then,
+ * while the day is still off, by swapping one new pick at a time for a candidate that helps
+ * (BALANCE: drawn by softmax over score change + gain, so taste and variety still choose), then
+ * servings again. Swaps come only from the strict tier of the hard filters (never a harder
+ * recipe or a repeat the planner had to allow because too few fit). Locked and logged meals
+ * never change; `avoid` keeps a place's previous recipe out when the week is regenerated.
+ */
+function balanceDay(P: Prepared, placed: Placed[], date: ISODate, avoid?: ReadonlyMap<string, string>): void {
   const { goals } = P.ctx;
   const day = () => placed.filter((p) => p.meal.local_date === date);
   const totals = () => sumMacros(day().map((p) => macrosOf(p.recipe, p.meal.servings)));
-  const cost = (k: number, pr: number, servings: number[]) => {
-    const e = (k - goals.kcal) / goals.kcal;
-    const short = Math.max(0, DAY_PROTEIN_MIN * goals.protein - pr) / goals.protein;
-    const odd = servings.reduce((s, x) => s + 0.08 * (x - 1) * (x - 1) + (x >= 2 ? 0.1 : 0), 0);
-    return 100 * e * e + 300 * short * short + odd;
-  };
-  const ok = () => {
-    const t = totals();
-    return Math.abs(t.kcal - goals.kcal) / goals.kcal <= 0.05 && t.protein >= DAY_PROTEIN_MIN * goals.protein;
-  };
+  const cost = (t: Macros, servings: number[]) => dayMiss(t, goals) + servingsCost(servings);
+  const ok = () => dayOnAim(totals(), goals);
 
   const servingsPass = () => {
     for (let iter = 0; iter < 24 && !ok(); iter++) {
       const adjustable = day().filter((p) => !p.fixed && p.recipe);
       const t = totals();
-      const now = cost(t.kcal, t.protein, adjustable.map((p) => p.meal.servings));
+      const now = cost(t, adjustable.map((p) => p.meal.servings));
       let best: { p: Placed; s: number; c: number } | null = null;
       for (const p of adjustable) {
         const i = stepIndex(p.meal.servings);
@@ -326,9 +415,7 @@ function balanceDay(P: Prepared, placed: Placed[], date: ISODate): void {
           if (j < 0 || j >= SERVING_STEPS.length) continue;
           const s = SERVING_STEPS[j];
           const next = macrosOf(p.recipe, s);
-          const k = t.kcal - cur.kcal + next.kcal;
-          const pr = t.protein - cur.protein + next.protein;
-          const c = cost(k, pr, adjustable.map((q) => (q === p ? s : q.meal.servings)));
+          const c = cost(add(t, next, cur), adjustable.map((q) => (q === p ? s : q.meal.servings)));
           if (c < now - 1e-6 && (!best || c < best.c)) best = { p, s, c };
         }
       }
@@ -337,46 +424,79 @@ function balanceDay(P: Prepared, placed: Placed[], date: ISODate): void {
     }
   };
 
+  /** The serving step that suits the rest of the day best for a recipe, and how much the day gains. */
+  const bestFit = (recipe: Recipe, without: Macros, now: number): { s: number; gain: number } => {
+    const one = macrosOf(recipe, 1);
+    let best = { s: 1, miss: Infinity, cost: Infinity };
+    for (const s of SERVING_STEPS) {
+      const miss = dayMiss(add(without, scale(one, s)), goals);
+      const c = miss + servingsCost([s]);
+      if (c < best.cost - 1e-9) best = { s, miss, cost: c };
+    }
+    return { s: best.s, gain: now - best.miss };
+  };
+
   servingsPass();
-  // protein still short: swap snacks for higher-protein ones (keeps variety: softmax among them)
-  for (let attempt = 0; attempt < 3 && totals().protein < DAY_PROTEIN_MIN * goals.protein; attempt++) {
-    const snacks = day()
-      .filter((p) => !p.fixed && p.recipe && p.meal.slot === "snack")
-      .sort((x, y) => macrosOf(x.recipe, x.meal.servings).protein - macrosOf(y.recipe, y.meal.servings).protein);
-    const weakest = snacks[0];
-    if (!weakest) break;
-    const current = macrosOf(weakest.recipe, weakest.meal.servings).protein;
-    const target = slotTarget("snack", goals, P.ctx.prefs.snacksPerDay);
-    const swap = choose(P, {
-      date,
-      slot: "snack",
-      position: weakest.meal.position,
-      placed,
-      target,
-      attempt,
-      exclude: new Set(snacks.map((s) => s.meal.recipe_key)),
-      only: (c) => c.macros.protein >= current + 8,
-      tag: "protein-swap",
-    });
-    if (!swap) break;
-    weakest.recipe = swap.candidate.recipe;
-    weakest.candidate = swap.candidate;
-    weakest.meal = { ...weakest.meal, recipe_key: swap.candidate.recipe.key, servings: swap.candidate.servings };
+  for (let attempt = 0; attempt < BALANCE.swaps && !ok(); attempt++) {
+    const t = totals();
+    const now = dayMiss(t, goals);
+    const options: { p: Placed; c: ScoredCandidate; gain: number; value: number }[] = [];
+    for (const p of day()) {
+      if (p.fixed || !p.recipe) continue;
+      const without = add(t, ZERO, macrosOf(p.recipe, p.meal.servings));
+      const fits = new Map<string, { s: number; gain: number }>();
+      const prefilter = (r: Recipe) => {
+        const f = bestFit(r, without, now);
+        if (f.gain <= BALANCE.minGain) return false;
+        fits.set(r.key, f);
+        return true;
+      };
+      const target = dayTarget(goals, P.ctx.prefs.snacksPerDay, p.meal.slot, without, [p.meal.slot]);
+      const exclude = new Set([p.meal.recipe_key, ...(avoid?.has(placeId(p.meal)) ? [avoid.get(placeId(p.meal))!] : [])]);
+      const { scored, relaxed } = scoreChoices(P, { date, slot: p.meal.slot, position: p.meal.position, placed, target, attempt, exclude, prefilter });
+      // balancing never loosens a rule (a harder recipe, a spaced repeat, past the time cap)
+      if (relaxed) continue;
+      const current = p.candidate?.total ?? 0;
+      for (const c of scored) {
+        const f = fits.get(c.recipe.key)!;
+        const sized = f.s === c.servings ? c : { ...c, servings: f.s, macros: macrosOf(c.recipe, f.s) };
+        const value = c.total - current + BALANCE.gainWeight * Math.min(BALANCE.gainCap, f.gain);
+        if (value > 0) options.push({ p, c: sized, gain: f.gain, value });
+      }
+    }
+    if (!options.length) break;
+    // the usual softmax over the top swaps by value (score change + capped gain)
+    const asCandidates = options.map((o) => ({ ...o.c, total: o.value }));
+    const sel = selectCandidate(asCandidates, rngFor(P.seed, "balance", date, attempt));
+    if (!sel) break;
+    const o = options[asCandidates.indexOf(sel.pick)];
+    o.p.recipe = o.c.recipe;
+    o.p.candidate = o.c;
+    o.p.meal = { ...o.p.meal, recipe_key: o.c.recipe.key, servings: o.c.servings };
     servingsPass();
   }
+}
+
+const ZERO: Macros = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+const scale = (m: Macros, s: number): Macros => ({ kcal: m.kcal * s, protein: m.protein * s, carbs: m.carbs * s, fat: m.fat * s });
+/** t + plus − minus, per macro. */
+function add(t: Macros, plus: Macros, minus: Macros = ZERO): Macros {
+  return { kcal: t.kcal + plus.kcal - minus.kcal, protein: t.protein + plus.protein - minus.protein, carbs: t.carbs + plus.carbs - minus.carbs, fat: t.fat + plus.fat - minus.fat };
 }
 
 function summarize(P: Prepared, placed: readonly Placed[], date: ISODate): DaySummary {
   const day = placed.filter((p) => p.meal.local_date === date);
   const planned = sumMacros(day.map((p) => macrosOf(p.recipe, p.meal.servings)));
-  const { kcal, protein } = P.ctx.goals;
+  const { kcal, protein, fat } = P.goals;
   return {
     date,
     planned,
     kcalGoal: kcal,
     proteinGoal: protein,
+    fatGoal: Math.round(fat),
     kcalOk: Math.abs(planned.kcal - kcal) / kcal <= DAY_KCAL_TOLERANCE,
     proteinOk: planned.protein >= DAY_PROTEIN_MIN * protein,
+    fatOk: planned.fat <= DAY_FAT_MAX * fat,
     meals: day.length,
   };
 }
@@ -419,8 +539,9 @@ const engineMeal = (m: EngineMeal): EngineMeal => ({
  * Plan the week: each day × breakfast, lunch, dinner and `snacksPerDay` snacks — from `today`
  * on when it falls mid-week (past days keep their meals; `wholeWeek` plans all 7). Locked
  * meals (and `fixedIds`) stay where they are and count toward variety and day totals. Each
- * pick's servings land near its slot target; each day is then balanced to ±12% kcal and ≥ 90%
- * protein where possible. Same context + seed → same plan. Save `save`, not `meals`.
+ * pick aims at what its day still needs (dayTarget: kcal, protein, carbs and fat); each day is
+ * then balanced onto DAY_AIM where the allowed recipes can. Same context + seed → same plan.
+ * Save `save`, not `meals`.
  */
 export function generateWeek(ctx: PlanContext): WeekResult {
   checkGoals(ctx.goals);
@@ -432,13 +553,14 @@ export function generateWeek(ctx: PlanContext): WeekResult {
   // regenerating a week: the meal being replaced in each place isn't picked there again (unless nothing else fits)
   const replaced = (ctx.meals ?? []).filter((m) => !kept.includes(m));
   const placed: Placed[] = kept.map((m) => ({ meal: m, recipe: P.byKey.get(m.recipe_key), fixed: true }));
+  const avoid = new Map(replaced.map((m) => [placeId(m), m.recipe_key]));
   const warnings: string[] = [];
   let unfilled = 0;
 
   for (const date of dates) {
     for (const { slot, position } of P.places) {
       if (placed.some((p) => samePlace(p.meal, { local_date: date, slot, position }))) continue;
-      const target = slotTarget(slot, ctx.goals, ctx.prefs.snacksPerDay);
+      const target = placeTarget(P, placed, date, slot, position);
       const before = replaced.find((m) => samePlace(m, { local_date: date, slot, position }));
       const res = (before && choose(P, { date, slot, position, placed, target, attempt: 0, exclude: new Set([before.recipe_key]) })) || choose(P, { date, slot, position, placed, target, attempt: 0 });
       if (!res) {
@@ -454,11 +576,12 @@ export function generateWeek(ctx: PlanContext): WeekResult {
         candidate: c,
       });
     }
-    balanceDay(P, placed, date);
+    balanceDay(P, placed, date, avoid);
   }
 
   const days = dates.map((d) => summarize(P, placed, d));
   for (const d of days) if (d.meals && !d.proteinOk) warnings.push(`${d.date}: ${Math.round(d.planned.protein)} g protein planned, under 90% of your ${d.proteinGoal} g goal with the recipes your settings allow.`);
+  for (const d of days) if (d.meals && !d.fatOk) warnings.push(`${d.date}: ${Math.round(d.planned.fat)} g fat planned, over your ${d.fatGoal} g goal with the recipes your settings allow.`);
   const meals = sortMeals(
     placed
       .filter((p) => !p.fixed)
@@ -504,8 +627,8 @@ export interface RegenerateOptions {
 
 /**
  * A different recipe for ONE meal: never the current one or any already shown in this
- * regenerate session. Everything else in the week stays exactly as it is. The servings aim at
- * what the day still needs, so the day stays balanced.
+ * regenerate session. Everything else in the week stays exactly as it is. The pick and its
+ * servings aim at what the day still needs (kcal, protein, carbs and fat), so the day stays balanced.
  */
 export function regenerateMeal(ctx: PlanContext, meal: EngineMeal, shown: readonly string[] = [], opts: RegenerateOptions = {}): RegenerateResult {
   checkGoals(ctx.goals);
@@ -518,15 +641,11 @@ export function regenerateMeal(ctx: PlanContext, meal: EngineMeal, shown: readon
   const key = placeKey(meal);
   const others = (ctx.meals ?? []).filter((m) => placeKey(m) !== key && !(m.id && m.id === meal.id));
   const placed: Placed[] = others.map((m) => ({ meal: m, recipe: P.byKey.get(m.recipe_key), fixed: true }));
-  const base = slotTarget(meal.slot, ctx.goals, ctx.prefs.snacksPerDay);
-  // aim at what the day still needs: make up the difference between the other meals' targets
-  // and what they actually provide (within 0.6–1.6× of this slot's own target)
-  const day = placed.filter((p) => p.meal.local_date === meal.local_date && p.recipe);
-  const otherKcal = day.reduce((s, p) => s + macrosOf(p.recipe, p.meal.servings).kcal, 0);
-  const expectedOthers = day.reduce((s, p) => s + slotTarget(p.meal.slot, ctx.goals, ctx.prefs.snacksPerDay).kcal, 0);
-  const kcal = Math.min(1.6 * base.kcal, Math.max(0.6 * base.kcal, base.kcal + (expectedOthers - otherKcal)));
+  // aim at what the day still needs after its other meals (kcal, protein, carbs and fat), as
+  // if the places with no meal yet were still to come
+  const target = placeTarget(P, placed, meal.local_date, meal.slot, meal.position);
   const exclude = new Set([meal.recipe_key, ...shown]);
-  const res = choose(P, { date: meal.local_date, slot: meal.slot, position: meal.position, placed, target: { kcal, protein: base.protein }, attempt: shown.length + 1, exclude, tag: `regen:${key}` });
+  const res = choose(P, { date: meal.local_date, slot: meal.slot, position: meal.position, placed, target, attempt: shown.length + 1, exclude, tag: `regen:${key}` });
   if (!res) return { ok: false, reason: "no_alternative", message: "Nothing else fits this meal with your current settings." };
   const c = res.candidate;
   const reasons = explainPick(c, { slot: meal.slot, learned: P.learned, nameOf: P.nameOf });

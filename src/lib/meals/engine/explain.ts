@@ -113,10 +113,12 @@ export function explainPick(c: ScoredCandidate, ctx: ExplainContext, final?: { s
   if (budgetW > 0) add("budget_fit", `Budget friendly: about $${recipeCostCad(recipe).toFixed(2)} a serving`, budgetW);
 
   // macros (after any day balancing)
+  // "Fits" only when the plate lands near the slot's calories AND its protein and fat fit too
   const kcalPart = get("kcal");
   const proteinPart = get("protein");
-  const macroW = (kcalPart?.value ?? 0) + Math.max(0, proteinPart?.value ?? 0);
-  if (kcalPart && kcalPart.value >= 0.2) {
+  const fatPart = get("fat");
+  const macroW = (kcalPart?.value ?? 0) + (proteinPart?.value ?? 0) + (fatPart?.value ?? 0);
+  if (kcalPart && kcalPart.value >= 0.2 && macroW >= 0.2) {
     const m = final?.macros ?? c.macros;
     add("macro_fit", `Fits ${SLOT_LABEL[ctx.slot]}: ${m.kcal.toLocaleString("en-US")} kcal, ${Math.round(m.protein)} g protein`, macroW);
   }

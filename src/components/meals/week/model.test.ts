@@ -189,6 +189,12 @@ describe("planner context", () => {
     expect(new Set(week.meals.map((m) => m.local_date)).size).toBe(7);
     expect(week.meals.filter((m) => m.slot === "dinner")).toHaveLength(7);
   });
+
+  it("hands the profile's carb and fat goals to the planner (and leaves them out when unset)", () => {
+    const ctx = plannerContext({ ...base, goals: { kcal: 3300, protein: 185, carbs: 449, fat: 85 } })!;
+    expect(ctx.goals).toEqual({ kcal: 3300, protein: 185, carbs: 449, fat: 85 });
+    expect(plannerContext({ ...base, goals: { kcal: 3300, protein: 185, carbs: 0, fat: 0 } })!.goals).toEqual({ kcal: 3300, protein: 185 });
+  });
 });
 
 describe("strip and week notes", () => {
@@ -210,6 +216,12 @@ describe("strip and week notes", () => {
     const text = weekNotes({ meals: Array(31), kept: Array(2), days }, 5);
     expect(text).toBe("2 meals have nothing that fits your settings, and 2 days are under 90% of your protein goal. Loosening a preference gives the planner more to pick from.");
     expect(weekNotes({ meals: Array(34), kept: [], days: days.map((d) => ({ ...d, proteinOk: true })) }, 5)).toMatch(/^1 meal has nothing/);
+  });
+
+  it("counts days over the fat goal", () => {
+    const days = Array.from({ length: 7 }, (_, i) => ({ meals: 5, proteinOk: true, fatOk: i !== 3 }));
+    expect(weekNotes({ meals: Array(35), kept: [], days }, 5)).toBe("1 day is over your fat goal. Loosening a preference gives the planner more to pick from.");
+    expect(weekNotes({ meals: Array(35), kept: [], days: days.map((d) => ({ ...d, fatOk: true })) }, 5)).toBeNull();
   });
 
   it("finds every thumbs row for a recipe and nothing else", () => {

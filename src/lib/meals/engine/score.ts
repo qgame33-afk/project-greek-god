@@ -4,14 +4,17 @@
 //
 //   total = fit + taste + variety + macro + explore
 //
+// The macro term scores the meal against what it should bring to the day (all four macros:
+// see plan.ts `dayTarget`), so a fatty breakfast makes a leaner lunch more likely.
+//
 // Selection is a softmax (temperature 0.6) over the top 8, with an occasional "new for you"
 // pick among unseen recipes in that top 8.
 
-import { daysBetween, type ISODate } from "@/lib/dates";
+import type { ISODate } from "@/lib/dates";
 import { dislikeCovers, getIngredient, gramsToPackUnits, shopKey } from "../ingredients";
 import { coreIngredients, ingredientCount, lineGrams, recipeCostCad, recipeFeatures, recipeMacros } from "../recipe";
 import type { Difficulty, Macros, MealPrefs, Recipe, Slot } from "../types";
-import type { Favourite } from "./constraints";
+import { dayGap, type Favourite } from "./constraints";
 import { familyScales, type LearnedModel } from "./prefs";
 import { unitFor, type Rng } from "./rng";
 
@@ -22,33 +25,115 @@ export interface Goals {
   kcal: number;
   /** Daily protein goal in grams (profile.protein_goal). */
   protein: number;
+  /** Daily carb goal in grams (profile.carb_goal). When missing: what kcal leaves after protein and fat. */
+  carbs?: number;
+  /** Daily fat goal in grams (profile.fat_goal). When missing: 25% of kcal. */
+  fat?: number;
 }
 
+/** Fat's share of kcal when the goals don't say (docs/MEALS.md §4). */
+export const DEFAULT_FAT_SHARE = 0.25;
+
+/** All four daily goals: the profile's, with carbs and fat filled in when they are missing. */
+export function fullGoals(goals: Goals): Macros {
+  const fat = goals.fat != null && goals.fat > 0 ? goals.fat : (goals.kcal * DEFAULT_FAT_SHARE) / 9;
+  const carbs = goals.carbs != null && goals.carbs > 0 ? goals.carbs : Math.max(0, (goals.kcal - 4 * goals.protein - 9 * fat) / 4);
+  return { kcal: goals.kcal, protein: goals.protein, carbs, fat };
+}
+
+/** What one meal should bring. `carbs`/`fat` default to the slot's share of the day's goals. */
 export interface SlotTarget {
   kcal: number;
   protein: number;
+  carbs?: number;
+  fat?: number;
 }
 
 /** Share of the day's calories per slot. Snacks share 15% across snacksPerDay. */
 export const SLOT_SHARE: Record<Slot, number> = { breakfast: 0.25, lunch: 0.3, dinner: 0.3, snack: 0.15 };
 
-/** The target for ONE occurrence of a slot (one snack, not all of them). */
-export function slotTarget(slot: Slot, goals: Goals, snacksPerDay: number): SlotTarget {
-  const share = slot === "snack" ? SLOT_SHARE.snack / Math.max(1, Math.round(snacksPerDay) || 1) : SLOT_SHARE[slot];
-  return { kcal: goals.kcal * share, protein: goals.protein * share };
+/** The share of the day ONE occurrence of a slot gets (one snack, not all of them). */
+export function slotShare(slot: Slot, snacksPerDay: number): number {
+  return slot === "snack" ? SLOT_SHARE.snack / Math.max(1, Math.round(snacksPerDay) || 1) : SLOT_SHARE[slot];
+}
+
+/** The target for ONE occurrence of a slot (one snack, not all of them): its share of every daily goal. */
+export function slotTarget(slot: Slot, goals: Goals, snacksPerDay: number): Required<SlotTarget> {
+  const share = slotShare(slot, snacksPerDay);
+  const g = fullGoals(goals);
+  return { kcal: g.kcal * share, protein: g.protein * share, carbs: g.carbs * share, fat: g.fat * share };
+}
+
+/* ------------------------------------------------------------------ macro fit */
+
+/**
+ * How far a meal's macros miss what it should bring, in shares of the DAY's goals (so a snack
+ * 10 g over on fat counts the same as a dinner 10 g over). Protein should land on target (a
+ * little over is fine, `proteinSlack` of the day's goal); fat should stay at or under it. Carbs
+ * are what the calories leave, so they are not scored separately.
+ */
+export interface MacroMiss {
+  /** (kcal − target) / day kcal goal. */
+  kcal: number;
+  /** Protein under target / day protein goal. */
+  proteinShort: number;
+  /** Protein over target + slack / day protein goal. */
+  proteinOver: number;
+  /** Fat over target / day fat goal. */
+  fatOver: number;
+}
+
+export const MACRO_FIT = {
+  /** Protein a meal may run over its target before it counts, as a share of the day's protein goal. */
+  proteinSlack: 0.02,
+  /** Score per share of the day's goal missed (linear, so the parts read plainly). */
+  proteinShort: 2,
+  proteinOver: 2,
+  fatOver: 2,
+  /** A meal that lands its protein earns this much. */
+  proteinHit: 0.2,
+} as const;
+
+export function macroMiss(m: Macros, target: SlotTarget, day: Macros): MacroMiss {
+  const fat = target.fat ?? 0;
+  return {
+    kcal: (m.kcal - target.kcal) / Math.max(1, day.kcal),
+    proteinShort: Math.max(0, target.protein - m.protein) / Math.max(1, day.protein),
+    proteinOver: Math.max(0, m.protein - target.protein - MACRO_FIT.proteinSlack * day.protein) / Math.max(1, day.protein),
+    fatOver: Math.max(0, m.fat - fat) / Math.max(1, day.fat),
+  };
+}
+
+/** A target with carbs and fat filled from the day's goals by the kcal share it stands for. */
+function completeTarget(target: SlotTarget, goals: Macros): Required<SlotTarget> {
+  const share = target.kcal / Math.max(1, goals.kcal);
+  return { kcal: target.kcal, protein: target.protein, carbs: target.carbs ?? goals.carbs * share, fat: target.fat ?? goals.fat * share };
 }
 
 /** Servings the planner chooses from (docs/MEALS.md §4). */
 export const SERVING_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3] as const;
 
-/** The serving step that lands closest to `targetKcal` (ties go to the one nearer 1). */
-export function bestServings(recipe: Recipe, targetKcal: number): number {
-  const base = recipeMacros(recipe, 1).kcal;
-  if (!(base > 0) || !(targetKcal > 0)) return 1;
+/**
+ * The serving step that lands closest to the target (ties go to the one nearer 1). With a kcal
+ * number it is kcal alone; with a full target (and the day's goals) going over on protein or fat
+ * counts too, so a fatty recipe gets a smaller plate instead of blowing the day's fat.
+ */
+export function bestServings(recipe: Recipe, target: number | SlotTarget, goals?: Goals): number {
+  const one = recipeMacros(recipe, 1);
+  const base = one.kcal;
+  const t = typeof target === "number" ? { kcal: target, protein: 0 } : target;
+  if (!(base > 0) || !(t.kcal > 0)) return 1;
+  const day = goals && typeof target !== "number" ? fullGoals(goals) : null;
+  const full = day ? completeTarget(t, day) : null;
   let best = 1;
   let err = Infinity;
   for (const s of SERVING_STEPS) {
-    const e = Math.abs(base * s - targetKcal) + Math.abs(s - 1) * base * 0.02;
+    let e: number;
+    if (day && full) {
+      const m = { kcal: one.kcal * s, protein: one.protein * s, carbs: one.carbs * s, fat: one.fat * s };
+      const x = macroMiss(m, full, day);
+      e = x.kcal * x.kcal + 0.5 * x.proteinShort * x.proteinShort + 0.5 * x.proteinOver * x.proteinOver + 0.5 * x.fatOver * x.fatOver + Math.abs(s - 1) * (base / day.kcal) * 0.0005;
+    } else e = Math.abs(base * s - t.kcal) + Math.abs(s - 1) * base * 0.02;
     if (e < err) {
       err = e;
       best = s;
@@ -92,7 +177,7 @@ export const VARIETY = {
  * `waste` per dollar of the new pack this meal leaves unused (up to `wasteMax`): a 540 mL can
  * of maple syrup for one drizzle is a poor buy. Shorter, cheaper lists, variety intact.
  */
-export const REUSE = { shared: 0.12, max: 0.4, fresh: 0.05, waste: 0.02, wasteMax: 0.3 } as const;
+export const REUSE = { shared: 0.12, max: 0.4, fresh: 0.1, waste: 0.02, wasteMax: 0.3 } as const;
 
 /** The checkout money a new pack of `key` leaves unused when this meal is its only use (CAD). */
 function unusedPackCad(key: string, grams: number): number {
@@ -141,7 +226,7 @@ export interface ScoreContext {
   prefs: MealPrefs;
   learned: LearnedModel;
   goals: Goals;
-  /** kcal/protein to aim this meal at (usually slotTarget; regenerate passes what the day still needs). */
+  /** What this meal should bring: what the day still needs for its slot (plan.ts), or slotTarget. */
   target: SlotTarget;
   /** Other meals already on this day. */
   dayMeals: readonly { recipe: Recipe; servings: number }[];
@@ -218,11 +303,13 @@ export function scoreRecipe(recipe: Recipe, ctx: ScoreContext): ScoredCandidate 
     push("fit", "time_cap", -0.5 - (1.5 * (minutes - prefs.maxMinutes)) / prefs.maxMinutes, { minutes, max: prefs.maxMinutes });
   }
 
-  const servings = bestServings(recipe, ctx.target.kcal);
+  const dayGoals = fullGoals(ctx.goals);
+  const target = completeTarget(ctx.target, dayGoals);
+  const servings = bestServings(recipe, target, ctx.goals);
   const budgetV = BUDGET_COST[prefs.budget]?.[recipe.cost] ?? 0;
   if (budgetV) push("fit", "budget", budgetV, { cost: recipe.cost, budget: prefs.budget, cad: recipeCostCad(recipe) });
   if (prefs.weeklyBudgetCad != null && prefs.weeklyBudgetCad > 0) {
-    const share = ctx.slot === "snack" ? SLOT_SHARE.snack / Math.max(1, prefs.snacksPerDay) : SLOT_SHARE[ctx.slot];
+    const share = slotShare(ctx.slot, prefs.snacksPerDay);
     const allowance = (prefs.weeklyBudgetCad / 7) * share;
     const cad = recipeCostCad(recipe, servings);
     if (cad > allowance * 1.25) push("fit", "weekly_budget", -0.5 * Math.min(2, cad / allowance - 1), { cad, allowance: Math.round(allowance * 100) / 100 });
@@ -280,7 +367,7 @@ export function scoreRecipe(recipe: Recipe, ctx: ScoreContext): ScoredCandidate 
     let worst = 0;
     for (const m of ctx.nearby) {
       if (m.slot !== ctx.slot || !m.recipe.tags.includes(`protein:${p}`)) continue;
-      const gap = Math.abs(daysBetween(m.local_date, ctx.date));
+      const gap = Math.abs(dayGap(m.local_date, ctx.date));
       if (gap >= 1 && gap <= VARIETY.proteinStreak.length) worst = Math.min(worst, VARIETY.proteinStreak[gap - 1]);
     }
     if (worst) push("variety", `protein_streak:${p}`, worst, { protein: p });
@@ -289,23 +376,21 @@ export function scoreRecipe(recipe: Recipe, ctx: ScoreContext): ScoredCandidate 
   let cooldownHit: { gap: number; window: number } | undefined;
   const window = fav ? VARIETY.favouriteCooldownDays : VARIETY.cooldownDays;
   for (const m of ctx.nearby) {
-    const gap = Math.abs(daysBetween(m.local_date, ctx.date));
+    const gap = Math.abs(dayGap(m.local_date, ctx.date));
     if (!dishHit && gap <= VARIETY.sameDishDays && m.recipe.key !== recipe.key && dishes.some((d) => m.recipe.tags.includes(`dish:${d}`))) dishHit = m;
     if (m.recipe.key === recipe.key && gap <= window && (!cooldownHit || gap < cooldownHit.gap)) cooldownHit = { gap, window };
   }
   if (dishHit) push("variety", "same_dish", VARIETY.sameDish, { dish: dishes.find((d) => dishHit!.recipe.tags.includes(`dish:${d}`)) ?? "", date: dishHit.local_date });
   if (cooldownHit) push("variety", "cooldown", cooldownHit.gap <= cooldownHit.window / 2 ? VARIETY.cooldown : VARIETY.cooldown / 2, { days: cooldownHit.gap });
 
-  /* ---- 5. macro fit */
+  /* ---- 5. macro fit: near the target's kcal, its protein landed (not overshot), fat not over */
   const macros = recipeMacros(recipe, servings);
-  const target = ctx.target;
   const closeness = clamp(1 - Math.abs(macros.kcal - target.kcal) / (0.3 * Math.max(1, target.kcal)), -1, 1);
   push("macro", "kcal", 0.5 * closeness, { kcal: macros.kcal, target: Math.round(target.kcal), servings });
-  const goalRatio = (ctx.goals.protein * 4) / Math.max(1, ctx.goals.kcal);
-  const ratio = (macros.protein * 4) / Math.max(1, macros.kcal);
-  // protein density: short of the goal's ratio costs up to 0.6; above it earns a little (max 0.25),
-  // so days reach the protein goal without crowding out the carbs a bulk needs
-  push("macro", "protein", 0.6 * clamp((ratio - goalRatio) / 0.08, -1, 5 / 12), { protein: macros.protein, kcal: macros.kcal });
+  const miss = macroMiss(macros, target, dayGoals);
+  const proteinV = miss.proteinShort || miss.proteinOver ? -MACRO_FIT.proteinShort * miss.proteinShort - MACRO_FIT.proteinOver * miss.proteinOver : MACRO_FIT.proteinHit;
+  push("macro", "protein", proteinV, { protein: macros.protein, target: Math.round(target.protein) });
+  if (miss.fatOver) push("macro", "fat", -MACRO_FIT.fatOver * miss.fatOver, { fat: macros.fat, target: Math.round(target.fat) });
   if (servings >= 2) push("macro", "servings", -0.3 * (servings - 1.5), { servings });
   else if (servings <= 0.5) push("macro", "servings", -0.15, { servings });
 

@@ -4,7 +4,7 @@
 // Typical wiring (hooks from "@/lib/data/meals"):
 //   const pool = buildPool(useUserRecipes().recipes)          // library + the user's own recipes
 //   const ctx: PlanContext = {
-//     weekStart, goals: { kcal: profile.calorie_goal, protein: profile.protein_goal },
+//     weekStart, goals: { kcal: profile.calorie_goal, protein: profile.protein_goal, carbs: profile.carb_goal, fat: profile.fat_goal },
 //     prefs: useMealPrefs().prefs, pool,
 //     feedback: useMealFeedback().data,                      // learned on the fly (learnPrefs)
 //     favourites: useFavourites().favourites,

@@ -127,16 +127,27 @@ adds it to `dislikedIngredients` (hard) after the user confirms.
 3. Taste: Σ w[f] over the recipe's features (normalised) + explicit liked/disliked ingredients and cuisines.
 4. Variety: penalties for same `protein:` twice in a day, same `base:` twice in a day, same `dish:`
    within 5 days, recipe planned/eaten in the last 14 days (cooldown; favourites 4 days).
-5. Macro fit: closeness of the scaled serving to the slot's calorie target with protein density bonus.
+5. Macro fit: the meal is scored against what its day still needs (`dayTarget`: the profile's
+   kcal, protein, carbs and fat goals minus the meals already on the day, shared over the places
+   still open by slot share). Points for landing near the calories and the protein; penalties,
+   in shares of the day's goal, for protein short, protein over and fat over. Carbs are what the
+   calories leave. So a fatty breakfast makes a leaner lunch likely.
 6. Exploration: seeded noise (deterministic per plan/slot/attempt so tests are stable) and ~10%
    "new for you" picks among top candidates never seen before. Selection = softmax over the
    top 8 (temperature 0.6), so plans vary while favouring what the user likes.
 
-**Calorie/protein targets**: breakfast 25 %, lunch 30 %, dinner 30 %, snacks 15 % split across
-`snacksPerDay` of the profile's calorie goal. Servings are picked from {0.5, 0.75, 1, 1.25, 1.5,
-1.75, 2, 2.5, 3} to land near the slot target; then the day is balanced so total kcal is within
-±12 % of the goal and protein ≥ 90 % of the goal where possible (swap a snack for a high-protein
-one if short). Not restrictive: no gram-perfect diets.
+**Targets** (the profile's `calorie_goal`, `protein_goal`, `carb_goal`, `fat_goal`; without
+carb/fat goals, fat is 25 % of kcal and carbs what is left): breakfast 25 %, lunch 30 %,
+dinner 30 %, snacks 15 % split across `snacksPerDay`, of every macro. Servings are picked from
+{0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3} to land near the meal's target (calories first;
+going over on protein or fat counts too, so a fatty recipe gets a smaller plate). Then each day
+is balanced onto its aim: kcal within ±3 %, protein at goal to 8 % over (185–200 g on 185 g),
+fat 80–100 % of goal, carbs the rest. First by stepping servings, then by swapping one new pick
+at a time for a candidate that brings the day closer, chosen by its score change plus how much
+it helps (capped), so taste and variety still decide among swaps that work. Swaps never loosen
+a hard filter and never touch locked or logged meals. Days the allowed recipes can't bring
+under 90 % protein or within 10 % of the fat goal get an honest note. Not restrictive: no
+gram-perfect diets.
 
 **Explanations** (`explain.ts`): top contributing reasons with real data, e.g. "You liked
 Cheeseburgers and Beef Tacos (beef)", "Super Easy: 12 min, 5 ingredients", "Fits dinner: 920 kcal,

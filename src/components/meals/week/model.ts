@@ -60,16 +60,22 @@ export function notedText(reason: FeedbackReason, repickedName?: string | null):
 }
 
 /**
- * Honest notes after planning a week: places nothing fit, and days the allowed recipes can't
- * bring to 90% of the protein goal. Null when the week came out whole.
+ * Honest notes after planning a week: places nothing fit, days the allowed recipes can't bring
+ * to 90% of the protein goal, and days they can't keep within 10% of the fat goal. Null when
+ * the week came out whole.
  */
-export function weekNotes(res: { meals: readonly unknown[]; kept: readonly unknown[]; days: readonly { meals: number; proteinOk: boolean }[]; unfilled?: number }, placesPerDay: number): string | null {
+export function weekNotes(
+  res: { meals: readonly unknown[]; kept: readonly unknown[]; days: readonly { meals: number; proteinOk: boolean; fatOk?: boolean }[]; unfilled?: number },
+  placesPerDay: number,
+): string | null {
   // the engine counts the places it couldn't fill on the days it planned (mid-week, from today)
   const unfilled = res.unfilled ?? Math.max(0, 7 * placesPerDay - res.meals.length - res.kept.length);
   const lowProtein = res.days.filter((d) => d.meals > 0 && !d.proteinOk).length;
+  const highFat = res.days.filter((d) => d.meals > 0 && d.fatOk === false).length;
   const parts: string[] = [];
   if (unfilled) parts.push(`${unfilled} ${unfilled === 1 ? "meal has" : "meals have"} nothing that fits your settings`);
   if (lowProtein) parts.push(`${lowProtein} ${lowProtein === 1 ? "day is" : "days are"} under 90% of your protein goal`);
+  if (highFat) parts.push(`${highFat} ${highFat === 1 ? "day is" : "days are"} over your fat goal`);
   if (!parts.length) return null;
   const text = parts.join(", and ");
   return `${text[0].toUpperCase()}${text.slice(1)}. Loosening a preference gives the planner more to pick from.`;
@@ -291,7 +297,13 @@ export function plannerContext(i: PlannerInputs): PlanContext | null {
   if (!i.goals || !(i.goals.kcal > 0) || !(i.goals.protein > 0)) return null;
   return {
     weekStart: i.weekStart,
-    goals: { kcal: i.goals.kcal, protein: i.goals.protein },
+    // all four goals: the planner sizes meals to the profile's carbs and fat as well
+    goals: {
+      kcal: i.goals.kcal,
+      protein: i.goals.protein,
+      ...(i.goals.carbs != null && i.goals.carbs > 0 ? { carbs: i.goals.carbs } : {}),
+      ...(i.goals.fat != null && i.goals.fat > 0 ? { fat: i.goals.fat } : {}),
+    },
     prefs: i.prefs,
     pool: i.pool,
     feedback: i.feedback,

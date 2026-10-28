@@ -6,10 +6,12 @@ import { candidatesFor, exclusions, hardAllowed } from "./constraints";
 import { explainPick } from "./explain";
 import { EMPTY_MODEL, learnPrefs } from "./prefs";
 import { rngFor } from "./rng";
-import { bestServings, rankCandidates, REUSE, scoreRecipe, selectCandidate, slotTarget, type ScoreContext } from "./score";
+import { bestServings, fullGoals, MACRO_FIT, macroMiss, rankCandidates, REUSE, scoreRecipe, selectCandidate, slotTarget, type ScoreContext } from "./score";
 
 const NOW = "2026-10-16T12:00:00Z";
 const GOALS = { kcal: 3300, protein: 185 };
+/** Quinton's profile goals: all four macros. */
+const Q = { kcal: 3300, protein: 185, carbs: 449, fat: 85 };
 const R = (k: string) => getLibraryRecipe(k)!;
 
 function sctx(over: Partial<ScoreContext> = {}): ScoreContext {
@@ -44,6 +46,61 @@ describe("targets and servings", () => {
     expect(bestServings(shake, 560)).toBe(2);
     expect(bestServings(shake, 140)).toBe(0.5);
     expect(bestServings(shake, 10_000)).toBe(3);
+  });
+});
+
+describe("macro targets (all four goals)", () => {
+  it("uses the profile's carbs and fat, or fills them in: fat 25% of kcal, carbs what is left", () => {
+    expect(fullGoals(Q)).toEqual(Q);
+    const g = fullGoals(GOALS);
+    expect(g.fat).toBeCloseTo((3300 * 0.25) / 9, 6);
+    expect(g.carbs).toBeCloseTo((3300 - 4 * 185 - 9 * g.fat) / 4, 6);
+    expect(fullGoals({ ...Q, fat: 0, carbs: 0 })).toEqual(g);
+  });
+
+  it("splits every macro by the slot's share, snacks shared", () => {
+    const d = slotTarget("dinner", Q, 2);
+    expect(d.kcal).toBeCloseTo(990);
+    expect(d.protein).toBeCloseTo(55.5);
+    expect(d.carbs).toBeCloseTo(134.7);
+    expect(d.fat).toBeCloseTo(25.5);
+    expect(slotTarget("snack", Q, 3).fat).toBeCloseTo((85 * 0.15) / 3);
+  });
+
+  it("sizes a fatty recipe smaller once fat counts; a lean one still lands on its calories", () => {
+    const t = slotTarget("dinner", Q, 2);
+    const tacos = R("lib:beef-tacos"); // about half its kcal from fat
+    expect(bestServings(tacos, t.kcal)).toBe(1);
+    expect(bestServings(tacos, t, Q)).toBeLessThan(1);
+    const lean = R("lib:teriyaki-chicken-rice-bowl");
+    expect(Math.abs(recipeMacros(lean, bestServings(lean, t, Q)).kcal - t.kcal)).toBeLessThan(0.15 * t.kcal);
+  });
+
+  it("macroMiss counts protein short, protein over (past a small slack) and fat over, in shares of the day", () => {
+    const t = { kcal: 990, protein: 55.5, carbs: 135, fat: 25.5 };
+    const on = macroMiss({ kcal: 990, protein: 55.5, carbs: 135, fat: 25.5 }, t, Q);
+    expect(on).toEqual({ kcal: 0, proteinShort: 0, proteinOver: 0, fatOver: 0 });
+    const m = macroMiss({ kcal: 1023, protein: 80, carbs: 100, fat: 34 }, t, Q);
+    expect(m.kcal).toBeCloseTo(33 / 3300);
+    expect(m.proteinShort).toBe(0);
+    expect(m.proteinOver).toBeCloseTo((80 - 55.5 - MACRO_FIT.proteinSlack * 185) / 185);
+    expect(m.fatOver).toBeCloseTo(8.5 / 85);
+    expect(macroMiss({ kcal: 990, protein: 37, carbs: 150, fat: 20 }, t, Q).proteinShort).toBeCloseTo(18.5 / 185);
+    // a meal under its fat target is not penalised: carbs fill the calories
+    expect(macroMiss({ kcal: 990, protein: 55.5, carbs: 170, fat: 10 }, t, Q).fatOver).toBe(0);
+  });
+
+  it("macro fit: a fatty dinner and an overshooting protein snack score lower than lean, on-target ones", () => {
+    const ctx = sctx({ goals: Q, target: slotTarget("dinner", Q, 2) });
+    const macroOf = (k: string, c = ctx) => scoreRecipe(R(k), c).terms.macro;
+    const fatPart = (k: string) => scoreRecipe(R(k), ctx).parts.find((p) => p.key === "fat");
+    expect(fatPart("lib:loaded-beef-nachos")!.value).toBeLessThan(0);
+    expect(fatPart("lib:teriyaki-chicken-rice-bowl")).toBeUndefined();
+    expect(macroOf("lib:loaded-beef-nachos")).toBeLessThan(macroOf("lib:teriyaki-chicken-rice-bowl"));
+    // a whole shake (35 g) is over what one snack should bring, so it becomes a half shake
+    const snack = slotTarget("snack", Q, 2);
+    expect(bestServings(R("lib:protein-shake"), snack.kcal)).toBe(1);
+    expect(bestServings(R("lib:protein-shake"), snack, Q)).toBe(0.5);
   });
 });
 
@@ -261,8 +318,11 @@ describe("explainPick", () => {
     expect(reasons.map((x) => x.kind)).not.toContain("liked_similar");
     const diff = reasons.find((x) => x.kind === "difficulty_fit");
     expect(diff?.text).toBe("Super Easy: 15 min, 6 ingredients");
-    const macro = reasons.find((x) => x.kind === "macro_fit");
-    expect(macro?.text).toBe(`Fits dinner: ${c.macros.kcal.toLocaleString("en-US")} kcal, ${Math.round(c.macros.protein)} g protein`);
+    // tacos are about half fat: a smaller plate, and no claim that they fit dinner's macros
+    expect(reasons.map((x) => x.kind)).not.toContain("macro_fit");
+    const lean = scoreRecipe(R("lib:spaghetti-bolognese"), sctx());
+    const macro = explainPick(lean, { slot: "dinner", learned: EMPTY_MODEL, nameOf }).find((x) => x.kind === "macro_fit");
+    expect(macro?.text).toBe(`Fits dinner: ${lean.macros.kcal.toLocaleString("en-US")} kcal, ${Math.round(lean.macros.protein)} g protein`);
   });
 
   it("names the liked recipes that drove a feature", () => {
