@@ -5,7 +5,7 @@
 // this week, the time cap) may be relaxed, in that order, only when too few recipes fit; even
 // then a recipe repeats at most WEEK_REPEAT_CAP times a week and never on back-to-back days.
 
-import { daysBetween, type ISODate } from "@/lib/dates";
+import type { ISODate } from "@/lib/dates";
 import { makeAheadOf, recipeConflicts, type Conflict, type ConstraintPrefs } from "../recipe";
 import type { Difficulty, MealPrefs, Recipe, Slot } from "../types";
 import type { LearnedModel } from "./prefs";
@@ -52,8 +52,30 @@ export interface FilterContext {
 
 const constraintCache = new WeakMap<Recipe, { key: string; conflicts: Conflict[] }>();
 
+const prefsKeyCache = new WeakMap<ConstraintPrefs, string>();
 function prefsKey(p: ConstraintPrefs): string {
-  return [p.allergies, p.diets, p.dislikedIngredients, p.equipment].map((a) => [...(a ?? [])].sort().join(",")).join("|");
+  let key = prefsKeyCache.get(p);
+  if (key === undefined) {
+    key = [p.allergies, p.diets, p.dislikedIngredients, p.equipment].map((a) => [...(a ?? [])].sort().join(",")).join("|");
+    prefsKeyCache.set(p, key);
+  }
+  return key;
+}
+
+const dayNumbers = new Map<string, number>();
+function dayNumber(d: ISODate): number {
+  let n = dayNumbers.get(d);
+  if (n === undefined) {
+    n = Math.round(Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10))) / 86_400_000);
+    if (dayNumbers.size > 4096) dayNumbers.clear();
+    dayNumbers.set(d, n);
+  }
+  return n;
+}
+
+/** Whole days from a to b (b − a), like daysBetween, memoised: planning a week asks this many thousands of times. */
+export function dayGap(a: ISODate, b: ISODate): number {
+  return dayNumber(b) - dayNumber(a);
 }
 
 /** recipeConflicts, memoised per recipe object for the same constraint set (week generation scores ~100 recipes × 30 slots). */
@@ -103,7 +125,7 @@ export function exclusions(recipe: Recipe, ctx: FilterContext): Exclusion[] {
   if (relax < 1 && aboveLevel(recipe, ctx)) out.push({ kind: "above_level", difficulty: recipe.difficulty });
   if (uses.length && !out.some((e) => e.kind === "same_day" || e.kind === "repeat_cap")) {
     const fav = ctx.favourites?.get(recipe.key);
-    const gap = Math.min(...uses.map((u) => Math.abs(daysBetween(u.local_date, ctx.date))));
+    const gap = Math.min(...uses.map((u) => Math.abs(dayGap(u.local_date, ctx.date))));
     const ok = (fav?.repeat_ok && gap >= FAVOURITE_REPEAT_GAP_DAYS) || (relax >= 2 && gap >= RELAXED_REPEAT_GAP_DAYS);
     if (!ok) out.push({ kind: "used_this_week", date: uses[0].local_date });
   }
