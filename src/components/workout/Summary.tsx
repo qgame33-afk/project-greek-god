@@ -161,10 +161,12 @@ export function Summary({ data, onEdit }: { data: LiveData; onEdit: () => void }
               caption={plaques.length > 1 ? `${plaques.length} new bests` : undefined}
               ariaLabel={`New best. ${hero.name}, ${heroW} ${unit} times ${hero.reps}. ${heroSentence}`}
             />
-          ) : compared > 0 ? (
+          ) : beat > 0 ? (
+            // counted only over lifts that have a last time (a first time can't be beaten), and
+            // shown only when something was beaten: the rows below give every lift's verdict
             <div className="rounded-card bg-surface p-5">
               <p className="t-row">
-                Beat last time on {beat} of {groups.length} {groups.length === 1 ? "lift" : "lifts"}
+                Beat last time on {beat} of {compared} {compared === 1 ? "lift" : "lifts"}
               </p>
             </div>
           ) : null}

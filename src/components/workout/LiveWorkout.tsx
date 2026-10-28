@@ -1452,7 +1452,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
         {!showWin && !showTip && restView && (
           <div className="flex flex-col gap-5">
             {fromGroup && (
-              <p className="t-row text-center text-fg-2 short:hidden" data-budget-name="">
+              <p className="t-row text-center text-fg-2 short:hidden" data-budget-name="" data-toast-anchor="">
                 {fromGroup.name} · {fromGroup.done} of {fromGroup.total} done
               </p>
             )}
