@@ -1,4 +1,7 @@
-// Snacks: quick, mostly no-cook, protein-forward (about 200–400 kcal). ONE serving.
+// Snacks: quick, mostly no-cook, protein-forward (about 200–400 kcal). ONE serving. A few are
+// carb-forward and low in fat (PB and honey bagel, fruit smoothie, oatmeal): on a bulk
+// most of the day's calories are carbs, and they let the planner reach them without going over
+// on protein or fat.
 
 import { i, lib, min, opt, s } from "./define";
 
@@ -312,5 +315,45 @@ export const SNACKS = [
     equipment: [],
     tags: ["cuisine:american", "protein:chicken", "base:tortilla", "style:wrap", "dish:chicken-wrap"],
     blurb: "A small wrap with 27 g of protein.",
+  }),
+  lib({
+    key: "lib:pb-honey-bagel",
+    name: "Peanut Butter Honey Bagel",
+    slots: ["snack"],
+    minutes: 4,
+    difficulty: "super_easy",
+    ingredients: [i("bagel", 1, "piece"), i("peanut-butter", 1, "tbsp"), i("honey", 1, "tbsp")],
+    steps: [s("Slice the bagel and toast it."), s("Spread with the peanut butter and drizzle the honey on top.")],
+    equipment: ["toaster"],
+    tags: ["cuisine:american", "protein:peanut", "base:bagel", "style:toast", "dish:pb-bagel"],
+    blurb: "A toasted bagel with PB and honey. Mostly carbs, light on fat.",
+  }),
+  lib({
+    key: "lib:berry-banana-smoothie",
+    name: "Berry Banana Smoothie",
+    slots: ["snack"],
+    minutes: 4,
+    difficulty: "super_easy",
+    ingredients: [i("frozen-berries", 1, "cup"), i("banana", 1, "piece"), i("milk-2", 1, "cup")],
+    steps: [s("Add the milk, berries and banana to the blender."), s("Blend 45 seconds until smooth.", { timer: 45 })],
+    equipment: ["blender"],
+    tags: ["protein:dairy", "base:fruit", "style:shake", "dish:fruit-smoothie"],
+    blurb: "Cold, thick and fruity. Easy calories on a bulk.",
+  }),
+  lib({
+    key: "lib:honey-banana-oatmeal",
+    name: "Honey Banana Oatmeal",
+    slots: ["snack"],
+    minutes: 4,
+    difficulty: "super_easy",
+    ingredients: [i("oats", 0.5, "cup"), i("milk-2", 1, "cup"), i("banana", 0.5, "piece"), i("honey", 1, "tsp")],
+    steps: [
+      s("Stir the oats and milk together in a big microwave-safe bowl."),
+      s("Microwave 2 minutes, stir, then 30 seconds more.", { timer: 150 }),
+      s("Top with sliced banana and the honey."),
+    ],
+    equipment: ["microwave"],
+    tags: ["cuisine:breakfast", "protein:dairy", "base:oats", "style:bowl", "dish:oatmeal-cup"],
+    blurb: "A warm bowl in four minutes. 14 g of protein.",
   }),
 ];

@@ -719,4 +719,45 @@ export const BREAKFAST = [
     tags: ["cuisine:breakfast", "protein:dairy", "base:yogurt", "style:bowl", "dish:cottage-cheese"],
     blurb: "No cooking, 40 g of protein, naturally gluten-free.",
   }),
+  // Two lean, dairy-free breakfasts: most dairy-free breakfasts here are eggs with bacon or hash
+  // browns, and a dairy-free day needs one that leaves room for carbs.
+  lib({
+    key: "lib:ham-egg-bagel-banana",
+    name: "Ham and Egg Bagel with a Banana",
+    slots: ["breakfast"],
+    minutes: 10,
+    difficulty: "super_easy",
+    ingredients: [
+      i("bagel", 1, "piece"),
+      i("eggs", 2, "piece"),
+      i("ham-deli", 3, "slice"),
+      i("banana", 1, "piece"),
+      i("canola-oil", 0.5, "tsp"),
+      opt("hot-sauce", 1, "tsp"),
+    ],
+    steps: [
+      s("Heat the oil in a non-stick pan over medium. Crack in the eggs, break the yolks and cook 2 minutes per side until set.", { timer: min(2) }),
+      s("Toast the bagel while the eggs cook."),
+      s("Fill the bagel with the ham and eggs, with hot sauce if you like. Eat the banana on the side."),
+    ],
+    equipment: ["stovetop", "toaster"],
+    tags: ["cuisine:breakfast", "protein:egg", "protein:pork", "base:bagel", "style:sandwich", "dish:egg-bagel"],
+    blurb: "No cheese, no butter: a breakfast sandwich that leaves room for carbs.",
+  }),
+  lib({
+    key: "lib:maple-berry-soy-oatmeal",
+    name: "Maple Berry Oatmeal",
+    slots: ["breakfast"],
+    minutes: 7,
+    difficulty: "super_easy",
+    ingredients: [i("oats", 1, "cup"), i("soy-milk", 1.5, "cup"), i("frozen-berries", 0.5, "cup"), i("maple-syrup", 1, "tbsp")],
+    steps: [
+      s("Mix the oats and soy milk in a big microwave-safe bowl. Use a big one: it bubbles up."),
+      s("Microwave 2 minutes, stir, then 1–2 minutes more until thick.", { timer: min(2) }),
+      s("Stir in the berries and drizzle with maple syrup."),
+    ],
+    equipment: ["microwave"],
+    tags: ["cuisine:canadian", "protein:soy", "base:oats", "style:bowl", "dish:berry-oatmeal"],
+    blurb: "Warm oats with soy milk and maple. No dairy, 7 minutes.",
+  }),
 ];
