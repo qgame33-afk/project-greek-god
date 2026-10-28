@@ -15,7 +15,6 @@ import { cn } from "@/lib/cn";
  *   link         inline text action
  * Sizes: sm 44 · md 52 · lg 56 · xl 64 (gym, 1.125rem label) · icon 44 (round).
  * Old variants alias: outline and outline-gold → secondary, destructive-solid → destructive.
- * `shine` is ignored.
  */
 export const buttonVariants = cva(
   "press relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-pill font-sans transition-[background-color,color,opacity] duration-(--dur-fast) disabled:pointer-events-none [&_svg]:size-5 [&_svg]:shrink-0",
@@ -49,13 +48,11 @@ export const buttonVariants = cva(
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   asChild?: boolean;
-  /** @deprecated Olympus' sheen pass; ignored. */
-  shine?: boolean;
   loading?: boolean;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { className, variant, size, block, asChild, shine: _shine, loading, disabled, children, type, ...props },
+  { className, variant, size, block, asChild, loading, disabled, children, type, ...props },
   ref,
 ) {
   const Comp = asChild ? Slot.Root : "button";
