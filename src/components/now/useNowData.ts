@@ -76,7 +76,7 @@ export function useNowData() {
 
   const model = useMemo(() => {
     if (!profile || !todayPlan) return null;
-    const unit: WeightUnit = (profile.weight_unit as WeightUnit | null) ?? "kg";
+    const unit: WeightUnit = (profile.weight_unit as WeightUnit | null) ?? "lb";
     const mode = (profile.training_mode ?? "standard") as Mode;
     const plansRows = plans.data ?? [];
     const resolve = (d: ISODate) => planFor(d, profile, plansRows, byKey);

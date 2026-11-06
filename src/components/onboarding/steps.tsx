@@ -91,8 +91,8 @@ export function UnitsPill({ a, set }: { a: OnboardingAnswers; set: StepProps["se
                 value={a.weightUnit}
                 onChange={(v) => set({ weightUnit: v })}
                 options={[
-                  { value: "kg", label: "kg" },
                   { value: "lb", label: "lb" },
+                  { value: "kg", label: "kg" },
                 ]}
               />
             )}

@@ -206,7 +206,7 @@ export function overlapInSession({
   yesterday,
   sessionId = null,
   fired = [],
-  unit = "kg",
+  unit = "lb",
 }: {
   template: OverlapTemplate | null;
   /** The display unit for loads in the text (profiles.weight_unit). */

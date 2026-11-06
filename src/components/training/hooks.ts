@@ -62,7 +62,7 @@ export function offlineNoChange(what: string) {
 
 export function useUnits(): { unit: WeightUnit } {
   const { profile } = useProfile();
-  return { unit: (profile?.weight_unit ?? "kg") as WeightUnit };
+  return { unit: (profile?.weight_unit ?? "lb") as WeightUnit };
 }
 
 export function toPlanLike(p: DayPlanResolved): PlanLike {

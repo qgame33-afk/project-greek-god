@@ -74,7 +74,7 @@ describe("overlapInSession (first two sets of a watched lift)", () => {
   const prior = { "incline-db-press": past("prev", "2026-10-20", [[P, 10], [P, 10]]), "lat-pulldown": past("prev", "2026-10-20", [[LAT, 12], [LAT, 11]]) };
   const rest = [...open("t", "lat-pulldown", 2), ...open("t", "machine-chest-press", 2), ...open("t", "seated-cable-row", 2), ...open("t", "cable-chest-fly", 2), ...open("t", "straight-arm-pulldown", 2)];
   const run = (press: [number, number][], restMin = 2.5, extra: OverlapSet[] = rest, fired: ("triceps" | "biceps")[] = [], template = cbA) =>
-    overlapInSession({ template, sets: [...logged("t", TUE, "incline-db-press", press, restMin), ...extra], prior, yesterday, sessionId: "t", fired });
+    overlapInSession({ template, unit: "kg", sets: [...logged("t", TUE, "incline-db-press", press, restMin), ...extra], prior, yesterday, sessionId: "t", fired });
 
   it("a 1-rep drop does not fire; 2 fewer reps at the same load does, in kg", () => {
     expect(run([[P, 9], [P, 9]])).toBeNull();
@@ -86,7 +86,7 @@ describe("overlapInSession (first two sets of a watched lift)", () => {
     ]);
     expect(a.text).toBe("Triceps look tired from Monday: Incline Dumbbell Press is down 2 reps at 22.5 kg. Try the fly next, and stop 1–2 reps short on Machine Chest Press.");
     expect(a.evidence[0]).toMatchObject({ slug: "incline-db-press", weightLb: P, reps: 8, refReps: 10 });
-    expect(overlapInSession({ template: cbA, unit: "lb", sets: [...logged("t", TUE, "incline-db-press", [[P, 8], [P, 8]]), ...rest], prior, yesterday, sessionId: "t" })!.text).toContain("at 49.6 lb");
+    expect(overlapInSession({ template: cbA, unit: "lb", sets: [...logged("t", TUE, "incline-db-press", [[P, 8], [P, 8]]), ...rest], prior, yesterday, sessionId: "t" })!.text).toContain("at 49.5 lb");
   });
 
   it("a heavier load with fewer reps fires only when the e1RM fell 3%+", () => {
@@ -103,7 +103,7 @@ describe("overlapInSession (first two sets of a watched lift)", () => {
   it("fires once per muscle, and pulls advise the biceps", () => {
     expect(run([[P, 8], [P, 8]], 2.5, rest, ["triceps"])).toBeNull();
     const pulls = [...logged("t", TUE, "lat-pulldown", [[LAT, 10], [LAT, 9]], 2.5, 20), ...open("t", "machine-chest-press", 2), ...open("t", "seated-cable-row", 2)];
-    const b = overlapInSession({ template: cbA, sets: pulls, prior, yesterday, sessionId: "t" })!;
+    const b = overlapInSession({ template: cbA, unit: "kg", sets: pulls, prior, yesterday, sessionId: "t" })!;
     expect(b.muscle).toBe("biceps");
     expect(b.actions).toEqual([{ kind: "rir", slug: "seated-cable-row", rir: "1–2" }]);
     expect(b.text).toBe("Biceps look tired from Monday: Lat Pulldown is down 2 reps at 60 kg. Stop 1–2 reps short on Seated Cable Row.");

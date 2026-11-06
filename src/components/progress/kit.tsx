@@ -95,7 +95,7 @@ export function signed(v: number | null | undefined, dp = 1) {
  * recap is stored in lb / in and shown through lib/units with these; nothing is typed in a unit.
  */
 export function unitsOf(profile: { weight_unit?: string | null; length_unit?: string | null } | null | undefined): { wu: WeightUnit; lu: LengthUnit } {
-  return { wu: profile?.weight_unit === "lb" ? "lb" : "kg", lu: profile?.length_unit === "in" ? "in" : "cm" };
+  return { wu: profile?.weight_unit === "kg" ? "kg" : "lb", lu: profile?.length_unit === "in" ? "in" : "cm" };
 }
 
 /** The spoken name of a weight unit, for VoiceOver ("kilograms"). */

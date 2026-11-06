@@ -66,7 +66,7 @@ export function CoachAsk({
       )
     ) : null;
 
-  const unit: WeightUnit = profile?.weight_unit === "lb" ? "lb" : "kg";
+  const unit: WeightUnit = profile?.weight_unit === "kg" ? "kg" : "lb";
   const prompts = promptsFor(context?.kind, {
     proteinGoal: profile?.protein_goal ?? null,
     goalWeight: profile?.goal_weight_lb != null ? formatBodyweight(Number(profile.goal_weight_lb), unit) : null,

@@ -5,6 +5,7 @@ import { getExercise } from "@/lib/training/library";
 import { effortDefaults } from "@/lib/training/programs";
 import { modeRir, plannedSetCount, type Mode, type PastSet, type Suggestion } from "@/lib/training/progression";
 import type { LibraryExercise, TemplateExercise } from "@/lib/training/types";
+import { loadText, storeLoad } from "@/lib/training/loads";
 import { round, type WeightUnit } from "@/lib/units";
 import type { CellField, Tracking, WSet } from "./types";
 
@@ -140,7 +141,7 @@ export const hasRir = (t: Tracking) => t === "weight_reps" || t === "bodyweight_
 export const needsWeight = (t: Tracking) => t === "weight_reps" || t === "weight_time";
 
 /** Equipment where a bodyweight-only set is real. */
-const ZERO_LOAD_EQUIPMENT = new Set<LibraryExercise["equipment"]>(["bodyweight", "box", "other"]);
+const ZERO_LOAD_EQUIPMENT = new Set<LibraryExercise["equipment"]>(["bodyweight", "band", "box", "other"]);
 
 /**
  * Whether 0 is a real load. A bar, a stack or a sled always weighs something, a carry needs
@@ -307,7 +308,7 @@ export function validateCell(field: CellField, raw: string, unit: WeightUnit, t:
   if (field === "weight") {
     const max = unit === "kg" ? Math.round(LIMITS.weightLb / 2.2046226218) : LIMITS.weightLb;
     if (n > max) return { ok: false, error: `Over ${max} ${unit}. Check the number.` };
-    const lb = round(unit === "kg" ? n * 2.2046226218 : n, 1);
+    const lb = storeLoad(n, unit);
     if (lb <= 0 && !zeroOk) return { ok: false, error: `Weight must be above 0 ${unit}.` };
     return { ok: true, stored: lb };
   }
@@ -362,9 +363,7 @@ export function columnFor(field: CellField, t: Tracking): "weight_lb" | "reps" |
 export function cellText(set: Pick<WSet, "weight_lb" | "reps" | "duration_sec" | "rir">, field: CellField, t: Tracking, unit: WeightUnit): string {
   if (field === "weight") {
     if (set.weight_lb == null) return "";
-    const v = unit === "kg" ? Number(set.weight_lb) / 2.2046226218 : Number(set.weight_lb);
-    const r = round(v, 1);
-    return Number.isInteger(r) ? String(r) : r.toFixed(1);
+    return loadText(Number(set.weight_lb), unit, false);
   }
   if (field === "rir") return set.rir == null ? "" : String(Number(set.rir));
   const w = workOf(set, t);

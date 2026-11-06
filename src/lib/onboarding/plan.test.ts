@@ -71,6 +71,16 @@ describe("macroLine", () => {
 });
 
 describe("answersFromProfile", () => {
+  it("a new account answers weight in lb (the column default kg is not his choice); lengths keep their default", () => {
+    const fresh = answersFromProfile({ ...ownerProfile, weight_unit: "kg", length_unit: "cm", onboarded: false }, TODAY, null);
+    expect(fresh.weightUnit).toBe("lb");
+    expect(fresh.lengthUnit).toBe("cm");
+    expect(answersFromProfile(null, TODAY, null).weightUnit).toBe("lb");
+    // an onboarded profile keeps the unit he picked
+    expect(answersFromProfile({ ...ownerProfile, weight_unit: "kg", onboarded: true }, TODAY, null).weightUnit).toBe("kg");
+    expect(answersFromProfile({ ...ownerProfile, weight_unit: "lb", onboarded: true }, TODAY, null).weightUnit).toBe("lb");
+  });
+
   it("prefills the owner's profile and starts today", () => {
     const a = owner();
     expect(a.startWeightLb).toBe(163);

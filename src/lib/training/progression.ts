@@ -95,8 +95,8 @@ const allOf = (n: number) => (n <= 1 ? "the set" : n === 2 ? "both" : `all ${n}`
  * - target reps missed → keep the load; reps missed twice in a row at the same load → ~10% reset
  *   (sets left unlogged are a hold, never a reset: they are not a miss of the rep range)
  */
-export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, history: PastSet[], mode: Mode = "standard", ctx: { templateKey?: string | null; /** Display unit for the reason text and load steps (default kg). */ unit?: WeightUnit } = {}): Suggestion {
-  const unitW: WeightUnit = ctx.unit ?? "kg";
+export function suggest(t: TemplateExercise, lib: LibraryExercise | undefined, history: PastSet[], mode: Mode = "standard", ctx: { templateKey?: string | null; /** Display unit for the reason text and load steps (default lb). */ unit?: WeightUnit } = {}): Suggestion {
+  const unitW: WeightUnit = ctx.unit ?? "lb";
   const L = (lb: number) => loadText(lb, unitW);
   const unit = t.unit;
   const target = { low: t.repLow, high: t.repHigh, unit };

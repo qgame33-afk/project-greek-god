@@ -160,7 +160,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
   const { userId } = useUser();
   const today = useToday();
   const { profile } = useProfile();
-  // the profile's unit, kg by default; loads are stored in weight_lb and converted once (PROGRAM-V3 §2.1)
+  // the profile's unit, lb by default; loads are stored in weight_lb and converted once (PROGRAM-V3 §2.1)
   const { unit } = useUnits();
   const prefs = useMemo(() => parsePrefs(profile?.prefs), [profile?.prefs]);
   const { byKey } = useTemplates();
@@ -321,7 +321,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     const s = freshSet(set.id) ?? set;
     const g = groupOf.get(s.id);
     const t = g ? info.get(g.key)!.tracking : "weight_reps";
-    // the keypad starts from the number on the card (kg on its 0.5 grid), never a second conversion
+    // the keypad starts from the number on the card (on its 0.5 grid in either unit), never a second conversion
     const text = field === "weight" && s.weight_lb != null ? loadText(Number(s.weight_lb), unit, false) : cellText(s, field, t, unit);
     setPad({ setId: s.id, field, text, fresh: true, error: null });
   };

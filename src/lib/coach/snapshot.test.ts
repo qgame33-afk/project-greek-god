@@ -245,7 +245,7 @@ describe("coach prompt and mock (PROGRAM-V3)", () => {
     expect(COACH_SYSTEM_RULES).toContain("two hard working sets per exercise");
     expect(COACH_SYSTEM_RULES).toContain("technical failure");
     expect(COACH_SYSTEM_RULES).toContain("1–2 reps in reserve");
-    expect(COACH_SYSTEM_RULES).toMatch(/kg by default/);
+    expect(COACH_SYSTEM_RULES).toMatch(/lb by default/);
     expect(COACH_SYSTEM_RULES).not.toMatch(/arnold/i);
     expect(COACH_SYSTEM_RULES).not.toMatch(/volley|jump/i);
   });

@@ -36,7 +36,7 @@ export function WeeklyReviewCard({ today, startDate, className }: { today: ISODa
   const [ws, setWs] = useState(current);
   const { review, loading, error, refetch } = useWeeklyReview(ws, today);
   const { profile } = useProfile();
-  const unit = (profile?.weight_unit as WeightUnit | null | undefined) ?? "kg";
+  const unit = (profile?.weight_unit as WeightUnit | null | undefined) ?? "lb";
   const earliest = startDate ? weekStart(startDate) : addDays(current, -7 * 52);
   const title = ws === current ? "This week" : ws === addDays(current, -7) ? "Last week" : rangeLabel(ws);
 

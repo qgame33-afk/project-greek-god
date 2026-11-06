@@ -15,7 +15,7 @@ import { useResetOnOpen } from "./useResetOnOpen";
 
 type SheetProps = { open: boolean; onOpenChange: (o: boolean) => void; profile: Profile; today: ISODate };
 
-const wUnit = (p: Profile) => (p.weight_unit === "lb" ? "lb" : "kg") as WeightUnit;
+const wUnit = (p: Profile) => (p.weight_unit === "kg" ? "kg" : "lb") as WeightUnit;
 /** "27 and 272 kg": the allowed bodyweight range (60–600 lb stored) in his unit. */
 const rangeText = (u: WeightUnit) => `${Math.round(toDisplayWeight(60, u))} and ${Math.round(toDisplayWeight(600, u))} ${u}`;
 const toLb = (v: number, u: WeightUnit) => round(fromDisplayWeight(v, u), 1);

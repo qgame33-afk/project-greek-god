@@ -200,7 +200,7 @@ const FIELD_LABEL: Record<string, [string, string]> = {
 };
 const SOURCE: Record<string, string> = { user: "You", suggestion: "Coach suggestion", onboarding: "Get started" };
 
-export function GoalHistorySheet({ open, onOpenChange, today, weightUnit = "kg" }: { open: boolean; onOpenChange: (o: boolean) => void; today: ISODate; weightUnit?: "lb" | "kg" }) {
+export function GoalHistorySheet({ open, onOpenChange, today, weightUnit = "lb" }: { open: boolean; onOpenChange: (o: boolean) => void; today: ISODate; weightUnit?: "lb" | "kg" }) {
   const q = useGoalChanges();
   const rows = q.data ?? [];
   return (

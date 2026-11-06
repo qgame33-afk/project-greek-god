@@ -83,7 +83,7 @@ export interface StartOptions {
   mode: Mode;
   /** Materialise optional exercises. Every app start passes false: they are offered after the last planned set. */
   includeOptional?: boolean;
-  /** The display unit the suggested loads are rounded in (profiles.weight_unit; useStartWorkout fills it, kg by default). */
+  /** The display unit the suggested loads are rounded in (profiles.weight_unit; useStartWorkout fills it, lb by default). */
   unit?: WeightUnit;
   /** This session only (fatigue overlap, PROGRAM-V3 §4.4): sets to drop per slug, RIR per slug, exercise order by slug. */
   adjust?: { dropSets?: Record<string, number>; rir?: Record<string, string>; order?: string[] };
@@ -111,7 +111,7 @@ export function buildSessionSets(sessionId: string, opts: StartOptions, history:
   for (const t of ordered(opts.template.exercises, opts.adjust?.order)) {
     const lib = getExercise(t.slug);
     if (t.optional && !opts.includeOptional) continue;
-    const s: Suggestion = suggest(t, lib, history[t.slug] ?? [], opts.mode, { templateKey: opts.template.key, unit: opts.unit ?? "kg" });
+    const s: Suggestion = suggest(t, lib, history[t.slug] ?? [], opts.mode, { templateKey: opts.template.key, unit: opts.unit ?? "lb" });
     const drafts = templateExerciseSets(t, opts.mode, 0, s, { dropSets: opts.adjust?.dropSets?.[t.slug] ?? 0, rir: opts.adjust?.rir?.[t.slug] });
     for (const d of drafts) rows.push({ ...d, id: newId(), session_id: sessionId, local_date: opts.date, exercise_order: order });
     order++;
@@ -185,7 +185,7 @@ export function useStartWorkout() {
           .select("*")
           .single(),
       );
-      const rows = buildSessionSets(id, { ...opts, unit: opts.unit ?? ((profile?.weight_unit ?? "kg") as WeightUnit) }, history);
+      const rows = buildSessionSets(id, { ...opts, unit: opts.unit ?? ((profile?.weight_unit ?? "lb") as WeightUnit) }, history);
       let sets: SetRow[] = [];
       if (rows.length) {
         const { data, error } = await sb().from("exercise_sets").insert(rows).select("*");

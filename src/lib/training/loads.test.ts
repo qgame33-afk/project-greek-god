@@ -28,12 +28,41 @@ describe("kg loads round-trip through the pound columns (PROGRAM-V3 §2)", () =>
     expect(storeLoad(100, "kg")).toBe(220.5);
   });
 
-  it("an account in lb is untouched", () => {
-    for (const lb of [45, 49.6, 135, 185.5, 225]) {
+  it("an account in lb stores what he types and shows it back (whole and half pounds)", () => {
+    for (const lb of [2.5, 45, 47.5, 50, 135, 185.5, 225, 1000]) {
       expect(storeLoad(lb, "lb")).toBe(lb);
       expect(displayLoad(lb, "lb")).toBe(lb);
+      expect(loadText(column(storeLoad(lb, "lb")), "lb")).toBe(`${lb} lb`);
+      expect(formatLoad(lb, "lb")).toBe(`${lb} lb`);
     }
     expect(loadText(185, "lb")).toBe("185 lb");
+    // every half pound from 0 to 1,500 round-trips through numeric(6,1)
+    for (let i = 0; i <= 3000; i++) {
+      const lb = i / 2;
+      expect(displayLoad(column(storeLoad(lb, "lb")), "lb"), `${lb} lb`).toBe(lb);
+    }
+  });
+
+  it("50 lb typed is 50 in the database and 50 lb on screen, never 49.6", () => {
+    expect(storeLoad(50, "lb")).toBe(50);
+    expect(loadText(storeLoad(50, "lb"), "lb")).toBe("50 lb");
+    // a stray tenth lands on the half-pound grid it is shown on
+    expect(storeLoad(49.6, "lb")).toBe(49.5);
+    expect(storeLoad(47.3, "lb")).toBe(47.5);
+  });
+
+  it("sets typed in kg earlier show their pound value on the 0.5 lb grid", () => {
+    expect(loadText(49.6, "lb")).toBe("49.5 lb"); // 22.5 kg
+    expect(loadText(storeLoad(84, "kg"), "lb")).toBe("185 lb"); // 185.2
+    expect(loadText(storeLoad(60, "kg"), "lb")).toBe("132.5 lb"); // 132.3
+    expect(loadText(storeLoad(20, "kg"), "lb")).toBe("44 lb"); // 44.1
+    expect(formatLoad(49.6, "lb")).toBe("49.5 lb");
+  });
+
+  it("bodyweight in lb keeps one decimal (165.4 stays 165.4)", () => {
+    expect(storeBodyweight(165.4, "lb")).toBe(165.4);
+    expect(displayBodyweight(165.4, "lb")).toBe(165.4);
+    for (let i = 800; i <= 4000; i++) expect(displayBodyweight(column(storeBodyweight(i / 10, "lb")), "lb")).toBe(i / 10);
   });
 
   it("old pound history shows on the 0.5 kg grid (185 lb → 84 kg, 50 lb → 22.5 kg)", () => {
@@ -62,6 +91,38 @@ describe("kg loads round-trip through the pound columns (PROGRAM-V3 §2)", () =>
   });
 });
 
+describe("load steps in lb", () => {
+  it("barbell and Smith 5 lb total, dumbbells 5 lb per hand (2.5 when the library says so), stacks 5 lb", () => {
+    expect(loadStep(getExercise("back-squat"), "lb")).toBe(5);
+    expect(loadStep(getExercise("romanian-deadlift"), "lb")).toBe(5);
+    expect(loadStep(getExercise("barbell-bench-press"), "lb")).toBe(5);
+    expect(loadStep(getExercise("incline-smith-press"), "lb")).toBe(5);
+    expect(loadStep(getExercise("incline-db-press"), "lb")).toBe(5);
+    expect(loadStep(getExercise("seated-db-shoulder-press"), "lb")).toBe(5);
+    expect(loadStep(getExercise("lat-pulldown"), "lb")).toBe(5);
+    expect(loadStep(getExercise("machine-chest-press"), "lb")).toBe(5);
+    expect(loadStep(getExercise("cable-triceps-pushdown"), "lb")).toBe(5);
+    expect(loadStep(getExercise("db-lateral-raise"), "lb")).toBe(5);
+    expect(loadStep(undefined, "lb")).toBe(5);
+    // the library's 2.5 lb increment: light dumbbells, added load on bodyweight lifts
+    expect(loadStep({ equipment: "dumbbell", increment: 2.5, perHand: true }, "lb")).toBe(2.5);
+    expect(loadStep(getExercise("weighted-pull-up"), "lb")).toBe(2.5);
+    // a 5 lb plate on each side of a plate-loaded sled
+    expect(loadStep(getExercise("leg-press"), "lb")).toBe(10);
+  });
+
+  it("the progression step goes up 5 lb from 50 and lands old kg loads on the step grid", () => {
+    const db = getExercise("incline-db-press");
+    expect(stepUp(50, db, "lb")).toBe(55);
+    expect(stepUp(49.6, db, "lb")).toBe(55);
+    expect(stepUp(185, getExercise("back-squat"), "lb")).toBe(190);
+    expect(stepUp(185.2, getExercise("back-squat"), "lb")).toBe(190);
+    expect(stepUp(0, getExercise("weighted-pull-up"), "lb")).toBe(2.5);
+    expect(scaleLoad(200, 0.9, getExercise("back-squat"), "lb")).toBe(180);
+    expect(scaleLoad(50, 0.9, db, "lb")).toBe(45);
+  });
+});
+
 describe("load steps in kg", () => {
   it("dumbbells 2 kg (per hand), barbell and Smith 2.5 kg total, stacks 2.5 kg", () => {
     expect(loadStep(getExercise("incline-db-press"), "kg")).toBe(2);
@@ -72,7 +133,6 @@ describe("load steps in kg", () => {
     expect(loadStep(getExercise("lat-pulldown"), "kg")).toBe(2.5);
     expect(loadStep(getExercise("machine-chest-press"), "kg")).toBe(2.5);
     expect(loadStep(undefined, "kg")).toBe(2.5);
-    expect(loadStep(getExercise("back-squat"), "lb")).toBe(getExercise("back-squat")!.increment);
   });
 
   it("stepUp adds one step on the grid; scaleLoad lands on a step", () => {
@@ -80,6 +140,17 @@ describe("load steps in kg", () => {
     expect(displayLoad(stepUp(storeLoad(100, "kg"), getExercise("back-squat"), "kg"), "kg")).toBe(102.5);
     expect(displayLoad(scaleLoad(storeLoad(100, "kg"), 0.9, getExercise("back-squat"), "kg"), "kg")).toBe(90);
     expect(displayLoad(scaleLoad(storeLoad(22.5, "kg"), 0.9, getExercise("incline-db-press"), "kg"), "kg")).toBe(20);
+  });
+
+  it("plate maths in lb on a 45 lb bar with 45/35/25/10/5/2.5 plates", () => {
+    expect(BAR.lb).toBe(45);
+    expect(platesFor(225, "lb")).toEqual({ bar: 45, perSide: [45, 45], leftover: 0 });
+    expect(platesFor(185, "lb")).toEqual({ bar: 45, perSide: [45, 25], leftover: 0 });
+    expect(platesFor(140, "lb")).toEqual({ bar: 45, perSide: [45, 2.5], leftover: 0 });
+    expect(platesFor(115, "lb")).toEqual({ bar: 45, perSide: [35], leftover: 0 });
+    expect(platesFor(75, "lb")).toEqual({ bar: 45, perSide: [10, 5], leftover: 0 });
+    expect(platesLabel(45, "lb")).toBe("Empty 45 lb bar");
+    expect(platesLabel(135, "lb")).toBe("45 bar + 45 per side");
   });
 
   it("plate maths in kg on a 20 kg bar", () => {

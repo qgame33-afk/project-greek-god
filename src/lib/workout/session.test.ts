@@ -400,12 +400,16 @@ describe("starting a session (PROGRAM-V3 §1, §4.4)", () => {
     expect(order.indexOf("cable-chest-fly")).toBeLessThan(order.indexOf("machine-chest-press"));
   });
 
-  it("suggested loads follow the unit (kg steps by default)", () => {
+  it("suggested loads follow the unit (lb steps by default)", () => {
+    // 49.6 lb is a 22.5 kg set typed in kg
     const hist = { "incline-db-press": [0, 1].map((i) => ({ local_date: "2026-10-20", session_id: "p", set_index: i, weight_lb: 49.6, reps: 10, duration_sec: null, rir: 0, mode: "standard" as const })) };
-    const kgRows = buildSessionSets("s", { template: tue, date: "2026-10-27", mode: "standard" }, hist);
+    const kgRows = buildSessionSets("s", { template: tue, date: "2026-10-27", mode: "standard", unit: "kg" }, hist);
     expect(kgRows.find((r) => r.exercise_slug === "incline-db-press")!.suggested_weight_lb).toBe(54);
-    const lbRows = buildSessionSets("s", { template: tue, date: "2026-10-27", mode: "standard", unit: "lb" }, hist);
-    expect(lbRows.find((r) => r.exercise_slug === "incline-db-press")!.suggested_weight_lb).toBe(54.6);
+    // in lb the step lands on a dumbbell he has: 49.5 + 5 → 55 lb, never 54.6
+    const lbRows = buildSessionSets("s", { template: tue, date: "2026-10-27", mode: "standard" }, hist);
+    expect(lbRows.find((r) => r.exercise_slug === "incline-db-press")!.suggested_weight_lb).toBe(55);
+    const typedLb = { "incline-db-press": hist["incline-db-press"].map((s) => ({ ...s, weight_lb: 50 })) };
+    expect(buildSessionSets("s", { template: tue, date: "2026-10-27", mode: "standard", unit: "lb" }, typedLb).find((r) => r.exercise_slug === "incline-db-press")!.suggested_weight_lb).toBe(55);
   });
 
   it("deep links start a template only when it is in the active program", () => {

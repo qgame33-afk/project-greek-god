@@ -145,7 +145,8 @@ export function answersFromProfile(p: ProfileLike | null | undefined, today: ISO
   const exp = p?.experience === "beginner" || p?.experience === "advanced" ? p.experience : "intermediate";
   return {
     displayName: (p?.display_name ?? "").slice(0, 60),
-    weightUnit: p?.weight_unit === "lb" ? "lb" : "kg",
+    // a new account answers in pounds (his choice, 2026-11); an onboarded profile keeps its unit
+    weightUnit: p?.onboarded && p.weight_unit === "kg" ? "kg" : "lb",
     lengthUnit: p?.length_unit === "in" ? "in" : "cm",
     startWeightLb: num(p?.start_weight_lb, D.startWeightLb),
     heightCm: num(p?.height_cm, D.heightCm),

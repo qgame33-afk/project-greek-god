@@ -39,7 +39,8 @@ export function gymDate(iso: string): string {
 /** "1,000" — a load in display units with thousands grouping (the deck and tower values). */
 export function loadText(lb: number | null | undefined, unit: WeightUnit): string {
   if (lb == null || !Number.isFinite(Number(lb))) return "—";
-  const v = round(toDisplayWeight(Number(lb), unit), 1);
+  // lb loads sit on the 0.5 lb grid every load screen uses (training/loads.ts): 49.6 → 49.5
+  const v = unit === "lb" ? Math.round(Number(lb) * 2) / 2 : round(toDisplayWeight(Number(lb), unit), 1);
   return v.toLocaleString("en-US", { maximumFractionDigits: 1, minimumFractionDigits: Number.isInteger(v) ? 0 : 1 });
 }
 

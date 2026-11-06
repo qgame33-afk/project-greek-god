@@ -40,6 +40,8 @@ export type Equipment =
   | "bodyweight"
   | "ez_bar"
   | "plate_loaded"
+  | "band"
+  | "kettlebell"
   | "box"
   | "other";
 

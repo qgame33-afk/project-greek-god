@@ -69,7 +69,7 @@ const isSection = (v: string | null): v is SectionId => !!v && (SECTIONS as read
 
 type SheetId = "name" | "start" | "goal" | "target" | "height" | "nutrition" | "history" | "water" | "sleep" | "steps" | "timezone" | "export" | "wipe" | "delete" | "password" | "privacy" | "ai" | "experience";
 
-const weightUnitOf = (p: Profile): WeightUnit => (p.weight_unit === "lb" ? "lb" : "kg");
+const weightUnitOf = (p: Profile): WeightUnit => (p.weight_unit === "kg" ? "kg" : "lb");
 const lengthUnitOf = (p: Profile): LengthUnit => (p.length_unit === "in" ? "in" : "cm");
 
 /**
@@ -225,8 +225,8 @@ function SectionPage({ id, profile, recovery }: { id: SectionId; profile: Profil
               value={u}
               onChange={(v) => commit({ weight_unit: v }, { guard: false })}
               options={[
-                { value: "kg", label: "kg" },
                 { value: "lb", label: "lb" },
+                { value: "kg", label: "kg" },
               ]}
             />
           </ControlRow>

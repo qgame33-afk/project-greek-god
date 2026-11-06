@@ -131,6 +131,17 @@ Old pound history displays on the 0.5 kg grid. For example, 185 lb shows as 84 k
 
 The export stays lossless because it exports the stored pounds and inches.
 
+### 2.2 lb (Quinton, 6 Nov 2026)
+
+"i need you to chang e the weight to lbs". Weights are now shown in pounds; lengths stay as they are.
+
+- `profiles.weight_unit` still decides. Every fallback for a missing unit is lb, and onboarding answers in lb for a new account (it still asks weight and length separately). The column default in the database stays `'kg'`: onboarding always writes the unit, so no migration was needed. Quinton's live account is flipped to `'lb'` at publication (one `update profiles set weight_unit = 'lb'`).
+- Display grid in lb: 0.5 lb. A load typed in lb is stored on that grid (50 stays 50.0, never 49.6). A set typed in kg earlier shows its pound value on the grid (49.6 lb shows "49.5 lb"). Bodyweight keeps 0.1 lb.
+- `loadStep` in lb: 5 lb for barbell and Smith (total), dumbbells (per hand), cable and machine stacks and added load; 2.5 lb when the library's increment is 2.5; 10 lb on plate-loaded sleds whose increment is 10.
+- `stepUp` in lb lands on the step grid: 50 → 55, 49.6 (22.5 kg) → 55, 185 → 190.
+- Plates: 45 lb bar, 45/35/25/10/5/2.5 plates (`workout/plates.ts`).
+- The coach prompt says "lb by default". `scripts/dev/set-unit.mjs` flips a local account.
+
 ## 3. Switch-over: two migrations, two deploys
 
 Both files are additive and idempotent.

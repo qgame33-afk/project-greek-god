@@ -151,7 +151,7 @@ export interface KeyLift {
  * timed holds have no load to suggest), with the progression rule's target for today and the
  * last top set it came from. `fmt` formats a load in lb for display (unit conversion).
  */
-export function keyLift(t: Pick<DayTemplate, "exercises"> | null | undefined, history: Record<string, PastSet[]>, mode: Mode, fmt: (lb: number) => string, unit: WeightUnit = "kg"): KeyLift | null {
+export function keyLift(t: Pick<DayTemplate, "exercises"> | null | undefined, history: Record<string, PastSet[]>, mode: Mode, fmt: (lb: number) => string, unit: WeightUnit = "lb"): KeyLift | null {
   if (!t) return null;
   const candidates = t.exercises.filter((e) => {
     const lib = getExercise(e.slug);

@@ -20,6 +20,7 @@ import { getExercise } from "@/lib/training/library";
 import { exerciseDisplayName } from "@/lib/training/programs";
 import { suggest, type Mode } from "@/lib/training/progression";
 import { MUSCLE_LABEL, sessionsFromSets, strengthSeries } from "@/lib/training/volume";
+import { displayLoad } from "@/lib/training/loads";
 import { formatLoad, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
 import { effortText, plural } from "./format";
 import { useCustomExercises, useExercisePRs, useUnits } from "./hooks";
@@ -334,7 +335,7 @@ function nextLine(kind: string, w: number | null, unit: WeightUnit, te: { repLow
 function ChartCard({ daily, loading, unit, today, range, setRange }: { daily: Parameters<typeof strengthSeries>[0]; loading: boolean; unit: WeightUnit; today: ISODate; range: "3m" | "all"; setRange: (r: "3m" | "all") => void }) {
   const from = range === "3m" ? addDays(today, -91) : null;
   const series = useMemo(() => strengthSeries(daily, from), [daily, from]);
-  const data = useMemo(() => series.points.map((p) => ({ date: p.date, value: p.value == null ? null : series.metric === "reps" ? p.value : round(toDisplayWeight(p.value, unit), 1), pr: p.pr })), [series, unit]);
+  const data = useMemo(() => series.points.map((p) => ({ date: p.date, value: p.value == null ? null : series.metric === "reps" ? p.value : series.metric === "weight" ? displayLoad(p.value, unit) : round(toDisplayWeight(p.value, unit), 1), pr: p.pr })), [series, unit]);
   const label = series.metric === "e1rm" ? "Est. max" : series.metric === "weight" ? "Top weight" : "Best reps";
   const u = series.metric === "reps" ? "reps" : unit;
   const first = data.find((d) => d.value != null);
