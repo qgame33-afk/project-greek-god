@@ -19,9 +19,10 @@ import { getExercise } from "@/lib/training/library";
 import { programOfKey, templateDef, visibleWarmup } from "@/lib/training/programs";
 import { weekdaysFor } from "@/lib/training/schedule";
 import type { RepUnit, TemplateExercise, TemplateKey } from "@/lib/training/types";
-import { RIR_OPTIONS, moveItem, newTemplateExercise, sameTemplateContent, substituteExercise, validateTemplate } from "@/lib/training/volume";
+import { RIR_OPTIONS, moveItem, newTemplateExercise, sameTemplateContent, validateTemplate } from "@/lib/training/volume";
+import { swapTemplateExercise } from "@/lib/workout/session";
 import { effortShort, plural, repText } from "./format";
-import { LibraryPicker } from "./LibraryPicker";
+import { ExercisePicker } from "./ExercisePicker";
 import { Caption, SheetActions, SheetReason } from "./parts";
 import { DetailSkeleton } from "./Skeletons";
 import { useDragReorder } from "./useDragReorder";
@@ -305,7 +306,11 @@ function Editor({ stored }: { stored: StoredTemplate }) {
         onChange={(p) => open != null && setEx(open, p)}
         onMove={(dir) => open != null && moveEx(open, open + dir)}
         onRemove={() => open != null && removeEx(open)}
-        onSwap={() => open != null && setPicker({ mode: "sub", index: open })}
+        onSwap={() => {
+          if (open == null) return;
+          setPicker({ mode: "sub", index: open });
+          setOpen(null);
+        }}
       />
 
       <Sheet open={sheet === "more"} onOpenChange={(o) => !o && setSheet(null)} title={draft.name.trim() || stored.name}>
@@ -343,20 +348,26 @@ function Editor({ stored }: { stored: StoredTemplate }) {
         <Caption className="mt-0 pb-4">Quinton&apos;s notes for this day. They come with the plan.</Caption>
       </Sheet>
 
-      <LibraryPicker
+      <ExercisePicker
         open={!!picker}
         onOpenChange={(o) => !o && setPicker(null)}
         title={picker?.mode === "sub" ? `Swap ${subFor?.name ?? ""}` : "Add exercise"}
-        description={picker?.mode === "sub" ? "Same movement first. Sets, reps and rest stay as they are." : "Added to the end. Drag it or use the arrows to move it."}
-        first={subFor ? (getExercise(subFor.slug)?.substitutes ?? []) : []}
-        firstTitle="Swap options"
-        exclude={picker?.mode === "sub" && subFor ? [subFor.slug] : []}
+        description={picker?.mode === "sub" ? "Sets and reps stay. Effort and rest fit the new lift. Save to keep it." : `Added at the end with ${plural(2, "set")}. Save to keep it.`}
+        current={subFor?.slug ?? null}
+        exclude={draft.exercises.map((e) => e.slug).filter((s) => s !== subFor?.slug)}
         onPick={(lib) => {
           if (picker?.mode === "sub") {
             const i = picker.index;
             const prev = draft.exercises[i];
-            setEx(i, substituteExercise(prev, lib));
-            toast(`${prev.name} → ${lib.name}`, { description: "Save to keep the change.", duration: 6000, action: { label: "Undo", onClick: () => setEx(i, prev) } });
+            const next = swapTemplateExercise(prev, lib);
+            // the whole row is replaced: the old lift's coaching note doesn't carry over
+            setDraft((d) => ({ ...d, exercises: d.exercises.map((e, j) => (j === i ? next : e)) }));
+            setOpen(null);
+            toast(`${prev.name} → ${lib.name}`, {
+              description: `${plural(next.sets, "set")} · ${repText(next)} · rest ${fmtRest(next.rest)}. Save to keep it.`,
+              duration: 6000,
+              action: { label: "Undo", onClick: () => setDraft((d) => ({ ...d, exercises: d.exercises.map((e, j) => (j === i ? prev : e)) })) },
+            });
           } else {
             setDraft((d) => ({ ...d, exercises: [...d.exercises, newTemplateExercise(lib)] }));
             setOpen(draft.exercises.length);

@@ -510,6 +510,17 @@ export function retarget(
   };
 }
 
+/**
+ * A template row swapped for another lift ("Every time", the workout editor's Swap): the same
+ * rules as a swap in a workout (retarget): sets stay, the rep range stays when the movement type
+ * matches, effort and rest stay only within the same effort class, otherwise the new lift's
+ * defaults. The old lift's coaching note goes with it; "optional" stays.
+ */
+export function swapTemplateExercise(prev: TemplateExercise, lib: LibraryExercise): TemplateExercise {
+  const tg = retarget({ low: prev.repLow, high: prev.repHigh, unit: prev.unit, rir: prev.rir, sets: prev.sets, slug: prev.slug, rest: prev.rest }, lib);
+  return { slug: lib.slug, name: lib.name, sets: tg.sets, repLow: tg.low, repHigh: tg.high, unit: tg.unit, rir: tg.rir, rest: tg.rest, ...(prev.optional ? { optional: true } : {}) };
+}
+
 /** One planned working set as the session start writes it (before ids and the session are known). */
 export interface SetDraft {
   exercise_slug: string;

@@ -7,7 +7,8 @@ import { ListGroup, Row } from "@/components/ui/list";
 import { Empty, ErrorNote, Skeleton } from "@/components/ui/misc";
 import { getExercise } from "@/lib/training/library";
 import { formatLoad } from "@/lib/units";
-import { LibraryPicker, SearchField } from "../LibraryPicker";
+import { ExercisePicker } from "../ExercisePicker";
+import { SearchField } from "../SearchField";
 import { Caption } from "../parts";
 import { useAllSetHistory, useCustomExercises, useUnits } from "../hooks";
 
@@ -27,7 +28,7 @@ const e1 = (w: number, r: number) => w * (1 + r / 30);
 /**
  * Lifts (§4.3.10): a search field and every lift he has logged, newest first: "Incline Dumbbell
  * Press · Best 32 × 10 · +4.5 kg" (the change since his first logged session, in his unit) → exercise detail.
- * A last row "All exercises" opens the library with its region filter.
+ * A last row "All exercises" opens the exercise picker (search, muscle and equipment filters).
  */
 export function Lifts() {
   const q = useAllSetHistory();
@@ -103,10 +104,11 @@ export function Lifts() {
           <Row icon={Dumbbell} title="All exercises" onClick={() => setAll(true)} />
         </ListGroup>
       </div>
-      <LibraryPicker
+      <ExercisePicker
         open={all}
         onOpenChange={setAll}
         title="All exercises"
+        description="Tap one to see how to do it and your history."
         onPick={(e) => {
           setAll(false);
           router.push(`/training/exercise/${encodeURIComponent(e.slug)}`);

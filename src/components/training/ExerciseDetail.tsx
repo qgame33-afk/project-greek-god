@@ -24,7 +24,7 @@ import { displayLoad } from "@/lib/training/loads";
 import { formatLoad, round, toDisplayWeight, type WeightUnit } from "@/lib/units";
 import { effortText, plural } from "./format";
 import { useCustomExercises, useExercisePRs, useUnits } from "./hooks";
-import { equipmentLabel } from "./LibraryPicker";
+import { equipmentLabel } from "@/lib/training/search";
 import { Caption } from "./parts";
 import { DetailSkeleton } from "./Skeletons";
 import { useMounted } from "./useMounted";

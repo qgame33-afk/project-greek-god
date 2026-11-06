@@ -48,7 +48,7 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
   const desktop = useMediaQuery("(min-width: 1024px)");
 
   const header = (Title: typeof Dialog.Title, Desc: typeof Dialog.Description, Close: typeof Dialog.Close) => (
-    <div className="flex min-h-14 items-center justify-between gap-3 px-5 pb-1 pt-1">
+    <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 px-5 pb-1 pt-1">
       <div className="min-w-0">
         <Title className="t-sheet text-fg">{title}</Title>
         {description ? (

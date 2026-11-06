@@ -27,6 +27,7 @@ import {
   upNextSet,
   validateCell,
   retarget,
+  swapTemplateExercise,
   defaultTargets,
   zeroLoadOk,
   rowErrorFields,
@@ -323,6 +324,18 @@ describe("targets for swaps and additions", () => {
     expect(retarget({ low: 5, high: 8, unit: "reps", rir: "1–2", sets: 3 }, lib({ rest: 120, perSide: false }))).toEqual({ sets: 3, low: 5, high: 8, unit: "reps", rir: "1–2", rest: 150 });
     expect(retarget({ low: 10, high: 15, unit: "reps", rir: "1–3", sets: 2, slug: "machine-chest-press", rest: 120 }, lib({ category: "isolation", rest: 75 }))).toMatchObject({ rir: "0", rest: 90 });
     expect(retarget({ low: 10, high: 12, unit: "reps", rir: "1–2", sets: 2 }, lib({ perSide: true })).unit).toBe("each");
+  });
+
+  it("swaps a template row the way a workout swap does (Every time, the editor's Swap)", () => {
+    const curl = { slug: "incline-db-curl", name: "Incline Dumbbell Curl", sets: 2, repLow: 8, repHigh: 12, unit: "reps" as const, rir: "0", rest: 90, note: "Full stretch at the bottom" };
+    // isolation for isolation: everything carries over but the note
+    expect(swapTemplateExercise(curl, getExercise("preacher-curl")!)).toEqual({ slug: "preacher-curl", name: "Preacher Curl", sets: 2, repLow: 8, repHigh: 12, unit: "reps", rir: "0", rest: 90 });
+    // a compound in its place takes the compound's effort and rest
+    const row = swapTemplateExercise(curl, getExercise("chin-up")!);
+    expect(row).toMatchObject({ slug: "chin-up", sets: 2, repLow: 8, repHigh: 12, rir: "0–1" });
+    expect(row.rest).toBeGreaterThanOrEqual(150);
+    // a per-side lift counts each side; optional stays optional
+    expect(swapTemplateExercise({ ...curl, optional: true }, getExercise("concentration-curl")!)).toMatchObject({ unit: "each", optional: true });
   });
 
   it("re-targets when the movement type changes", () => {
