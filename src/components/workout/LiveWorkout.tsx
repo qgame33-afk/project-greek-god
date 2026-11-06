@@ -21,7 +21,7 @@ import { cn } from "@/lib/cn";
 import { friendlyError, must, sb, useToday, useUser } from "@/lib/data/core";
 import { drained, useOutbox } from "@/lib/data/outbox";
 import { useProfile } from "@/lib/data/profile";
-import { useTemplates } from "@/lib/data/training";
+import { scheduleOf, useSaveTemplate, useTemplates, type StoredTemplate } from "@/lib/data/training";
 import { addDays, dayName } from "@/lib/dates";
 import { haptic } from "@/lib/haptics";
 import { useReadiness } from "@/lib/recovery/hooks";
@@ -32,11 +32,13 @@ import type { LibraryExercise, TemplateExercise } from "@/lib/training/types";
 import { BAR, displayLoad as displayLoadOf, loadStep as loadStepOf, loadText } from "@/lib/training/loads";
 import { muscleLabel, repRange } from "@/lib/workout/copy";
 import { changedPlate, endsAt as endsAtOf, gymDate, runningBest } from "@/lib/workout/gym";
+import { dayTemplateLabel, planAdd, planSwap, siblingKey } from "@/lib/workout/plan-change";
+import { weekdaysFor } from "@/lib/training/schedule";
 import { autoAdvances, nudgeStep, padPress, type PadKey } from "@/lib/workout/numpad";
 import { platesFor } from "@/lib/workout/plates";
 import { classifyLog, prSetIds, sessionRecords, type PriorBest } from "@/lib/workout/pr";
 import { parsePrefs } from "@/lib/workout/prefs";
-import { defaultRestSec, startRest } from "@/lib/workout/rest";
+import { defaultRestSec, formatClock, startRest } from "@/lib/workout/rest";
 import {
   cellText,
   columnFor,
@@ -83,7 +85,8 @@ import { LiftsSheet, NotesTodaySheet, type LiftRowData, type OptionalRowData } f
 import { FinishSheet, SetSheet, StaleSheet, TipCard, TipSheet, type SetRowData } from "./live/panels";
 import { CompactRest, RestControls, RestRing, TankRow } from "./live/rest-view";
 import { EmptyNumberCard } from "./live/EmptyNumberCard";
-import { HistorySheet, HowToSheet, MoreSheet, NoteSheet, PickSheet, WarmupSheet } from "./live/sheets";
+import { HistorySheet, HowToSheet, MoreSheet, NoteSheet, PickConfirm, WarmupSheet, type PickChoice } from "./live/sheets";
+import { ExercisePicker } from "@/components/training/ExercisePicker";
 import { aimLine, finishLine, lastTimeText, rangeText, tipRows, tipTitle, weightUnit, weightUnitSpoken, winSentence, workUnit } from "./live/words";
 import { restActions, RestWatcher } from "./rest";
 import { clearSessionStores, getDeviceCopy, getRest, markMoment, markTipFired, setDeviceCopy, setRest, setSkipped, useNowMinute, useOnline, useRest, useSkipped, useTipFired } from "./stores";
@@ -594,7 +597,44 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     }
   };
 
-  const replaceWith = async (g: ExerciseGroup, lib: LibraryExercise) => {
+  /** The targets a swap gives the lift's unlogged sets: the retarget rules, keyed to the old lift's slug and rest. */
+  const swapTargets = (g: ExerciseGroup, lib: LibraryExercise) => {
+    const open = g.sets.filter((s) => !s.completed);
+    const first = open.find((s) => s.kind === "working") ?? g.working[0];
+    return retarget({ low: first?.target_rep_low ?? null, high: first?.target_rep_high ?? null, unit: first?.target_unit ?? null, rir: first?.target_rir ?? null, sets: g.total || 3, slug: g.slug, rest: first?.rest_sec ?? null }, lib);
+  };
+
+  /* "Every time": the day's template (and the other rotation when he chooses) gets the same change */
+  const saveTemplate = useSaveTemplate();
+  const schedule = useMemo(() => scheduleOf(profile ?? undefined), [profile]);
+  const sibKey = siblingKey(session.template_key);
+  const sibling = sibKey ? byKey[sibKey] : undefined;
+  const dayLabel = (t: StoredTemplate) => dayTemplateLabel(t.name, weekdaysFor(schedule, t.key));
+  type PlanChange = { before: StoredTemplate; after: StoredTemplate };
+  const planChanges = (kind: "replace" | "add", oldSlug: string | null, lib: LibraryExercise, withSibling: boolean): PlanChange[] =>
+    [template, withSibling ? sibling : undefined]
+      .filter((t): t is StoredTemplate => !!t)
+      .map((t) => ({ before: t, after: kind === "replace" ? planSwap(t, oldSlug ?? "", lib) : planAdd(t, lib) }))
+      .filter((c): c is PlanChange => !!c.after);
+  /** Saves the changes in order; false when one failed (the hook says why). Today's sets are written already, through the outbox. */
+  const writePlan = async (changes: PlanChange[]): Promise<PlanChange[]> => {
+    const done: PlanChange[] = [];
+    for (const c of changes) {
+      try {
+        await saveTemplate.mutateAsync(c.after);
+        done.push(c);
+      } catch {
+        break;
+      }
+    }
+    return done;
+  };
+  const undoPlan = (done: PlanChange[]) => {
+    for (const c of done) saveTemplate.mutate(c.before);
+  };
+  const planWords = (done: PlanChange[]) => done.map((c) => dayLabel(c.before)).join(" and ");
+
+  const replaceWith = async (g: ExerciseGroup, lib: LibraryExercise, choice: PickChoice = { everyTime: false, sibling: false }) => {
     if (busySlug) return;
     const open = g.sets.filter((s) => !s.completed);
     if (!open.length) {
@@ -604,9 +644,8 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     setBusySlug(lib.slug);
     try {
       const hist = await historyFor(lib.slug);
-      const first = open.find((s) => s.kind === "working") ?? g.working[0];
       // slug and rest: the swap keeps the rest and effort only within the same effort class
-      const tg = retarget({ low: first?.target_rep_low ?? null, high: first?.target_rep_high ?? null, unit: first?.target_unit ?? null, rir: first?.target_rir ?? null, sets: g.total || 3, slug: g.slug, rest: first?.rest_sec ?? null }, lib);
+      const tg = swapTargets(g, lib);
       const tEx: TemplateExercise = { slug: lib.slug, name: lib.name, sets: tg.sets, repLow: tg.low, repHigh: tg.high, unit: tg.unit, rir: tg.rir, rest: tg.rest };
       const sug = suggest(tEx, lib, hist, sessionMode, { unit });
       const hasLogged = g.sets.some((s) => s.completed);
@@ -652,9 +691,18 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
       setOpenRef(open[0].id);
       setSelId(null);
       setPicker(null);
+      const changes = choice.everyTime && live ? planChanges("replace", g.slug, lib, choice.sibling) : [];
+      const done = changes.length ? await writePlan(changes) : [];
+      const logged = hasLogged ? `Logged sets stay with ${g.name}.` : null;
       toast(`Swapped for ${lib.name}`, {
-        description: hasLogged ? `Logged sets stay with ${g.name}.` : undefined,
-        action: { label: "Undo", onClick: () => ops.updateSets(before) },
+        description: [done.length ? `Every time on ${planWords(done)}.` : changes.length ? "Just today: the plan couldn't be changed." : null, logged].filter(Boolean).join(" ") || undefined,
+        action: {
+          label: "Undo",
+          onClick: () => {
+            ops.updateSets(before);
+            undoPlan(done);
+          },
+        },
         duration: 6000,
       });
     } finally {
@@ -662,7 +710,7 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     }
   };
 
-  const insertExercise = (lib: LibraryExercise, drafts: ReturnType<typeof templateExerciseSets>) => {
+  const insertExercise = (lib: LibraryExercise, drafts: ReturnType<typeof templateExerciseSets>, notify = true) => {
     if (!userId) return null;
     const order = Math.max(-1, ...groups.map((g) => g.order)) + 1;
     const rows = drafts.map((d) => newSetRow({ ...d, session_id: id, user_id: userId, local_date: session.local_date, exercise_order: order }));
@@ -672,20 +720,39 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
     setPicker(null);
     setLiftsOpen(false);
     toTop();
-    toast(`Added ${lib.name}`, { action: { label: "Undo", onClick: () => ops.deleteSets(rows.map((r) => r.id)) }, duration: 6000 });
+    if (notify) toast(`Added ${lib.name}`, { action: { label: "Undo", onClick: () => ops.deleteSets(rows.map((r) => r.id)) }, duration: 6000 });
     return rows;
   };
 
-  const addExercise = async (lib: LibraryExercise) => {
+  /** The sets an added lift starts with: the library's defaults (two sets), its RIR in this session's mode. */
+  const addTargets = (lib: LibraryExercise) => {
+    const tg = defaultTargets(lib);
+    const tEx: TemplateExercise = { slug: lib.slug, name: lib.name, sets: tg.sets, repLow: tg.low, repHigh: tg.high, unit: tg.unit, rir: tg.rir, rest: tg.rest };
+    return { tEx, sets: plannedSetCount(tEx, lib, sessionMode) };
+  };
+
+  const addExercise = async (lib: LibraryExercise, choice: PickChoice = { everyTime: false, sibling: false }) => {
     if (busySlug || !userId) return;
     setBusySlug(lib.slug);
     try {
       const hist = await historyFor(lib.slug);
-      const tg = defaultTargets(lib);
-      const tEx: TemplateExercise = { slug: lib.slug, name: lib.name, sets: tg.sets, repLow: tg.low, repHigh: tg.high, unit: tg.unit, rir: tg.rir, rest: tg.rest };
+      const { tEx, sets: n } = addTargets(lib);
       const sug = suggest(tEx, lib, hist, sessionMode, { unit });
-      const n = plannedSetCount(tEx, lib, sessionMode);
-      insertExercise(lib, templateExerciseSets({ ...tEx, sets: n }, "standard", 0, sug, { rir: modeRir(tEx, sessionMode) }));
+      const rows = insertExercise(lib, templateExerciseSets({ ...tEx, sets: n }, "standard", 0, sug, { rir: modeRir(tEx, sessionMode) }), false);
+      if (!rows) return;
+      const changes = choice.everyTime && live ? planChanges("add", null, lib, choice.sibling) : [];
+      const done = changes.length ? await writePlan(changes) : [];
+      toast(`Added ${lib.name}`, {
+        description: done.length ? `Every time on ${planWords(done)}.` : changes.length ? "Just today: the plan couldn't be changed." : undefined,
+        action: {
+          label: "Undo",
+          onClick: () => {
+            ops.deleteSets(rows.map((r) => r.id));
+            undoPlan(done);
+          },
+        },
+        duration: 6000,
+      });
     } finally {
       setBusySlug(null);
     }
@@ -1668,14 +1735,42 @@ export function LiveWorkout({ data, mode, onDoneEditing }: { data: LiveData; mod
           />
         </>
       )}
-      <PickSheet
+      <ExercisePicker
         open={!!picker}
         onOpenChange={(o) => !o && setPicker(null)}
-        mode={picker?.mode ?? "add"}
-        current={pickerGroup ? { slug: pickerGroup.slug, name: pickerGroup.name, logged: pickerGroup.sets.filter((s) => s.completed).length } : undefined}
-        busySlug={busySlug}
-        toDisplay={toDisplay}
-        onPick={(l) => (picker?.mode === "replace" && pickerGroup ? void replaceWith(pickerGroup, l) : void addExercise(l))}
+        title={picker?.mode === "replace" && pickerGroup ? `Swap ${pickerGroup.name}` : "Add exercise"}
+        description={picker?.mode === "replace" ? "Same muscles first." : "Added at the end of this workout."}
+        current={picker?.mode === "replace" ? (pickerGroup?.slug ?? null) : null}
+        exclude={slugs}
+        confirm={{
+          title: (l) => (picker?.mode === "replace" ? `Swap for ${l.name}?` : `Add ${l.name}?`),
+          render: (l, back) => {
+            const replace = picker?.mode === "replace" && !!pickerGroup;
+            const tg = replace ? swapTargets(pickerGroup!, l) : null;
+            const add = replace ? null : addTargets(l);
+            const plan = tg
+              ? `${tg.sets} ${tg.sets === 1 ? "set" : "sets"} · ${rangeText(tg.low, tg.high, tg.unit)} · rest ${formatClock(tg.rest)}`
+              : `${add!.sets} ${add!.sets === 1 ? "set" : "sets"} · ${rangeText(add!.tEx.repLow, add!.tEx.repHigh, add!.tEx.unit)} · rest ${formatClock(add!.tEx.rest)}`;
+            const kind = replace ? "replace" : "add";
+            const own = live && template ? planChanges(kind, replace ? pickerGroup!.slug : null, l, false) : [];
+            const sib = own.length && sibling ? (kind === "replace" ? planSwap(sibling, pickerGroup!.slug, l) : planAdd(sibling, l)) : null;
+            return (
+              <PickConfirm
+                key={l.slug}
+                mode={kind}
+                lib={l}
+                current={replace ? { name: pickerGroup!.name, logged: pickerGroup!.sets.filter((s) => s.completed).length } : undefined}
+                plan={plan}
+                everyTime={own.length ? dayLabel(own[0].before) : null}
+                sibling={sib && sibling ? dayLabel(sibling) : null}
+                offline={!isOnline}
+                busy={!!busySlug || saveTemplate.isPending}
+                onBack={back}
+                onConfirm={(c) => (replace ? void replaceWith(pickerGroup!, l, c) : void addExercise(l, c))}
+              />
+            );
+          },
+        }}
       />
       {noteFor && setMap.get(noteFor) && (
         <NoteSheet

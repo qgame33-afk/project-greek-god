@@ -1,16 +1,16 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
-import { ExternalLink, History, Info, Layers, NotebookPen, Plus, Repeat, Search, SkipForward, Undo2 } from "lucide-react";
+import { useState } from "react";
+import { ExternalLink, History, Info, Layers, NotebookPen, Plus, Repeat, SkipForward, Undo2 } from "lucide-react";
 import { effortText } from "@/components/training/format";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/field";
-import { ListGroup, Row } from "@/components/ui/list";
-import { Sheet } from "@/components/ui/sheet";
-import { useRecentHistory } from "@/lib/data/workout";
+import { Switch } from "@/components/ui/controls";
+import { ListGroup, RadioGroup, RadioRow, Row } from "@/components/ui/list";
+import { Collapse } from "@/components/ui/misc";
+import { Sheet, SheetFooterBar } from "@/components/ui/sheet";
 import { shortDate } from "@/lib/dates";
 import { getExercise } from "@/lib/training/library";
-import { pickableLibrary } from "@/lib/training/programs";
 import { groupSessions, type PastSet } from "@/lib/training/progression";
 import type { LibraryExercise, WarmupStep } from "@/lib/training/types";
 import { demoUrl, muscleLabel, musclesLine } from "@/lib/workout/copy";
@@ -197,97 +197,109 @@ export function WarmupSheet({ open, onOpenChange, steps }: { open: boolean; onOp
 
 /* --------------------------------------------------- swap / add exercise */
 
-function matches(e: LibraryExercise, q: string) {
-  if (!q) return true;
-  const hay = `${e.name} ${[...e.primary, ...e.secondary].map(muscleLabel).join(" ")} ${e.equipment.replace("_", " ")}`.toLowerCase();
-  return q
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .every((t) => hay.includes(t));
+export interface PickChoice {
+  everyTime: boolean;
+  sibling: boolean;
 }
 
 /**
- * Swap for today, or Add exercise (§4.2.6, §4.2.9): the swap lists the lift's substitutes ("Works
- * the same muscles") with "Last time 20 × 15" or "Not done yet", then "Search all exercises".
- * Retired lifts are never offered (`pickableLibrary()`).
+ * The picker's confirm view in a workout (§4.2.6, §4.2.9): the lift he picked, what today gets
+ * ("2 sets · 8–12 reps · rest 1:30"), how to do it, and how long the change lasts: "Just today"
+ * (the plan stays the same) or "Every time" (the day's template changes; the other rotation only
+ * when he turns it on). One gold action names the change. Nothing is written before it.
  */
-export function PickSheet({
-  open,
-  onOpenChange,
+export function PickConfirm({
   mode,
+  lib,
   current,
-  busySlug,
-  toDisplay,
-  onPick,
+  plan,
+  everyTime,
+  sibling,
+  offline,
+  busy,
+  onConfirm,
+  onBack,
 }: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
   mode: "replace" | "add";
-  current?: { slug: string; name: string; logged: number };
-  busySlug: string | null;
-  toDisplay: (lb: number) => number;
-  onPick: (lib: LibraryExercise) => void;
+  lib: LibraryExercise;
+  current?: { name: string; logged: number };
+  /** "2 sets · 8–12 reps · rest 1:30" */
+  plan: string;
+  /** "Monday's Arms & Shoulders" when "Every time" can be offered (live, the template has the lift / can take it), else null. */
+  everyTime: string | null;
+  /** "Thursday's Arms & Shoulders" when the other rotation can take the same change, else null. */
+  sibling: string | null;
+  offline: boolean;
+  busy: boolean;
+  onConfirm: (c: PickChoice) => void;
+  onBack: () => void;
 }) {
-  const [q, setQ] = useState("");
-  const pickable = useMemo(() => pickableLibrary(), []);
-  const subs = useMemo(() => {
-    if (mode !== "replace" || !current) return [];
-    const ok = new Set(pickable.map((e) => e.slug));
-    return (getExercise(current.slug)?.substitutes ?? []).filter((s) => ok.has(s)).map(getExercise).filter((x): x is LibraryExercise => !!x);
-  }, [mode, current, pickable]);
-  const hist = useRecentHistory(open ? subs.map((s) => s.slug) : []);
-  const list = useMemo(() => pickable.filter((e) => e.slug !== current?.slug && matches(e, q.trim())), [q, current?.slug, pickable]);
-  const close = (o: boolean) => {
-    onOpenChange(o);
-    if (!o) setQ("");
-  };
-  const lastOf = (e: LibraryExercise): string => {
-    const h = hist.data?.[e.slug] ?? [];
-    const s = groupSessions(h)[0];
-    return s ? `Last time ${lastTimeText(s.slice(0, 1), trackingFor(e, null), toDisplay)}` : "Not done yet";
-  };
-  const row = (e: LibraryExercise, sub?: ReactNode) => (
-    <Row key={e.slug} title={e.name} dataName subtitle={busySlug === e.slug ? "Adding…" : sub} onClick={busySlug ? undefined : () => onPick(e)} />
-  );
+  const [every, setEvery] = useState(false);
+  const [both, setBoth] = useState(false);
+  const [how, setHow] = useState(false);
+  const canEvery = !!everyTime && !offline;
+  const isEvery = every && canEvery;
+  const verb = mode === "replace" ? "Swap" : "Add";
   return (
-    <Sheet
-      open={open}
-      onOpenChange={close}
-      title={mode === "replace" ? "Swap for today" : "Add exercise"}
-      description={
-        mode === "replace" && current
-          ? `Instead of ${current.name}.${current.logged ? ` Logged sets stay with it.` : ""} Your plan stays the same.`
-          : "Adds it at the end of today's workout."
-      }
-    >
-      <div className="space-y-3 pb-2">
-        {mode === "replace" && subs.length > 0 && !q && (
-          <section>
-            <h3 className="t-label mb-2 px-1">Works the same muscles</h3>
-            <ListGroup>{subs.map((e) => row(e, lastOf(e)))}</ListGroup>
-          </section>
+    <div className="space-y-4 pb-2">
+      <div className="rounded-tile-lg bg-surface px-4 py-3.5">
+        <p className="t-label">{musclesLine(lib.primary, lib.secondary, 3)}</p>
+        <p className="t-row mt-1">{plan}</p>
+        {mode === "replace" && current && (
+          <p className="t-label mt-1">
+            Instead of {current.name}.{current.logged ? ` Your ${current.logged} logged ${current.logged === 1 ? "set stays" : "sets stay"} with it.` : ""}
+          </p>
         )}
-        <label className="relative block">
-          <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-fg-3" strokeWidth={1.9} aria-hidden />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search all exercises"
-            aria-label="Search all exercises"
-            enterKeyHint="search"
-            autoComplete="off"
-            className="t-body h-14 w-full rounded-field bg-surface pl-12 pr-4 text-fg outline-none placeholder:text-fg-2 focus:ring-2 focus:ring-fg"
-          />
-        </label>
-        {(q || mode === "add" || !subs.length) &&
-          (list.length ? (
-            <ListGroup>{list.slice(0, q ? 40 : 60).map((e) => row(e, musclesLine(e.primary, e.secondary, 3)))}</ListGroup>
-          ) : (
-            <p className="t-body px-1 py-6 text-center text-fg-2">Nothing matches “{q}”. Try a muscle, like “lats”.</p>
-          ))}
       </div>
-    </Sheet>
+      <div className="overflow-hidden rounded-tile-lg bg-surface">
+        <Row icon={Info} title="How to do it" subtitle={how ? undefined : "Steps and form tips"} chevron={false} onClick={() => setHow((h) => !h)} ariaLabel={how ? "Hide how to do it" : "Show how to do it"} />
+        <Collapse open={how}>
+          <div className="px-4 pb-4">
+            <ol className="space-y-2.5" data-program-text="">
+              {lib.instructions.map((x, i) => (
+                <li key={i} className="t-body flex gap-3">
+                  <span className="t-cap grid size-6 shrink-0 place-items-center rounded-full bg-control font-semibold text-fg">{i + 1}</span>
+                  <span>{x}</span>
+                </li>
+              ))}
+            </ol>
+            <ul className="t-label mt-3 list-disc space-y-1.5 pl-5">
+              {lib.formTips.map((x, i) => (
+                <li key={i}>{x}</li>
+              ))}
+            </ul>
+          </div>
+        </Collapse>
+      </div>
+      <RadioGroup ariaLabel="How long">
+        <RadioRow title="Just today" subtitle={mode === "replace" ? "Your plan stays the same." : "Only in this workout."} checked={!isEvery} onSelect={() => setEvery(false)} />
+        {everyTime && (
+          <RadioRow
+            title="Every time"
+            subtitle={offline ? "Needs a connection. Just today works offline." : `${mode === "replace" ? "Changes" : "Adds it to"} ${everyTime} from now on.`}
+            checked={isEvery}
+            disabled={!canEvery}
+            onSelect={() => setEvery(true)}
+          />
+        )}
+      </RadioGroup>
+      {isEvery && sibling && (
+        <div className="flex min-h-14 items-center justify-between gap-3 rounded-tile-lg bg-surface px-4 py-3">
+          <span className="min-w-0">
+            <span className="t-row block">Also on {sibling.split("'s ")[0]}</span>
+            <span className="t-label mt-0.5 block">{mode === "replace" ? `Changes ${sibling} too.` : `Adds it to ${sibling} too.`}</span>
+          </span>
+          <Switch checked={both} onCheckedChange={setBoth} label={`Also change ${sibling}`} />
+        </div>
+      )}
+      <SheetFooterBar>
+        <Button variant="primary" size="lg" block loading={busy} disabled={busy} onClick={() => onConfirm({ everyTime: isEvery, sibling: isEvery && !!sibling && both })}>
+          {verb} {isEvery ? "every time" : "for today"}
+        </Button>
+        <Button variant="ghost" size="md" block className="mt-1" onClick={onBack} disabled={busy}>
+          Pick another
+        </Button>
+      </SheetFooterBar>
+    </div>
   );
 }
