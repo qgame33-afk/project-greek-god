@@ -232,7 +232,8 @@ describe("validation", () => {
 
   it("only the library's bodyweight-version dumbbell lifts take a 0 load", () => {
     const zero = LIBRARY.filter((e) => e.equipment === "dumbbell" && zeroLoadOk(e, e.tracking)).map((e) => e.slug);
-    expect(zero.sort()).toEqual(["bulgarian-split-squat", "walking-lunge"]);
+    // split squats, lunges, step-ups and calf raises have a real bodyweight version
+    expect(zero.sort()).toEqual(["bulgarian-split-squat", "front-foot-elevated-split-squat", "lateral-lunge", "reverse-lunge", "single-leg-db-calf-raise", "split-squat", "step-up", "walking-lunge"]);
     expect(validateCell("weight", "0", "lb", "weight_reps", zeroLoadOk(getExercise("incline-db-press"), "weight_reps"))).toEqual({ ok: false, error: "Weight must be above 0 lb." });
   });
 

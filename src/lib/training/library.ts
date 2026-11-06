@@ -1,8 +1,17 @@
 import type { LibraryExercise } from "./types";
+import { ARMS } from "./library-more/arms";
+import { BACK } from "./library-more/back";
+import { CHEST } from "./library-more/chest";
+import { CORE } from "./library-more/core";
+import { LEGS } from "./library-more/legs";
+import { SHOULDERS } from "./library-more/shoulders";
 
 /**
  * Exercise library — every lift in the program plus sensible swaps and the
- * extra lifts the strength tracker can show.
+ * extra lifts the strength tracker can show. The first block is the original library (its
+ * slugs are in his history and templates and never change); the grouped modules in
+ * library-more/ add the big list the exercise picker offers (chest, shoulders, back, arms,
+ * legs, core and carries, every equipment type).
  *
  * Conventions:
  * - Loads in lb. Dumbbell lifts log the weight of ONE dumbbell (perHand).
@@ -2064,6 +2073,13 @@ export const LIBRARY: LibraryExercise[] = [
     ],
     substitutes: ["lat-pulldown", "single-arm-lat-pulldown"],
   },
+  // ───────────────────────── the big list (library-more/) ─────────────────────────
+  ...CHEST,
+  ...SHOULDERS,
+  ...BACK,
+  ...ARMS,
+  ...LEGS,
+  ...CORE,
 ];
 
 export const LIBRARY_BY_SLUG: Record<string, LibraryExercise> =
