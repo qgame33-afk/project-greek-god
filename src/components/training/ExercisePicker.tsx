@@ -1,7 +1,8 @@
 "use client";
 
 import { ChevronLeft } from "lucide-react";
-import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/controls";
 import { ListGroup, Row } from "@/components/ui/list";
@@ -46,6 +47,10 @@ export interface ExercisePickerProps {
  */
 export function ExercisePicker({ open, onOpenChange, title, description, current, exclude, onPick, confirm }: ExercisePickerProps) {
   const [picked, setPicked] = useState<LibraryExercise | null>(null);
+  // a toast left over from the screen behind (e.g. "Set 2 logged · Undo") would sit over the search and chips
+  useEffect(() => {
+    if (open) toast.dismiss();
+  }, [open]);
   // every opening starts at the list, however the last one closed (a confirmed swap closes it from outside)
   const [wasOpen, setWasOpen] = useState(open);
   if (wasOpen !== open) {
