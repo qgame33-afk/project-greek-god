@@ -102,7 +102,7 @@ export function MonthlyReview({ monthParam }: { monthParam: string }) {
       </div>
 
       <p className="mt-6 hidden t-cap text-fg-2" data-print="only">
-        Project Greek God · {stats.label} review · generated {longDate(today)} from logged data only. Suggestions are not applied automatically.
+        Fitness App · {stats.label} review · generated {longDate(today)} from logged data only. Suggestions are not applied automatically.
       </p>
     </div>
   );
@@ -370,7 +370,7 @@ function ExportActions({
       }));
     // live numbers and the saved snapshot are kept apart, each labelled with when it was built
     const data = {
-      app: "Project Greek God",
+      app: "Fitness App",
       kind: "monthly-review",
       month: stats.month.slice(0, 7),
       exportedAt,

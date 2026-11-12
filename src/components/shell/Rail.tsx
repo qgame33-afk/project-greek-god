@@ -17,8 +17,8 @@ export function Rail({ pathname, showLiveSlot }: { pathname: string; showLiveSlo
   const { profile } = useProfile();
   return (
     <aside className="vt-sidebar fixed inset-y-0 left-0 z-(--z-chrome) hidden w-[248px] flex-col border-r border-line bg-bg px-4 py-6 lg:flex">
-      <Link href="/" className="t-section mb-6 flex min-h-11 items-center px-2 text-fg" aria-label="Project Greek God, Today">
-        Project Greek God
+      <Link href="/" className="t-section mb-6 flex min-h-11 items-center px-2 text-fg" aria-label="Fitness App, Today">
+        Fitness App
       </Link>
       <RailGroup label="Primary" items={PRIMARY_NAV} pathname={pathname} />
       <div className="my-4 h-px bg-line" />

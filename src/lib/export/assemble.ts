@@ -48,7 +48,7 @@ export function exportFilename(date: string) {
 
 export function readme(meta: ExportMeta, counts: Record<string, number>, photoCount: number, photosSkipped: number, mealPhotoCount = 0) {
   const lines = [
-    "PROJECT GREEK GOD · THE ASCENT — data export",
+    "FITNESS APP — data export",
     "",
     `Exported: ${meta.exportedAt}`,
     `Account:  ${meta.email ?? meta.userId}`,

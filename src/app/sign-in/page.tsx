@@ -14,7 +14,7 @@ export default function SignInPage() {
   return (
     <main className="min-h-dvh bg-bg px-gutter pb-[calc(var(--safe-bottom)+1.5rem)] pt-[calc(var(--safe-top)+5rem)] short:pt-[calc(var(--safe-top)+2rem)]">
       <div className="mx-auto w-full max-w-[25rem]">
-        <Image src="/icons/icon-192.png" alt="Project Greek God" width={76} height={76} priority className="size-[4.75rem] overflow-hidden" style={{ borderRadius: 18 }} />
+        <Image src="/icons/icon-192.png" alt="Fitness App" width={76} height={76} priority className="size-[4.75rem] overflow-hidden" style={{ borderRadius: 18 }} />
         <Suspense>
           <SignInForm />
         </Suspense>

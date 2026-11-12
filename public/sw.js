@@ -16,7 +16,7 @@ const SHELL_CACHE = "pgg-shell-" + VERSION;
 const OFFLINE_HTML = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#000000"><title>Offline · Project Greek God</title>
+<meta name="theme-color" content="#000000"><title>Offline · Fitness App</title>
 <style>
   html,body{margin:0;height:100%;background:#000;color:#f5f5f7;font:400 17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
   main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box}
@@ -115,7 +115,7 @@ self.addEventListener("push", (event) => {
       data = { body: event.data.text() };
     }
   }
-  const title = typeof data.title === "string" && data.title ? data.title : "Project Greek God";
+  const title = typeof data.title === "string" && data.title ? data.title : "Fitness App";
   const options = {
     body: typeof data.body === "string" ? data.body : "",
     icon: "/icons/icon-192.png",

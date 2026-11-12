@@ -11,10 +11,10 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], axes: ["opsz"], variable: "--font-inter", display: "swap", preload: false });
 
 export const metadata: Metadata = {
-  title: { default: "Project Greek God", template: "%s · Project Greek God" },
+  title: { default: "Fitness App", template: "%s · Fitness App" },
   description: "Training, food and progress in one place.",
-  applicationName: "Project Greek God",
-  appleWebApp: { capable: true, title: "Greek God", statusBarStyle: "black-translucent" },
+  applicationName: "Fitness App",
+  appleWebApp: { capable: true, title: "Fitness App", statusBarStyle: "black-translucent" },
   formatDetection: { telephone: false },
   icons: { apple: "/icons/apple-touch-icon.png" },
 };

@@ -235,7 +235,7 @@ export function PickConfirm({
   onBack: () => void;
 }) {
   const [every, setEvery] = useState(false);
-  const [both, setBoth] = useState(false);
+  const [both, setBoth] = useState(true); // Quinton: "Every time" changes both weekly days by default
   const [how, setHow] = useState(false);
   const canEvery = !!everyTime && !offline;
   const isEvery = every && canEvery;

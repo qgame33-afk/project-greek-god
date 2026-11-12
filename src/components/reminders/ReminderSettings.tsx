@@ -298,7 +298,7 @@ function DeviceRows({ status, onDevicesChange, anyEnabled }: { status: Status | 
               <Step n={2}>
                 Choose <SquarePlus className="mx-0.5 inline size-4 -translate-y-px text-fg" aria-hidden /> Add to Home Screen.
               </Step>
-              <Step n={3}>Open Greek God from your Home Screen and come back here to turn reminders on.</Step>
+              <Step n={3}>Open Fitness App from your Home Screen and come back here to turn reminders on.</Step>
             </ol>
           </div>
         </div>
@@ -328,7 +328,7 @@ function DeviceRows({ status, onDevicesChange, anyEnabled }: { status: Status | 
         </Glyph>
         <Labels
           label="Notifications are blocked"
-          detail="Allow them in iPhone Settings → Notifications → Greek God, or in this browser's site settings, then reload this page."
+          detail="Allow them in iPhone Settings → Notifications → Fitness App, or in this browser's site settings, then reload this page."
         />
       </div>
     );

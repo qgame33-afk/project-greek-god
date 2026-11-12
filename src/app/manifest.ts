@@ -4,8 +4,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Project Greek God",
-    short_name: "Greek God",
+    name: "Fitness App",
+    short_name: "Fitness App",
     description: "Training, food and progress in one place.",
     start_url: "/",
     scope: "/",

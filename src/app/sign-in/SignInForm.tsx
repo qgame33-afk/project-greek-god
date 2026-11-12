@@ -69,7 +69,7 @@ export function SignInForm() {
   };
 
   const titles: Record<Mode, { title: string; line: string }> = {
-    signin: { title: "Project Greek God", line: "Sign in to keep going." },
+    signin: { title: "Fitness App", line: "Sign in to keep going." },
     signup: { title: "Create account", line: "Private to you. Your plan comes next." },
     reset: { title: "Forgot password", line: "We'll email you a link to set a new one." },
   };

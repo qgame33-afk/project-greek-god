@@ -15,7 +15,7 @@ export default function GlobalError({ error }: { error: unknown }) {
   return (
     <html lang="en">
       <head>
-        <title>Something went wrong · Project Greek God</title>
+        <title>Something went wrong · Fitness App</title>
         <meta name="theme-color" content="#000000" />
       </head>
       <body style={{ margin: 0, minHeight: "100dvh", background: "#000000", color: text, font: '400 17px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif' }}>
